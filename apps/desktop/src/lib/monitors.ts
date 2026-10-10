@@ -41,6 +41,31 @@ export function findMonitor(
   );
 }
 
+/**
+ * The monitor ticked in the list: the operator's own pick, else the remembered monitor, else
+ * the first screen the operator is not working on. Picking only takes effect when the
+ * slideshow is next opened.
+ */
+export function selectedMonitor(
+  picked: MonitorIdentity | null,
+  target: OutputTarget | null,
+  available: readonly MonitorIdentity[],
+  operator: MonitorIdentity | null,
+): MonitorIdentity | null {
+  return (
+    (picked && findMonitor(picked, available)) ??
+    (target && findMonitor(target.monitor, available)) ??
+    available.find((monitor) => operator === null || !sameMonitor(monitor, operator)) ??
+    null
+  );
+}
+
+/** The name to show for a monitor: the system's display name when it has one. */
+export function monitorLabel(monitor: MonitorIdentity, labels: Record<string, string>): string {
+  // Windows names monitors by port, e.g. \\.\DISPLAY2.
+  return labels[monitor.name] || monitor.name.replace(/^\\\\\.\\DISPLAY(\d+)$/i, 'Display $1');
+}
+
 export function decideOutput(
   target: OutputTarget | null,
   available: readonly MonitorIdentity[],

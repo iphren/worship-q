@@ -96,20 +96,19 @@ export const en = {
   'present.blanked': 'Blank',
 
   'output.title': 'Slideshow screen',
-  'output.unset': 'Choose the screen that shows the slideshow.',
+  'output.unset': 'Choose a screen, then open the slideshow.',
   'output.closed': 'The slideshow is closed.',
   'output.missing':
-    '“{name}” is not connected. The slideshow will open on it again when it returns.',
+    'The slideshow screen is not connected. The slideshow will open on it again when it returns.',
   'output.operatorScreen':
     '“{name}” is now the screen you are working on, so the slideshow was not opened.',
   'output.open': 'Showing on “{name}”.',
   'output.openAction': 'Open slideshow',
   'output.closeAction': 'Close slideshow',
-  'output.use': 'Use this screen',
-  'output.inUse': 'In use',
+  'output.showing': 'Showing',
   'output.thisScreen': 'This screen',
-  'output.presentHere': 'Present on this screen anyway',
   'output.presentHereHint': 'The slideshow will cover this window. Press Esc to close it.',
+  'output.moveHint': 'Close the slideshow and open it again to move it to “{name}”.',
   'output.noSecondScreen': 'No second screen is connected.',
   'output.failed': 'The slideshow could not be opened: {error}',
 

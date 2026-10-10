@@ -19,14 +19,10 @@ function isTyping(target: EventTarget | null): boolean {
 export function PresentPage() {
   const session = useSession();
   const status = useOutputStatus();
-  const profile = useQuery(() => session.store.getOutputProfile(session.workspace.id), []);
   const outputPanel = (
     <section className="panel p-3">
       <h2 className="label">{t('output.title')}</h2>
-      <OutputPanel
-        rememberedName={profile?.target?.monitor.name ?? ''}
-        hasTarget={!!profile?.target}
-      />
+      <OutputPanel />
     </section>
   );
 

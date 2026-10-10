@@ -22,8 +22,9 @@ Other dates are read-only until you choose **Edit run sheet** on them.
 ## 3. Present
 
 1. Connect the projector or TV as a second screen.
-2. Open **Present**. Under **Slideshow screen**, choose **Use this screen** next to the
-   projector. Worship Q remembers it for next week.
+2. Open **Present**. Under **Slideshow screen**, pick the projector and choose **Open
+   slideshow**. Worship Q remembers it for next week. To move the slideshow to another
+   screen, pick that screen, then close the slideshow and open it again.
 3. If nothing is live yet, choose **Go live**. If today already has a run sheet, the app
    goes live with it when it opens.
 4. Click any slide to show it. **Next** and **Previous** (or → and ←, Space) step through;

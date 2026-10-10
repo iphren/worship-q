@@ -6,7 +6,7 @@ import { emitTo, listen } from '@tauri-apps/api/event';
 import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api/window';
 import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/protocol';
 import type { Session } from '@worship-q/session';
-import { decideOutput, type OutputDecision } from '../lib/monitors';
+import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
 import { native } from '../platform/native';
 
 export const OUTPUT_WINDOW = 'output';
@@ -20,8 +20,12 @@ export interface OutputStatus {
   frame: OutputFrame;
   decision: OutputDecision;
   monitors: MonitorIdentity[];
+  /** System display names by monitor name. */
+  labels: Record<string, string>;
   /** The monitor the operator window is on. */
   operator: MonitorIdentity | null;
+  /** The monitor the slideshow will open on next time it is opened. */
+  selected: MonitorIdentity | null;
   error: string | null;
 }
 
@@ -38,9 +42,13 @@ export class OutputController {
     frame: EMPTY_FRAME,
     decision: { kind: 'unset' },
     monitors: [],
+    labels: {},
     operator: null,
+    selected: null,
     error: null,
   };
+  /** The monitor the operator picked in the list since the app opened. */
+  private picked: MonitorIdentity | null = null;
   private readonly listeners = new Set<() => void>();
   private readonly urls = new Map<string, string | null>();
   private stopped = false;
@@ -66,7 +74,7 @@ export class OutputController {
   async start(): Promise<void> {
     this.cleanup.push(this.session.subscribe(() => void this.refresh()));
     this.cleanup.push(await listen(READY_EVENT, () => void this.send()));
-    this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.setEnabled(false)));
+    this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.close()));
     const timer = window.setInterval(() => void this.syncWindow(), MONITOR_POLL_MS);
     this.cleanup.push(() => window.clearInterval(timer));
     await this.refresh();
@@ -111,14 +119,16 @@ export class OutputController {
     this.syncing = this.syncing.then(async () => {
       if (this.stopped) return;
       try {
-        const [all, current, profile, isOpen] = await Promise.all([
+        const [all, current, profile, isOpen, labels] = await Promise.all([
           availableMonitors(),
           currentMonitor(),
           this.session.store.getOutputProfile(this.session.workspace.id),
           native.outputIsOpen(),
+          native.monitorLabels().catch(() => ({})),
         ]);
         const monitors = all.map(identity);
         const operator = current ? identity(current) : null;
+        const selected = selectedMonitor(this.picked, profile.target, monitors, operator);
         const decision = decideOutput(profile.target, monitors, operator);
         const before = this.status_.decision;
         const moved =
@@ -134,9 +144,15 @@ export class OutputController {
         }
         const changed =
           error !== this.status_.error ||
-          JSON.stringify([decision, monitors, operator]) !==
-            JSON.stringify([before, this.status_.monitors, this.status_.operator]);
-        if (changed) this.update({ decision, monitors, operator, error });
+          JSON.stringify([decision, monitors, labels, operator, selected]) !==
+            JSON.stringify([
+              before,
+              this.status_.monitors,
+              this.status_.labels,
+              this.status_.operator,
+              this.status_.selected,
+            ]);
+        if (changed) this.update({ decision, monitors, labels, operator, selected, error });
       } catch (e) {
         console.error(e);
       }
@@ -144,17 +160,28 @@ export class OutputController {
     return this.syncing;
   }
 
-  /** Remembers a monitor as the slideshow screen and opens the slideshow on it. */
-  async choose(monitor: MonitorIdentity, allowOperatorScreen = false): Promise<void> {
+  /** Picks the monitor for the next time the slideshow is opened; an open slideshow stays put. */
+  select(monitor: MonitorIdentity): void {
+    this.picked = monitor;
+    this.update({ selected: monitor });
+  }
+
+  /** Opens the slideshow on the selected monitor and remembers it as the slideshow screen. */
+  async open(): Promise<void> {
+    const { selected, operator } = this.status_;
+    if (!selected) return;
+    // Picking the screen the app is on and choosing Open is asking to present there.
+    const allowOperatorScreen = operator !== null && sameMonitor(selected, operator);
     await this.session.updateOutputProfile({
-      target: { monitor, enabled: true, allowOperatorScreen },
+      target: { monitor: selected, enabled: true, allowOperatorScreen },
     });
   }
 
-  async setEnabled(enabled: boolean): Promise<void> {
+  /** Closes the slideshow; its monitor stays remembered. */
+  async close(): Promise<void> {
     const profile = await this.session.store.getOutputProfile(this.session.workspace.id);
     if (profile.target) {
-      await this.session.updateOutputProfile({ target: { ...profile.target, enabled } });
+      await this.session.updateOutputProfile({ target: { ...profile.target, enabled: false } });
     }
   }
 }

@@ -397,10 +397,7 @@ export function SettingsPage() {
         </section>
         <section className="panel p-3">
           <h2 className="label">{t('output.title')}</h2>
-          <OutputPanel
-            rememberedName={profile.target?.monitor.name ?? ''}
-            hasTarget={!!profile.target}
-          />
+          <OutputPanel />
         </section>
       </aside>
 

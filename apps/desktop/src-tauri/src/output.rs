@@ -1,5 +1,7 @@
 //! The slideshow output window: borderless and full screen on a chosen monitor.
 
+use std::collections::HashMap;
+
 use serde::Deserialize;
 use tauri::{
     AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
@@ -35,6 +37,49 @@ fn find_monitor(monitors: Vec<Monitor>, wanted: &MonitorIdentity) -> Option<Moni
         }
     }
     None
+}
+
+/// The names the system shows for the connected displays, keyed by the monitor name the
+/// interface knows. Empty where the system offers nothing better than that name.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub fn monitor_labels() -> HashMap<String, String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSScreen;
+    use objc2_foundation::{ns_string, NSNumber};
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    extern "C" {
+        fn CGDisplayModelNumber(display: u32) -> u32;
+    }
+
+    let mut labels = HashMap::new();
+    // Commands that are not async run on the main thread, where screens may be read.
+    let Some(mtm) = MainThreadMarker::new() else {
+        return labels;
+    };
+    for screen in NSScreen::screens(mtm) {
+        let description = screen.deviceDescription();
+        let Some(number) = description.objectForKey(ns_string!("NSScreenNumber")) else {
+            continue;
+        };
+        let Ok(number) = number.downcast::<NSNumber>() else {
+            continue;
+        };
+        // Monitors are named after their model number, as the windowing library does.
+        let model = unsafe { CGDisplayModelNumber(number.unsignedIntValue()) };
+        labels.insert(
+            format!("Monitor #{model}"),
+            screen.localizedName().to_string(),
+        );
+    }
+    labels
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub fn monitor_labels() -> HashMap<String, String> {
+    HashMap::new()
 }
 
 /// Opens the output on the given monitor, or moves it there if it is already open.

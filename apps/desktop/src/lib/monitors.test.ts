@@ -1,6 +1,6 @@
 import type { MonitorIdentity, OutputTarget } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
-import { decideOutput, findMonitor, sameMonitor } from './monitors';
+import { decideOutput, findMonitor, monitorLabel, sameMonitor, selectedMonitor } from './monitors';
 
 const laptop: MonitorIdentity = { name: 'Built-in', x: 0, y: 0, width: 2560, height: 1600 };
 const projector: MonitorIdentity = { name: 'Projector', x: 2560, y: 0, width: 1920, height: 1080 };
@@ -36,6 +36,41 @@ describe('findMonitor', () => {
   it('does not mistake a different monitor for the remembered one', () => {
     expect(findMonitor(projector, [laptop, tv])).toBeNull();
     expect(findMonitor(projector, [laptop])).toBeNull();
+  });
+});
+
+describe('selectedMonitor', () => {
+  it('prefers the operator’s pick over the remembered monitor', () => {
+    expect(selectedMonitor(tv, target(projector), [laptop, projector, tv], laptop)).toEqual(tv);
+  });
+
+  it('falls back to the remembered monitor', () => {
+    expect(selectedMonitor(null, target(laptop), [laptop, projector], laptop)).toEqual(laptop);
+    expect(selectedMonitor(tv, target(projector), [laptop, projector], laptop)).toEqual(projector);
+  });
+
+  it('otherwise suggests a screen the operator is not working on', () => {
+    expect(selectedMonitor(null, null, [laptop, projector], laptop)).toEqual(projector);
+    expect(selectedMonitor(null, target(tv), [laptop, projector], laptop)).toEqual(projector);
+  });
+
+  it('never suggests the operator’s own screen', () => {
+    expect(selectedMonitor(null, null, [laptop], laptop)).toBeNull();
+  });
+});
+
+describe('monitorLabel', () => {
+  it('uses the system display name when there is one', () => {
+    const monitor = { ...projector, name: 'Monitor #23446' };
+    expect(monitorLabel(monitor, { 'Monitor #23446': 'DELL U2720Q' })).toBe('DELL U2720Q');
+  });
+
+  it('tidies a port name', () => {
+    expect(monitorLabel({ ...projector, name: '\\\\.\\DISPLAY2' }, {})).toBe('Display 2');
+  });
+
+  it('keeps any other name', () => {
+    expect(monitorLabel(projector, {})).toBe('Projector');
   });
 });
 

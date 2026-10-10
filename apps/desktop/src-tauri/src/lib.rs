@@ -36,6 +36,7 @@ pub fn run() {
             output::open_output,
             output::close_output,
             output::output_is_open,
+            output::monitor_labels,
             files::import_background,
             files::remove_background_file,
             files::background_path,

@@ -16,6 +16,8 @@ export const native = {
   openOutput: (monitor: MonitorIdentity) => invoke<void>('open_output', { monitor }),
   closeOutput: () => invoke<void>('close_output'),
   outputIsOpen: () => invoke<boolean>('output_is_open'),
+  /** System display names by monitor name; empty where the system has none. */
+  monitorLabels: () => invoke<Record<string, string>>('monitor_labels'),
   importBackground: (source: string, fileName: string) =>
     invoke<void>('import_background', { source, fileName }),
   removeBackgroundFile: (fileName: string) => invoke<void>('remove_background_file', { fileName }),
