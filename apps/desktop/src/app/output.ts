@@ -13,7 +13,7 @@ import { native } from '../platform/native';
 export const OUTPUT_WINDOW = 'output';
 export const FRAME_EVENT = 'output-frame';
 export const READY_EVENT = 'output-ready';
-/** Sent when Esc is pressed on the output window or its close button is used. */
+/** Sent when Esc is pressed on the output window or the system asks to close it. */
 export const CLOSE_REQUEST_EVENT = 'output-close-request';
 /** Sent by the output window when a presenting shortcut is pressed on it. */
 export const ACTION_EVENT = 'output-action';

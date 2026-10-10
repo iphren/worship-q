@@ -1,6 +1,7 @@
 //! The slideshow output window: borderless and full screen on a chosen monitor.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -12,6 +13,8 @@ pub const OUTPUT_LABEL: &str = "output";
 pub const CLOSE_REQUEST_EVENT: &str = "output-close-request";
 /// The share of its screen the slideshow takes when it is first put in a window.
 const WINDOWED_SHARE: f64 = 0.6;
+/// True while the output is a window the operator can drag, instead of covering a screen.
+static WINDOWED: AtomicBool = AtomicBool::new(false);
 
 /// How the interface identifies a monitor: by more than its index, which can change.
 #[derive(Deserialize, Serialize)]
@@ -125,15 +128,12 @@ fn frame(monitor: &Monitor, windowed: bool) -> (PhysicalPosition<i32>, PhysicalS
     )
 }
 
-/// Makes the output cover the monitor without a border, or sit on it as an ordinary window
-/// the operator can drag to any screen.
+/// Makes the output cover the monitor, or sit on it as a window the operator can drag to any
+/// screen. Either way it has no title bar: a windowed output is dragged by its picture.
 fn place(window: &tauri::WebviewWindow, monitor: &Monitor, windowed: bool) -> Result<(), String> {
     let (position, size) = frame(monitor, windowed);
     #[cfg(not(target_os = "macos"))]
     window.set_fullscreen(false).map_err(|e| e.to_string())?;
-    window
-        .set_decorations(windowed)
-        .map_err(|e| e.to_string())?;
     window.set_shadow(windowed).map_err(|e| e.to_string())?;
     window.set_size(size).map_err(|e| e.to_string())?;
     window.set_position(position).map_err(|e| e.to_string())?;
@@ -143,6 +143,7 @@ fn place(window: &tauri::WebviewWindow, monitor: &Monitor, windowed: bool) -> Re
         .map_err(|e| e.to_string())?;
     #[cfg(target_os = "macos")]
     set_covering(window, !windowed)?;
+    WINDOWED.store(windowed, Ordering::Relaxed);
     Ok(())
 }
 
@@ -166,7 +167,7 @@ pub async fn open_output(
             let scale = target.scale_factor();
             WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
                 .title("Worship Q — Slideshow")
-                .decorations(windowed)
+                .decorations(false)
                 .shadow(windowed)
                 .skip_taskbar(true)
                 .focused(false)
@@ -192,7 +193,7 @@ pub async fn close_output(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Turns the full-screen output into an ordinary window on the screen it is on.
+/// Turns the full-screen output into a window on the screen it is on.
 #[tauri::command]
 pub async fn window_output(app: AppHandle) -> Result<(), String> {
     let Some(window) = app.get_webview_window(OUTPUT_LABEL) else {
@@ -223,10 +224,22 @@ pub fn output_monitor(app: AppHandle) -> Option<MonitorIdentity> {
 /// How the output is shown: `fullscreen`, `windowed`, or nothing when it is closed.
 #[tauri::command]
 pub fn output_mode(app: AppHandle) -> Option<&'static str> {
-    let window = app.get_webview_window(OUTPUT_LABEL)?;
-    Some(if window.is_decorated().unwrap_or(false) {
+    app.get_webview_window(OUTPUT_LABEL)?;
+    Some(if WINDOWED.load(Ordering::Relaxed) {
         "windowed"
     } else {
         "fullscreen"
     })
+}
+
+/// Lets the operator move a windowed output by dragging anywhere on it. An output covering
+/// a screen stays where it is.
+#[tauri::command]
+pub fn drag_output(app: AppHandle) -> Result<(), String> {
+    match app.get_webview_window(OUTPUT_LABEL) {
+        Some(window) if WINDOWED.load(Ordering::Relaxed) => {
+            window.start_dragging().map_err(|e| e.to_string())
+        }
+        _ => Ok(()),
+    }
 }

@@ -21,6 +21,8 @@ export const native = {
   windowOutput: () => invoke<void>('window_output'),
   /** The monitor the slideshow window is on right now. */
   outputMonitor: () => invoke<MonitorIdentity | null>('output_monitor'),
+  /** Starts moving a windowed slideshow with the mouse; does nothing when it is full screen. */
+  dragOutput: () => invoke<void>('drag_output'),
   /** How the slideshow is shown, or null when it is closed. */
   outputMode: () => invoke<'fullscreen' | 'windowed' | null>('output_mode'),
   /** System display names by monitor name; empty where the system has none. */

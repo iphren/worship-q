@@ -27,8 +27,8 @@ pub fn run() {
                     window.app_handle().exit(0);
                 }
             }
-            // The close button of a windowed output closes the slideshow like the interface
-            // does, so it stays closed instead of being opened again.
+            // Closing the output from the system closes the slideshow like the interface does,
+            // so it stays closed instead of being opened again.
             if window.label() == output::OUTPUT_LABEL {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -46,6 +46,7 @@ pub fn run() {
             output::window_output,
             output::output_monitor,
             output::output_mode,
+            output::drag_output,
             output::monitor_labels,
             files::import_background,
             files::remove_background_file,

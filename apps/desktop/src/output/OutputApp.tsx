@@ -4,6 +4,7 @@ import { Slide } from '@worship-q/renderer';
 import { useEffect, useState } from 'react';
 import { ACTION_EVENT, CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
 import { presentAction } from '../lib/shortcuts';
+import { native } from '../platform/native';
 
 /** The slideshow window: draws whatever frame the operator window last sent. */
 export function OutputApp() {
@@ -28,13 +29,19 @@ export function OutputApp() {
       event.preventDefault();
       void emit(ACTION_EVENT, action);
     };
+    // A windowed slideshow has no title bar; it is moved by dragging anywhere on it.
+    const onMouseDown = (event: MouseEvent) => {
+      if (event.button === 0) void native.dragOutput();
+    };
     window.addEventListener('resize', onResize);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onMouseDown);
     return () => {
       cancelled = true;
       stop?.();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('mousedown', onMouseDown);
     };
   }, []);
 
