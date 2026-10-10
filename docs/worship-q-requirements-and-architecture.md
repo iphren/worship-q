@@ -1,7 +1,7 @@
 # Worship Q — Requirements and Architecture
 
 **Consolidated:** 6 October 2026  
-**Updated:** 9 October 2026  
+**Updated:** 10 October 2026  
 **Status:** Open-source project requirements and proposed architecture; implementation design pending.
 
 ## 1. Purpose and decision status
@@ -44,6 +44,7 @@ The product principles emerging from the discussion are:
 7. Keep normal-workspace resources private until central approval; privileged workspaces manage central resources directly.
 8. Support several controllers and outputs against one authoritative live state.
 9. Let churches deploy independent instances without relying on the public project website for normal operation.
+10. Let a single desktop present without any church instance; connecting to a church is an optional upgrade.
 
 ### Public website and self-hosted instances
 
@@ -68,22 +69,24 @@ Each instance owns its accounts, database, song libraries, assets, and remote re
 
 **Proposed common-client approach:** publish a standard desktop/mobile build per platform that connects to compatible church instances through church-provided links or QR codes. Churches deploy their own backends without having to compile, sign, and distribute customized native apps. Church-specific preconfigured builds remain possible, but are not the recommended default.
 
-Church-hosted web clients receive backend configuration during deployment. A common web client at **app.worship-q.com** was proposed as a convenient entry point; it still needs a church link/QR to identify the backend. This subdomain is a proposal, not a confirmed deployed application.
+Church-hosted web clients receive backend configuration during deployment. **Agreed direction:** a common web client at **app.worship-q.com** is the domain used in QR joining links. The common desktop/mobile apps declare this one domain, so an installed app opens directly from a camera scan for any church; without the app, the same link opens the common web client as the working browser fallback. The link identifies the church instance, so the client still needs a church link/QR to find the backend. The subdomain is not yet a deployed application.
 
 | Component | Hosting direction |
 | --- | --- |
 | worship-q.com introduction, documentation, downloads | Project-operated |
-| Optional app.worship-q.com presentation frontend | Project-operated common client |
+| app.worship-q.com presentation frontend and QR link domain | Project-operated common client |
 | Admin web app | Recommended: bundled with each church instance; web only |
 | Presentation web app | Recommended: included in church deployments using the same source as the common client |
 | Backend, database, assets, authentication, synchronization | Church-operated |
 | Desktop/mobile apps | Common distributions, instance configured through onboarding |
 
-The church-hosted admin app updates with its backend and uses the church's Microsoft 365 configuration. Common web hosting introduces client/server compatibility work, a first-load availability dependency, and trust in the delivered JavaScript even when the database is self-hosted. Retain church-hosted web access for independence. Church-hosted admin/presentation plus common desktop is the recommended initial delivery; common-web and native-mobile timing remain open.
+The church-hosted admin app updates with its backend and uses the church's Microsoft 365 configuration. Common web hosting introduces client/server compatibility work, a first-load availability dependency, and trust in the delivered JavaScript even when the database is self-hosted. Retain church-hosted web access for independence. Church-hosted admin/presentation plus common desktop is the recommended initial delivery. The common web client is needed once QR joining ships, because joining links point to it; native-mobile timing remains open. Joining by camera scan without the app therefore depends on app.worship-q.com being available, an accepted exception to independence from project-operated hosting. Church data stays on the church instance.
+
+**Agreed requirement:** clients, coordinators, and church instances negotiate a protocol version when connecting. Common desktop/mobile builds and church-hosted backends are released and updated independently, so version skew applies to them as much as to a common web client. An incompatible client must show a clear update-needed message rather than failing unpredictably. The supported version window and update policy remain open.
 
 Developers configure endpoints and Microsoft integration during deployment; volunteers should not enter technical addresses or ports. Custom app links and mobile HTTPS domain association need platform validation: arbitrary church domains must not be assumed to launch an installed app automatically. Knowing the instance address does not grant access.
 
-**Agreed QR entry points:** volunteers can scan an invitation using their phone's normal camera without installing or first opening Worship Q. The QR should contain a browser-accessible HTTPS joining link. The intended experience opens the installed app when the platform/link association supports it, otherwise opens the browser joining flow. Scanning within Worship Q is an equally supported alternative. Both routes resolve the same instance/workspace invitation and require the same approval; scanning method does not change permissions.
+**Agreed QR entry points:** volunteers can scan an invitation using their phone's normal camera without installing or first opening Worship Q. The QR should contain a browser-accessible HTTPS joining link. The intended experience opens the installed app when the platform/link association supports it, otherwise opens the browser joining flow. Scanning within Worship Q is an equally supported alternative. Both routes resolve the same instance/workspace invitation and require the same approval; scanning method does not change permissions. Without the app installed, a camera scan opens a web page and therefore needs internet. With the app installed and its link association already established, the phone can open the app directly from a camera scan without loading the page, so offline joining of a local coordinator works from either the camera or the in-app scanner (Section 10). Link association is fixed to domains declared in the app build, so a common app cannot rely on it for arbitrary church domains. **Agreed:** QR joining links use app.worship-q.com, which the common apps declare and which serves the common web client as the no-app fallback.
 
 The browser landing page should provide **Open in Worship Q** and **Continue in browser** when automatic app opening is unavailable. Exact domain/link association and transfer of invitation context need platform validation, especially for independently hosted church domains. A custom app-only URL is insufficient as the sole camera QR payload because it lacks a usable no-app browser path.
 
@@ -117,6 +120,14 @@ These are combinations of shared capabilities, not four separate products.
 
 Other supported scenarios include one computer running the operator UI, projector presentation, and subtitle overlay; and several phones/tablets controlling a presentation hosted on a separate computer.
 
+### Local-only mode
+
+**Agreed direction:** the desktop app is usable without a church instance. A fresh installation can create a local workspace, enter songs, build run sheets, and present on a second screen with no backend, database, domain, Microsoft 365 configuration, or pairing. Connecting to a church instance is an optional later step, not a prerequisite for the Simple scenario.
+
+**Proposed scope:** local-only mode stores its workspace in the native local database and covers workspace songs, run sheets, slideshow output, and typography/background settings. The Church Library, sharing, administration, remote control, and cross-device synchronization require an instance. Local-only desktop presentation is the proposed first implementation phase.
+
+**Open decisions:** how local songs, run sheets, and settings move into a Workspace Library when the device later connects to a church; whether local-only mode includes LAN outputs and controllers; and whether browser/mobile clients offer it beyond Solo presentation.
+
 ## 4. Users, device authorization, and onboarding
 
 ### Agreed roles and permissions
@@ -127,9 +138,9 @@ The generic product term is **Workspace**, replacing the church-specific term �
 | --- | --- |
 | Administrator | Sign in with Microsoft 365 through the admin web app only; manage workspace access, permanent and temporary devices, all songs and backgrounds in the instance, and central promotions |
 | Workspace operator | Admin-managed permanent authorization for one or more workspaces; manage run sheets, permitted songs and backgrounds, meeting days and presentation settings; present and approve remote controllers; in privileged mode, content management writes directly to the central pool |
-| Remote controller | Approved connection to a workspace; control its active presentation, including jumping between songs/pieces and blank/unblank; no editing, date switching, settings changes, or device enrollment |
+| Remote controller | Approved connection to a workspace; control its active presentation, including jumping between songs/pieces and blank/unblank; no editing, changing the live or edited date, settings changes, or device enrollment |
 
-No additional admin login method is required at present. Microsoft authentication establishes identity; Worship Q separately checks administrator authorization. Belonging to the Microsoft tenant alone must not grant administration.
+Microsoft 365 is the only administrator login method in the first iteration. **Agreed:** keep the authentication interface provider-neutral so other login methods can be added later without redesigning administrator authorization. Microsoft authentication establishes identity; Worship Q separately checks administrator authorization. Belonging to the Microsoft tenant alone must not grant administration.
 
 The earlier shared-account/password proposal is superseded by passwordless device authorization for ordinary operators and controllers. A workspace is a shared operational context; each device has a separately revocable credential. This does not require every volunteer to have a personal account or Microsoft login. Device names do not establish a verified human identity.
 
@@ -165,7 +176,7 @@ After the first successful join, remember the church instance, workspace, and a 
 - **Join another presentation** scans another invitation QR. Final labels may use “workspace” or “presentation” rather than introducing a managed Service entity.
 - **Set up as a church device** begins permanent administrator-approved pairing.
 
-If no presentation is active after approval, show **Waiting for presentation**. If the workspace or approving operator cannot be reached, show the reason and retain the QR joining alternative. Offline remembered joining requires a reachable local coordinator; the remembered address alone is insufficient.
+If no presentation is active after approval, show **Waiting for presentation**. If the workspace or approving operator cannot be reached, show the reason and retain the QR joining alternative. Offline remembered joining requires an installed app and a reachable local coordinator; the remembered address alone is insufficient.
 
 ### One device, multiple workspaces and roles
 
@@ -181,7 +192,7 @@ The admin page lists permanently paired devices and temporary connections, assig
 
 Proposed credential storage uses OS-protected storage for native clients and secure server-managed browser sessions where appropriate. Browser pairing is specific to its browser profile; clearing data requires pairing again. Protocols, token lifecycle, browser cross-origin authentication, and offline credential validation remain implementation work.
 
-A delegated local coordinator may approve temporary controllers while offline. Offline activity reaches the admin page after synchronization; a cloud revocation cannot instantly reach a disconnected coordinator. Define this limitation and the offline authorization policy explicitly.
+A delegated local coordinator may approve temporary controllers that use the desktop or mobile app while offline; browser-only controllers need internet. Offline activity reaches the admin page after synchronization; a cloud revocation cannot instantly reach a disconnected coordinator. Define this limitation and the offline authorization policy explicitly.
 
 ## 5. Song libraries, workspace overrides, and promotion
 
@@ -233,7 +244,7 @@ This privilege concerns content management, not administrator access, permanent-
 
 Preserve run-sheet references and selected-background references through conversion. Other workspaces' private songs and existing overrides remain private/intact when central versions change. The former local copies in the converted workspace resolve to the resulting central resources; exact identity/reference migration requires design.
 
-**Proposed conversion UX:** show an administrator a reviewable summary of private resources becoming central, linked overrides updating central songs, and hidden resources reappearing. Flag central revisions changed since the override was made. Apply the approved conversion and reference updates coherently; conflict resolution, duplicate handling, recovery, and treatment of offline clients remain implementation decisions.
+**Agreed conversion UX:** before enabling **Manage Church Library**, show the administrator an explicit warning that private resources become central, linked overrides replace the central songs church-wide (including for workspaces without their own override), and hidden resources reappear. The administrator confirms the conversion as a whole; choosing override by override is not required. **Proposed:** list the affected resources in the warning and flag central revisions changed since the override was made. Apply the confirmed conversion and reference updates coherently; conflict resolution, duplicate handling, recovery, and treatment of offline clients remain implementation decisions.
 
 ### Agreed central deletion and override conversion
 
@@ -257,7 +268,7 @@ On approval, establish a canonical central record, preserve origin/history, and 
 - Configure source lines per piece at church level with a workspace override. There is no song-level override, and the effective count is shared by slideshow and subtitle output.
 - Configure automatic long-line wrapping for the slideshow at church level with a workspace override, **enabled by default**. When enabled, a long source line can be displayed as two visual lines on the slide. Subtitle output preserves source-line boundaries and does not apply this automatic wrapping.
 - Do not require volunteers to label verses, choruses, or bridges in the first version.
-- Support up to two languages. Bilingual lyrics can use alternating lines in two languages, entered manually. English and Chinese in the examples are illustrative, not mandatory languages.
+- The app is language-agnostic: it does not detect, label, or count languages, and the configured line count applies literally to source lines. Users arrange languages however they want, for example alternating lines in two languages entered manually. English and Chinese in the examples are illustrative, not mandatory languages.
 
 Example source text using the default two-source-line setting:
 
@@ -312,7 +323,7 @@ Automatic translation is a **later, optional editing aid**, not a dependency of 
 
 The calendar replaces a separate user-managed “Service” concept. Workspace operators manage **song-only dated run sheets** in v1. Bible passages and uploaded slide decks are later features. Trusted coworkers can pair a home device to the workspace and prepare content remotely; plans synchronize to authorized presentation equipment.
 
-Users can search songs, add/reorder/remove items, and browse previous dates to reuse content. Distinguish the browsed date, the active date/run sheet, and the piece currently on screen.
+Users can search songs, add/reorder/remove items, and browse previous dates to reuse content. Distinguish the browsed date, the date being edited, the active (live) date/run sheet, and the piece currently on screen.
 
 ### Meeting-day configuration
 
@@ -327,27 +338,58 @@ Workspace operators can select multiple meeting days. Default selection is Sunda
 
 Preserve the actual selection: Any day and Every day have the same date behavior but different labels and intent.
 
+### Agreed live-state model
+
+Each workspace has at most one live state, shared by every connected client and view. It combines:
+
+- the live run sheet, which is a link to a dated run sheet rather than a copy;
+- the presented content (the piece on screen);
+- the blank state;
+- the connected devices;
+- its status: live or ended.
+
+1. **Start:** when the first operator device connects, it uses the previous live state if that has not expired. Otherwise, if today has a run sheet, a new live state starts with that run sheet and nothing presented. If there is no live state and no run sheet for today, no live state starts and the operator automatically enters edit mode for the next configured meeting date.
+2. **Join:** any further operator device synchronizes with the current live state rather than replacing it.
+3. **Expiry:** when no operator device is connected, the live state expires after a period of time. Only operator devices count; a connected remote controller does not keep it alive. The period is an open decision.
+4. **Go live:** any operator device can go live; the live run sheet then links to the run sheet that device is previewing. Edits made in live mode are edits to that dated run sheet, so they are kept when the live state ends or expires.
+5. **Presenting:** any operator device or remote controller can select a piece from the live run sheet to populate the presented content.
+6. **Resource updates:** changes to the resources in use, such as fixing a typo in lyrics or changing display settings (fonts, background, wrapping), update the live run sheet and the presented content.
+7. **Run-sheet changes:** the presented content does not update immediately when the live run sheet changes; it stays until another piece is selected or the output is cleared.
+8. **Ending:** an operator can end the live state manually from the app; the live state then has an ended status. When a live state has been kept for too long, operator devices show a notification offering to end it and move to the next planned date; nothing ends automatically while an operator device is connected. The user-facing label is open; **End presentation** is proposed in place of “End live”.
+9. **Backup:** the live state is backed up to the church instance, so that if one device fails a second device can recover it.
+
+**Terminology:** “operator device” here means a connected client with workspace-operator rights, referred to in discussion as a coordinator. Several can be connected at once. This is distinct from the technical host role in Sections 9 and 10.
+
+**Proposed details:** the hosting desktop holds and orders the live state and mirrors it to the church instance, which keeps the backup until expiry; every joined operator device also holds a synchronized copy, so recovery on the LAN does not depend on internet. Ending clears the outputs and puts operator devices into edit mode for the next configured meeting date after the ended one. An ended live state stays ended until an operator goes live again or it expires. The threshold for the kept-too-long notification is open.
+
 ### Calendar and live-state behavior
+
+**Agreed:** a browsed date offers two separate actions, **Go live** and **Edit run sheet**. They replace the earlier single **Switch to this date** action, which forced a date to become live before its plan could be edited.
 
 | Action | Result |
 | --- | --- |
-| Initialize a workspace when no active state exists | Populate the live run sheet from today or the next configured meeting date; this does not implicitly play a slide |
-| Open another client or restore existing active state | Join/restore authoritative state without resetting the live run sheet |
+| First operator device connects and an unexpired live state exists | Use that live state, including its presented content and blank state |
+| First operator device connects, no live state exists, and today has a run sheet | Start a new live state linked to today's run sheet; this does not implicitly play a slide |
+| First operator device connects, no live state exists, and today has no run sheet | No live state starts; the operator enters edit mode for the next configured meeting date |
+| Another operator device or remote controller connects | Synchronize with the current live state without resetting it |
+| No operator device remains connected | The live state expires after a set period; remote controllers do not keep it alive |
+| Operator ends the live state manually | Live state becomes ended |
 | Browse a different calendar date | Read-only view; live run sheet and displayed content remain unchanged |
-| Copy items from a browsed date | Copy to the active date, with its explicit date shown in the action |
+| Choose **Edit run sheet** on a browsed date | Open that date's plan in edit mode on this device; the live run sheet and displayed content remain unchanged |
+| Copy items from a browsed date | Copy to the run sheet open in edit or live mode on this device, with its explicit date shown in the action |
 | Copy into an empty target | Apply immediately |
 | Copy into a non-empty target | Offer **Append** or **Replace**; confirm Replace |
-| Choose **Switch to this date** | Replace the active/live run sheet with that date's plan; retain the currently presented slide |
+| Choose **Go live** on a browsed date | Replace the active/live run sheet with that date's plan, which stays editable in live mode; retain the currently presented slide |
 | Actually play a piece from the new run sheet | Update presentation outputs to the new content |
-| Active date passes while the app stays open | Show a highlighted, dismissible action to switch to the next meeting date; no automatic live switch |
+| Live state kept too long while an operator device stays connected | Show a highlighted, dismissible notification to end it and move to the next planned date; no automatic end or live switch |
 
-The currently displayed piece can belong to the previously active run sheet after a date switch. Retain the necessary presentation snapshot until another piece is played or output is cleared. A clear **Still presenting previous content** indication is recommended. Switching run sheets alone must not change the on-screen song or its typography/background state through implicit recomputation.
+The currently displayed piece can belong to the previously active run sheet after **Go live**. Retain the necessary presentation snapshot until another piece is played or output is cleared. A clear **Still presenting previous content** indication is recommended. **Go live** alone must not change the on-screen song or its appearance; edits to the presented song and changes to display settings do update it.
 
-Copying creates independent run-sheet items retaining song references, not duplicated song-library records. Editing the target plan must not mutate the source date. Browsed alternate dates are read-only; switch to a date before editing its plan. Playing/navigation remains flexible, allowing any song or piece in the live run sheet rather than rigid sequential playback.
+Copying creates independent run-sheet items retaining song references, not duplicated song-library records. Editing the target plan must not mutate the source date. **Agreed:** the run sheet is editable in both edit mode and live mode. Live mode is a special edit mode; the only difference is that live mode is synchronized with the live state shared across all clients and views of the workspace. Edit mode opens a date's run sheet on this device without changing which date is live or what is displayed, so a coworker can prepare a future date at home while another date is live in a service. Browsed alternate dates are read-only until **Edit run sheet** or **Go live** is chosen. Changes in either mode are saved to the dated run sheet and synchronized as plan content. **Proposed:** the date open in edit mode is a per-device choice, not part of the shared live state. Playing/navigation remains flexible, allowing any song or piece in the live run sheet rather than rigid sequential playback.
 
 ### Proposed bounds and remaining details
 
-One run sheet per workspace per date and one authoritative live presentation per workspace are the proposed v1 defaults. Multiple same-day named plans or simultaneous presentations in one workspace are not yet specified. Remote controllers can jump around the active plan but cannot switch planning dates or copy/edit content.
+One run sheet per workspace per date and one authoritative live presentation per workspace are the proposed v1 defaults. Multiple same-day named plans or simultaneous presentations in one workspace are not yet specified. Remote controllers can jump around the active plan but cannot use **Go live** or **Edit run sheet**, or copy/edit content.
 
 Give each item its own identity, including repeated songs. Keep dated plans and live-session coordination separate internally. Historical lyric-version retention, copy behavior for unavailable songs, and append/replace handling of an already displayed item need implementation rules consistent with retaining output until an explicit presentation action.
 
@@ -403,6 +445,7 @@ The cloud need not sit in the critical live-presentation path when a local coord
 
 Prefer LAN when reachable, use cloud relay when necessary, and support standalone local presentation when neither is available. Falling back to standalone must be explicit if it creates a separate live session; clients must not silently become competing authorities for the same session.
 
+**Agreed client connectivity rule:** direct LAN connection to the coordinator, and therefore operation without internet, is for the desktop and native mobile apps. Browser-only clients (controllers, browser displays, and overlay pages on computers without the desktop app) connect through the church instance backend and require internet. **Agreed exception:** the desktop app serves slideshow and subtitle-overlay pages on localhost for software on the same computer, such as OBS. These work without internet because the app holds the connection to the coordinator; a streaming computer separate from the coordinator gets this by running the desktop app. This avoids depending on browser access to local endpoints, which secure-context, mixed-content, and local-network rules restrict. A browser presenting its own cached content in Solo mode does not connect to a coordinator and is unaffected.
 For v1, one clearly identified coordinator was recommended. Automatic leader election and seamless host failover are not promised. Coordinator loss and internet loss are different failures.
 
 ### Discovery and router configuration
@@ -425,7 +468,7 @@ A QR code helps locate and join a host; it cannot bypass network isolation or br
 
 **Agreed terminology:** use **Slideshow** for the full presentation and **Subtitle overlay** for the subtitle output. OBS is one integration, not the name or exclusive consumer of the overlay.
 
-A desktop application must not be required on every display. Support desktop presentation windows, browser displays, and subtitle-output browser endpoints usable by compatible software such as OBS. They share logical song/piece state but have separate output layouts, typography, and backgrounds/transparency.
+A desktop application must not be required on every display. Support desktop presentation windows, browser displays, and subtitle-output browser endpoints usable by compatible software such as OBS. They share logical song/piece state but have separate output layouts, typography, and backgrounds/transparency. Browser displays and overlay endpoints on computers without the desktop app connect through the church instance and need internet; the desktop app serves them on localhost for same-computer software such as OBS (Section 10).
 
 ### Agreed typography configuration
 
@@ -507,7 +550,7 @@ The normal flow is open equipment → restore assignments/connectivity → see t
 
 Persistent slideshow/subtitle output identities follow the workspace's active presentation. External consumers such as OBS retain their configured URL across dates and run-sheet changes. Remote endpoints use the church instance; public website hosting is not the church runtime authority. Final endpoint and authorization formats remain open.
 
-A remote URL alone does not guarantee offline startup: local endpoint discovery and browser/consumer restrictions need a supported strategy. One workspace's active presentation must not replace a different workspace's output.
+An overlay URL served on localhost by the desktop app works without internet and must keep a stable address and port across restarts so OBS needs no reconfiguration. Browser-based outputs on computers without the desktop app are reached through the church instance and do not work without internet (Section 10). One workspace's active presentation must not replace a different workspace's output.
 
 Monitor indexes can change. Save richer display identity where possible and recover safely when preferred hardware is missing. Browser fullscreen may still require a user gesture.
 
@@ -589,7 +632,7 @@ Website content stays public and generic. Church-specific configuration, credent
 
 **User preference:** native iOS/Android apps, with concern about publishing costs.
 
-**Proposed rollout:** browser/PWA functionality initially, while designing the protocol to support native clients later. This was a recommendation rather than an explicit user agreement to defer native apps.
+**Proposed rollout:** browser/PWA functionality initially, while designing the protocol to support native clients later. This was a recommendation rather than an explicit user agreement to defer native apps. Because browser-only clients require internet (Section 10), phones need internet to control another device's presentation until native apps exist.
 
 Evaluate Tauri mobile against alternatives such as React Native when implementation scope is settled. Compare external displays, casting, offline persistence, discovery, background behavior, signing, review, distribution, and ongoing maintenance. Publishing fees and distribution options have not been checked in this consolidation.
 
@@ -604,31 +647,35 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | Independent church-operated instances | Agreed direction; packaging open |
 | Church Library and promotion confined to an instance | Deployment model clarification |
 | One-time client connection to a church instance | Agreed UX; protocol proposed |
-| Admin web app, Microsoft 365 sign-in only | Agreed requirement; church-hosted packaging recommended |
+| Local-only desktop presentation without a church instance | Agreed direction; proposed first phase; migration into an instance open |
+| Protocol version negotiation between clients, coordinators, and instances | Agreed requirement; version window open |
+| Admin web app, Microsoft 365 sign-in only | Agreed for the first iteration; provider-neutral login interface for later methods; church-hosted packaging recommended |
 | Paired workspace operators and approved remote controllers | Agreed model; replaces shared-password proposal |
 | Multiple authorized workspaces/roles on one device | Agreed direction |
 | Remembered workspace rejoin with fresh approval | Agreed UX |
 | Camera or in-app QR scanning; installed-app opening with browser fallback | Agreed UX; platform routing to validate |
 | Remote access survives date/run-sheet changes while connected | Agreed requirement |
-| Optional common web frontend at app.worship-q.com | Proposed; timing open |
+| Common web client at app.worship-q.com as QR link domain and no-app fallback | Agreed direction; not yet deployed |
 | Central + private workspace libraries | Agreed requirement |
 | Workspace override when editing central songs in normal mode | Agreed requirement |
 | Privileged workspace directly managing central songs/backgrounds | Agreed requirement |
-| Normal → privileged merges private assets, applies linked song overrides, clears hiding | Agreed transition rules; conversion mechanics open |
+| Normal → privileged merges private assets, applies linked song overrides, clears hiding | Agreed transition rules; explicit warning and single confirmation agreed; conversion mechanics open |
 | Privileged → normal retains central resources and changes future write scope | Agreed transition rules |
 | Central deletion converts song overrides to independent private songs | Agreed requirement |
 | Promotion for central approval | Agreed requirement |
 | Raw lyrics; blank-line blocks; configurable source lines per piece (default 2) | Agreed requirement; church default and workspace override, no song override |
 | Slide-only automatic long-line breakdown into two visual lines | Agreed requirement; default enabled, church/workspace setting |
 | Separate slideshow and subtitle formatter components | Agreed intended design; exact algorithms deferred |
-| Manual bilingual lyrics, up to two languages | Agreed requirement |
+| Language-agnostic lyrics; multilingual arrangement entered manually | Agreed requirement |
 | Song-only run sheets | Agreed requirement |
-| Calendar browsing, copy Append/Replace, explicit live-date switching | Agreed requirements |
+| Calendar browsing, copy Append/Replace, separate Go live and Edit run sheet actions | Agreed requirements |
 | Meeting days: Sunday default, Any day/Every day distinction | Agreed requirements |
-| Keep displayed slide until another is played after date switch | Agreed requirement |
+| Keep displayed slide until another is played after Go live | Agreed requirement |
 | Dismissible next-meeting action after active date passes | Agreed requirement |
+| Shared per-workspace live state with expiry, manual end, and instance backup | Agreed model; hosting details, periods, and end label open |
 | Live lyrics editing | Agreed requirement |
-| Browser display alongside desktop | Agreed requirement |
+| Browser display alongside desktop | Agreed requirement; browser-only clients require internet |
+| Offline LAN control and display through desktop/mobile apps only | Agreed rule |
 | Separate slideshow/subtitle font families: church default, workspace override | Agreed requirement; no per-song configuration |
 | Automatic fit, consistent size per song per output, two scale sliders | Agreed requirement |
 | Central/private image and video backgrounds with promotion | Agreed requirement; no editing or overrides |
@@ -677,10 +724,10 @@ The next design step is to define the domain model and realtime protocol before 
 | Workspace setup profile | Reusable equipment and presentation configuration |
 | Output / output profile | Persistent destination and rendering settings |
 | Session | One active presentation coordinated by an authority |
-| Live state | Active date/run sheet, presented snapshot, visibility, revision; may retain previous-date content |
+| Live state | Per-workspace shared state: link to the live dated run sheet, presented content, blank state, connected devices, live/ended status, revision; backed up to the instance; expires when no operator device stays connected; may retain previous-run-sheet content |
 | Command / event | Requested action and authoritative result |
 
-Candidate commands include next, previous, play item/piece, blank/unblank, and operator-only switch-live-date. Calendar browsing is not a presentation command. Authorization distinguishes permanent enrollment, remembered rejoin, temporary workspace connections, and runtime roles. Exact navigation boundaries and output-specific visibility remain open. Identifiers should distinguish songs, repeated run-sheet items, generated pieces, persistent outputs, devices, and transient sessions.
+Candidate commands include next, previous, play item/piece, blank/unblank, and operator-only go-live and end. Calendar browsing and choosing a date to edit are not presentation commands. Authorization distinguishes permanent enrollment, remembered rejoin, temporary workspace connections, and runtime roles. Exact navigation boundaries and output-specific visibility remain open. Identifiers should distinguish songs, repeated run-sheet items, generated pieces, persistent outputs, devices, and transient sessions.
 
 ## 19. Proposed acceptance criteria
 
@@ -690,21 +737,21 @@ These make the requirements concrete for later implementation and testing; they 
 2. **Lyrics compatibility:** the effective church/workspace source-line count produces the same logical pieces on slideshow and subtitle outputs; the default remains two, and grouping never crosses block boundaries.
 3. **Reusable setup:** restarting normal equipment restores recognized assignments without pairing again or editing an OBS URL.
 4. **Safe output recovery:** a missing or changed monitor causes a clear recovery path rather than silently sending lyrics to an unintended screen.
-5. **Local continuity:** with the required cache present, cloud loss does not interrupt local navigation or prevent starting a local service.
-6. **Browser support:** supported browsers can join as displays without installing the desktop client, with documented limits for fonts and connectivity.
+5. **Local continuity:** with the required cache present, cloud loss does not interrupt local navigation or prevent starting a local service on desktop and mobile app clients; browser-only clients lose their connection and show why.
+6. **Browser support:** supported browsers can join as displays without installing the desktop client when internet is available, with documented limits for fonts.
 7. **Live edits:** edits reach outputs while preserving the current position according to an explicit policy.
 8. **Multiple controllers:** commands are ordered once, and reconnecting clients receive authoritative state.
 9. **Relay switching:** changing transport does not duplicate commands or create two authorities for one session.
 10. **Solo presentation:** a phone can present and navigate cached content while mirrored, with the mirroring limitations made clear in the interaction design.
-11. **Independent deployment:** a church can deploy and operate an instance without project-website accounts or a runtime dependency on worship-q.com.
+11. **Independent deployment:** a church can deploy and operate an instance without project-website accounts or a runtime dependency on worship-q.com, other than the common web client at app.worship-q.com used by QR joining links.
 12. **Instance isolation:** clients retain instance-specific settings and do not mix libraries, credentials, or live-service state between independent deployments.
 13. **Remembered onboarding:** after the initial connection and pairing, restarting normal clients restores their church-instance connection and usual workspace setup.
 14. **Separate build and deployment:** website changes can be built and deployed independently of church-application releases, and a church can deploy the application without building or deploying the public website.
 
-15. **Role limits:** remote controllers navigate but cannot edit data, switch live dates, change settings, or enroll devices. Normal-workspace edits never alter central songs; privileged-workspace operators can create/edit/delete central content, without granting those rights to remote controllers.
+15. **Role limits:** remote controllers navigate but cannot edit data, go live with another date, change settings, or enroll devices. Normal-workspace edits never alter central songs; privileged-workspace operators can create/edit/delete central content, without granting those rights to remote controllers.
 16. **Passwordless repeat use:** permanent equipment retains authorization; returning temporary clients request fresh approval without rescanning. First approval resolves the request across operator devices.
 17. **Connection lifetime:** remote control persists through live-date changes while connected; explicit disconnect/revocation ends access. Reconnection rules are documented.
-18. **Calendar safety:** alternate-date browsing is read-only; switching live date retains the presented snapshot until play/clear. Opening another client does not reset live state.
+18. **Calendar safety:** alternate-date browsing is read-only; **Edit run sheet** changes another date's plan without altering the live run sheet or output; **Go live** retains the presented snapshot until play/clear. Opening another client does not reset live state.
 19. **Meeting-day labels:** Any day and Every day retain distinct selections while both opening today; selected subsets open the next matching date in the workspace timezone.
 20. **Independent copies:** Append/Replace targets an explicit date without mutating source plans or duplicating library songs.
 21. **Background ownership:** normal-workspace media remains private until approved promotion or conversion to privileged mode, no edits/overrides exist, and supported uploads plus solid colors are available.
@@ -717,6 +764,9 @@ These make the requirements concrete for later implementation and testing; they 
 26. **Privileged management:** privileged-workspace song additions/edits/removals and background additions/removals act on the central pool; normal-workspace and remote-controller rights remain scoped.
 27. **Mode conversion:** enabling privilege merges private resources, applies linked song overrides to central content, clears local hiding, and preserves references. Disabling privilege retains central resources and changes future write behavior.
 28. **Central deletion:** deleting a central song turns every existing local override into an independent private song, preserving its content and references without an active override link. Central backgrounds have no override relation.
+29. **Version compatibility:** a client whose protocol version the instance or coordinator does not support is told to update rather than failing unpredictably; compatible versions interoperate across independent client and backend releases.
+30. **Local-only start:** a newly installed desktop app can create a workspace, add songs, build a run sheet, and present on a second screen without a church instance, account, or network.
+31. **Live-state continuity:** an operator device connecting before expiry resumes the existing run sheet, presented content, and blank state; after expiry a new live state starts from today's run sheet with nothing presented, or the operator enters edit mode for the next configured meeting date when today has no run sheet. Further devices synchronize with the live state without resetting it. If one device fails, a second device recovers the live state from the instance backup. An operator can end the live state manually, and live-mode edits remain in the dated run sheet afterwards.
 
 ## 20. Remaining decisions and next steps
 
@@ -728,8 +778,8 @@ Resolve:
 2. Promotion and workspace-mode conversion identity/reference migration, duplicate/conflict handling, and offline privilege-change enforcement.
 3. Parser edge cases and live structural-edit behavior.
 4. Concurrent/offline edit conflicts and synchronization rules.
-5. Coordinator selection, host-loss recovery, and the proposed one-presentation-per-workspace limit.
-6. Browser/OBS local connectivity, stable offline endpoints, and pairing/security.
+5. Live-state hosting and mirroring details, its expiry period, the kept-too-long notification threshold, the label for ending, host-loss recovery, and the proposed one-presentation-per-workspace limit.
+6. Pairing/security, and the localhost output address/port scheme. Browser-only clients requiring internet, with the localhost exception, is agreed.
 7. Monitor persistence and cross-platform typography/media behavior.
 8. Cache selection, readiness reporting, and offline authorization.
 9. Native-mobile timing, distribution, and publishing costs.
@@ -741,4 +791,4 @@ Resolve:
 15. Background codec/format support, upload limits, promotion and removal behavior, and video defaults.
 16. Deferred slideshow/subtitle formatter algorithms: font fitting, long-line detection and break placement, safe areas, slider bounds, overflow/fallback handling, and recalculation behavior. Also define live behavior when the workspace line-count configuration changes.
 
-Then choose a phased implementation plan. The proposed v1 combines substantial networking, offline synchronization, live editing, several client types, and administration; it should not be mistaken for a small first iteration simply because its content types are limited to songs.
+Then choose a phased implementation plan, with local-only desktop presentation as the proposed first phase. The proposed v1 combines substantial networking, offline synchronization, live editing, several client types, and administration; it should not be mistaken for a small first iteration simply because its content types are limited to songs.
