@@ -33,12 +33,23 @@ export function OutputApp() {
     const onMouseDown = (event: MouseEvent) => {
       if (event.button === 0) void native.dragOutput();
     };
+    // Nothing here scrolls, including the elastic pull a trackpad gives a page.
+    const onScroll = (event: Event) => event.preventDefault();
+    const root = document.documentElement;
+    root.style.overflow = 'hidden';
+    root.style.overscrollBehavior = 'none';
+    window.addEventListener('wheel', onScroll, { passive: false });
+    window.addEventListener('touchmove', onScroll, { passive: false });
     window.addEventListener('resize', onResize);
     window.addEventListener('keydown', onKey);
     window.addEventListener('mousedown', onMouseDown);
     return () => {
       cancelled = true;
       stop?.();
+      root.style.overflow = '';
+      root.style.overscrollBehavior = '';
+      window.removeEventListener('wheel', onScroll);
+      window.removeEventListener('touchmove', onScroll);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousedown', onMouseDown);
