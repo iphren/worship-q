@@ -322,6 +322,16 @@ export class Session {
     return this.mutate(() => this.apply({ type: 'previous' }));
   }
 
+  /** Steps to another slide of the presented item, never leaving it. */
+  stepInItem(by: 1 | -1): Promise<boolean> {
+    return this.mutate(() => this.apply({ type: by === 1 ? 'nextInItem' : 'previousInItem' }));
+  }
+
+  /** Presents the first slide of the next or the previous run sheet item. */
+  stepItem(by: 1 | -1): Promise<boolean> {
+    return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
+  }
+
   setBlank(blank: boolean): Promise<boolean> {
     return this.mutate(() => this.apply({ type: blank ? 'blank' : 'unblank' }));
   }

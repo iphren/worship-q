@@ -13,9 +13,16 @@ export const native = {
   listFontFamilies: () => invoke<string[]>('list_font_families'),
   fontMissingChars: (family: string, text: string) =>
     invoke<string>('font_missing_chars', { family, text }),
-  openOutput: (monitor: MonitorIdentity) => invoke<void>('open_output', { monitor }),
+  /** Opens the slideshow on a monitor: covering it, or as a window when `windowed`. */
+  openOutput: (monitor: MonitorIdentity, windowed: boolean) =>
+    invoke<void>('open_output', { monitor, windowed }),
   closeOutput: () => invoke<void>('close_output'),
-  outputIsOpen: () => invoke<boolean>('output_is_open'),
+  /** Turns the full-screen slideshow into a window that can be dragged to any screen. */
+  windowOutput: () => invoke<void>('window_output'),
+  /** The monitor the slideshow window is on right now. */
+  outputMonitor: () => invoke<MonitorIdentity | null>('output_monitor'),
+  /** How the slideshow is shown, or null when it is closed. */
+  outputMode: () => invoke<'fullscreen' | 'windowed' | null>('output_mode'),
   /** System display names by monitor name; empty where the system has none. */
   monitorLabels: () => invoke<Record<string, string>>('monitor_labels'),
   importBackground: (source: string, fileName: string) =>

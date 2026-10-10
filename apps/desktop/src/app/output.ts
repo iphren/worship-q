@@ -7,13 +7,16 @@ import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api
 import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/protocol';
 import type { Session } from '@worship-q/session';
 import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
+import { type PresentAction, runPresentAction } from '../lib/shortcuts';
 import { native } from '../platform/native';
 
 export const OUTPUT_WINDOW = 'output';
 export const FRAME_EVENT = 'output-frame';
 export const READY_EVENT = 'output-ready';
-/** Sent by the output window when Esc is pressed on it. */
+/** Sent when Esc is pressed on the output window or its close button is used. */
 export const CLOSE_REQUEST_EVENT = 'output-close-request';
+/** Sent by the output window when a presenting shortcut is pressed on it. */
+export const ACTION_EVENT = 'output-action';
 const MONITOR_POLL_MS = 2000;
 
 export interface OutputStatus {
@@ -26,6 +29,8 @@ export interface OutputStatus {
   operator: MonitorIdentity | null;
   /** The monitor the slideshow will open on next time it is opened. */
   selected: MonitorIdentity | null;
+  /** True while the slideshow is an ordinary window instead of covering a screen. */
+  windowed: boolean;
   error: string | null;
 }
 
@@ -45,6 +50,7 @@ export class OutputController {
     labels: {},
     operator: null,
     selected: null,
+    windowed: false,
     error: null,
   };
   /** The monitor the operator picked in the list since the app opened. */
@@ -75,6 +81,11 @@ export class OutputController {
     this.cleanup.push(this.session.subscribe(() => void this.refresh()));
     this.cleanup.push(await listen(READY_EVENT, () => void this.send()));
     this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.close()));
+    this.cleanup.push(
+      await listen<PresentAction>(ACTION_EVENT, (event) => {
+        if (this.session.isLive) runPresentAction(this.session, event.payload);
+      }),
+    );
     const timer = window.setInterval(() => void this.syncWindow(), MONITOR_POLL_MS);
     this.cleanup.push(() => window.clearInterval(timer));
     await this.refresh();
@@ -114,16 +125,19 @@ export class OutputController {
     await emitTo(OUTPUT_WINDOW, FRAME_EVENT, this.status_.frame).catch(() => undefined);
   }
 
-  /** Opens, moves or closes the output window to match the chosen monitor and what is connected. */
+  /**
+   * Opens, moves or closes the output window to match the chosen monitor and what is
+   * connected. A windowed slideshow is left wherever the operator put it until it is closed.
+   */
   private syncWindow(): Promise<void> {
     this.syncing = this.syncing.then(async () => {
       if (this.stopped) return;
       try {
-        const [all, current, profile, isOpen, labels] = await Promise.all([
+        const [all, current, profile, mode, labels] = await Promise.all([
           availableMonitors(),
           currentMonitor(),
           this.session.store.getOutputProfile(this.session.workspace.id),
-          native.outputIsOpen(),
+          native.outputMode(),
           native.monitorLabels().catch(() => ({})),
         ]);
         const monitors = all.map(identity);
@@ -136,23 +150,36 @@ export class OutputController {
           (before.kind !== 'open' ||
             JSON.stringify(before.monitor) !== JSON.stringify(decision.monitor));
 
+        const isOpen = mode !== null;
+        let windowed = mode === 'windowed' && profile.target?.enabled === true;
+
         let error: string | null = null;
-        if (decision.kind === 'open' && (!isOpen || moved)) {
-          await native.openOutput(decision.monitor).catch((e) => (error = String(e)));
+        if (windowed) {
+          // Stays where it is, whatever became of the remembered monitor.
+        } else if (decision.kind === 'open' && (!isOpen || moved)) {
+          // On the operator's own screen it opens in a window, so the app stays in reach.
+          const inWindow = !isOpen && operator !== null && sameMonitor(decision.monitor, operator);
+          await native.openOutput(decision.monitor, inWindow).then(
+            () => (windowed = inWindow),
+            (e) => (error = String(e)),
+          );
         } else if (decision.kind !== 'open' && isOpen) {
           await native.closeOutput();
         }
         const changed =
           error !== this.status_.error ||
-          JSON.stringify([decision, monitors, labels, operator, selected]) !==
+          JSON.stringify([decision, monitors, labels, operator, selected, windowed]) !==
             JSON.stringify([
               before,
               this.status_.monitors,
               this.status_.labels,
               this.status_.operator,
               this.status_.selected,
+              this.status_.windowed,
             ]);
-        if (changed) this.update({ decision, monitors, labels, operator, selected, error });
+        if (changed) {
+          this.update({ decision, monitors, labels, operator, selected, windowed, error });
+        }
       } catch (e) {
         console.error(e);
       }
@@ -170,7 +197,7 @@ export class OutputController {
   async open(): Promise<void> {
     const { selected, operator } = this.status_;
     if (!selected) return;
-    // Picking the screen the app is on and choosing Open is asking to present there.
+    // Picking the screen the app is on and choosing Open is asking to present there, in a window.
     const allowOperatorScreen = operator !== null && sameMonitor(selected, operator);
     await this.session.updateOutputProfile({
       target: { monitor: selected, enabled: true, allowOperatorScreen },
@@ -183,5 +210,35 @@ export class OutputController {
     if (profile.target) {
       await this.session.updateOutputProfile({ target: { ...profile.target, enabled: false } });
     }
+  }
+
+  /** Puts the open slideshow in a window the operator can drag to another screen. */
+  async makeWindowed(): Promise<void> {
+    this.syncing = this.syncing.then(() => native.windowOutput().catch(console.error));
+    await this.syncWindow();
+  }
+
+  /**
+   * Makes a windowed slideshow cover the screen it is on now, and remembers that screen as
+   * the slideshow screen.
+   */
+  async makeFullScreen(): Promise<void> {
+    this.syncing = this.syncing.then(async () => {
+      try {
+        const monitor = await native.outputMonitor();
+        if (!monitor) return;
+        const { operator } = this.status_;
+        // Dragging the window to the screen the app is on is asking to present there.
+        const allowOperatorScreen = operator !== null && sameMonitor(monitor, operator);
+        await this.session.updateOutputProfile({
+          target: { monitor, enabled: true, allowOperatorScreen },
+        });
+        this.picked = null;
+        await native.openOutput(monitor, false);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+    await this.syncWindow();
   }
 }

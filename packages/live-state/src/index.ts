@@ -103,6 +103,72 @@ function step(state: LiveState, sequence: readonly PlayablePiece[], by: 1 | -1):
   return Math.min(target, sequence.length - 1);
 }
 
+/** Index of the first piece of the item that the piece at `index` belongs to. */
+function itemStart(sequence: readonly PlayablePiece[], index: number): number {
+  const itemId = sequence[index]!.itemId;
+  let start = index;
+  while (start > 0 && sequence[start - 1]!.itemId === itemId) start--;
+  return start;
+}
+
+/** Index of the last piece of the item that the piece at `index` belongs to. */
+function itemEnd(sequence: readonly PlayablePiece[], index: number): number {
+  const itemId = sequence[index]!.itemId;
+  let end = index;
+  while (end < sequence.length - 1 && sequence[end + 1]!.itemId === itemId) end++;
+  return end;
+}
+
+/**
+ * Where stepping within the presented item lands; it never leaves the item.
+ *
+ * - While blank, or with nothing presented from this run sheet: next shows the item's first
+ *   piece and previous its last. With nothing presented the item is the first one.
+ * - At either end of the item: stay put.
+ * - Presented item since removed from the run sheet: stay put.
+ */
+function stepInItem(
+  state: LiveState,
+  sequence: readonly PlayablePiece[],
+  by: 1 | -1,
+): number | null {
+  if (sequence.length === 0) return null;
+  const presented = state.presented;
+  const fresh = !presented || presented.runSheetId !== state.runSheetId;
+  const current = fresh ? 0 : indexOfPresented(presented, sequence);
+  if (current < 0) return null;
+  if (fresh || state.blank) {
+    return by === 1 ? itemStart(sequence, current) : itemEnd(sequence, current);
+  }
+  const target = current + by;
+  return sequence[target]?.itemId === sequence[current]!.itemId ? target : null;
+}
+
+/**
+ * Where moving to the next or previous item lands: always on that item's first piece.
+ *
+ * - Nothing presented, or content from a previous run sheet: next starts at the first
+ *   item; previous does nothing.
+ * - Presented item since removed from the run sheet: next goes to the item now at its old
+ *   position; previous to the item before that position.
+ * - At either end of the run sheet: stay put.
+ */
+function stepItem(state: LiveState, sequence: readonly PlayablePiece[], by: 1 | -1): number | null {
+  if (sequence.length === 0) return null;
+  const presented = state.presented;
+  if (!presented || presented.runSheetId !== state.runSheetId) return by === 1 ? 0 : null;
+
+  const current = indexOfPresented(presented, sequence);
+  let target: number;
+  if (current >= 0) {
+    target = by === 1 ? itemEnd(sequence, current) + 1 : itemStart(sequence, current) - 1;
+  } else {
+    target = Math.min(by === 1 ? presented.index : presented.index - 1, sequence.length - 1);
+  }
+  if (target < 0 || target >= sequence.length) return null;
+  return itemStart(sequence, target);
+}
+
 function reduce(
   state: LiveState,
   command: Command,
@@ -125,6 +191,16 @@ function reduce(
     case 'next':
     case 'previous': {
       const index = step(state, context.sequence, command.type === 'next' ? 1 : -1);
+      return index === null ? {} : play(state, context.sequence, index);
+    }
+    case 'nextInItem':
+    case 'previousInItem': {
+      const index = stepInItem(state, context.sequence, command.type === 'nextInItem' ? 1 : -1);
+      return index === null ? {} : play(state, context.sequence, index);
+    }
+    case 'nextItem':
+    case 'previousItem': {
+      const index = stepItem(state, context.sequence, command.type === 'nextItem' ? 1 : -1);
       return index === null ? {} : play(state, context.sequence, index);
     }
     case 'blank':

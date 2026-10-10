@@ -93,6 +93,7 @@ export function Slide({ frame, width, height, measure }: SlideProps) {
           key={media.url}
           src={media.url}
           alt=""
+          draggable={false}
           style={fill}
           onError={() => setMediaFailed(media.url)}
         />

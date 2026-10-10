@@ -91,7 +91,7 @@ export const en = {
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'End it and plan {next}',
   'present.dismiss': 'Dismiss',
-  'present.shortcuts': '→ / Space next · ← previous · B blank',
+  'present.shortcuts': '↑ ↓ slide · ← → song · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
   'present.blanked': 'Blank',
 
@@ -103,11 +103,16 @@ export const en = {
   'output.operatorScreen':
     '“{name}” is now the screen you are working on, so the slideshow was not opened.',
   'output.open': 'Showing on “{name}”.',
+  'output.windowed':
+    'The slideshow is in a window. Drag it to any screen, then choose Full screen.',
+  'output.windowedAction': 'Windowed',
+  'output.fullScreenAction': 'Full screen',
   'output.openAction': 'Open slideshow',
   'output.closeAction': 'Close slideshow',
   'output.showing': 'Showing',
   'output.thisScreen': 'This screen',
-  'output.presentHereHint': 'The slideshow will cover this window. Press Esc to close it.',
+  'output.presentHereHint':
+    'On this screen the slideshow opens in a window, so it does not cover the app.',
   'output.moveHint': 'Close the slideshow and open it again to move it to “{name}”.',
   'output.noSecondScreen': 'No second screen is connected.',
   'output.failed': 'The slideshow could not be opened: {error}',

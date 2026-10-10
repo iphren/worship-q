@@ -8,6 +8,7 @@ import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { SongForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
+import { presentAction, runPresentAction } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
@@ -79,27 +80,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      switch (event.key) {
-        case 'ArrowRight':
-        case 'ArrowDown':
-        case 'PageDown':
-        case ' ':
-          void session.next();
-          break;
-        case 'ArrowLeft':
-        case 'ArrowUp':
-        case 'PageUp':
-          void session.previous();
-          break;
-        case 'b':
-        case 'B':
-        case '.':
-          void session.setBlank(!session.live?.blank);
-          break;
-        default:
-          return;
-      }
+      const action = presentAction(event);
+      if (!action) return;
+      runPresentAction(session, action);
       event.preventDefault();
     };
     window.addEventListener('keydown', onKey);

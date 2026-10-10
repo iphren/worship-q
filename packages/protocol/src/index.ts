@@ -177,6 +177,12 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ ...commandBase, type: z.literal('playPiece'), itemId: IdSchema, pieceId: IdSchema }),
   z.object({ ...commandBase, type: z.literal('next') }),
   z.object({ ...commandBase, type: z.literal('previous') }),
+  /** Step to another piece of the presented item, never leaving it. */
+  z.object({ ...commandBase, type: z.literal('nextInItem') }),
+  z.object({ ...commandBase, type: z.literal('previousInItem') }),
+  /** Present the first piece of the item after or before the presented one. */
+  z.object({ ...commandBase, type: z.literal('nextItem') }),
+  z.object({ ...commandBase, type: z.literal('previousItem') }),
   z.object({ ...commandBase, type: z.literal('blank') }),
   z.object({ ...commandBase, type: z.literal('unblank') }),
   z.object({ ...commandBase, type: z.literal('goLive'), runSheetId: IdSchema }),

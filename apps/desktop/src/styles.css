@@ -24,6 +24,12 @@ body {
   cursor: default;
 }
 
+/* Pictures and videos are part of the interface, not something to drag out of it. */
+img,
+video {
+  -webkit-user-drag: none;
+}
+
 input,
 textarea {
   -webkit-user-select: text;

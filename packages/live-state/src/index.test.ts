@@ -123,6 +123,105 @@ describe('playing pieces', () => {
   });
 });
 
+describe('stepping within an item', () => {
+  const at = (itemId: string, pieceId: string) =>
+    apply(createLiveState('rs1', T0), { type: 'playPiece', itemId, pieceId });
+
+  it('moves between the pieces of the presented item', () => {
+    const second = apply(at('i1', 'a'), { type: 'nextInItem' });
+    expect(second.presented).toMatchObject({ itemId: 'i1', pieceId: 'b' });
+    expect(apply(second, { type: 'previousInItem' }).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'a',
+    });
+  });
+
+  it('never leaves the item', () => {
+    expect(apply(at('i1', 'b'), { type: 'nextInItem' }).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'b',
+    });
+    expect(apply(at('i2', 'c'), { type: 'previousInItem' }).presented).toMatchObject({
+      itemId: 'i2',
+      pieceId: 'c',
+    });
+  });
+
+  it('shows the lyrics again from the first or the last piece when blank', () => {
+    const blank = apply(at('i1', 'b'), { type: 'blank' });
+    const down = apply(blank, { type: 'nextInItem' });
+    expect(down).toMatchObject({ blank: false, presented: { itemId: 'i1', pieceId: 'a' } });
+    const up = apply(apply(at('i1', 'a'), { type: 'blank' }), { type: 'previousInItem' });
+    expect(up).toMatchObject({ blank: false, presented: { itemId: 'i1', pieceId: 'b' } });
+  });
+
+  it('starts in the first item when nothing is presented', () => {
+    const start = createLiveState('rs1', T0);
+    expect(apply(start, { type: 'nextInItem' }).presented).toMatchObject({ pieceId: 'a' });
+    expect(apply(start, { type: 'previousInItem' }).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'b',
+    });
+  });
+
+  it('stays put when the presented item was removed', () => {
+    const state = at('i2', 'c');
+    const without = SEQUENCE.filter((piece) => piece.itemId !== 'i2');
+    expect(apply(state, { type: 'nextInItem' }, without).presented).toEqual(state.presented);
+  });
+});
+
+describe('moving between items', () => {
+  const at = (itemId: string, pieceId: string) =>
+    apply(createLiveState('rs1', T0), { type: 'playPiece', itemId, pieceId });
+
+  it('presents the first piece of the next item', () => {
+    expect(apply(at('i1', 'a'), { type: 'nextItem' }).presented).toMatchObject({
+      itemId: 'i2',
+      pieceId: 'c',
+    });
+  });
+
+  it('presents the first piece of the previous item', () => {
+    expect(apply(at('i2', 'c'), { type: 'previousItem' }).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'a',
+    });
+  });
+
+  it('stays put at either end of the run sheet', () => {
+    expect(apply(at('i3', 'a'), { type: 'nextItem' }).presented).toMatchObject({ itemId: 'i3' });
+    expect(apply(at('i1', 'b'), { type: 'previousItem' }).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'b',
+    });
+  });
+
+  it('shows the lyrics again', () => {
+    const blank = apply(at('i1', 'a'), { type: 'blank' });
+    expect(apply(blank, { type: 'nextItem' })).toMatchObject({
+      blank: false,
+      presented: { itemId: 'i2' },
+    });
+  });
+
+  it('starts at the first item when nothing is presented', () => {
+    const start = createLiveState('rs1', T0);
+    expect(apply(start, { type: 'nextItem' }).presented).toMatchObject({ itemId: 'i1' });
+    expect(apply(start, { type: 'previousItem' }).presented).toBeNull();
+  });
+
+  it('carries on from the old position when the presented item was removed', () => {
+    const state = at('i2', 'c');
+    const without = SEQUENCE.filter((piece) => piece.itemId !== 'i2');
+    expect(apply(state, { type: 'nextItem' }, without).presented).toMatchObject({ itemId: 'i3' });
+    expect(apply(state, { type: 'previousItem' }, without).presented).toMatchObject({
+      itemId: 'i1',
+      pieceId: 'a',
+    });
+  });
+});
+
 describe('blank', () => {
   it('blanks and unblanks without losing the presented piece', () => {
     let state = apply(createLiveState('rs1', T0), { type: 'next' });

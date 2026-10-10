@@ -12,6 +12,7 @@ export function useOutputStatus(): OutputStatus {
 
 function statusText(status: OutputStatus): string {
   const name = (monitor: MonitorIdentity) => monitorLabel(monitor, status.labels);
+  if (status.windowed) return t('output.windowed');
   switch (status.decision.kind) {
     case 'unset':
       return t('output.unset');
@@ -28,7 +29,8 @@ function statusText(status: OutputStatus): string {
 
 /** True when the operator should look at the slideshow screen status. */
 export function outputNeedsAttention(status: OutputStatus): boolean {
-  return status.error !== null || !['open', 'closed'].includes(status.decision.kind);
+  if (status.error !== null) return true;
+  return !status.windowed && !['open', 'closed'].includes(status.decision.kind);
 }
 
 /**
@@ -38,8 +40,8 @@ export function outputNeedsAttention(status: OutputStatus): boolean {
 export function OutputPanel() {
   const { output } = useApp();
   const status = useOutputStatus();
-  const { decision, monitors, labels, operator, selected } = status;
-  const current = decision.kind === 'open' ? decision.monitor : null;
+  const { decision, monitors, labels, operator, selected, windowed } = status;
+  const current = decision.kind === 'open' && !windowed ? decision.monitor : null;
   const isOperator = (monitor: MonitorIdentity) =>
     operator !== null && sameMonitor(monitor, operator);
   const others = monitors.filter((monitor) => !isOperator(monitor));
@@ -88,7 +90,7 @@ export function OutputPanel() {
           );
         })}
       </ul>
-      {current === null && selected !== null && isOperator(selected) && (
+      {current === null && !windowed && selected !== null && isOperator(selected) && (
         <p className="text-xs text-slate-400">{t('output.presentHereHint')}</p>
       )}
       {current !== null && selected !== null && !sameMonitor(current, selected) && (
@@ -96,7 +98,7 @@ export function OutputPanel() {
           {t('output.moveHint', { name: monitorLabel(selected, labels) })}
         </p>
       )}
-      {current === null ? (
+      {current === null && !windowed ? (
         <button
           className="btn btn-primary btn-sm"
           disabled={selected === null}
@@ -105,9 +107,20 @@ export function OutputPanel() {
           {t('output.openAction')}
         </button>
       ) : (
-        <button className="btn btn-sm" onClick={() => void output.close()}>
-          {t('output.closeAction')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {windowed ? (
+            <button className="btn btn-primary btn-sm" onClick={() => void output.makeFullScreen()}>
+              {t('output.fullScreenAction')}
+            </button>
+          ) : (
+            <button className="btn btn-sm" onClick={() => void output.makeWindowed()}>
+              {t('output.windowedAction')}
+            </button>
+          )}
+          <button className="btn btn-sm" onClick={() => void output.close()}>
+            {t('output.closeAction')}
+          </button>
+        </div>
       )}
     </div>
   );

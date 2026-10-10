@@ -2,7 +2,8 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
 import { useEffect, useState } from 'react';
-import { CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
+import { ACTION_EVENT, CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
+import { presentAction } from '../lib/shortcuts';
 
 /** The slideshow window: draws whatever frame the operator window last sent. */
 export function OutputApp() {
@@ -20,7 +21,12 @@ export function OutputApp() {
     });
     const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') void emit(CLOSE_REQUEST_EVENT);
+      if (event.key === 'Escape') return void emit(CLOSE_REQUEST_EVENT);
+      // The operator window owns the presentation; this window only passes the keys on.
+      const action = presentAction(event);
+      if (!action) return;
+      event.preventDefault();
+      void emit(ACTION_EVENT, action);
     };
     window.addEventListener('resize', onResize);
     window.addEventListener('keydown', onKey);

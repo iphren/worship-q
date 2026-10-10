@@ -9,7 +9,7 @@ mod fonts;
 mod output;
 
 use std::fs;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 
 pub fn run() {
     tauri::Builder::default()
@@ -27,6 +27,14 @@ pub fn run() {
                     window.app_handle().exit(0);
                 }
             }
+            // The close button of a windowed output closes the slideshow like the interface
+            // does, so it stays closed instead of being opened again.
+            if window.label() == output::OUTPUT_LABEL {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.app_handle().emit(output::CLOSE_REQUEST_EVENT, ());
+                }
+            }
         })
         .invoke_handler(tauri::generate_handler![
             db::db_select,
@@ -35,7 +43,9 @@ pub fn run() {
             fonts::font_missing_chars,
             output::open_output,
             output::close_output,
-            output::output_is_open,
+            output::window_output,
+            output::output_monitor,
+            output::output_mode,
             output::monitor_labels,
             files::import_background,
             files::remove_background_file,

@@ -2,15 +2,19 @@
 
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tauri::{
     AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
 };
 
 pub const OUTPUT_LABEL: &str = "output";
+/// Tells the interface the operator asked to close the slideshow from its own window.
+pub const CLOSE_REQUEST_EVENT: &str = "output-close-request";
+/// The share of its screen the slideshow takes when it is first put in a window.
+const WINDOWED_SHARE: f64 = 0.6;
 
 /// How the interface identifies a monitor: by more than its index, which can change.
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct MonitorIdentity {
     name: String,
     x: f64,
@@ -82,59 +86,97 @@ pub fn monitor_labels() -> HashMap<String, String> {
     HashMap::new()
 }
 
-/// Lifts the borderless output window above the menu bar and Dock so it covers its screen.
-/// macOS full screen is avoided: it moves the window to its own Space, and a window closed
-/// during that transition can be left on screen with no way to dismiss it.
+/// Puts the output window above the menu bar and Dock so a borderless window covers its
+/// screen, or back among ordinary windows. macOS full screen is avoided: it moves the window
+/// to its own Space, and a window closed during that transition can be left on screen with
+/// no way to dismiss it.
 #[cfg(target_os = "macos")]
-fn cover_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
-    use objc2_app_kit::{NSMainMenuWindowLevel, NSWindow};
+fn set_covering(window: &tauri::WebviewWindow, covering: bool) -> Result<(), String> {
+    use objc2_app_kit::{NSMainMenuWindowLevel, NSNormalWindowLevel, NSWindow};
 
     let target = window.clone();
     window
         .run_on_main_thread(move || {
             if let Ok(pointer) = target.ns_window() {
                 let ns_window = unsafe { &*(pointer as *const NSWindow) };
-                ns_window.setLevel(NSMainMenuWindowLevel + 1);
+                ns_window.setLevel(if covering {
+                    NSMainMenuWindowLevel + 1
+                } else {
+                    NSNormalWindowLevel
+                });
             }
         })
         .map_err(|e| e.to_string())
 }
 
+/// Where the output sits on a monitor: covering it, or centred in a part of it when windowed.
+fn frame(monitor: &Monitor, windowed: bool) -> (PhysicalPosition<i32>, PhysicalSize<u32>) {
+    let (origin, screen) = (monitor.position(), monitor.size());
+    if !windowed {
+        return (*origin, *screen);
+    }
+    let width = (screen.width as f64 * WINDOWED_SHARE) as u32;
+    let height = (screen.height as f64 * WINDOWED_SHARE) as u32;
+    let x = origin.x + ((screen.width - width) / 2) as i32;
+    let y = origin.y + ((screen.height - height) / 2) as i32;
+    (
+        PhysicalPosition::new(x, y),
+        PhysicalSize::new(width, height),
+    )
+}
+
+/// Makes the output cover the monitor without a border, or sit on it as an ordinary window
+/// the operator can drag to any screen.
+fn place(window: &tauri::WebviewWindow, monitor: &Monitor, windowed: bool) -> Result<(), String> {
+    let (position, size) = frame(monitor, windowed);
+    #[cfg(not(target_os = "macos"))]
+    window.set_fullscreen(false).map_err(|e| e.to_string())?;
+    window
+        .set_decorations(windowed)
+        .map_err(|e| e.to_string())?;
+    window.set_shadow(windowed).map_err(|e| e.to_string())?;
+    window.set_size(size).map_err(|e| e.to_string())?;
+    window.set_position(position).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "macos"))]
+    window
+        .set_fullscreen(!windowed)
+        .map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    set_covering(window, !windowed)?;
+    Ok(())
+}
+
 /// Opens the output on the given monitor, or moves it there if it is already open.
 #[tauri::command]
-pub async fn open_output(app: AppHandle, monitor: MonitorIdentity) -> Result<(), String> {
+pub async fn open_output(
+    app: AppHandle,
+    monitor: MonitorIdentity,
+    windowed: bool,
+) -> Result<(), String> {
     let main = app
         .get_webview_window("main")
         .ok_or_else(|| "main window missing".to_string())?;
     let monitors = main.available_monitors().map_err(|e| e.to_string())?;
     let target = find_monitor(monitors, &monitor).ok_or_else(|| "monitor-not-found".to_string())?;
-    let position = PhysicalPosition::new(target.position().x, target.position().y);
-    let size = PhysicalSize::new(target.size().width, target.size().height);
-    let scale = target.scale_factor();
 
     let window = match app.get_webview_window(OUTPUT_LABEL) {
-        Some(existing) => {
-            #[cfg(not(target_os = "macos"))]
-            existing.set_fullscreen(false).map_err(|e| e.to_string())?;
-            existing
+        Some(existing) => existing,
+        None => {
+            let (position, size) = frame(&target, windowed);
+            let scale = target.scale_factor();
+            WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
+                .title("Worship Q — Slideshow")
+                .decorations(windowed)
+                .shadow(windowed)
+                .skip_taskbar(true)
+                .focused(false)
+                .position(position.x as f64 / scale, position.y as f64 / scale)
+                .inner_size(size.width as f64 / scale, size.height as f64 / scale)
+                .build()
+                .map_err(|e| e.to_string())?
         }
-        None => WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
-            .title("Worship Q — Slideshow")
-            .decorations(false)
-            .shadow(false)
-            .skip_taskbar(true)
-            .focused(false)
-            .position(position.x as f64 / scale, position.y as f64 / scale)
-            .inner_size(size.width as f64 / scale, size.height as f64 / scale)
-            .build()
-            .map_err(|e| e.to_string())?,
     };
-    window.set_position(position).map_err(|e| e.to_string())?;
-    window.set_size(size).map_err(|e| e.to_string())?;
-    #[cfg(not(target_os = "macos"))]
-    window.set_fullscreen(true).map_err(|e| e.to_string())?;
-    #[cfg(target_os = "macos")]
-    cover_screen(&window)?;
+    place(&window, &target, windowed)?;
     // Keep the keyboard with the operator.
     let _ = main.set_focus();
     Ok(())
@@ -150,7 +192,41 @@ pub async fn close_output(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Turns the full-screen output into an ordinary window on the screen it is on.
 #[tauri::command]
-pub fn output_is_open(app: AppHandle) -> bool {
-    app.get_webview_window(OUTPUT_LABEL).is_some()
+pub async fn window_output(app: AppHandle) -> Result<(), String> {
+    let Some(window) = app.get_webview_window(OUTPUT_LABEL) else {
+        return Ok(());
+    };
+    match window.current_monitor().map_err(|e| e.to_string())? {
+        Some(monitor) => place(&window, &monitor, true),
+        None => Ok(()),
+    }
+}
+
+/// The monitor the output window is on right now, wherever the operator dragged it.
+#[tauri::command]
+pub fn output_monitor(app: AppHandle) -> Option<MonitorIdentity> {
+    let monitor = app
+        .get_webview_window(OUTPUT_LABEL)?
+        .current_monitor()
+        .ok()??;
+    Some(MonitorIdentity {
+        name: monitor.name().cloned().unwrap_or_default(),
+        x: monitor.position().x as f64,
+        y: monitor.position().y as f64,
+        width: monitor.size().width as f64,
+        height: monitor.size().height as f64,
+    })
+}
+
+/// How the output is shown: `fullscreen`, `windowed`, or nothing when it is closed.
+#[tauri::command]
+pub fn output_mode(app: AppHandle) -> Option<&'static str> {
+    let window = app.get_webview_window(OUTPUT_LABEL)?;
+    Some(if window.is_decorated().unwrap_or(false) {
+        "windowed"
+    } else {
+        "fullscreen"
+    })
 }
