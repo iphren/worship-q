@@ -33,7 +33,14 @@ export function OutputApp() {
   }, []);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000', cursor: 'none' }}>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#000',
+        cursor: frame.hideCursor ? 'none' : undefined,
+      }}
+    >
       <Slide frame={frame} width={size.width} height={size.height} />
     </div>
   );

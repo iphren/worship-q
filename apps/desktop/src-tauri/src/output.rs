@@ -82,6 +82,24 @@ pub fn monitor_labels() -> HashMap<String, String> {
     HashMap::new()
 }
 
+/// Lifts the borderless output window above the menu bar and Dock so it covers its screen.
+/// macOS full screen is avoided: it moves the window to its own Space, and a window closed
+/// during that transition can be left on screen with no way to dismiss it.
+#[cfg(target_os = "macos")]
+fn cover_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
+    use objc2_app_kit::{NSMainMenuWindowLevel, NSWindow};
+
+    let target = window.clone();
+    window
+        .run_on_main_thread(move || {
+            if let Ok(pointer) = target.ns_window() {
+                let ns_window = unsafe { &*(pointer as *const NSWindow) };
+                ns_window.setLevel(NSMainMenuWindowLevel + 1);
+            }
+        })
+        .map_err(|e| e.to_string())
+}
+
 /// Opens the output on the given monitor, or moves it there if it is already open.
 #[tauri::command]
 pub async fn open_output(app: AppHandle, monitor: MonitorIdentity) -> Result<(), String> {
@@ -96,12 +114,14 @@ pub async fn open_output(app: AppHandle, monitor: MonitorIdentity) -> Result<(),
 
     let window = match app.get_webview_window(OUTPUT_LABEL) {
         Some(existing) => {
+            #[cfg(not(target_os = "macos"))]
             existing.set_fullscreen(false).map_err(|e| e.to_string())?;
             existing
         }
         None => WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
             .title("Worship Q — Slideshow")
             .decorations(false)
+            .shadow(false)
             .skip_taskbar(true)
             .focused(false)
             .position(position.x as f64 / scale, position.y as f64 / scale)
@@ -111,7 +131,10 @@ pub async fn open_output(app: AppHandle, monitor: MonitorIdentity) -> Result<(),
     };
     window.set_position(position).map_err(|e| e.to_string())?;
     window.set_size(size).map_err(|e| e.to_string())?;
+    #[cfg(not(target_os = "macos"))]
     window.set_fullscreen(true).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    cover_screen(&window)?;
     // Keep the keyboard with the operator.
     let _ = main.set_focus();
     Ok(())
@@ -120,6 +143,8 @@ pub async fn open_output(app: AppHandle, monitor: MonitorIdentity) -> Result<(),
 #[tauri::command]
 pub async fn close_output(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(OUTPUT_LABEL) {
+        // Hidden first, so nothing is left on screen should the system be slow to let go of it.
+        let _ = window.hide();
         window.destroy().map_err(|e| e.to_string())?;
     }
     Ok(())

@@ -137,6 +137,8 @@ export const OutputProfileSchema = z.object({
   backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   /** Selected image or video; the solid color is used when null or missing. */
   backgroundAssetId: IdSchema.nullable(),
+  /** True hides the mouse cursor while it is over the slideshow. */
+  hideCursor: z.boolean(),
   target: OutputTargetSchema.nullable(),
   revision: RevisionSchema,
   updatedAt: TimestampSchema,
@@ -191,6 +193,8 @@ export interface OutputFrame {
   fontFamily: string | null;
   scale: number;
   wrap: boolean;
+  /** True hides the mouse cursor while it is over the output. */
+  hideCursor: boolean;
   background: {
     color: string;
     media: { kind: BackgroundKind; url: string } | null;
@@ -205,6 +209,7 @@ export const EMPTY_FRAME: OutputFrame = {
   fontFamily: null,
   scale: 1,
   wrap: true,
+  hideCursor: false,
   background: { color: '#000000', media: null },
   song: null,
   pieceId: null,

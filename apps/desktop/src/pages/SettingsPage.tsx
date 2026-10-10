@@ -277,6 +277,18 @@ export function SettingsPage() {
             <span className="w-12 text-right tabular-nums">{Math.round(profile.scale * 100)}%</span>
           </label>
           <p className="text-xs text-slate-400">{t('settings.scaleHint')}</p>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={profile.hideCursor}
+              onChange={(e) => void session.updateOutputProfile({ hideCursor: e.target.checked })}
+            />
+            <span>
+              {t('settings.hideCursor')}
+              <span className="block text-xs text-slate-400">{t('settings.hideCursorHint')}</span>
+            </span>
+          </label>
         </Section>
 
         <Section title={t('settings.background')}>

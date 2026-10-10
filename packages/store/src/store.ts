@@ -126,6 +126,7 @@ function toOutputProfile(row: Row): OutputProfile {
     scale: Number(row.scale),
     backgroundColor: text(row.background_color),
     backgroundAssetId: optional(row.background_asset_id),
+    hideCursor: Number(row.hide_cursor) === 1,
     target: target.success ? target.data : null,
     revision: Number(row.revision),
     updatedAt: text(row.updated_at),
@@ -137,7 +138,10 @@ function likePattern(term: string): string {
 }
 
 export type OutputProfilePatch = Partial<
-  Pick<OutputProfile, 'fontFamily' | 'scale' | 'backgroundColor' | 'backgroundAssetId' | 'target'>
+  Pick<
+    OutputProfile,
+    'fontFamily' | 'scale' | 'backgroundColor' | 'backgroundAssetId' | 'hideCursor' | 'target'
+  >
 >;
 
 export type CopyMode = 'append' | 'replace';
@@ -642,14 +646,15 @@ export class Store {
     await this.db.batch([
       {
         sql: `UPDATE output_profile
-              SET font_family = ?, scale = ?, background_color = ?, background_asset_id = ?, target = ?,
-                  revision = ?, updated_at = ?
+              SET font_family = ?, scale = ?, background_color = ?, background_asset_id = ?,
+                  hide_cursor = ?, target = ?, revision = ?, updated_at = ?
               WHERE id = ?`,
         params: [
           next.fontFamily,
           next.scale,
           next.backgroundColor,
           next.backgroundAssetId,
+          next.hideCursor ? 1 : 0,
           next.target ? JSON.stringify(next.target) : null,
           next.revision,
           next.updatedAt,

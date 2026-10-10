@@ -126,6 +126,8 @@ export const en = {
     'This font has no characters for {count} characters used in your songs (such as {sample}). They will appear in a different font.',
   'settings.scale': 'Text size',
   'settings.scaleHint': 'The size is fitted to each song automatically; this adjusts it.',
+  'settings.hideCursor': 'Hide the mouse cursor on the slideshow',
+  'settings.hideCursorHint': 'The cursor disappears while it is over the slideshow screen.',
   'settings.background': 'Background',
   'settings.backgroundColor': 'Solid color',
   'settings.backgroundNone': 'Color only',

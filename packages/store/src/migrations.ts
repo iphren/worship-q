@@ -107,6 +107,10 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 2,
+    statements: [`ALTER TABLE output_profile ADD COLUMN hide_cursor INTEGER NOT NULL DEFAULT 0`],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

@@ -521,6 +521,7 @@ export class Session {
       fontFamily: profile.fontFamily,
       scale: profile.scale,
       wrap: settings.wrapLongLines,
+      hideCursor: profile.hideCursor,
       background: {
         color: profile.backgroundColor,
         media: asset ? { kind: asset.kind, url: mediaUrl(asset) } : null,

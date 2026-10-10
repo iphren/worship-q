@@ -466,6 +466,7 @@ describe('backgrounds and output profile', () => {
       scale: 1,
       backgroundColor: '#000000',
       backgroundAssetId: null,
+      hideCursor: false,
       target: null,
     });
     expect((await store.getOutputProfile(workspaceId)).id).toBe(profile.id);
@@ -486,6 +487,13 @@ describe('backgrounds and output profile', () => {
       target,
       revision: 3,
     });
+  });
+
+  it('saves whether the cursor is hidden on the slideshow', async () => {
+    await store.updateOutputProfile(workspaceId, { hideCursor: true });
+    expect((await store.getOutputProfile(workspaceId)).hideCursor).toBe(true);
+    await store.updateOutputProfile(workspaceId, { hideCursor: false });
+    expect((await store.getOutputProfile(workspaceId)).hideCursor).toBe(false);
   });
 
   it('rejects an out-of-range scale or a malformed color', async () => {
