@@ -83,7 +83,7 @@ export function MonthCalendar(props: {
                 )}
                 {isOpen && !isLive && (
                   <span
-                    className="h-1.5 w-1.5 rounded-full bg-sky-400"
+                    className="h-1.5 w-1.5 rounded-full bg-yellow-400"
                     title={t('calendar.editing')}
                   />
                 )}

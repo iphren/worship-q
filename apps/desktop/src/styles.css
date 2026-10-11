@@ -46,6 +46,9 @@ textarea {
   .btn-live {
     @apply border-emerald-500 bg-emerald-700 hover:bg-emerald-600;
   }
+  .btn-edit {
+    @apply border-yellow-400 bg-yellow-500 text-slate-900 hover:bg-yellow-400;
+  }
   .btn-danger {
     @apply border-rose-500 bg-rose-700 hover:bg-rose-600;
   }

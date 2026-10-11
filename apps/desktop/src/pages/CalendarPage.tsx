@@ -95,7 +95,7 @@ export function CalendarPage() {
           )}
           {liveDate !== openDate && (
             <li className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-sky-400" /> {t('calendar.editing')} ·{' '}
+              <span className="h-2 w-2 rounded-full bg-yellow-400" /> {t('calendar.editing')} ·{' '}
               <button className="underline hover:text-slate-200" onClick={() => show(openDate)}>
                 {formatDate(openDate)}
               </button>
@@ -112,7 +112,7 @@ export function CalendarPage() {
               {t('calendar.live')}
             </span>
           ) : editable ? (
-            <span className="rounded bg-sky-600 px-2 py-0.5 text-xs font-semibold">
+            <span className="rounded bg-yellow-500 px-2 py-0.5 text-xs font-semibold text-slate-900">
               {t('calendar.editing')}
             </span>
           ) : (
@@ -127,7 +127,7 @@ export function CalendarPage() {
             </button>
           )}
           {canOpen && (
-            <button className="btn btn-primary" onClick={() => void session.editRunSheet(browsed)}>
+            <button className="btn btn-edit" onClick={() => void session.editRunSheet(browsed)}>
               {t('calendar.editRunSheet')}
             </button>
           )}
