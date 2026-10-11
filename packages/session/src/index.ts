@@ -234,7 +234,12 @@ export class Session {
         return 'resumed';
       case 'ended':
         await this.setLive(decision.state);
-        this.openDate_ = nextMeetingDateAfter(this.liveDate_!, today, days);
+        this.openDate_ = nextMeetingDateAfter(
+          this.liveDate_!,
+          dateInTimeZone(new Date(decision.state.updatedAt), this.workspace_.timezone),
+          today,
+          days,
+        );
         return 'ended';
       case 'start':
         await this.setLive(decision.state);
@@ -351,13 +356,14 @@ export class Session {
 
   /**
    * Ends the presentation: the output is cleared and the next meeting date after the ended
-   * one opens for editing. Returns that date.
+   * one opens for editing, or today's when the ended date is still to come. Returns that date.
    */
   endPresentation(): Promise<IsoDate> {
     return this.mutate(async () => {
       const endedDate = this.liveDate_;
       if (this.isLive && (await this.apply({ type: 'end' })) && endedDate) {
-        this.openDate_ = nextMeetingDateAfter(endedDate, this.today(), this.workspace_.meetingDays);
+        const today = this.today();
+        this.openDate_ = nextMeetingDateAfter(endedDate, today, today, this.workspace_.meetingDays);
       }
       return this.openDate_;
     });

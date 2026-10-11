@@ -203,6 +203,18 @@ describe('start rules (criterion 31)', () => {
     expect(session.isLive).toBe(false);
     expect(session.openDate).toBe(NEXT_SUNDAY);
   });
+
+  it('opens today when its run sheet was tried out and ended the day before', async () => {
+    env.setNow('2026-10-10T22:00:00.000Z');
+    await reopen();
+    await session.goLive(SUNDAY);
+    expect(await session.endPresentation()).toBe(SUNDAY);
+    env.advance(3 * HOUR);
+    await reopen();
+    expect(start).toBe('ended');
+    expect(session.today()).toBe(SUNDAY);
+    expect(session.openDate).toBe(SUNDAY);
+  });
 });
 
 describe('presenting', () => {

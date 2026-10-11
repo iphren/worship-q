@@ -75,7 +75,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const presented = previous ? null : live.presented;
   const entries = view?.date === liveDate ? view.entries : [];
   const showKeptTooLong = session.keptTooLong && !dismissedNotices.has(liveDate);
-  const nextDate = nextMeetingDateAfter(liveDate, session.today(), session.workspace.meetingDays);
+  const today = session.today();
+  const nextDate = nextMeetingDateAfter(liveDate, today, today, session.workspace.meetingDays);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
