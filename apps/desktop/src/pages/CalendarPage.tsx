@@ -35,6 +35,14 @@ export function CalendarPage() {
   const isLive = browsed === liveDate;
   const editable = session.canEdit(browsed);
   const canCopy = browsed !== openDate && entries.length > 0;
+  // The live run sheet can always be edited, yet only the open date is the target of copies.
+  const canOpen = browsed !== openDate;
+
+  function show(date: IsoDate) {
+    setBrowsed(date);
+    setMonth(yearMonthOf(date));
+    setMessage(null);
+  }
   const names = {
     target: formatDate(openDate),
     source: formatDate(browsed),
@@ -77,11 +85,20 @@ export function CalendarPage() {
         <ul className="space-y-1 text-xs text-slate-400">
           <li className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-rose-500" /> {t('calendar.live')}
-            {liveDate && ` · ${formatDate(liveDate)}`}
+            {liveDate && (
+              <>
+                {' · '}
+                <button className="underline hover:text-slate-200" onClick={() => show(liveDate)}>
+                  {formatDate(liveDate)}
+                </button>
+              </>
+            )}
           </li>
           <li className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-emerald-400" /> {t('calendar.editing')} ·{' '}
-            {formatDate(openDate)}
+            <button className="underline hover:text-slate-200" onClick={() => show(openDate)}>
+              {formatDate(openDate)}
+            </button>
           </li>
         </ul>
       </aside>
@@ -108,7 +125,7 @@ export function CalendarPage() {
               {t('calendar.copyTo', { date: formatDate(openDate) })}
             </button>
           )}
-          {!editable && (
+          {canOpen && (
             <button className="btn" onClick={() => void session.editRunSheet(browsed)}>
               {t('calendar.editRunSheet')}
             </button>
