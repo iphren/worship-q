@@ -147,12 +147,13 @@ describe('stepping within an item', () => {
     });
   });
 
-  it('shows the lyrics again from the first or the last piece when blank', () => {
-    const blank = apply(at('i1', 'b'), { type: 'blank' });
-    const down = apply(blank, { type: 'nextInItem' });
-    expect(down).toMatchObject({ blank: false, presented: { itemId: 'i1', pieceId: 'a' } });
-    const up = apply(apply(at('i1', 'a'), { type: 'blank' }), { type: 'previousInItem' });
+  it('shows the same piece again when blank, in either direction', () => {
+    const down = apply(apply(at('i1', 'b'), { type: 'blank' }), { type: 'nextInItem' });
+    expect(down).toMatchObject({ blank: false, presented: { itemId: 'i1', pieceId: 'b' } });
+    const up = apply(apply(at('i1', 'b'), { type: 'blank' }), { type: 'previousInItem' });
     expect(up).toMatchObject({ blank: false, presented: { itemId: 'i1', pieceId: 'b' } });
+    // The next press moves on as usual.
+    expect(apply(up, { type: 'previousInItem' }).presented).toMatchObject({ pieceId: 'a' });
   });
 
   it('starts in the first item when nothing is presented', () => {

@@ -122,8 +122,9 @@ function itemEnd(sequence: readonly PlayablePiece[], index: number): number {
 /**
  * Where stepping within the presented item lands; it never leaves the item.
  *
- * - While blank, or with nothing presented from this run sheet: next shows the item's first
- *   piece and previous its last. With nothing presented the item is the first one.
+ * - While blank: either direction shows the same piece again, without moving.
+ * - Nothing presented from this run sheet: next shows the first item's first piece and
+ *   previous its last.
  * - At either end of the item: stay put.
  * - Presented item since removed from the run sheet: stay put.
  */
@@ -137,9 +138,8 @@ function stepInItem(
   const fresh = !presented || presented.runSheetId !== state.runSheetId;
   const current = fresh ? 0 : indexOfPresented(presented, sequence);
   if (current < 0) return null;
-  if (fresh || state.blank) {
-    return by === 1 ? itemStart(sequence, current) : itemEnd(sequence, current);
-  }
+  if (fresh) return by === 1 ? itemStart(sequence, current) : itemEnd(sequence, current);
+  if (state.blank) return current;
   const target = current + by;
   return sequence[target]?.itemId === sequence[current]!.itemId ? target : null;
 }
