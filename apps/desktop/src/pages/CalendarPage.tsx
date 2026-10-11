@@ -84,7 +84,7 @@ export function CalendarPage() {
         </p>
         <ul className="space-y-1 text-xs text-slate-400">
           <li className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-rose-500" /> {t('calendar.live')}
+            <span className="h-2 w-2 rounded-full bg-emerald-400" /> {t('calendar.live')}
             {liveDate && (
               <>
                 {' · '}
@@ -95,7 +95,7 @@ export function CalendarPage() {
             )}
           </li>
           <li className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> {t('calendar.editing')} ·{' '}
+            <span className="h-2 w-2 rounded-full bg-sky-400" /> {t('calendar.editing')} ·{' '}
             <button className="underline hover:text-slate-200" onClick={() => show(openDate)}>
               {formatDate(openDate)}
             </button>
@@ -107,11 +107,11 @@ export function CalendarPage() {
         <header className="flex flex-wrap items-center gap-2">
           <h1 className="mr-2 text-xl font-semibold">{formatDate(browsed, 'long')}</h1>
           {isLive ? (
-            <span className="rounded bg-rose-600 px-2 py-0.5 text-xs font-semibold">
+            <span className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-semibold">
               {t('calendar.live')}
             </span>
           ) : editable ? (
-            <span className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-semibold">
+            <span className="rounded bg-sky-600 px-2 py-0.5 text-xs font-semibold">
               {t('calendar.editing')}
             </span>
           ) : (
@@ -126,13 +126,13 @@ export function CalendarPage() {
             </button>
           )}
           {canOpen && (
-            <button className="btn" onClick={() => void session.editRunSheet(browsed)}>
+            <button className="btn btn-primary" onClick={() => void session.editRunSheet(browsed)}>
               {t('calendar.editRunSheet')}
             </button>
           )}
           {!isLive && (
             <button
-              className="btn btn-primary"
+              className="btn btn-live"
               onClick={() => void session.goLive(browsed).then(() => navigate('present'))}
             >
               {t('calendar.goLive')}

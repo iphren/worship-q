@@ -74,13 +74,13 @@ export function MonthCalendar(props: {
               <span className="flex h-1.5 gap-0.5">
                 {isLive && (
                   <span
-                    className="h-1.5 w-1.5 rounded-full bg-rose-500"
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
                     title={t('calendar.live')}
                   />
                 )}
                 {isOpen && !isLive && (
                   <span
-                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                    className="h-1.5 w-1.5 rounded-full bg-sky-400"
                     title={t('calendar.editing')}
                   />
                 )}

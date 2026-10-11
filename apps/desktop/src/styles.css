@@ -43,6 +43,9 @@ textarea {
   .btn-primary {
     @apply border-sky-500 bg-sky-600 hover:bg-sky-500;
   }
+  .btn-live {
+    @apply border-emerald-500 bg-emerald-700 hover:bg-emerald-600;
+  }
   .btn-danger {
     @apply border-rose-500 bg-rose-700 hover:bg-rose-600;
   }

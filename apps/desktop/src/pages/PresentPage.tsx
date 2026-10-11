@@ -45,7 +45,7 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
             {dates.map((date, index) => (
               <button
                 key={date}
-                className={`btn ${index === 0 ? 'btn-primary' : ''}`}
+                className={`btn ${index === 0 ? 'btn-live' : ''}`}
                 onClick={() => void session.goLive(date)}
               >
                 {t('present.goLiveWith', { date: formatDate(date) })}
@@ -175,7 +175,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                         active
                           ? live.blank
                             ? 'border-amber-400 bg-amber-900/30'
-                            : 'border-rose-500 bg-rose-900/40'
+                            : 'border-emerald-500 bg-emerald-900/40'
                           : 'border-slate-700 bg-slate-800 hover:border-slate-500'
                       } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
                     >

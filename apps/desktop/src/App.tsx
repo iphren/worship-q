@@ -98,7 +98,7 @@ function Sidebar({ page }: { page: Page }) {
       {liveDate && (
         <NavButton
           target="present"
-          className="rounded-md bg-rose-700 px-2 py-1.5 text-center text-xs font-semibold hover:bg-rose-600"
+          className="rounded-md bg-emerald-700 px-2 py-1.5 text-center text-xs font-semibold hover:bg-emerald-600"
         >
           {t('nav.live')}
         </NavButton>
