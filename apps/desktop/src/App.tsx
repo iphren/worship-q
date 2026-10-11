@@ -2,7 +2,7 @@ import { NewerDatabaseError } from '@worship-q/store';
 import { useEffect, useMemo, useState } from 'react';
 import { boot, type Booted } from './app/boot';
 import { AppContext, useApp, useSession, type AppServices, type Page } from './app/context';
-import { formatDate, t, type MessageKey } from './i18n';
+import { t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -98,9 +98,9 @@ function Sidebar({ page }: { page: Page }) {
       {liveDate && (
         <NavButton
           target="present"
-          className="rounded-md bg-rose-700 px-2 py-1.5 text-left text-xs font-semibold hover:bg-rose-600"
+          className="rounded-md bg-rose-700 px-2 py-1.5 text-center text-xs font-semibold hover:bg-rose-600"
         >
-          {t('nav.live', { date: formatDate(liveDate) })}
+          {t('nav.live')}
         </NavButton>
       )}
     </nav>

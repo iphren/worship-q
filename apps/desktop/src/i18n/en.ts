@@ -10,7 +10,7 @@ export const en = {
   'nav.calendar': 'Calendar',
   'nav.present': 'Present',
   'nav.settings': 'Settings',
-  'nav.live': 'Live · {date}',
+  'nav.live': 'Live',
 
   'common.cancel': 'Cancel',
   'common.save': 'Save',
