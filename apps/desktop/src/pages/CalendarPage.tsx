@@ -83,23 +83,24 @@ export function CalendarPage() {
           {t('calendar.meetingDays', { label: meetingDaysLabel(session.workspace.meetingDays) })}
         </p>
         <ul className="space-y-1 text-xs text-slate-400">
-          <li className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> {t('calendar.live')}
-            {liveDate && (
-              <>
-                {' · '}
-                <button className="underline hover:text-slate-200" onClick={() => show(liveDate)}>
-                  {formatDate(liveDate)}
-                </button>
-              </>
-            )}
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-sky-400" /> {t('calendar.editing')} ·{' '}
-            <button className="underline hover:text-slate-200" onClick={() => show(openDate)}>
-              {formatDate(openDate)}
-            </button>
-          </li>
+          {/* One line per dot on the calendar: a date that is both live and open has one dot. */}
+          {liveDate && (
+            <li className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />{' '}
+              {t(liveDate === openDate ? 'calendar.liveAndEditing' : 'calendar.live')} ·{' '}
+              <button className="underline hover:text-slate-200" onClick={() => show(liveDate)}>
+                {formatDate(liveDate)}
+              </button>
+            </li>
+          )}
+          {liveDate !== openDate && (
+            <li className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-sky-400" /> {t('calendar.editing')} ·{' '}
+              <button className="underline hover:text-slate-200" onClick={() => show(openDate)}>
+                {formatDate(openDate)}
+              </button>
+            </li>
+          )}
         </ul>
       </aside>
 

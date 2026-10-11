@@ -70,7 +70,10 @@ export function MonthCalendar(props: {
                 date === props.today ? 'font-bold text-sky-300' : '',
               ].join(' ')}
             >
-              <span>{Number(date.slice(8))}</span>
+              {/* A date with nothing planned is fainter than one with a run sheet. */}
+              <span className={props.planned.has(date) ? '' : 'opacity-10'}>
+                {Number(date.slice(8))}
+              </span>
               <span className="flex h-1.5 gap-0.5">
                 {isLive && (
                   <span
@@ -83,9 +86,6 @@ export function MonthCalendar(props: {
                     className="h-1.5 w-1.5 rounded-full bg-sky-400"
                     title={t('calendar.editing')}
                   />
-                )}
-                {props.planned.has(date) && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                 )}
               </span>
             </button>
