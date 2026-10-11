@@ -72,22 +72,6 @@ export function defaultCalendarDate(
   return nextMeetingDate(dateInTimeZone(now, timeZone), meetingDays);
 }
 
-/**
- * Where to go after a presentation ends: the next meeting day after the ended date, and
- * never in the past. A presentation ended before its date came (on `endedOn`) skips
- * nothing: that meeting is still to come, so today stays the default when it is a meeting day.
- */
-export function nextMeetingDateAfter(
-  endedDate: IsoDate,
-  endedOn: IsoDate,
-  today: IsoDate,
-  meetingDays: readonly number[],
-): IsoDate {
-  if (endedOn < endedDate) return nextMeetingDate(today, meetingDays);
-  const dayAfter = addDays(endedDate, 1);
-  return nextMeetingDate(dayAfter > today ? dayAfter : today, meetingDays);
-}
-
 /** Six weeks of dates covering the given month, each week starting on `weekStart`. */
 export function monthGrid(year: number, month: number, weekStart = 0): IsoDate[][] {
   const first = fromUtc(Date.UTC(year, month - 1, 1));

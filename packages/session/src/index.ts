@@ -5,7 +5,7 @@
  * The session holds no interface code. It is what the desktop app's screens call, and the
  * point at which later phases attach other devices.
  */
-import { dateInTimeZone, nextMeetingDate, nextMeetingDateAfter } from '@worship-q/calendar';
+import { dateInTimeZone, nextMeetingDate } from '@worship-q/calendar';
 import {
   applyCommand,
   createLiveState,
@@ -84,7 +84,10 @@ export class ReadOnlyDateError extends Error {
 export class Session {
   private live_: LiveState | null = null;
   private liveDate_: IsoDate | null = null;
-  private openDate_: IsoDate;
+  /** A date the operator chose to edit instead of the default one. */
+  private chosenDate_: IsoDate | null = null;
+  /** The day the interface was last told about, to notice the date changing. */
+  private day_: IsoDate;
   private version_ = 0;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly listeners = new Set<() => void>();
@@ -97,7 +100,7 @@ export class Session {
     options: SessionOptions,
   ) {
     this.expiryMs = options.expiryMs ?? DEFAULT_EXPIRY_MS;
-    this.openDate_ = this.today();
+    this.day_ = this.today();
   }
 
   /**
@@ -136,9 +139,17 @@ export class Session {
     return this.isLive ? this.liveDate_ : null;
   }
 
-  /** The date whose run sheet is open for editing on this device, and the target of copies. */
+  /**
+   * The date whose run sheet is open for editing on this device, and the target of copies:
+   * the date the operator chose to edit, else the live date, else the current or next
+   * meeting day. The last is worked out afresh each time, so it moves on with the calendar.
+   */
   get openDate(): IsoDate {
-    return this.openDate_;
+    return (
+      this.chosenDate_ ??
+      this.liveDate ??
+      nextMeetingDate(this.today(), this.workspace_.meetingDays)
+    );
   }
 
   /** Increases whenever anything the interface shows may have changed. */
@@ -158,7 +169,7 @@ export class Session {
 
   /** A date can be edited when it is the open date or the live date; others are read-only. */
   canEdit(date: IsoDate): boolean {
-    return date === this.openDate_ || date === this.liveDate;
+    return date === this.openDate || date === this.liveDate;
   }
 
   get presentingPreviousContent(): boolean {
@@ -216,7 +227,6 @@ export class Session {
 
   private async start(): Promise<StartKind> {
     const today = this.today();
-    const days = this.workspace_.meetingDays;
     let saved = await this.store.loadLiveState(this.workspace_.id);
     if (saved && !(await this.store.getRunSheet(saved.runSheetId))) saved = null;
     const planned = await this.store.getPlannedRunSheet(this.workspace_.id, today);
@@ -230,32 +240,31 @@ export class Session {
     switch (decision.kind) {
       case 'resume':
         await this.setLive(decision.state);
-        this.openDate_ = this.liveDate_!;
         return 'resumed';
       case 'ended':
         await this.setLive(decision.state);
-        this.openDate_ = nextMeetingDateAfter(
-          this.liveDate_!,
-          dateInTimeZone(new Date(decision.state.updatedAt), this.workspace_.timezone),
-          today,
-          days,
-        );
         return 'ended';
       case 'start':
         await this.setLive(decision.state);
-        this.openDate_ = today;
         return 'started';
       case 'none':
         await this.store.clearLiveState(this.workspace_.id);
-        this.openDate_ = nextMeetingDate(today, days);
         return 'idle';
     }
   }
 
-  /** Records that this operator device is still connected, which holds off expiry. */
+  /**
+   * Records that this operator device is still connected, which holds off expiry, and tells
+   * the interface when the date has changed since it last looked.
+   */
   heartbeat(): Promise<void> {
     return this.enqueue(async () => {
       if (this.live_) await this.setLive(touch(this.live_, this.nowIso()));
+      const today = this.today();
+      if (today !== this.day_) {
+        this.day_ = today;
+        this.changed();
+      }
     });
   }
 
@@ -350,22 +359,18 @@ export class Session {
       const sheet = await this.store.ensureRunSheet(this.workspace_.id, date);
       if (this.live_) await this.apply({ type: 'goLive', runSheetId: sheet.id });
       else await this.setLive(createLiveState(sheet.id, this.nowIso()));
-      this.openDate_ = date;
+      this.chosenDate_ = null;
     });
   }
 
   /**
-   * Ends the presentation: the output is cleared and the next meeting date after the ended
-   * one opens for editing, or today's when the ended date is still to come. Returns that date.
+   * Ends the presentation: the output is cleared and the current or next meeting day opens
+   * for editing. Returns that date.
    */
   endPresentation(): Promise<IsoDate> {
     return this.mutate(async () => {
-      const endedDate = this.liveDate_;
-      if (this.isLive && (await this.apply({ type: 'end' })) && endedDate) {
-        const today = this.today();
-        this.openDate_ = nextMeetingDateAfter(endedDate, today, today, this.workspace_.meetingDays);
-      }
-      return this.openDate_;
+      if (this.isLive && (await this.apply({ type: 'end' }))) this.chosenDate_ = null;
+      return this.openDate;
     });
   }
 
@@ -374,7 +379,7 @@ export class Session {
   /** Opens a date's run sheet for editing on this device. Nothing live changes. */
   editRunSheet(date: IsoDate): Promise<void> {
     return this.mutate(async () => {
-      this.openDate_ = date;
+      this.chosenDate_ = date;
     });
   }
 
@@ -384,13 +389,13 @@ export class Session {
   }
 
   private async editableItem(itemId: string): Promise<void> {
-    const editable = [this.openDate_, this.liveDate].filter((date): date is IsoDate => !!date);
+    const editable = [this.openDate, this.liveDate].filter((date): date is IsoDate => !!date);
     for (const date of editable) {
       const sheet = await this.store.getRunSheetByDate(this.workspace_.id, date);
       if (sheet && (await this.store.listItems(sheet.id)).some((item) => item.id === itemId))
         return;
     }
-    throw new ReadOnlyDateError(this.openDate_);
+    throw new ReadOnlyDateError(this.openDate);
   }
 
   /** Adds a song to the end of a date's run sheet. Edits never change what is on screen. */
@@ -423,10 +428,10 @@ export class Session {
   copyFrom(sourceDate: IsoDate, mode?: CopyMode): Promise<CopyResult> {
     return this.mutate(async (): Promise<CopyResult> => {
       const source = await this.store.getRunSheetByDate(this.workspace_.id, sourceDate);
-      if (!source || sourceDate === this.openDate_) return { status: 'nothing-to-copy' };
+      if (!source || sourceDate === this.openDate) return { status: 'nothing-to-copy' };
       if ((await this.store.listItems(source.id)).length === 0)
         return { status: 'nothing-to-copy' };
-      const target = await this.store.ensureRunSheet(this.workspace_.id, this.openDate_);
+      const target = await this.store.ensureRunSheet(this.workspace_.id, this.openDate);
       const occupied = (await this.store.listItems(target.id)).length > 0;
       if (occupied && !mode) return { status: 'choose' };
       const copies = await this.store.copyItems(source.id, target.id, mode ?? 'append');

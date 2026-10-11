@@ -192,7 +192,7 @@ describe('start rules (criterion 31)', () => {
     expect(start).toBe('resumed');
   });
 
-  it('keeps an ended state ended on reopening and moves to the next meeting date', async () => {
+  it('keeps an ended state ended on reopening, with today still open for editing', async () => {
     const a = await song('A', 'a1');
     await plan(SUNDAY, [a.id]);
     await reopen();
@@ -201,6 +201,19 @@ describe('start rules (criterion 31)', () => {
     await reopen();
     expect(start).toBe('ended');
     expect(session.isLive).toBe(false);
+    expect(session.openDate).toBe(SUNDAY);
+  });
+
+  it('moves the open date on with the calendar while the app stays open', async () => {
+    let notified = 0;
+    session.subscribe(() => notified++);
+    expect(session.openDate).toBe(SUNDAY);
+    await session.heartbeat();
+    expect(notified).toBe(0);
+
+    env.advance(DAY);
+    await session.heartbeat();
+    expect(notified).toBe(1);
     expect(session.openDate).toBe(NEXT_SUNDAY);
   });
 
@@ -337,10 +350,13 @@ describe('ending', () => {
     await session.next();
   });
 
-  it('clears the output and opens the next meeting date after the ended one', async () => {
-    expect(await session.endPresentation()).toBe(NEXT_SUNDAY);
+  it('clears the output and opens the current or next meeting day', async () => {
+    expect(await session.endPresentation()).toBe(SUNDAY);
     expect(session.isLive).toBe(false);
     expect(session.liveDate).toBeNull();
+    expect(session.openDate).toBe(SUNDAY);
+
+    env.advance(DAY);
     expect(session.openDate).toBe(NEXT_SUNDAY);
     expect(await shown()).toBeNull();
     expect((await session.frame(mediaUrl)).song).toBeNull();

@@ -6,7 +6,6 @@ import {
   meetingDayKind,
   monthGrid,
   nextMeetingDate,
-  nextMeetingDateAfter,
   normalizeMeetingDays,
   shiftMonth,
   weekdayOf,
@@ -72,21 +71,6 @@ describe('meeting days', () => {
     expect(defaultCalendarDate(instant, 'Asia/Shanghai', [0])).toBe(SUNDAY);
     expect(defaultCalendarDate(instant, 'America/New_York', [6])).toBe(SATURDAY);
     expect(defaultCalendarDate(instant, 'America/New_York', [0])).toBe(SUNDAY);
-  });
-
-  it('moves to the meeting day after an ended one', () => {
-    expect(nextMeetingDateAfter(SUNDAY, SUNDAY, SUNDAY, [0])).toBe('2026-10-18');
-    // An old presentation ended midweek: the next meeting from today, not from the old date.
-    expect(nextMeetingDateAfter('2026-10-04', '2026-10-07', '2026-10-07', [0])).toBe(SUNDAY);
-    expect(nextMeetingDateAfter(SUNDAY, SUNDAY, SUNDAY, [])).toBe('2026-10-12');
-  });
-
-  it('keeps today as the default when a presentation was ended before its date', () => {
-    // Sunday's run sheet was tried out and ended on Saturday; on Sunday it is still to come.
-    expect(nextMeetingDateAfter(SUNDAY, SATURDAY, SUNDAY, [0])).toBe(SUNDAY);
-    expect(nextMeetingDateAfter(SUNDAY, SATURDAY, SATURDAY, [0])).toBe(SUNDAY);
-    // A future date was live and ended early on a meeting day.
-    expect(nextMeetingDateAfter('2026-10-18', SUNDAY, SUNDAY, [0])).toBe(SUNDAY);
   });
 });
 

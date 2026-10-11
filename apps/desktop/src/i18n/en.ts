@@ -81,7 +81,8 @@ export const en = {
   'present.unblank': 'Show lyrics',
   'present.end': 'End presentation',
   'present.endTitle': 'End the presentation?',
-  'present.endBody': 'The slideshow is cleared and the next meeting date opens for planning.',
+  'present.endBody':
+    'The slideshow is cleared and the current or next meeting day opens for planning.',
   'present.preview': 'Slideshow',
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',
