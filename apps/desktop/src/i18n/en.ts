@@ -68,6 +68,7 @@ export const en = {
   'runSheet.empty': 'No songs yet. Search below to add one.',
   'runSheet.addSong': 'Search songs to add',
   'runSheet.noSongs': 'No songs found.',
+  'runSheet.drag': 'Drag to reorder',
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
   'runSheet.add': 'Add',

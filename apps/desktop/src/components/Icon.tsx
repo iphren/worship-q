@@ -47,6 +47,7 @@ const ICONS = {
   windowed: (
     <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
   ),
+  grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />,
   stop: <rect x="5" y="5" width="14" height="14" rx="2" />,
 } satisfies Record<string, ReactNode>;
 
