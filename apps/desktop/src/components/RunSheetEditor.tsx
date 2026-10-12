@@ -2,6 +2,7 @@ import type { IsoDate } from '@worship-q/protocol';
 import { useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
+import { ConfirmDialog } from './Dialog';
 
 /** The songs planned for a date. Editable only when the session has the date open. */
 export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | null }) {
@@ -15,6 +16,8 @@ export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | n
     [search, editable],
   );
   const entries = view?.date === date ? view.entries : [];
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const removing = entries.find((entry) => entry.item.id === removingId);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -59,7 +62,7 @@ export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | n
                 <button
                   className="btn btn-ghost btn-sm"
                   title={t('common.remove')}
-                  onClick={() => void session.removeItem(entry.item.id)}
+                  onClick={() => setRemovingId(entry.item.id)}
                 >
                   ✕
                 </button>
@@ -94,6 +97,21 @@ export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | n
             ))}
           </ul>
         </div>
+      )}
+      {editable && removing && (
+        <ConfirmDialog
+          title={t('runSheet.removeTitle', {
+            title: removing.song.title || t('songs.untitled'),
+          })}
+          body={t('runSheet.removeBody')}
+          confirmLabel={t('common.remove')}
+          danger
+          onCancel={() => setRemovingId(null)}
+          onConfirm={() => {
+            setRemovingId(null);
+            void session.removeItem(removing.item.id);
+          }}
+        />
       )}
     </div>
   );

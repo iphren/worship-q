@@ -71,6 +71,8 @@ export const en = {
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
   'runSheet.add': 'Add',
+  'runSheet.removeTitle': 'Remove “{title}” from the run sheet?',
+  'runSheet.removeBody': 'The song stays in your library and can be added again.',
 
   'present.nothingLive': 'Nothing is live',
   'present.nothingLiveBody': 'Go live with a run sheet to present it on the slideshow screen.',
