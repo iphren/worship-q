@@ -407,7 +407,7 @@ export function SettingsPage() {
         </Section>
       </div>
 
-      <aside className="w-96 shrink-0 space-y-4 overflow-auto">
+      <aside className="w-64 shrink-0 space-y-4 overflow-auto">
         <section className="panel space-y-2 p-3">
           <h2 className="label">{t('present.preview')}</h2>
           <SlidePreview frame={sample} />

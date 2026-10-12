@@ -10,10 +10,24 @@ mod output;
 
 use std::fs;
 use tauri::{Emitter, Manager, WindowEvent};
+use tauri_plugin_window_state::StateFlags;
 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // The operator window opens where it was left. The output is placed on a chosen
+        // monitor each time, so it is left out.
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(
+                    StateFlags::SIZE
+                        | StateFlags::POSITION
+                        | StateFlags::MAXIMIZED
+                        | StateFlags::FULLSCREEN,
+                )
+                .with_denylist(&[output::OUTPUT_LABEL])
+                .build(),
+        )
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;

@@ -14,8 +14,8 @@ import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
 
-/** Remembers on this device whether the slideshow column is collapsed to icons. */
-const COLLAPSED_KEY = 'worship-q.present.slideshowCollapsed';
+/** Whether the slideshow drawer is open; closed each time the app opens. */
+let drawerOpen = false;
 
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
@@ -73,7 +73,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [, setDismissed] = useState(0);
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
+  const [open, setOpen] = useState(drawerOpen);
   const activeRef = useRef<HTMLButtonElement>(null);
 
   const previous = session.presentingPreviousContent;
@@ -100,9 +100,18 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
 
-  function collapse(value: boolean) {
-    localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
-    setCollapsed(value);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('[data-dialog]')) openDrawer(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  function openDrawer(value: boolean) {
+    drawerOpen = value;
+    setOpen(value);
   }
 
   async function end() {
@@ -141,7 +150,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 p-4">
+      <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-72 shrink-0 flex-col p-3">
           <h2 className="label">{t('runSheet.title', { date: formatDate(liveDate) })}</h2>
           <RunSheetEditor date={liveDate} activeItemId={presented?.itemId ?? null} />
@@ -210,52 +219,52 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           ))}
         </main>
 
-        {collapsed ? (
-          <aside className="flex w-11 shrink-0 flex-col gap-2">
-            <button
-              className="btn btn-ghost px-0 py-2"
-              title={t('present.expandPanel')}
-              aria-label={t('present.expandPanel')}
-              onClick={() => collapse(false)}
-            >
-              <Icon name="expand" />
-            </button>
-            <button
-              className="btn px-0 py-2"
-              title={t('present.previous')}
-              aria-label={t('present.previous')}
-              onClick={() => void session.previous()}
-            >
-              <Icon name="previous" />
-            </button>
-            <button
-              className="btn btn-primary px-0 py-2"
-              title={t('present.next')}
-              aria-label={t('present.next')}
-              onClick={() => void session.next()}
-            >
-              <Icon name="next" />
-            </button>
-            <button
-              className={`btn px-0 py-2 ${live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : ''}`}
-              title={live.blank ? t('present.unblank') : t('present.blank')}
-              aria-label={live.blank ? t('present.unblank') : t('present.blank')}
-              onClick={() => void session.setBlank(!live.blank)}
-            >
-              <Icon name="blank" />
-            </button>
-            <OutputPanel compact />
-            <button
-              className="btn btn-danger mt-auto px-0 py-2"
-              title={t('present.end')}
-              aria-label={t('present.end')}
-              onClick={() => setConfirmEnd(true)}
-            >
-              <Icon name="stop" />
-            </button>
-          </aside>
-        ) : (
-          <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-auto">
+        <aside className="flex w-11 shrink-0 flex-col gap-2">
+          <button
+            className="btn btn-ghost px-0 py-2"
+            title={t('present.expandPanel')}
+            aria-label={t('present.expandPanel')}
+            onClick={() => openDrawer(true)}
+          >
+            <Icon name="expand" />
+          </button>
+          <button
+            className="btn px-0 py-2"
+            title={t('present.previous')}
+            aria-label={t('present.previous')}
+            onClick={() => void session.previous()}
+          >
+            <Icon name="previous" />
+          </button>
+          <button
+            className="btn btn-primary px-0 py-2"
+            title={t('present.next')}
+            aria-label={t('present.next')}
+            onClick={() => void session.next()}
+          >
+            <Icon name="next" />
+          </button>
+          <button
+            className={`btn px-0 py-2 ${live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : ''}`}
+            title={live.blank ? t('present.unblank') : t('present.blank')}
+            aria-label={live.blank ? t('present.unblank') : t('present.blank')}
+            onClick={() => void session.setBlank(!live.blank)}
+          >
+            <Icon name="blank" />
+          </button>
+          <OutputPanel compact />
+          <button
+            className="btn btn-danger mt-auto px-0 py-2"
+            title={t('present.end')}
+            aria-label={t('present.end')}
+            onClick={() => setConfirmEnd(true)}
+          >
+            <Icon name="stop" />
+          </button>
+        </aside>
+
+        {open && (
+          <aside className="drawer absolute inset-y-0 right-0 z-30 flex w-80 max-w-full flex-col gap-3 overflow-auto border-l border-slate-700 bg-slate-900 p-4 shadow-2xl">
             <section className="panel space-y-2 p-3">
               <h2 className="label flex items-center gap-2">
                 <span className="flex-1">{t('present.preview')}</span>
@@ -264,7 +273,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   className="btn btn-ghost btn-sm px-1"
                   title={t('present.collapsePanel')}
                   aria-label={t('present.collapsePanel')}
-                  onClick={() => collapse(true)}
+                  onClick={() => openDrawer(false)}
                 >
                   <Icon name="collapse" className="h-4 w-4" />
                 </button>
