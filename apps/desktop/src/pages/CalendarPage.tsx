@@ -36,7 +36,8 @@ export function CalendarPage() {
   const editable = session.canEdit(browsed);
   const canCopy = browsed !== openDate && entries.length > 0;
   // The live run sheet can always be edited, yet only the open date is the target of copies.
-  const canOpen = browsed !== openDate;
+  // With nothing live, opening a date would make it live, which is what Go live is for.
+  const canOpen = session.isLive && browsed !== openDate;
 
   function show(date: IsoDate) {
     setBrowsed(date);
