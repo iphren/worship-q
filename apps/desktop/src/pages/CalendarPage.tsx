@@ -29,12 +29,14 @@ export function CalendarPage() {
   );
   const view = useQuery(() => session.viewDate(browsed), [browsed]);
   const target = useQuery(() => session.viewDate(openDate), [openDate]);
-  const entries = view?.date === browsed ? view.entries : [];
+  const viewLoaded = view?.date === browsed;
   const targetCount = target?.date === openDate ? target.entries.length : 0;
 
   const isLive = browsed === liveDate;
   const editable = session.canEdit(browsed);
-  const canCopy = browsed !== openDate && entries.length > 0;
+  // While the browsed date loads, the previous date's songs decide whether the copy button shows,
+  // so the header does not shift twice on every date change.
+  const canCopy = browsed !== openDate && (view?.entries.length ?? 0) > 0;
   // The live run sheet can always be edited, yet only the open date is the target of copies.
   const canOpen = browsed !== openDate;
 
@@ -122,7 +124,7 @@ export function CalendarPage() {
           )}
           <span className="flex-1" />
           {canCopy && (
-            <button className="btn" onClick={() => void runCopy(browsed)}>
+            <button className="btn" onClick={() => viewLoaded && void runCopy(browsed)}>
               {t('calendar.copyTo', { date: formatDate(openDate) })}
             </button>
           )}

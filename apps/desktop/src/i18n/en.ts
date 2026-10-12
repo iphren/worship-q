@@ -50,7 +50,7 @@ export const en = {
   'calendar.editing': 'Editing',
   'calendar.liveAndEditing': 'Live and editing',
   'calendar.readOnly': 'Read-only',
-  'calendar.editRunSheet': 'Edit run sheet',
+  'calendar.editRunSheet': 'Edit',
   'calendar.goLive': 'Go live',
   'calendar.copyTo': 'Copy to {date}',
   'calendar.nothingPlanned': 'Nothing is planned for this date.',
