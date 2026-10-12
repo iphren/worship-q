@@ -11,7 +11,23 @@ export type PresentAction =
   | 'previous'
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
-  | 'toggle-blank';
+  | 'toggle-blank'
+  /**
+   * A slide of the presented item by its position, counted from zero. `otherwise` is what the
+   * key does when the item has no such slide.
+   */
+  | { slide: number; otherwise?: 'toggle-blank' };
+
+/**
+ * The keys that jump to a slide of the presented item, in slide order: the number row, then
+ * the letter rows. Slides beyond these have no key.
+ */
+export const SLIDE_KEYS = '1234567890qwertyuiopasdfghjklzxcvbnm';
+
+/** The key that jumps to the slide at this position, as shown to the operator. */
+export function slideKeyLabel(slide: number): string | null {
+  return SLIDE_KEYS[slide]?.toUpperCase() ?? null;
+}
 
 type KeyPress = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>;
 
@@ -33,13 +49,14 @@ export function presentAction(event: KeyPress): PresentAction | null {
       return 'previous';
     case 'Backspace':
       return 'hide-lyrics';
-    case 'b':
-    case 'B':
     case '.':
       return 'toggle-blank';
-    default:
-      return null;
   }
+  const key = event.key.toLowerCase();
+  const slide = key.length === 1 ? SLIDE_KEYS.indexOf(key) : -1;
+  if (slide < 0) return null;
+  // Presenter remotes send B to blank the screen; it stays that unless a song is this long.
+  return key === 'b' ? { slide, otherwise: 'toggle-blank' } : { slide };
 }
 
 /** What an action needs of the session; kept narrow so it is easy to test. */
@@ -50,9 +67,16 @@ export interface PresentControls {
   next(): Promise<unknown>;
   previous(): Promise<unknown>;
   setBlank(blank: boolean): Promise<unknown>;
+  playSlide(slide: number): Promise<boolean>;
 }
 
 export function runPresentAction(session: PresentControls, action: PresentAction): void {
+  if (typeof action === 'object') {
+    const { otherwise } = action;
+    return void session.playSlide(action.slide).then((played) => {
+      if (!played && otherwise) runPresentAction(session, otherwise);
+    });
+  }
   switch (action) {
     case 'slide-next':
       return void session.stepInItem(1);

@@ -304,6 +304,42 @@ describe('presenting', () => {
   });
 });
 
+describe('jumping to a slide of the presented item', () => {
+  beforeEach(async () => {
+    const first = await song('First', 'one\n\ntwo\n\nthree');
+    const second = await song('Second', 'four\n\nfive');
+    await session.addSong(session.openDate, first.id);
+    await session.addSong(session.openDate, second.id);
+    await session.goLive(session.openDate);
+  });
+
+  it('presents the slide at that position of the presented item', async () => {
+    await playAt(1, 0);
+    expect(await session.playSlide(1)).toBe(true);
+    expect(await shown()).toEqual(['five']);
+    expect(await session.playSlide(0)).toBe(true);
+    expect(await shown()).toEqual(['four']);
+  });
+
+  it('uses the first item when nothing is presented yet', async () => {
+    expect(await session.playSlide(2)).toBe(true);
+    expect(await shown()).toEqual(['three']);
+  });
+
+  it('does nothing when the item has no such slide', async () => {
+    await playAt(1, 0);
+    expect(await session.playSlide(2)).toBe(false);
+    expect(await shown()).toEqual(['four']);
+  });
+
+  it('shows the lyrics again when blank', async () => {
+    await playAt(0, 0);
+    await session.setBlank(true);
+    await session.playSlide(1);
+    expect(await shown()).toEqual(['two']);
+  });
+});
+
 describe('run-sheet edits in live mode', () => {
   let a: Awaited<ReturnType<typeof song>>;
   let b: Awaited<ReturnType<typeof song>>;

@@ -93,7 +93,7 @@ export const en = {
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'End it and plan {next}',
   'present.dismiss': 'Dismiss',
-  'present.shortcuts': '↑ ↓ slide · ← → song · ⌫ hide lyrics',
+  'present.shortcuts': '↑ ↓ slide · ← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
   'present.blanked': 'Blank',
   'present.collapsePanel': 'Collapse to icons',

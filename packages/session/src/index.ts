@@ -341,6 +341,25 @@ export class Session {
     return this.mutate(() => this.apply({ type: by === 1 ? 'nextInItem' : 'previousInItem' }));
   }
 
+  /**
+   * Presents a slide of the presented item by its position, counted from zero. With nothing
+   * presented from this run sheet, the item is the first one. False when there is no such slide.
+   */
+  playSlide(slide: number): Promise<boolean> {
+    return this.mutate(async () => {
+      if (!this.live_) return false;
+      const sequence = await this.sequence();
+      const presented = this.live_.presented;
+      const itemId =
+        presented && presented.runSheetId === this.live_.runSheetId
+          ? presented.itemId
+          : sequence[0]?.itemId;
+      const piece = sequence.filter((entry) => entry.itemId === itemId)[slide];
+      if (!piece) return false;
+      return this.apply({ type: 'playPiece', itemId: piece.itemId, pieceId: piece.pieceId });
+    });
+  }
+
   /** Presents the first slide of the next or the previous run sheet item. */
   stepItem(by: 1 | -1): Promise<boolean> {
     return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));

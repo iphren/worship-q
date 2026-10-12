@@ -9,7 +9,7 @@ import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { SongForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
-import { presentAction, runPresentAction } from '../lib/shortcuts';
+import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
@@ -79,6 +79,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
   const entries = view?.date === liveDate ? view.entries : [];
+  // The item the slide keys act on: the presented one, or the first before anything is.
+  const keyedItemId = presented?.itemId ?? entries[0]?.item.id ?? null;
   const showKeptTooLong = session.keptTooLong && !dismissedNotices.has(liveDate);
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
 
@@ -173,7 +175,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                 <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
               )}
               <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-                {entry.pieces.map((piece) => {
+                {entry.pieces.map((piece, pieceIndex) => {
+                  const keyLabel = entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
                   const active =
                     presented?.itemId === entry.item.id && presented.pieceId === piece.id;
                   return (
@@ -181,7 +184,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                       key={piece.id}
                       ref={active ? activeRef : undefined}
                       onClick={() => void session.play(entry.item.id, piece.id)}
-                      className={`min-h-16 rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
+                      className={`relative min-h-16 rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
                         active
                           ? live.blank
                             ? 'border-amber-400 bg-amber-900/30'
@@ -189,6 +192,11 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           : 'border-slate-700 bg-slate-800 hover:border-slate-500'
                       } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
                     >
+                      {keyLabel && (
+                        <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
+                          {keyLabel}
+                        </kbd>
+                      )}
                       {piece.lines.map((line) => (
                         <span key={line.id} className="block truncate whitespace-pre">
                           {line.text}
