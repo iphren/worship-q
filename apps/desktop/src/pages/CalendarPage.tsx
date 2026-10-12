@@ -29,14 +29,12 @@ export function CalendarPage() {
   );
   const view = useQuery(() => session.viewDate(browsed), [browsed]);
   const target = useQuery(() => session.viewDate(openDate), [openDate]);
-  const viewLoaded = view?.date === browsed;
+  const entries = view?.date === browsed ? view.entries : [];
   const targetCount = target?.date === openDate ? target.entries.length : 0;
 
   const isLive = browsed === liveDate;
   const editable = session.canEdit(browsed);
-  // While the browsed date loads, the previous date's songs decide whether the copy button shows,
-  // so the header does not shift twice on every date change.
-  const canCopy = browsed !== openDate && (view?.entries.length ?? 0) > 0;
+  const canCopy = browsed !== openDate && entries.length > 0;
   // The live run sheet can always be edited, yet only the open date is the target of copies.
   const canOpen = browsed !== openDate;
 
@@ -122,26 +120,28 @@ export function CalendarPage() {
               {t('calendar.readOnly')}
             </span>
           )}
-          <span className="flex-1" />
+        </header>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="btn btn-edit"
+            disabled={!canOpen}
+            onClick={() => void session.editRunSheet(browsed)}
+          >
+            {t('calendar.editRunSheet')}
+          </button>
+          <button
+            className="btn btn-live"
+            disabled={isLive}
+            onClick={() => void session.goLive(browsed).then(() => navigate('present'))}
+          >
+            {t('calendar.goLive')}
+          </button>
           {canCopy && (
-            <button className="btn" onClick={() => viewLoaded && void runCopy(browsed)}>
+            <button className="btn" onClick={() => void runCopy(browsed)}>
               {t('calendar.copyTo', { date: formatDate(openDate) })}
             </button>
           )}
-          {canOpen && (
-            <button className="btn btn-edit" onClick={() => void session.editRunSheet(browsed)}>
-              {t('calendar.editRunSheet')}
-            </button>
-          )}
-          {!isLive && (
-            <button
-              className="btn btn-live"
-              onClick={() => void session.goLive(browsed).then(() => navigate('present'))}
-            >
-              {t('calendar.goLive')}
-            </button>
-          )}
-        </header>
+        </div>
         {message && (
           <p className="notice border-emerald-700 bg-emerald-900/30 text-emerald-200">{message}</p>
         )}
