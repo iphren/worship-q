@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { presentAction, runPresentAction, slideKeyLabel, type PresentControls } from './shortcuts';
+import { presentAction, slideKeyLabel } from './shortcuts';
 
 const press = (
   key: string,
   modifiers: Partial<Record<'metaKey' | 'ctrlKey' | 'altKey', boolean>> = {},
 ) => presentAction({ key, metaKey: false, ctrlKey: false, altKey: false, ...modifiers });
-
-const key = (value: string) => ({ key: value, metaKey: false, ctrlKey: false, altKey: false });
 
 describe('presentAction', () => {
   it('steps through the slides of an item with up and down', () => {
@@ -32,9 +30,8 @@ describe('presentAction', () => {
     expect(press('Q')).toEqual({ slide: 10 });
   });
 
-  it('keeps B for blanking unless the item has that many slides', () => {
-    expect(press('b')).toEqual({ slide: 33, otherwise: 'toggle-blank' });
-    expect(press('.')).toBe('toggle-blank');
+  it('jumps with B like any other letter', () => {
+    expect(press('b')).toEqual({ slide: 33 });
   });
 
   it('ignores other keys and key combinations', () => {
@@ -51,38 +48,5 @@ describe('slideKeyLabel', () => {
     expect(slideKeyLabel(10)).toBe('Q');
     expect(slideKeyLabel(35)).toBe('M');
     expect(slideKeyLabel(36)).toBeNull();
-  });
-});
-
-describe('runPresentAction', () => {
-  function controls(slides: number) {
-    const calls: string[] = [];
-    const session: PresentControls = {
-      live: { blank: false },
-      stepInItem: async () => true,
-      stepItem: async () => true,
-      next: async () => true,
-      previous: async () => true,
-      setBlank: async (blank) => calls.push(`blank:${blank}`),
-      playSlide: async (slide) => {
-        calls.push(`slide:${slide}`);
-        return slide < slides;
-      },
-    };
-    return { session, calls };
-  }
-
-  it('blanks with B when the item has no 34th slide', async () => {
-    const { session, calls } = controls(5);
-    runPresentAction(session, presentAction(key('b'))!);
-    await Promise.resolve();
-    expect(calls).toEqual(['slide:33', 'blank:true']);
-  });
-
-  it('jumps with B when the item has a 34th slide', async () => {
-    const { session, calls } = controls(36);
-    runPresentAction(session, presentAction(key('b'))!);
-    await Promise.resolve();
-    expect(calls).toEqual(['slide:33']);
   });
 });
