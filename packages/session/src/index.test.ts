@@ -65,18 +65,25 @@ beforeEach(async () => {
 afterEach(() => driver.close());
 
 describe('first run', () => {
-  it('creates a local workspace with Sunday meetings and nothing live', () => {
+  it('creates a local workspace with Sunday meetings', () => {
     expect(session.workspace.meetingDays).toEqual([0]);
     expect(session.workspace.timezone).toBe('UTC');
-    expect(start).toBe('idle');
-    expect(session.live).toBeNull();
-    expect(session.isLive).toBe(false);
   });
 
-  it('opens the next meeting date for editing, including today', async () => {
+  it('goes live with the next meeting date, including today, with nothing presented', async () => {
+    expect(start).toBe('started');
+    expect(session.isLive).toBe(true);
+    expect(session.liveDate).toBe(SUNDAY);
     expect(session.openDate).toBe(SUNDAY);
-    env.advance(DAY);
+    expect(session.live?.presented).toBeNull();
+
+    driver.close();
+    ({ driver, env, store } = await createTestStore(
+      undefined,
+      createTestEnv('2026-10-12T09:00:00.000Z'),
+    ));
     await reopen();
+    expect(session.liveDate).toBe(NEXT_SUNDAY);
     expect(session.openDate).toBe(NEXT_SUNDAY);
   });
 
@@ -107,17 +114,29 @@ describe('start rules (criterion 31)', () => {
     const a = await song('A', 'a1\na2');
     await plan(SUNDAY, [a.id]);
     await reopen();
-    expect(start).toBe('started');
     expect(session.liveDate).toBe(SUNDAY);
     expect(session.openDate).toBe(SUNDAY);
     expect(session.live?.presented).toBeNull();
     expect(await shown()).toBeNull();
   });
 
-  it('does not treat an empty run sheet as a plan for today', async () => {
-    await store.ensureRunSheet(session.workspace.id, SUNDAY);
+  it('goes live with a planned today even when it is not a meeting day', async () => {
+    env.setNow('2026-10-14T09:00:00.000Z'); // Wednesday
     await reopen();
-    expect(start).toBe('idle');
+    expect(session.liveDate).toBe(NEXT_SUNDAY);
+    const a = await song('A', 'a1');
+    await plan('2026-10-14', [a.id]);
+    env.advance(DEFAULT_EXPIRY_MS + 1000);
+    await reopen();
+    expect(session.liveDate).toBe('2026-10-14');
+  });
+
+  it('does not treat an empty run sheet as a plan for today', async () => {
+    env.setNow('2026-10-14T09:00:00.000Z'); // Wednesday
+    await store.ensureRunSheet(session.workspace.id, '2026-10-14');
+    env.advance(DEFAULT_EXPIRY_MS + 1000);
+    await reopen();
+    expect(session.liveDate).toBe(NEXT_SUNDAY);
   });
 
   it('resumes the run sheet, piece and blank flag after the app is killed mid-presentation', async () => {
@@ -166,7 +185,7 @@ describe('start rules (criterion 31)', () => {
     expect(session.live?.blank).toBe(false);
   });
 
-  it('after expiry with nothing planned today opens the next meeting date for editing', async () => {
+  it('after expiry with nothing planned today goes live with the next meeting date', async () => {
     const a = await song('A', 'a1');
     await plan(SUNDAY, [a.id]);
     await reopen();
@@ -174,10 +193,14 @@ describe('start rules (criterion 31)', () => {
 
     env.advance(3 * DAY); // Wednesday
     await reopen();
-    expect(start).toBe('idle');
-    expect(session.live).toBeNull();
+    expect(start).toBe('started');
+    expect(session.liveDate).toBe(NEXT_SUNDAY);
     expect(session.openDate).toBe(NEXT_SUNDAY);
-    expect(await store.loadLiveState(session.workspace.id)).toBeNull();
+    expect(session.live?.presented).toBeNull();
+    expect(await shown()).toBeNull();
+    expect((await store.loadLiveState(session.workspace.id))?.runSheetId).toBe(
+      session.live!.runSheetId,
+    );
   });
 
   it('stays alive while the app is open, however long', async () => {
@@ -192,19 +215,22 @@ describe('start rules (criterion 31)', () => {
     expect(start).toBe('resumed');
   });
 
-  it('keeps an ended state ended on reopening, with today still open for editing', async () => {
+  it('goes live again on reopening after the presentation was ended, with nothing presented', async () => {
     const a = await song('A', 'a1');
     await plan(SUNDAY, [a.id]);
     await reopen();
+    await session.next();
     await session.endPresentation();
     env.advance(HOUR);
     await reopen();
-    expect(start).toBe('ended');
-    expect(session.isLive).toBe(false);
-    expect(session.openDate).toBe(SUNDAY);
+    expect(start).toBe('started');
+    expect(session.liveDate).toBe(SUNDAY);
+    expect(session.live?.presented).toBeNull();
+    expect(await shown()).toBeNull();
   });
 
   it('moves the open date on with the calendar while the app stays open', async () => {
+    await session.endPresentation();
     let notified = 0;
     session.subscribe(() => notified++);
     expect(session.openDate).toBe(SUNDAY);
@@ -217,16 +243,15 @@ describe('start rules (criterion 31)', () => {
     expect(session.openDate).toBe(NEXT_SUNDAY);
   });
 
-  it('opens today when its run sheet was tried out and ended the day before', async () => {
+  it('goes live with today when its run sheet was tried out and ended the day before', async () => {
     env.setNow('2026-10-10T22:00:00.000Z');
     await reopen();
     await session.goLive(SUNDAY);
     expect(await session.endPresentation()).toBe(SUNDAY);
     env.advance(3 * HOUR);
     await reopen();
-    expect(start).toBe('ended');
     expect(session.today()).toBe(SUNDAY);
-    expect(session.openDate).toBe(SUNDAY);
+    expect(session.liveDate).toBe(SUNDAY);
   });
 });
 
@@ -396,6 +421,31 @@ describe('ending', () => {
     expect(session.openDate).toBe(NEXT_SUNDAY);
     expect(await shown()).toBeNull();
     expect((await session.frame(mediaUrl)).song).toBeNull();
+  });
+
+  it('goes live with the run sheet that is edited next', async () => {
+    await session.endPresentation();
+    const live = session.live;
+    await session.viewDate(NEXT_SUNDAY);
+    expect(session.live).toBe(live);
+
+    await session.editRunSheet(NEXT_SUNDAY);
+    expect(session.liveDate).toBe(NEXT_SUNDAY);
+    expect(session.openDate).toBe(NEXT_SUNDAY);
+    expect(await shown()).toBeNull();
+
+    await session.endPresentation();
+    expect(session.openDate).toBe(SUNDAY);
+    const b = await song('B', 'b1');
+    await session.addSong(SUNDAY, b.id);
+    expect(session.liveDate).toBe(SUNDAY);
+    expect(session.live?.presented).toBeNull();
+
+    await session.endPresentation();
+    const [first] = (await session.viewDate(SUNDAY)).entries;
+    await session.removeItem(first!.item.id);
+    expect(session.liveDate).toBe(SUNDAY);
+    expect(await shown()).toBeNull();
   });
 
   it('can go live again afterwards', async () => {

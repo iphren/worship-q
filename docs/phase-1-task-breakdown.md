@@ -126,7 +126,7 @@ A pure package with no interface, used by the editor, operator view, and rendere
 ### M6 — Live state and operator view (L)
 
 - Live-state package per D12: state holding the live run sheet link, presented piece, blank flag, and live/ended status; commands for play piece, next, previous, blank, unblank, go live, and end; each command has an identifier and is applied once.
-- Start rules from the spec: resume an unexpired live state; otherwise start from today's run sheet with nothing presented; otherwise open edit mode for the next meeting date.
+- Start rules from the spec: resume an unexpired live state; otherwise start from today's run sheet with nothing presented; otherwise go live with the next meeting date, today included. With nothing live, editing a run sheet goes live with it.
 - Persist the live state on every change so a crash or restart mid-service resumes it.
 - Expiry and the "kept too long" notification per D6; manual **End presentation** clears the output and moves to the next meeting date.
 - Operator view: live run sheet with every piece visible, click or tap any piece to present it, next/previous and blank controls, keyboard shortcuts.

@@ -55,10 +55,8 @@ function Centered(props: { children: string }) {
 }
 
 function Shell({ booted }: { booted: Booted }) {
-  // Resuming or starting a live state goes straight to presenting; otherwise to planning.
-  const [page, setPage] = useState<Page>(
-    booted.start === 'resumed' || booted.start === 'started' ? 'present' : 'calendar',
-  );
+  // Something is always live once the app has opened, so it opens on presenting.
+  const [page, setPage] = useState<Page>('present');
   const services = useMemo<AppServices>(
     () => ({ session: booted.session, output: booted.output, navigate: setPage }),
     [booted],

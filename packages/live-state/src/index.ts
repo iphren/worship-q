@@ -248,11 +248,11 @@ export function isExpired(state: LiveState, now: string, expiryMs = DEFAULT_EXPI
 export type StartDecision =
   /** An unexpired live state exists: carry on with its run sheet, piece and blank flag. */
   | { kind: 'resume'; state: LiveState }
-  /** An unexpired but ended state: stay ended until an operator goes live again. */
+  /** An unexpired but ended state: the caller goes live with the next meeting date. */
   | { kind: 'ended'; state: LiveState }
   /** Nothing to resume and today has a run sheet: go live with it, nothing presented. */
   | { kind: 'start'; state: LiveState }
-  /** Nothing to resume and nothing planned today: edit the next meeting date. */
+  /** Nothing to resume and nothing planned today: the caller goes live with the next meeting date. */
   | { kind: 'none' };
 
 /** The start rules applied when the first operator device connects. */

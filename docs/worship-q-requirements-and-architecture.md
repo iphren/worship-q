@@ -348,7 +348,7 @@ Each workspace has at most one live state, shared by every connected client and 
 - the connected devices;
 - its status: live or ended.
 
-1. **Start:** when the first operator device connects, it uses the previous live state if that has not expired. Otherwise, if today has a run sheet, a new live state starts with that run sheet and nothing presented. If there is no live state and no run sheet for today, no live state starts and the operator automatically enters edit mode for the next configured meeting date.
+1. **Start:** when the first operator device connects, it uses the previous live state if that has not expired. Otherwise, if today has a run sheet, a new live state starts with that run sheet and nothing presented. If there is no live state and no run sheet for today, a new live state starts with the run sheet of the next configured meeting date, today included, and nothing presented. An ended live state counts as no live state here. The app opens on the presenting view.
 2. **Join:** any further operator device synchronizes with the current live state rather than replacing it.
 3. **Expiry:** when no operator device is connected, the live state expires after a period of time. Only operator devices count; a connected remote controller or a device in viewer mode does not keep it alive. The period is an open decision.
 4. **Go live:** any operator device can go live; the live run sheet then links to the run sheet that device is previewing. Edits made in live mode are edits to that dated run sheet, so they are kept when the live state ends or expires.
@@ -364,7 +364,7 @@ Each workspace has at most one live state, shared by every connected client and 
 
 **Agreed remote hosting:** an operator device at another location may start and host the live state, for example when nobody on site can operate. Venue outputs then follow it through the church instance and need internet.
 
-**Proposed details:** the coordinator holds and orders the live state and mirrors it to the church instance, which keeps the backup until expiry; every joined operator device also holds a synchronized copy, so recovery on the LAN does not depend on internet. Ending clears the outputs and puts operator devices into edit mode for the next configured meeting date after the ended one. An ended live state stays ended until an operator goes live again or it expires. The threshold for the kept-too-long notification is open.
+**Proposed details:** the coordinator holds and orders the live state and mirrors it to the church instance, which keeps the backup until expiry; every joined operator device also holds a synchronized copy, so recovery on the LAN does not depend on internet. Ending clears the outputs and puts operator devices into edit mode for the next configured meeting date after the ended one. An ended live state stays ended until an operator goes live again, edits a run sheet (which goes live with it), restarts the app, or it expires. The threshold for the kept-too-long notification is open.
 
 ### Calendar and live-state behavior
 
@@ -374,12 +374,13 @@ Each workspace has at most one live state, shared by every connected client and 
 | --- | --- |
 | First operator device connects and an unexpired live state exists | Use that live state, including its presented content and blank state |
 | First operator device connects, no live state exists, and today has a run sheet | Start a new live state linked to today's run sheet; this does not implicitly play a slide |
-| First operator device connects, no live state exists, and today has no run sheet | No live state starts; the operator enters edit mode for the next configured meeting date |
+| First operator device connects, no live state exists, and today has no run sheet | Start a new live state linked to the run sheet of the next configured meeting date, today included; this does not implicitly play a slide |
 | Another operator device or remote controller connects | Synchronize with the current live state without resetting it |
 | No operator device remains connected | The live state expires after a set period; remote controllers and devices in viewer mode do not keep it alive |
 | Operator ends the live state manually | Live state becomes ended |
 | Browse a different calendar date | Read-only view; live run sheet and displayed content remain unchanged |
 | Choose **Edit run sheet** on a browsed date | Open that date's plan in edit mode on this device; the live run sheet and displayed content remain unchanged |
+| Choose **Edit run sheet**, or edit a run sheet, while nothing is live | Go live with that run sheet; nothing is implicitly played |
 | Copy items from a browsed date | Copy to the run sheet open in edit or live mode on this device, with its explicit date shown in the action |
 | Copy into an empty target | Apply immediately |
 | Copy into a non-empty target | Offer **Append** or **Replace**; confirm Replace |
@@ -775,7 +776,7 @@ These make the requirements concrete for later implementation and testing; they 
 28. **Central deletion:** deleting a central song turns every existing local override into an independent private song, preserving its content and references without an active override link. Central backgrounds have no override relation.
 29. **Version compatibility:** a client whose protocol version the instance or coordinator does not support is told to update rather than failing unpredictably; compatible versions interoperate across independent client and backend releases.
 30. **Local-only start:** a newly installed desktop app can create a workspace, add songs, build a run sheet, and present on a second screen without a church instance, account, or network.
-31. **Live-state continuity:** an operator device connecting before expiry resumes the existing run sheet, presented content, and blank state; after expiry a new live state starts from today's run sheet with nothing presented, or the operator enters edit mode for the next configured meeting date when today has no run sheet. Further devices synchronize with the live state without resetting it. A device in viewer mode neither starts a live state nor keeps one alive, and reopens in viewer mode after a restart. If one device fails, a second device recovers the live state from the instance backup. An operator can end the live state manually, and live-mode edits remain in the dated run sheet afterwards.
+31. **Live-state continuity:** an operator device connecting before expiry resumes the existing run sheet, presented content, and blank state; after expiry a new live state starts from today's run sheet with nothing presented, or from the run sheet of the next configured meeting date, today included, when today has no run sheet. Further devices synchronize with the live state without resetting it. A device in viewer mode neither starts a live state nor keeps one alive, and reopens in viewer mode after a restart. If one device fails, a second device recovers the live state from the instance backup. An operator can end the live state manually, and live-mode edits remain in the dated run sheet afterwards.
 32. **LAN security:** a device on the venue network without a valid credential cannot read live traffic, send commands, or be accepted as the coordinator.
 33. **Local-only phone:** a phone can create a local workspace, add songs, and present while mirrored without a church instance or account.
 

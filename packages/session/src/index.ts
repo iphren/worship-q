@@ -48,12 +48,11 @@ export interface SessionOptions {
 export type StartKind =
   /** An unexpired live state was resumed. */
   | 'resumed'
-  /** A new live state began from today's run sheet, with nothing presented. */
-  | 'started'
-  /** An unexpired, ended live state was found; the next meeting date is open for editing. */
-  | 'ended'
-  /** Nothing is live; the next meeting date is open for editing. */
-  | 'idle';
+  /**
+   * A new live state began with nothing presented: from today's run sheet, else from the
+   * current or next meeting day.
+   */
+  | 'started';
 
 export interface RunSheetEntry {
   item: RunSheetItem;
@@ -241,15 +240,17 @@ export class Session {
       case 'resume':
         await this.setLive(decision.state);
         return 'resumed';
-      case 'ended':
-        await this.setLive(decision.state);
-        return 'ended';
       case 'start':
         await this.setLive(decision.state);
         return 'started';
-      case 'none':
-        await this.store.clearLiveState(this.workspace_.id);
-        return 'idle';
+      // The app never opens with nothing live, also when the presentation was ended earlier.
+      case 'ended':
+      case 'none': {
+        const date = nextMeetingDate(today, this.workspace_.meetingDays);
+        const sheet = await this.store.ensureRunSheet(this.workspace_.id, date);
+        await this.setLive(createLiveState(sheet.id, this.nowIso()));
+        return 'started';
+      }
     }
   }
 
@@ -375,11 +376,19 @@ export class Session {
    */
   goLive(date: IsoDate): Promise<void> {
     return this.mutate(async () => {
-      const sheet = await this.store.ensureRunSheet(this.workspace_.id, date);
-      if (this.live_) await this.apply({ type: 'goLive', runSheetId: sheet.id });
-      else await this.setLive(createLiveState(sheet.id, this.nowIso()));
-      this.chosenDate_ = null;
+      await this.makeLive(await this.store.ensureRunSheet(this.workspace_.id, date));
     });
+  }
+
+  private async makeLive(sheet: RunSheet): Promise<void> {
+    if (this.live_) await this.apply({ type: 'goLive', runSheetId: sheet.id });
+    else await this.setLive(createLiveState(sheet.id, this.nowIso()));
+    this.chosenDate_ = null;
+  }
+
+  /** With nothing live, the run sheet being edited becomes the live one. */
+  private async liveWhenEdited(sheet: RunSheet): Promise<void> {
+    if (!this.isLive) await this.makeLive(sheet);
   }
 
   /**
@@ -395,10 +404,14 @@ export class Session {
 
   // ── Calendar and run-sheet editing ───────────────────────────────────────
 
-  /** Opens a date's run sheet for editing on this device. Nothing live changes. */
+  /**
+   * Opens a date's run sheet for editing on this device. Nothing live changes, unless
+   * nothing is live: then the date goes live.
+   */
   editRunSheet(date: IsoDate): Promise<void> {
     return this.mutate(async () => {
-      this.chosenDate_ = date;
+      if (this.isLive) this.chosenDate_ = date;
+      else await this.makeLive(await this.store.ensureRunSheet(this.workspace_.id, date));
     });
   }
 
@@ -407,34 +420,38 @@ export class Session {
     return this.store.ensureRunSheet(this.workspace_.id, date);
   }
 
-  private async editableItem(itemId: string): Promise<void> {
+  private async editableItem(itemId: string): Promise<RunSheet> {
     const editable = [this.openDate, this.liveDate].filter((date): date is IsoDate => !!date);
     for (const date of editable) {
       const sheet = await this.store.getRunSheetByDate(this.workspace_.id, date);
       if (sheet && (await this.store.listItems(sheet.id)).some((item) => item.id === itemId))
-        return;
+        return sheet;
     }
     throw new ReadOnlyDateError(this.openDate);
   }
 
-  /** Adds a song to the end of a date's run sheet. Edits never change what is on screen. */
+  /**
+   * Adds a song to the end of a date's run sheet. Edits never change what is on screen; with
+   * nothing live, an edit makes its run sheet the live one.
+   */
   addSong(date: IsoDate, songId: string): Promise<RunSheetItem> {
     return this.mutate(async () => {
       const sheet = await this.editable(date);
+      await this.liveWhenEdited(sheet);
       return this.store.addItem(sheet.id, songId);
     });
   }
 
   moveItem(itemId: string, toIndex: number): Promise<void> {
     return this.mutate(async () => {
-      await this.editableItem(itemId);
+      await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.moveItem(itemId, toIndex);
     });
   }
 
   removeItem(itemId: string): Promise<void> {
     return this.mutate(async () => {
-      await this.editableItem(itemId);
+      await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.removeItem(itemId);
     });
   }
@@ -453,6 +470,7 @@ export class Session {
       const target = await this.store.ensureRunSheet(this.workspace_.id, this.openDate);
       const occupied = (await this.store.listItems(target.id)).length > 0;
       if (occupied && !mode) return { status: 'choose' };
+      await this.liveWhenEdited(target);
       const copies = await this.store.copyItems(source.id, target.id, mode ?? 'append');
       return { status: 'copied', count: copies.length };
     });

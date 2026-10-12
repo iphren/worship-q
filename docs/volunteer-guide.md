@@ -26,8 +26,9 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    slideshow**. Worship Q remembers it for next week. To move the slideshow to another
    screen, pick that screen, then close the slideshow and open it again. Or choose
    **Windowed**, drag the slideshow to the screen you want and choose **Full screen**.
-3. If nothing is live yet, choose **Go live**. If today already has a run sheet, the app
-   goes live with it when it opens.
+3. The app opens on **Present**, already live: with today's run sheet if it has songs,
+   otherwise with the next meeting day. To present another date, choose **Go live** on it
+   in the calendar.
 4. Click any slide to show it. ↓ and ↑ step through the slides of the current song, and →
    and ← move to the next or previous song. Backspace hides the lyrics and keeps the
    background; ↓ or ↑ then shows the same slide again. The same keys work
