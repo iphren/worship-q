@@ -1,63 +1,20 @@
 import { NewerDatabaseError } from '@worship-q/store';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { boot, type Booted } from './app/boot';
 import { AppContext, useApp, useSession, type AppServices, type Page } from './app/context';
+import { Icon, type IconName } from './components/Icon';
 import { t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SongsPage } from './pages/SongsPage';
 
-const PAGES: { page: Page; label: MessageKey; icon: ReactNode }[] = [
-  {
-    page: 'songs',
-    label: 'nav.songs',
-    icon: (
-      <>
-        <path d="M9 18V5l12-2v13" />
-        <circle cx="6" cy="18" r="3" />
-        <circle cx="18" cy="16" r="3" />
-      </>
-    ),
-  },
-  {
-    page: 'calendar',
-    label: 'nav.calendar',
-    icon: (
-      <>
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <path d="M16 2v4M8 2v4M3 10h18" />
-      </>
-    ),
-  },
-  {
-    page: 'present',
-    label: 'nav.present',
-    icon: (
-      <>
-        <rect x="2" y="3" width="20" height="14" rx="2" />
-        <path d="M8 21h8M12 17v4" />
-      </>
-    ),
-  },
-  {
-    page: 'settings',
-    label: 'nav.settings',
-    icon: (
-      <>
-        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-        <circle cx="12" cy="12" r="3" />
-      </>
-    ),
-  },
+const PAGES: { page: Page; label: MessageKey; icon: IconName }[] = [
+  { page: 'songs', label: 'nav.songs', icon: 'songs' },
+  { page: 'calendar', label: 'nav.calendar', icon: 'calendar' },
+  { page: 'present', label: 'nav.present', icon: 'screen' },
+  { page: 'settings', label: 'nav.settings', icon: 'settings' },
 ];
-
-const LIVE_ICON = (
-  <>
-    <circle cx="12" cy="12" r="2" />
-    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14" />
-  </>
-);
 
 // Started once per window, also when React mounts the app twice in development.
 let booting: Promise<Booted> | undefined;
@@ -136,7 +93,7 @@ function Sidebar({ page }: { page: Page }) {
             page === entry.page ? 'bg-sky-700 text-white' : 'text-slate-300 hover:bg-slate-800'
           }`}
         >
-          {entry.icon}
+          <Icon name={entry.icon} />
         </NavButton>
       ))}
       <span className="flex-1" />
@@ -146,7 +103,7 @@ function Sidebar({ page }: { page: Page }) {
           label={t('nav.live')}
           className="rounded-md bg-emerald-700 p-2 hover:bg-emerald-600"
         >
-          {LIVE_ICON}
+          <Icon name="live" />
         </NavButton>
       )}
     </nav>
@@ -158,7 +115,7 @@ function NavButton(props: {
   label: string;
   current?: boolean;
   className: string;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
   const { navigate } = useApp();
   return (
@@ -173,18 +130,7 @@ function NavButton(props: {
         navigate(props.target);
       }}
     >
-      <svg
-        className="h-5 w-5"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        {props.children}
-      </svg>
+      {props.children}
     </button>
   );
 }

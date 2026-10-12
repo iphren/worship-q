@@ -3,6 +3,7 @@ import type { Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
+import { Icon } from '../components/Icon';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
@@ -12,6 +13,9 @@ import { presentAction, runPresentAction } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
+
+/** Remembers on this device whether the slideshow column is collapsed to icons. */
+const COLLAPSED_KEY = 'worship-q.present.slideshowCollapsed';
 
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
@@ -69,6 +73,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [, setDismissed] = useState(0);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
   const activeRef = useRef<HTMLButtonElement>(null);
 
   const previous = session.presentingPreviousContent;
@@ -92,6 +97,11 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
+
+  function collapse(value: boolean) {
+    localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0');
+    setCollapsed(value);
+  }
 
   async function end() {
     setConfirmEnd(false);
@@ -192,36 +202,90 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           ))}
         </main>
 
-        <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-auto">
-          <section className="panel space-y-2 p-3">
-            <h2 className="label flex items-center justify-between">
-              {t('present.preview')}
-              {live.blank && <span className="text-amber-400">{t('present.blanked')}</span>}
-            </h2>
-            <SlidePreview />
-            <div className="grid grid-cols-2 gap-2">
-              <button className="btn" onClick={() => void session.previous()}>
-                ← {t('present.previous')}
-              </button>
-              <button className="btn btn-primary" onClick={() => void session.next()}>
-                {t('present.next')} →
-              </button>
-              <button
-                className={`btn col-span-2 ${live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : ''}`}
-                onClick={() => void session.setBlank(!live.blank)}
-              >
-                {live.blank ? t('present.unblank') : t('present.blank')}
-              </button>
+        {collapsed ? (
+          <aside className="flex w-11 shrink-0 flex-col gap-2">
+            <button
+              className="btn btn-ghost px-0 py-2"
+              title={t('present.expandPanel')}
+              aria-label={t('present.expandPanel')}
+              onClick={() => collapse(false)}
+            >
+              <Icon name="expand" />
+            </button>
+            <button
+              className="btn px-0 py-2"
+              title={t('present.previous')}
+              aria-label={t('present.previous')}
+              onClick={() => void session.previous()}
+            >
+              <Icon name="previous" />
+            </button>
+            <button
+              className="btn btn-primary px-0 py-2"
+              title={t('present.next')}
+              aria-label={t('present.next')}
+              onClick={() => void session.next()}
+            >
+              <Icon name="next" />
+            </button>
+            <button
+              className={`btn px-0 py-2 ${live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : ''}`}
+              title={live.blank ? t('present.unblank') : t('present.blank')}
+              aria-label={live.blank ? t('present.unblank') : t('present.blank')}
+              onClick={() => void session.setBlank(!live.blank)}
+            >
+              <Icon name="blank" />
+            </button>
+            <OutputPanel compact />
+            <button
+              className="btn btn-danger mt-auto px-0 py-2"
+              title={t('present.end')}
+              aria-label={t('present.end')}
+              onClick={() => setConfirmEnd(true)}
+            >
+              <Icon name="stop" />
+            </button>
+          </aside>
+        ) : (
+          <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-auto">
+            <section className="panel space-y-2 p-3">
+              <h2 className="label flex items-center gap-2">
+                <span className="flex-1">{t('present.preview')}</span>
+                {live.blank && <span className="text-amber-400">{t('present.blanked')}</span>}
+                <button
+                  className="btn btn-ghost btn-sm px-1"
+                  title={t('present.collapsePanel')}
+                  aria-label={t('present.collapsePanel')}
+                  onClick={() => collapse(true)}
+                >
+                  <Icon name="collapse" className="h-4 w-4" />
+                </button>
+              </h2>
+              <SlidePreview />
+              <div className="grid grid-cols-2 gap-2">
+                <button className="btn" onClick={() => void session.previous()}>
+                  ← {t('present.previous')}
+                </button>
+                <button className="btn btn-primary" onClick={() => void session.next()}>
+                  {t('present.next')} →
+                </button>
+                <button
+                  className={`btn col-span-2 ${live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : ''}`}
+                  onClick={() => void session.setBlank(!live.blank)}
+                >
+                  {live.blank ? t('present.unblank') : t('present.blank')}
+                </button>
+              </div>
+              <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
+            </section>
+            <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
+              {props.outputPanel}
             </div>
-            <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
-          </section>
-          <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
-            {props.outputPanel}
-          </div>
-          <button className="btn btn-danger mt-auto" onClick={() => setConfirmEnd(true)}>
-            {t('present.end')}
-          </button>
-        </aside>
+            <button className="btn btn-danger mt-auto" onClick={() => setConfirmEnd(true)}>
+              {t('present.end')}
+            </button>
+          </aside>
+        )}
       </div>
 
       {editingSong && (

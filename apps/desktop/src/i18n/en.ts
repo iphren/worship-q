@@ -96,6 +96,8 @@ export const en = {
   'present.shortcuts': '↑ ↓ slide · ← → song · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
   'present.blanked': 'Blank',
+  'present.collapsePanel': 'Collapse to icons',
+  'present.expandPanel': 'Expand slideshow panel',
 
   'output.title': 'Slideshow screen',
   'output.unset': 'Choose a screen, then open the slideshow.',

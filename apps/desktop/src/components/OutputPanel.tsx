@@ -1,9 +1,10 @@
 import type { MonitorIdentity } from '@worship-q/protocol';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../app/context';
 import type { OutputStatus } from '../app/output';
 import { t } from '../i18n';
 import { monitorLabel, sameMonitor } from '../lib/monitors';
+import { Icon, type IconName } from './Icon';
 
 export function useOutputStatus(): OutputStatus {
   const { output } = useApp();
@@ -36,8 +37,10 @@ export function outputNeedsAttention(status: OutputStatus): boolean {
 /**
  * Shows where the slideshow is and lets the operator pick its screen. Picking a screen does
  * nothing by itself: the slideshow opens on the picked screen the next time it is opened.
+ *
+ * When compact it is a column of icon buttons, with the screens in a menu that opens beside it.
  */
-export function OutputPanel() {
+export function OutputPanel(props: { compact?: boolean }) {
   const { output } = useApp();
   const status = useOutputStatus();
   const { decision, monitors, labels, operator, selected, windowed } = status;
@@ -47,8 +50,8 @@ export function OutputPanel() {
   const others = monitors.filter((monitor) => !isOperator(monitor));
   const warn = outputNeedsAttention(status);
 
-  return (
-    <div className="space-y-2 text-sm">
+  const screens = (
+    <>
       <p className={warn ? 'text-amber-300' : 'text-slate-300'}>{statusText(status)}</p>
       {status.error && (
         <p className="text-rose-300">{t('output.failed', { error: status.error })}</p>
@@ -98,28 +101,95 @@ export function OutputPanel() {
           {t('output.moveHint', { name: monitorLabel(selected, labels) })}
         </p>
       )}
-      {current === null && !windowed ? (
-        <button
-          className="btn btn-primary btn-sm"
-          disabled={selected === null}
-          onClick={() => void output.open()}
-        >
-          {t('output.openAction')}
-        </button>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {windowed ? (
-            <button className="btn btn-primary btn-sm" onClick={() => void output.makeFullScreen()}>
-              {t('output.fullScreenAction')}
-            </button>
-          ) : (
-            <button className="btn btn-sm" onClick={() => void output.makeWindowed()}>
-              {t('output.windowedAction')}
-            </button>
-          )}
-          <button className="btn btn-sm" onClick={() => void output.close()}>
-            {t('output.closeAction')}
-          </button>
+    </>
+  );
+
+  const action = (
+    icon: IconName,
+    label: string,
+    run: () => Promise<unknown>,
+    options: { primary?: boolean; disabled?: boolean } = {},
+  ) => (
+    <button
+      className={`btn ${options.primary ? 'btn-primary' : ''} ${props.compact ? 'px-0 py-2' : 'btn-sm'}`}
+      disabled={options.disabled}
+      title={props.compact ? label : undefined}
+      aria-label={props.compact ? label : undefined}
+      onClick={() => void run()}
+    >
+      {props.compact ? <Icon name={icon} /> : label}
+    </button>
+  );
+  const actions =
+    current === null && !windowed ? (
+      action('open', t('output.openAction'), () => output.open(), {
+        primary: true,
+        disabled: selected === null,
+      })
+    ) : (
+      <>
+        {windowed
+          ? action('fullScreen', t('output.fullScreenAction'), () => output.makeFullScreen(), {
+              primary: true,
+            })
+          : action('windowed', t('output.windowedAction'), () => output.makeWindowed())}
+        {action('close', t('output.closeAction'), () => output.close())}
+      </>
+    );
+
+  if (props.compact) {
+    return (
+      <>
+        <ScreenMenu warn={warn}>{screens}</ScreenMenu>
+        {actions}
+      </>
+    );
+  }
+  return (
+    <div className="space-y-2 text-sm">
+      {screens}
+      <div className="flex flex-wrap gap-2">{actions}</div>
+    </div>
+  );
+}
+
+/** The screens behind one icon; the menu opens to the left, over the page. */
+function ScreenMenu(props: { warn: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const holder = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!holder.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={holder} className="relative flex flex-col">
+      <button
+        className={`btn px-0 py-2 ${open ? 'bg-slate-600' : ''} ${props.warn ? 'ring-2 ring-amber-400' : ''}`}
+        title={t('output.title')}
+        aria-label={t('output.title')}
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        <Icon name="screen" />
+      </button>
+      {open && (
+        <div className="panel absolute top-0 right-full z-20 mr-2 w-72 space-y-2 bg-slate-800 p-3 text-sm shadow-xl">
+          <h2 className="label">{t('output.title')}</h2>
+          {props.children}
         </div>
       )}
     </div>
