@@ -198,7 +198,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           ? live.blank
                             ? 'border-amber-400 bg-amber-900/30'
                             : 'border-emerald-500 bg-emerald-900/40'
-                          : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                          : // Alternate styles by block so slides from one block read as a group.
+                            piece.blockIndex % 2 === 0
+                            ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                            : 'border-sky-900 bg-sky-950/70 hover:border-sky-700'
                       } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
                     >
                       {keyLabel && (
