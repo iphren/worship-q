@@ -73,10 +73,21 @@ textarea {
   .notice {
     @apply flex items-center gap-3 rounded-md border px-3 py-2 text-sm;
   }
+  /* Briefly marks the item a run sheet click scrolled to. */
+  .item-flash {
+    animation: item-flash 900ms ease-out;
+  }
 }
 
 @keyframes drawer-in {
   from {
     transform: translateX(100%);
+  }
+}
+
+@keyframes item-flash {
+  from {
+    background-color: rgb(14 165 233 / 0.25);
+    box-shadow: inset 0 0 0 2px rgb(56 189 248 / 0.8);
   }
 }

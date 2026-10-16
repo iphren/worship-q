@@ -14,7 +14,13 @@ function reorder<T>(list: readonly T[], from: number, to: number): T[] {
 }
 
 /** The songs planned for a date. Editable only when the session has the date open. */
-export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | null }) {
+export function RunSheetEditor(props: {
+  date: IsoDate;
+  activeItemId?: string | null;
+  /** Makes the rows clickable; the grip and the row's buttons keep their own actions. */
+  onSelectItem?: (itemId: string) => void;
+}) {
+  const { onSelectItem } = props;
   const session = useSession();
   const { date } = props;
   const editable = session.canEdit(date);
@@ -113,11 +119,20 @@ export function RunSheetEditor(props: { date: IsoDate; activeItemId?: string | n
                 : entry.item.id === props.activeItemId
                   ? 'bg-sky-900/60'
                   : 'bg-slate-900/60'
-            } ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''}`}
+            } ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''} ${
+              onSelectItem && !drag
+                ? 'cursor-pointer transition hover:bg-slate-700/70 active:scale-[0.98] active:bg-sky-800/70'
+                : ''
+            }`}
             style={drag ? { transform: `translateY(${offset(index)}px)` } : undefined}
+            onClick={(event) => {
+              if ((event.target as Element).closest('button, [data-grip]')) return;
+              onSelectItem?.(entry.item.id);
+            }}
           >
             {editable && (
               <span
+                data-grip
                 className={`-mx-1 shrink-0 touch-none rounded px-0.5 py-1 text-slate-500 select-none hover:text-slate-200 ${
                   drag ? 'cursor-grabbing' : 'cursor-grab'
                 }`}

@@ -79,6 +79,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const shownItemRef = useRef<string | null>(null);
   // Set when a click on a slide moves to another item, so the column stays where it was.
   const clickedItemRef = useRef(false);
+  // The item a run sheet click scrolled to; the count restarts the flash on a repeat click.
+  const [flash, setFlash] = useState<{ itemId: string; count: number } | null>(null);
 
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
@@ -110,18 +112,30 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
 
     // Moving to another item by keyboard or the controls brings its title to the top, as
     // long as the presented slide stays in view.
-    const slides = slidesRef.current;
     const section = active.closest('section');
-    if (itemChanged && !clicked && slides && section) {
-      const sectionTop = section.getBoundingClientRect().top;
-      if (active.getBoundingClientRect().bottom - sectionTop <= slides.clientHeight) {
-        const offset = sectionTop - slides.getBoundingClientRect().top;
-        slides.scrollTo({ top: slides.scrollTop + offset, behavior: 'smooth' });
-        return;
-      }
-    }
+    if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
+
+  /** Scrolls the slides column so `section` starts at the top, unless `keep` would leave view. */
+  function scrollToTop(section: Element, keep?: Element): boolean {
+    const slides = slidesRef.current;
+    if (!slides) return false;
+    const sectionTop = section.getBoundingClientRect().top;
+    if (keep && keep.getBoundingClientRect().bottom - sectionTop > slides.clientHeight) {
+      return false;
+    }
+    const offset = sectionTop - slides.getBoundingClientRect().top;
+    slides.scrollTo({ top: slides.scrollTop + offset, behavior: 'smooth' });
+    return true;
+  }
+
+  function showItem(itemId: string) {
+    const section = slidesRef.current?.querySelector(`section[data-item-id="${itemId}"]`);
+    if (!section) return;
+    scrollToTop(section);
+    setFlash((last) => ({ itemId, count: (last?.count ?? 0) + 1 }));
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -176,7 +190,11 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-72 shrink-0 flex-col p-3">
           <h2 className="label">{t('runSheet.title', { date: formatDate(liveDate) })}</h2>
-          <RunSheetEditor date={liveDate} activeItemId={presented?.itemId ?? null} />
+          <RunSheetEditor
+            date={liveDate}
+            activeItemId={presented?.itemId ?? null}
+            onSelectItem={showItem}
+          />
         </aside>
 
         <main ref={slidesRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
@@ -184,7 +202,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
           )}
           {entries.map((entry, index) => (
-            <section key={entry.item.id}>
+            <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
               <header className="mb-1.5 flex items-center gap-2">
                 <h3 className="min-w-0 truncate text-sm font-semibold">
                   <span className="mr-2 text-slate-500">{index + 1}</span>
@@ -244,6 +262,14 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   );
                 })}
               </div>
+              {/* Last, so it paints over the slides. */}
+              {flash?.itemId === entry.item.id && (
+                <div
+                  key={flash.count}
+                  className="item-flash pointer-events-none absolute inset-0 rounded-md"
+                  onAnimationEnd={() => setFlash(null)}
+                />
+              )}
             </section>
           ))}
         </main>
