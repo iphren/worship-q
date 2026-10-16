@@ -43,7 +43,7 @@ export function SongsPage() {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="flex w-72 shrink-0 flex-col gap-2 border-r border-slate-700 p-3">
+      <aside className="flex w-52 shrink-0 flex-col gap-2 border-r border-slate-700 p-3">
         <button className="btn btn-primary" onClick={() => select(null)}>
           + {t('songs.new')}
         </button>

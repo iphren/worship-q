@@ -19,7 +19,7 @@ const draftOf = (song: Song | null): SongDraft => ({
 });
 
 /**
- * Song editor with a side preview of the generated slides. Used for the library and for
+ * Song editor with a tabbed preview of the generated slides. Used for the library and for
  * fixing lyrics during a presentation. Give it a `key` so it resets when the song changes.
  */
 export function SongForm(props: {
@@ -34,6 +34,7 @@ export function SongForm(props: {
   const { song, onDirtyChange } = props;
   const [draft, setDraft] = useState(() => draftOf(song));
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<'lyrics' | 'preview'>('lyrics');
   const settings = useQuery(() => session.store.getPresentationSettings(session.workspace.id), []);
   const linesPerPiece = settings?.linesPerPiece ?? 2;
 
@@ -112,11 +113,35 @@ export function SongForm(props: {
           </label>
         </div>
       )}
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
-        <label className="flex min-h-0 flex-col">
-          <span className="label">{t('songs.lyrics')}</span>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div role="tablist" className="mb-2 flex gap-1 border-b border-slate-700">
+          {(['lyrics', 'preview'] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                tab === key
+                  ? 'border-sky-500 text-slate-100'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+              onClick={() => setTab(key)}
+            >
+              {key === 'lyrics'
+                ? t('songs.lyrics')
+                : `${t('songs.preview')} · ${t('songs.pieceCount', { count: pieces.length })}`}
+            </button>
+          ))}
+        </div>
+        {/* Both panes stay mounted so the cursor and scroll position survive a tab switch. */}
+        <div
+          role="tabpanel"
+          className={`min-h-0 flex-1 flex-col ${tab === 'lyrics' ? 'flex' : 'hidden'}`}
+        >
           <textarea
-            className="field min-h-64 flex-1 resize-none leading-relaxed"
+            className="field min-h-40 flex-1 resize-none leading-relaxed"
+            aria-label={t('songs.lyrics')}
             value={draft.lyrics}
             onChange={(e) => set({ lyrics: e.target.value })}
             spellCheck={false}
@@ -125,30 +150,30 @@ export function SongForm(props: {
           <span className="mt-1 text-xs text-slate-500">
             {t('songs.lyricsHint', { count: linesPerPiece })}
           </span>
-        </label>
-        <div className="flex min-h-0 flex-col">
-          <span className="label">
-            {t('songs.preview')} · {t('songs.pieceCount', { count: pieces.length })}
-          </span>
-          <div className="min-h-0 flex-1 space-y-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2">
-            {pieces.length === 0 && (
-              <p className="p-2 text-sm text-slate-500">{t('songs.previewEmpty')}</p>
-            )}
-            {pieces.map((piece, index) => (
-              <div
-                key={piece.id}
-                className={`rounded-md bg-slate-800 px-3 py-2 text-center text-sm ${
-                  piece.indexInBlock === 0 && index > 0 ? 'mt-4' : ''
-                }`}
-              >
-                {piece.lines.map((line) => (
-                  <div key={line.id} className="whitespace-pre-wrap">
-                    {line.text}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
+        </div>
+        <div
+          role="tabpanel"
+          className={`min-h-0 flex-1 space-y-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2 ${
+            tab === 'preview' ? '' : 'hidden'
+          }`}
+        >
+          {pieces.length === 0 && (
+            <p className="p-2 text-sm text-slate-500">{t('songs.previewEmpty')}</p>
+          )}
+          {pieces.map((piece, index) => (
+            <div
+              key={piece.id}
+              className={`rounded-md bg-slate-800 px-3 py-2 text-center text-sm ${
+                piece.indexInBlock === 0 && index > 0 ? 'mt-4' : ''
+              }`}
+            >
+              {piece.lines.map((line) => (
+                <div key={line.id} className="whitespace-pre-wrap">
+                  {line.text}
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">
