@@ -9,6 +9,8 @@ export type PresentAction =
   /** The next or previous slide of the whole run sheet, as presenter remotes expect. */
   | 'next'
   | 'previous'
+  /** Shows the lyrics again while blank, otherwise the same as `next`. */
+  | 'unblank-or-next'
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
   | 'toggle-blank'
@@ -40,8 +42,9 @@ export function presentAction(event: KeyPress): PresentAction | null {
     case 'ArrowLeft':
       return 'item-previous';
     case 'PageDown':
-    case ' ':
       return 'next';
+    case ' ':
+      return 'unblank-or-next';
     case 'PageUp':
       return 'previous';
     case 'Backspace':
@@ -80,6 +83,8 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.next();
     case 'previous':
       return void session.previous();
+    case 'unblank-or-next':
+      return void (session.live?.blank ? session.setBlank(false) : session.next());
     case 'hide-lyrics':
       return void session.setBlank(true);
     case 'toggle-blank':

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { presentAction, slideKeyLabel } from './shortcuts';
+import { presentAction, runPresentAction, slideKeyLabel, type PresentControls } from './shortcuts';
 
 const press = (
   key: string,
@@ -21,6 +21,12 @@ describe('presentAction', () => {
     expect(press('Backspace')).toBe('hide-lyrics');
   });
 
+  it('moves through the whole run sheet with page down and up, and space', () => {
+    expect(press('PageDown')).toBe('next');
+    expect(press('PageUp')).toBe('previous');
+    expect(press(' ')).toBe('unblank-or-next');
+  });
+
   it('jumps to a slide of the item with the number row, then the letter rows', () => {
     expect(press('1')).toEqual({ slide: 0 });
     expect(press('0')).toEqual({ slide: 9 });
@@ -39,6 +45,35 @@ describe('presentAction', () => {
     expect(press('Enter')).toBeNull();
     expect(press('1', { ctrlKey: true })).toBeNull();
     expect(press('ArrowDown', { metaKey: true })).toBeNull();
+  });
+});
+
+describe('runPresentAction', () => {
+  const controls = (blank: boolean) => {
+    const calls: string[] = [];
+    const record = (name: string) => async () => void calls.push(name);
+    const session: PresentControls = {
+      live: { blank },
+      stepInItem: record('stepInItem'),
+      stepItem: record('stepItem'),
+      next: record('next'),
+      previous: record('previous'),
+      setBlank: async (value) => void calls.push(`setBlank(${value})`),
+      playSlide: record('playSlide'),
+    };
+    return { session, calls };
+  };
+
+  it('shows the lyrics again with space while blank, without moving', () => {
+    const { session, calls } = controls(true);
+    runPresentAction(session, 'unblank-or-next');
+    expect(calls).toEqual(['setBlank(false)']);
+  });
+
+  it('moves to the next slide with space otherwise', () => {
+    const { session, calls } = controls(false);
+    runPresentAction(session, 'unblank-or-next');
+    expect(calls).toEqual(['next']);
   });
 });
 

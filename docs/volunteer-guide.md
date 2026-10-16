@@ -31,7 +31,7 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    in the calendar.
 4. Click any slide to show it. ↓ and ↑ step through the slides of the current song, and →
    and ← move to the next or previous song. Backspace hides the lyrics and keeps the
-   background; ↓ or ↑ then shows the same slide again. The same keys work
+   background; ↓, ↑ or Space then shows the same slide again. The same keys work
    when the slideshow window is the one in front.
 
 ## 4. Fix a lyric during the service
