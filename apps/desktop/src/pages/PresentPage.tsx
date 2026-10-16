@@ -75,6 +75,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const [, setDismissed] = useState(0);
   const [open, setOpen] = useState(drawerOpen);
   const activeRef = useRef<HTMLButtonElement>(null);
+  const slidesRef = useRef<HTMLElement>(null);
+  const shownItemRef = useRef<string | null>(null);
+  // Set when a click on a slide moves to another item, so the column stays where it was.
+  const clickedItemRef = useRef(false);
 
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
@@ -97,7 +101,26 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   }, [session]);
 
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const active = activeRef.current;
+    const itemChanged = (presented?.itemId ?? null) !== shownItemRef.current;
+    const clicked = clickedItemRef.current;
+    shownItemRef.current = presented?.itemId ?? null;
+    clickedItemRef.current = false;
+    if (!active) return;
+
+    // Moving to another item by keyboard or the controls brings its title to the top, as
+    // long as the presented slide stays in view.
+    const slides = slidesRef.current;
+    const section = active.closest('section');
+    if (itemChanged && !clicked && slides && section) {
+      const sectionTop = section.getBoundingClientRect().top;
+      if (active.getBoundingClientRect().bottom - sectionTop <= slides.clientHeight) {
+        const offset = sectionTop - slides.getBoundingClientRect().top;
+        slides.scrollTo({ top: slides.scrollTop + offset, behavior: 'smooth' });
+        return;
+      }
+    }
+    active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
 
   useEffect(() => {
@@ -156,7 +179,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           <RunSheetEditor date={liveDate} activeItemId={presented?.itemId ?? null} />
         </aside>
 
-        <main className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
+        <main ref={slidesRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
           {view && entries.length === 0 && (
             <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
           )}
@@ -192,7 +215,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     <button
                       key={piece.id}
                       ref={active ? activeRef : undefined}
-                      onClick={() => void session.play(entry.item.id, piece.id)}
+                      onClick={() => {
+                        if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
+                        void session.play(entry.item.id, piece.id);
+                      }}
                       className={`relative min-h-16 rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
                         active
                           ? live.blank
