@@ -31,6 +31,8 @@ export const en = {
   'songs.copyright': 'Copyright note (optional)',
   'songs.ccli': 'CCLI number',
   'songs.ccliInvalid': 'Digits only',
+  'songs.ccliValue': 'CCLI {ccli}',
+  'songs.noLyrics': 'No lyrics yet.',
   'songs.year': 'Year',
   'songs.yearInvalid': 'A year up to {max}',
   'songs.lyrics': 'Lyrics',

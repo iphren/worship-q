@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
+import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
 
 /** The song being edited; `key` changes only when the operator picks another song. */
@@ -66,14 +67,16 @@ export function SongsPage() {
           )}
           {songs?.map((song) => (
             <li key={song.id}>
-              <button
-                className={`w-full truncate rounded-md px-2 py-1.5 text-left text-sm ${
-                  song.id === editing?.song?.id ? 'bg-sky-900/60' : 'hover:bg-slate-700'
-                }`}
-                onClick={() => select(song)}
-              >
-                {song.title || t('songs.untitled')}
-              </button>
+              <SongPeek song={song}>
+                <button
+                  className={`w-full truncate rounded-md px-2 py-1.5 text-left text-sm ${
+                    song.id === editing?.song?.id ? 'bg-sky-900/60' : 'hover:bg-slate-700'
+                  }`}
+                  onClick={() => select(song)}
+                >
+                  {song.title || t('songs.untitled')}
+                </button>
+              </SongPeek>
             </li>
           ))}
         </ul>

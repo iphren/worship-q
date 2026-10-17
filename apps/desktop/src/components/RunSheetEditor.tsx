@@ -4,6 +4,7 @@ import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
+import { SongPeek } from './SongPeek';
 
 type Drag = { id: string; from: number; to: number; dy: number; step: number };
 
@@ -201,13 +202,15 @@ export function RunSheetEditor(props: {
             )}
             {songs?.map((song) => (
               <li key={song.id}>
-                <button
-                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-slate-700"
-                  onClick={() => void session.addSong(date, song.id)}
-                >
-                  <span className="truncate">{song.title || t('songs.untitled')}</span>
-                  <span className="shrink-0 text-xs text-sky-400">+ {t('runSheet.add')}</span>
-                </button>
+                <SongPeek song={song}>
+                  <button
+                    className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-slate-700"
+                    onClick={() => void session.addSong(date, song.id)}
+                  >
+                    <span className="truncate">{song.title || t('songs.untitled')}</span>
+                    <span className="shrink-0 text-xs text-sky-400">+ {t('runSheet.add')}</span>
+                  </button>
+                </SongPeek>
               </li>
             ))}
           </ul>
