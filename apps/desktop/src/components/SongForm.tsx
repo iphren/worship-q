@@ -1,5 +1,5 @@
 import { assignLineIds, buildPieces } from '@worship-q/lyrics';
-import type { Song } from '@worship-q/protocol';
+import { cleanSongFields, invalidSongFields, maxSongYear, type Song } from '@worship-q/protocol';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
@@ -8,6 +8,8 @@ export interface SongDraft {
   title: string;
   author: string;
   copyright: string;
+  ccli: string;
+  year: string;
   lyrics: string;
 }
 
@@ -15,8 +17,19 @@ const draftOf = (song: Song | null): SongDraft => ({
   title: song?.title ?? '',
   author: song?.author ?? '',
   copyright: song?.copyright ?? '',
+  ccli: song?.ccli ?? '',
+  year: song?.year?.toString() ?? '',
   lyrics: song?.lyrics ?? '',
 });
+
+/** The fields to save, tidied; a year that is not a whole number becomes NaN and is rejected. */
+function fieldsOf(draft: SongDraft) {
+  const year = draft.year.trim();
+  return cleanSongFields({
+    ...draft,
+    year: year === '' ? null : /^-?\d+$/.test(year) ? Number(year) : NaN,
+  });
+}
 
 /**
  * Song editor with a tabbed preview of the generated slides. Used for the library and for
@@ -50,7 +63,12 @@ export function SongForm(props: {
     return buildPieces(draft.lyrics, ids, linesPerPiece);
   }, [draft.lyrics, linesPerPiece]);
 
-  const canSave = dirty && !saving && (draft.title.trim() !== '' || draft.lyrics.trim() !== '');
+  const invalid = invalidSongFields(fieldsOf(draft), new Date());
+  const canSave =
+    dirty &&
+    !saving &&
+    invalid.length === 0 &&
+    (draft.title.trim() !== '' || draft.lyrics.trim() !== '');
   const set = (patch: Partial<SongDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
   async function save() {
@@ -58,8 +76,9 @@ export function SongForm(props: {
     setSaving(true);
     try {
       // An untitled song takes its first lyric line as its title.
-      const title = draft.title.trim() || pieces[0]?.lines[0]?.text.trim() || t('songs.untitled');
-      const fields = { ...draft, title };
+      const cleaned = fieldsOf(draft);
+      const title = cleaned.title || pieces[0]?.lines[0]?.text.trim() || t('songs.untitled');
+      const fields = { ...cleaned, title };
       const result = song
         ? await session.saveSong(song.id, fields)
         : await session.createSong(fields);
@@ -85,8 +104,8 @@ export function SongForm(props: {
       }}
     >
       {!props.lyricsOnly && (
-        <div className="grid grid-cols-3 gap-3">
-          <label>
+        <div className="grid grid-cols-8 gap-3">
+          <label className="col-span-2">
             <span className="label">{t('songs.title')}</span>
             <input
               className="field"
@@ -95,21 +114,50 @@ export function SongForm(props: {
               autoFocus={!song}
             />
           </label>
-          <label>
+          <label className="col-span-2">
             <span className="label">{t('songs.author')}</span>
             <input
               className="field"
               value={draft.author}
+              placeholder={t('songs.authorHint')}
               onChange={(e) => set({ author: e.target.value })}
             />
           </label>
-          <label>
+          <label className="col-span-2">
             <span className="label">{t('songs.copyright')}</span>
             <input
               className="field"
               value={draft.copyright}
               onChange={(e) => set({ copyright: e.target.value })}
             />
+          </label>
+          <label>
+            <span className="label">{t('songs.ccli')}</span>
+            <input
+              className="field"
+              inputMode="numeric"
+              value={draft.ccli}
+              aria-invalid={invalid.includes('ccli')}
+              onChange={(e) => set({ ccli: e.target.value })}
+            />
+            {invalid.includes('ccli') && (
+              <span className="mt-1 block text-xs text-rose-300">{t('songs.ccliInvalid')}</span>
+            )}
+          </label>
+          <label>
+            <span className="label">{t('songs.year')}</span>
+            <input
+              className="field"
+              inputMode="numeric"
+              value={draft.year}
+              aria-invalid={invalid.includes('year')}
+              onChange={(e) => set({ year: e.target.value })}
+            />
+            {invalid.includes('year') && (
+              <span className="mt-1 block text-xs text-rose-300">
+                {t('songs.yearInvalid', { max: maxSongYear(new Date()) })}
+              </span>
+            )}
           </label>
         </div>
       )}

@@ -19,6 +19,7 @@ export async function boot(): Promise<Booted> {
     now: () => new Date().toISOString(),
     newId: () => crypto.randomUUID(),
   });
+  await store.refreshSearchIndex();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const { session, start } = await Session.open(store, { now: () => new Date() }, timezone);
   window.setInterval(() => void session.heartbeat(), HEARTBEAT_MS);

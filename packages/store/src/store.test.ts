@@ -55,6 +55,7 @@ describe('migrations', () => {
       'setting',
       'song',
       'song_revision',
+      'song_search',
       'workspace',
     ]);
   });
@@ -244,16 +245,103 @@ describe('songs', () => {
       expect(await search('  AMAZING  ')).toEqual(['Amazing Grace']);
     });
 
-    it('treats % and _ as ordinary characters', async () => {
+    it('treats punctuation in the search as a space', async () => {
       expect(await search('100%')).toEqual(['100% Faithful']);
       expect(await search('snake_case')).toEqual(['100% Faithful']);
-      expect(await search('%')).toEqual(['100% Faithful']);
-      expect(await search('_')).toEqual(['100% Faithful']);
+      expect(await search('grace,sweet')).toEqual(['Amazing Grace']);
+    });
+
+    it('ignores spaces and punctuation in the song', async () => {
+      expect(await search('奇异恩典何等甘甜')).toEqual(['Amazing Grace']);
+      expect(await search('gracehow')).toEqual(['Amazing Grace']);
     });
 
     it('returns everything for an empty search', async () => {
       expect(await search('   ')).toHaveLength(3);
+      expect(await search(' %, ')).toHaveLength(3);
     });
+
+    it('finds Simplified text from Traditional and the other way round', async () => {
+      expect(await search('偉大')).toEqual(['你真伟大']);
+      expect(await search('讚美救主')).toEqual(['你真伟大']);
+    });
+
+    it('finds by pinyin and by pinyin initials', async () => {
+      expect(await search('weida')).toEqual(['你真伟大']);
+      expect(await search('nzwd')).toEqual(['你真伟大']);
+      expect(await search('zmjz')).toEqual(['你真伟大']);
+      expect(await search('qyed')).toEqual(['Amazing Grace']);
+      expect(await search('hsts')).toEqual(['Amazing Grace']);
+    });
+
+    it('finds a word typed with the wrong character of the same sound', async () => {
+      expect(await search('恩点')).toEqual(['Amazing Grace']);
+    });
+
+    it('ranks the title above the lyrics and the same characters above the same sound', async () => {
+      await store.createSong(workspaceId, { title: '恩典之路', lyrics: '' });
+      await store.createSong(workspaceId, { title: '恩点', lyrics: '' });
+      await store.createSong(workspaceId, { title: '感谢', lyrics: '是你的恩典' });
+      expect(await search('恩典')).toEqual(['恩典之路', '恩点', 'Amazing Grace', '感谢']);
+    });
+
+    it('reads 祢 and 祂 as 你 and 他', async () => {
+      await store.createSong(workspaceId, { title: '祢是我的神', lyrics: '在祂怀中' });
+      expect(await search('你是我的神')).toEqual(['祢是我的神']);
+      expect(await search('在他怀中')).toEqual(['祢是我的神']);
+      expect(await search('nishiwo')).toEqual(['祢是我的神']);
+    });
+
+    it('keeps search keys up to date when a song is edited', async () => {
+      const song = await store.createSong(workspaceId, { title: '旧名', lyrics: '' });
+      await store.updateSong(song.id, { title: '新名' });
+      expect(await search('旧名')).toEqual([]);
+      expect(await search('xinming')).toEqual(['新名']);
+    });
+
+    it('rebuilds missing and outdated search keys', async () => {
+      await driver.batch([{ sql: 'DELETE FROM song_search' }]);
+      expect(await search('weida')).toEqual([]);
+      expect(await store.refreshSearchIndex()).toBe(3);
+      expect(await search('weida')).toEqual(['你真伟大']);
+      await driver.batch([{ sql: 'UPDATE song_search SET version = 0' }]);
+      expect(await store.refreshSearchIndex()).toBe(3);
+      expect(await store.refreshSearchIndex()).toBe(0);
+      expect(await search('3')).toHaveLength(0);
+    });
+  });
+
+  it('keeps the CCLI number and year with each revision', async () => {
+    const song = await store.createSong(workspaceId, {
+      title: 'Thy Word',
+      ccli: '14301',
+      year: 1984,
+    });
+    expect(song).toMatchObject({ ccli: '14301', year: 1984 });
+    const updated = await store.updateSong(song.id, { year: 1983 });
+    expect(updated.revision).toBe(2);
+    expect(await store.getSong(song.id)).toMatchObject({ ccli: '14301', year: 1983 });
+    expect((await store.listSongRevisions(song.id)).map((r) => [r.ccli, r.year])).toEqual([
+      ['14301', 1984],
+      ['14301', 1983],
+    ]);
+  });
+
+  it('records a song without CCLI number or year as having none', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Plain' });
+    expect(await store.getSong(song.id)).toMatchObject({ ccli: null, year: null });
+  });
+
+  it('rejects an invalid CCLI number or year', async () => {
+    await expect(store.createSong(workspaceId, { title: 'Bad', ccli: 'abc' })).rejects.toThrow(
+      /ccli/,
+    );
+    await expect(store.createSong(workspaceId, { title: 'Bad', year: 20155 })).rejects.toThrow(
+      /year/,
+    );
+    const song = await store.createSong(workspaceId, { title: 'Old', year: 2027 });
+    await expect(store.updateSong(song.id, { year: 2028 })).rejects.toThrow(/year/);
+    expect(await store.listSongs(workspaceId)).toHaveLength(1);
   });
 
   it('removes a song from the library but keeps it resolvable', async () => {

@@ -45,12 +45,13 @@ Each has a recommendation so work can start; the milestone that is blocked witho
 | D4 | Lyrics parser edge cases | Leftover lines in a block form a shorter final piece; whitespace-only lines count as blank; several blank lines act as one separator; line endings are normalized; other spacing is kept | M3 |
 | D5 | Fitting and wrapping method | Largest size at which every piece of the song fits the safe area, each source line wrapping at most once; below a minimum size, only the offending piece shrinks further | M7 |
 | D6 | Live-state expiry and "kept too long" threshold | Expire a few hours after the app closes; show the notification once the live run sheet's date is no longer today | M6 |
-| D7 | Song fields beyond lyrics | Title, lyrics, optional author and copyright note | M2 |
+| D7 | Song fields beyond lyrics | Title, lyrics, optional author, copyright note, CCLI number (digits) and year (up to next year). Author is one line combining writers, with roles labelled only when they differ (`词：A`, `曲：B`, `译：C`, or `Words: A; Music: B`), names separated by `, ` | M2 |
 | D8 | App interface languages | Build with translatable text from the start; ship English first | M1 |
 | D9 | Background file types | JPEG and PNG images; MP4 (H.264) video, looped and muted | M8 |
 | D10 | Code signing and automatic updates | Sign on both platforms and ship automatic updates; this needs paid developer accounts | M10 |
 | D11 | Open-source license | Needed before the repository is public, not before coding | M10 |
 | D12 | Where live-state logic lives | A shared TypeScript package run by the app's interface, with the Rust core limited to windows, files, and the database | M6 |
+| D13 | Song search | Every word of the search must match the title or lyrics. Traditional and Simplified match each other, as do 祢/你 and 祂/他; spaces and punctuation are ignored. Chinese text also matches by sound (homophones on purpose), and any search matches by toneless pinyin or pinyin initials (`yhh` → 耶和华). Readings of 多音字 come from our worship-phrase list, then the dictionary's context, then our single-character defaults. Keys are derived per device and rebuilt when the search version changes | M2 |
 
 ## 4. Milestones
 
@@ -103,7 +104,7 @@ A pure package with no interface, used by the editor, operator view, and rendere
 
 ### M4 — Song library (M)
 
-- Song list with search by title and lyrics, including Chinese text.
+- Song list with search by title and lyrics, including Chinese text, pinyin and initials (D13).
 - Create, edit, and remove songs with the fields in D7.
 - Plain-text lyrics editor with a side preview of the generated pieces.
 - Each save creates a song revision.

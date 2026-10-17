@@ -19,7 +19,7 @@ export const en = {
   'common.close': 'Close',
   'common.today': 'Today',
 
-  'songs.search': 'Search title or lyrics',
+  'songs.search': 'Search title or lyrics, in Chinese, pinyin or initials',
   'songs.new': 'New song',
   'songs.empty': 'No songs yet. Choose New song to add your first one.',
   'songs.noMatch': 'No song matches “{search}”.',
@@ -27,7 +27,12 @@ export const en = {
   'songs.select': 'Select a song, or add a new one.',
   'songs.title': 'Title',
   'songs.author': 'Author (optional)',
+  'songs.authorHint': 'Name, or 词：A　曲：B',
   'songs.copyright': 'Copyright note (optional)',
+  'songs.ccli': 'CCLI number',
+  'songs.ccliInvalid': 'Digits only',
+  'songs.year': 'Year',
+  'songs.yearInvalid': 'A year up to {max}',
   'songs.lyrics': 'Lyrics',
   'songs.lyricsHint':
     'One line of lyrics per line. Leave a blank line between sections. Every {count} lines become one slide.',

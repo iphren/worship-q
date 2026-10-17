@@ -1,6 +1,7 @@
 import { assignLineIds } from '@worship-q/lyrics';
 import {
   DEFAULT_PRESENTATION_SETTINGS,
+  invalidSongFields,
   LiveStateSchema,
   OutputProfileSchema,
   OutputTargetSchema,
@@ -18,6 +19,7 @@ import {
   type SongRevision,
   type Workspace,
 } from '@worship-q/protocol';
+import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
 import type { SqlDriver, SqlValue, Statement } from './driver';
 
 export interface StoreEnv {
@@ -31,6 +33,7 @@ type Row = Record<string, SqlValue>;
 
 const text = (value: SqlValue | undefined) => String(value ?? '');
 const optional = (value: SqlValue | undefined) => (value == null ? null : String(value));
+const optionalNumber = (value: SqlValue | undefined) => (value == null ? null : Number(value));
 const json = <T>(value: SqlValue | undefined, fallback: T): T => {
   try {
     return value == null ? fallback : (JSON.parse(String(value)) as T);
@@ -60,6 +63,8 @@ function toSong(row: Row): Song {
     lineIds: json<string[]>(row.line_ids, []),
     author: text(row.author),
     copyright: text(row.copyright),
+    ccli: optional(row.ccli),
+    year: optionalNumber(row.year),
     revision: Number(row.revision),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
@@ -77,6 +82,8 @@ function toSongRevision(row: Row): SongRevision {
     lineIds: json<string[]>(row.line_ids, []),
     author: text(row.author),
     copyright: text(row.copyright),
+    ccli: optional(row.ccli),
+    year: optionalNumber(row.year),
     createdAt: text(row.created_at),
   };
 }
@@ -130,6 +137,21 @@ function toOutputProfile(row: Row): OutputProfile {
     target: target.success ? target.data : null,
     revision: Number(row.revision),
     updatedAt: text(row.updated_at),
+  };
+}
+
+function toSongKeys(row: Row): SongKeys {
+  return {
+    title: {
+      text: text(row.title_text),
+      pinyin: text(row.title_pinyin),
+      initials: text(row.title_initials),
+    },
+    lyrics: {
+      text: text(row.lyrics_text),
+      pinyin: text(row.lyrics_pinyin),
+      initials: text(row.lyrics_initials),
+    },
   };
 }
 
@@ -206,8 +228,8 @@ export class Store {
 
   private revisionInsert(song: Song): Statement {
     return {
-      sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -217,9 +239,36 @@ export class Store {
         JSON.stringify(song.lineIds),
         song.author,
         song.copyright,
+        song.ccli,
+        song.year,
         song.updatedAt,
       ],
     };
+  }
+
+  /** Stores the search keys of a song, replacing earlier ones. */
+  private searchUpsert(song: Pick<Song, 'id' | 'title' | 'lyrics'>): Statement {
+    const keys = songKeys(song);
+    return {
+      sql: `INSERT OR REPLACE INTO song_search (song_id, version, title_text, title_pinyin, title_initials,
+              lyrics_text, lyrics_pinyin, lyrics_initials)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      params: [
+        song.id,
+        SEARCH_VERSION,
+        keys.title.text,
+        keys.title.pinyin,
+        keys.title.initials,
+        keys.lyrics.text,
+        keys.lyrics.pinyin,
+        keys.lyrics.initials,
+      ],
+    };
+  }
+
+  private validate(song: Song): void {
+    const invalid = invalidSongFields(song, new Date(this.env.now()));
+    if (invalid.length > 0) throw new Error(`Invalid song ${invalid.join(' and ')}`);
   }
 
   async createSong(workspaceId: string, fields: Partial<SongFields>): Promise<Song> {
@@ -233,15 +282,18 @@ export class Store {
       lineIds: assignLineIds(null, lyrics, () => this.env.newId()),
       author: fields.author ?? '',
       copyright: fields.copyright ?? '',
+      ccli: fields.ccli ?? null,
+      year: fields.year ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
       removedAt: null,
     };
+    this.validate(song);
     await this.db.batch([
       {
-        sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, revision, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year, revision, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -250,12 +302,15 @@ export class Store {
           JSON.stringify(song.lineIds),
           song.author,
           song.copyright,
+          song.ccli,
+          song.year,
           1,
           now,
           now,
         ],
       },
       this.revisionInsert(song),
+      this.searchUpsert(song),
     ]);
     return song;
   }
@@ -272,15 +327,19 @@ export class Store {
       next.title === current.title &&
       next.lyrics === current.lyrics &&
       next.author === current.author &&
-      next.copyright === current.copyright;
+      next.copyright === current.copyright &&
+      next.ccli === current.ccli &&
+      next.year === current.year;
     if (unchanged) return current;
+    this.validate(next);
 
     next.lineIds = assignLineIds(current, next.lyrics, () => this.env.newId());
     next.revision = current.revision + 1;
     next.updatedAt = this.env.now();
     await this.db.batch([
       {
-        sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, revision = ?, updated_at = ?
+        sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
+                revision = ?, updated_at = ?
               WHERE id = ?`,
         params: [
           next.title,
@@ -288,12 +347,15 @@ export class Store {
           JSON.stringify(next.lineIds),
           next.author,
           next.copyright,
+          next.ccli,
+          next.year,
           next.revision,
           next.updatedAt,
           id,
         ],
       },
       this.revisionInsert(next),
+      this.searchUpsert(next),
     ]);
     return next;
   }
@@ -320,21 +382,60 @@ export class Store {
   }
 
   /**
-   * Songs in the library, by title. Every word of `search` must appear in the title or the
-   * lyrics; matching is by substring, so it works for text without spaces such as Chinese.
+   * Songs in the library. With a search, every term must match the title or the lyrics by
+   * Chinese characters in either script, by sound, by pinyin or by pinyin initials; songs are
+   * ordered by how well they match (see `rankSong`), then by title.
    */
   async listSongs(workspaceId: string, search = ''): Promise<Song[]> {
-    const terms = search.trim().split(/\s+/).filter(Boolean);
-    const where = terms.map(() => `(title LIKE ? ESCAPE '\\' OR lyrics LIKE ? ESCAPE '\\')`);
+    const terms = parseQuery(search);
+    const where: string[] = [];
     const params: SqlValue[] = [workspaceId];
-    for (const term of terms) params.push(likePattern(term), likePattern(term));
+    for (const term of terms) {
+      if (term.chinese) {
+        where.push(`(s.title_text LIKE ? ESCAPE '\\' OR s.lyrics_text LIKE ? ESCAPE '\\'
+          OR s.title_pinyin LIKE ? ESCAPE '\\' OR s.lyrics_pinyin LIKE ? ESCAPE '\\')`);
+        const text = likePattern(term.text);
+        const pinyin = likePattern(term.pinyin);
+        params.push(text, text, pinyin, pinyin);
+      } else {
+        where.push(`(s.title_pinyin LIKE ? ESCAPE '\\' OR s.title_initials LIKE ? ESCAPE '\\'
+          OR s.lyrics_pinyin LIKE ? ESCAPE '\\' OR s.lyrics_initials LIKE ? ESCAPE '\\')`);
+        const pattern = likePattern(term.pinyin);
+        params.push(pattern, pattern, pattern, pattern);
+      }
+    }
     const rows = await this.db.select<Row>(
-      `SELECT * FROM song WHERE workspace_id = ? AND removed_at IS NULL
+      `SELECT song.*, s.title_text, s.title_pinyin, s.title_initials,
+              s.lyrics_text, s.lyrics_pinyin, s.lyrics_initials
+       FROM song ${terms.length > 0 ? 'JOIN' : 'LEFT JOIN'} song_search s ON s.song_id = song.id
+       WHERE song.workspace_id = ? AND song.removed_at IS NULL
        ${where.map((clause) => `AND ${clause}`).join(' ')}
-       ORDER BY title COLLATE NOCASE, created_at`,
+       ORDER BY song.title COLLATE NOCASE, song.created_at`,
       params,
     );
-    return rows.map(toSong);
+    if (terms.length === 0) return rows.map(toSong);
+    return rows
+      .map((row) => ({ song: toSong(row), rank: rankSong(terms, toSongKeys(row)) ?? Infinity }))
+      .sort((a, b) => a.rank - b.rank)
+      .map(({ song }) => song);
+  }
+
+  /**
+   * Builds search keys for songs that have none, or whose keys an older search version made.
+   * Run at startup, after migrating.
+   */
+  async refreshSearchIndex(): Promise<number> {
+    const rows = await this.db.select<{ id: string; title: string; lyrics: string }>(
+      `SELECT song.id, song.title, song.lyrics FROM song
+       LEFT JOIN song_search s ON s.song_id = song.id
+       WHERE s.song_id IS NULL OR s.version <> ?`,
+      [SEARCH_VERSION],
+    );
+    const BATCH = 200;
+    for (let start = 0; start < rows.length; start += BATCH) {
+      await this.db.batch(rows.slice(start, start + BATCH).map((row) => this.searchUpsert(row)));
+    }
+    return rows.length;
   }
 
   async listSongRevisions(songId: string): Promise<SongRevision[]> {

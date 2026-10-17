@@ -111,6 +111,27 @@ export const MIGRATIONS: Migration[] = [
     version: 2,
     statements: [`ALTER TABLE output_profile ADD COLUMN hide_cursor INTEGER NOT NULL DEFAULT 0`],
   },
+  {
+    version: 3,
+    statements: [
+      `ALTER TABLE song ADD COLUMN ccli TEXT`,
+      `ALTER TABLE song ADD COLUMN year INTEGER`,
+      `ALTER TABLE song_revision ADD COLUMN ccli TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN year INTEGER`,
+      // Search keys derived from each song; every device builds its own, so they are not
+      // part of revisions. `version` is the search version that produced the row.
+      `CREATE TABLE song_search (
+        song_id TEXT PRIMARY KEY REFERENCES song(id),
+        version INTEGER NOT NULL,
+        title_text TEXT NOT NULL,
+        title_pinyin TEXT NOT NULL,
+        title_initials TEXT NOT NULL,
+        lyrics_text TEXT NOT NULL,
+        lyrics_pinyin TEXT NOT NULL,
+        lyrics_initials TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

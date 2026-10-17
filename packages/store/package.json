@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@worship-q/protocol": "workspace:*",
-    "@worship-q/lyrics": "workspace:*"
+    "@worship-q/lyrics": "workspace:*",
+    "@worship-q/search": "workspace:*"
   },
   "devDependencies": {
     "@worship-q/live-state": "workspace:*"

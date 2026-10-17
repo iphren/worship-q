@@ -29,10 +29,57 @@ export type Workspace = z.infer<typeof WorkspaceSchema>;
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),
+  /**
+   * Writers as one line. Roles are labelled only when they differ, as in songbooks:
+   * `词：A` and `曲：B` (separated by a full-width space), `译：` for a translator, or
+   * `Words: A; Music: B`. Names are separated by `, `.
+   */
   author: z.string(),
   copyright: z.string(),
+  /** CCLI song number, when the song has one. */
+  ccli: z.string().regex(/^\d+$/).nullable(),
+  /** Year the song was written, when known; see `maxSongYear`. */
+  year: z.number().int().nullable(),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
+
+/** The latest acceptable song year: next year, to catch typos such as 20155. */
+export function maxSongYear(now: Date): number {
+  return now.getUTCFullYear() + 1;
+}
+
+/** Fields whose value is not acceptable. */
+export function invalidSongFields(
+  fields: Pick<SongFields, 'ccli' | 'year'>,
+  now: Date,
+): ('ccli' | 'year')[] {
+  const invalid: ('ccli' | 'year')[] = [];
+  if (fields.ccli !== null && !/^\d+$/.test(fields.ccli)) invalid.push('ccli');
+  if (fields.year !== null && (!Number.isInteger(fields.year) || fields.year > maxSongYear(now)))
+    invalid.push('year');
+  return invalid;
+}
+
+/** Control characters other than tabs and line breaks, such as stray DEL (0x7F). */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g;
+
+/**
+ * Tidies fields entered by hand: removes invisible control characters everywhere, trims the
+ * single-line fields, and records an empty CCLI number as none.
+ */
+export function cleanSongFields(fields: SongFields): SongFields {
+  const clean = (value: string) => value.replace(CONTROL_CHARACTERS, '');
+  const ccli = clean(fields.ccli ?? '').trim();
+  return {
+    title: clean(fields.title).trim(),
+    lyrics: clean(fields.lyrics),
+    author: clean(fields.author).trim(),
+    copyright: clean(fields.copyright).trim(),
+    ccli: ccli === '' ? null : ccli,
+    year: fields.year,
+  };
+}
 
 export const SongSchema = SongFieldsSchema.extend({
   id: IdSchema,
