@@ -65,7 +65,12 @@ function isWide(char: string): boolean {
   );
 }
 
-/** Every way to show `text` as two visual lines. */
+/**
+ * Every way to show `text` as two visual lines. Lines break only at a space or at
+ * punctuation, so Chinese text is never split in the middle of a phrase. A break at
+ * punctuation needs a CJK character on one side, so Latin words such as "don’t" stay
+ * whole; Latin text breaks at its spaces instead.
+ */
 export function breakCandidates(text: string): [string, string][] {
   const chars = Array.from(text);
   const candidates: [string, string][] = [];
@@ -73,13 +78,14 @@ export function breakCandidates(text: string): [string, string][] {
     const before = chars[i - 1]!;
     const after = chars[i]!;
     const atSpace = /\s/.test(before) && !/\s/.test(after);
-    const betweenWide =
+    const atPunctuation =
       (isWide(before) || isWide(after)) &&
       !/\s/.test(before) &&
       !/\s/.test(after) &&
+      (CLOSING.includes(before) || OPENING.includes(after)) &&
       !CLOSING.includes(after) &&
       !OPENING.includes(before);
-    if (!atSpace && !betweenWide) continue;
+    if (!atSpace && !atPunctuation) continue;
     const first = chars.slice(0, i).join('').trimEnd();
     const second = chars.slice(i).join('').trimStart();
     if (first && second) candidates.push([first, second]);

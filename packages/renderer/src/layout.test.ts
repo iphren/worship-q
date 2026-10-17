@@ -33,11 +33,15 @@ describe('breakCandidates', () => {
     expect(breakCandidates('unbreakable')).toEqual([]);
   });
 
-  it('breaks Chinese text between characters', () => {
-    expect(breakCandidates('中文字')).toEqual([
-      ['中', '文字'],
-      ['中文', '字'],
-    ]);
+  it('breaks Chinese text only at spaces or punctuation', () => {
+    expect(breakCandidates('中文字')).toEqual([]);
+    expect(breakCandidates('你好，世界')).toEqual([['你好，', '世界']]);
+    expect(breakCandidates('奇异恩典 何等甘甜')).toEqual([['奇异恩典', '何等甘甜']]);
+    expect(breakCandidates('他说“来吧”')).toEqual([['他说', '“来吧”']]);
+  });
+
+  it('does not break Latin words at punctuation', () => {
+    expect(breakCandidates('don’t (stop)')).toEqual([['don’t', '(stop)']]);
   });
 
   it('does not start a line with closing punctuation or end one with opening punctuation', () => {
@@ -96,7 +100,7 @@ describe('fitSong', () => {
   });
 
   it('fits the height: four lines wrapped to eight still fit', () => {
-    const line = '字'.repeat(30);
+    const line = ('字'.repeat(14) + '，').repeat(2);
     const song = fitSong([[line, line, line, line]], base, measure);
     const piece = song.pieces[0]!;
     expect(piece.lines).toHaveLength(8);
