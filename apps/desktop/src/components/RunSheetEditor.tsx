@@ -187,6 +187,10 @@ export function RunSheetEditor(props: {
           <input
             className="field"
             type="search"
+            autoCorrect="off"
+            autoCapitalize="off"
+            autoComplete="off"
+            spellCheck={false}
             placeholder={t('runSheet.addSong')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}

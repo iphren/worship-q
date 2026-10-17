@@ -50,6 +50,10 @@ export function SongsPage() {
         <input
           className="field"
           type="search"
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
+          spellCheck={false}
           placeholder={t('songs.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
