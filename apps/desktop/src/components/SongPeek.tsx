@@ -90,7 +90,7 @@ function SongCard(props: { song: Song; anchor: HTMLElement }) {
     <div
       ref={card}
       role="tooltip"
-      className="pointer-events-none fixed z-50 max-h-[80vh] overflow-hidden rounded-lg border border-slate-600 bg-slate-900 p-3 text-sm shadow-xl"
+      className="pointer-events-none fixed z-50 max-h-[80vh] overflow-hidden rounded-lg border border-sky-400/80 bg-slate-700 text-sm shadow-2xl ring-4 shadow-black/70 ring-sky-400/15"
       style={{
         width: CARD_WIDTH,
         left: position?.left ?? 0,
@@ -98,12 +98,14 @@ function SongCard(props: { song: Song; anchor: HTMLElement }) {
         visibility: position ? 'visible' : 'hidden',
       }}
     >
-      <p className="font-semibold text-slate-100">{song.title || t('songs.untitled')}</p>
-      {song.author && <p className="mt-0.5 text-xs text-slate-300">{song.author}</p>}
-      {song.copyright && <p className="text-xs text-slate-400">{song.copyright}</p>}
-      {facts.length > 0 && <p className="text-xs text-slate-400">{facts.join(' · ')}</p>}
-      <div className="mt-2 space-y-2 border-t border-slate-700 pt-2 text-slate-300">
-        {shown.length === 0 && <p className="text-slate-500">{t('songs.noLyrics')}</p>}
+      <div className="bg-sky-800 px-3 py-2">
+        <p className="font-semibold text-white">{song.title || t('songs.untitled')}</p>
+        {song.author && <p className="mt-0.5 text-xs text-sky-100">{song.author}</p>}
+        {song.copyright && <p className="text-xs text-sky-200/80">{song.copyright}</p>}
+        {facts.length > 0 && <p className="text-xs text-sky-200/80">{facts.join(' · ')}</p>}
+      </div>
+      <div className="space-y-2 px-3 py-2 text-slate-100">
+        {shown.length === 0 && <p className="text-slate-400">{t('songs.noLyrics')}</p>}
         {shown.map((lines, index) => (
           <div key={index}>
             {lines.map((line, i) => (
@@ -113,7 +115,7 @@ function SongCard(props: { song: Song; anchor: HTMLElement }) {
             ))}
           </div>
         ))}
-        {cut && <p className="text-slate-500">…</p>}
+        {cut && <p className="text-slate-400">…</p>}
       </div>
     </div>,
     document.body,
