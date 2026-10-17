@@ -176,7 +176,7 @@ export interface OutputGeometry extends FitOptions {
   marginY: number;
 }
 
-export const LINE_HEIGHT = 1.3;
+export const LINE_HEIGHT = 1.5;
 /** Fraction of each dimension kept clear around the lyrics. */
 export const SAFE_MARGIN = 0.06;
 /** Minimum and maximum song sizes as fractions of the output height. */
