@@ -371,7 +371,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <SongForm
               key={editingSong.id}
               song={editingSong}
-              lyricsOnly
+              quick
               onSaved={() => setEditingSong(null)}
               actions={
                 <button type="button" className="btn" onClick={() => setEditingSong(null)}>
