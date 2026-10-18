@@ -1,5 +1,5 @@
 import type { IsoDate, Song } from '@worship-q/protocol';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
@@ -19,6 +19,13 @@ export function SongsPage() {
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState<{ song: Song | null } | null>(null);
   const [removing, setRemoving] = useState<{ song: Song; usage: IsoDate[] } | null>(null);
+  /** The `Editing.key` of a song just added to the run sheet; cleared after a moment. */
+  const [added, setAdded] = useState<number | null>(null);
+  useEffect(() => {
+    if (added === null) return;
+    const timer = setTimeout(() => setAdded(null), 2000);
+    return () => clearTimeout(timer);
+  }, [added]);
   const songs = useQuery(() => session.store.listSongs(session.workspace.id, search), [search]);
 
   const open = (song: Song | null) => {
@@ -30,6 +37,13 @@ export function SongsPage() {
     if (dirty) setPending({ song });
     else open(song);
   };
+
+  async function addToRunSheet(song: Song, key: number) {
+    // Ignore repeat clicks while the check is showing.
+    if (added === key) return;
+    setAdded(key);
+    await session.addSong(session.openDate, song.id);
+  }
 
   async function askRemove(song: Song) {
     setRemoving({ song, usage: await session.store.songUsage(song.id) });
@@ -91,13 +105,35 @@ export function SongsPage() {
             onSaved={(song) => setEditing((current) => current && { ...current, song })}
             actions={
               editing.song && (
-                <button
-                  type="button"
-                  className="btn btn-danger mr-auto"
-                  onClick={() => void askRemove(editing.song!)}
-                >
-                  {t('common.remove')}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-danger mr-auto"
+                    onClick={() => void askRemove(editing.song!)}
+                  >
+                    {t('common.remove')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn grid justify-items-center"
+                    onClick={() => void addToRunSheet(editing.song!, editing.key)}
+                  >
+                    {/* The label keeps its space under the check, so the layout stays put. */}
+                    <span
+                      className={`col-start-1 row-start-1 ${added === editing.key ? 'invisible' : ''}`}
+                    >
+                      + {t('songs.addToRunSheet', { date: formatDate(session.openDate) })}
+                    </span>
+                    {added === editing.key && (
+                      <span
+                        className="col-start-1 row-start-1 text-emerald-300"
+                        aria-label={t('songs.addedToRunSheet')}
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                </>
               )
             }
           />

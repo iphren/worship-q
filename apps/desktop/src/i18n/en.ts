@@ -42,6 +42,8 @@ export const en = {
   'songs.preview': 'Preview',
   'songs.previewEmpty': 'Slides appear here as you type.',
   'songs.pieceCount': '{count} slides',
+  'songs.addToRunSheet': 'Add to run sheet · {date}',
+  'songs.addedToRunSheet': 'Added',
   'songs.removeTitle': 'Remove “{title}”?',
   'songs.removeUnused': 'The song will be removed from your library.',
   'songs.removeUsed':
