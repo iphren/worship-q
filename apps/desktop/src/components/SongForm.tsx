@@ -211,9 +211,12 @@ export function SongForm(props: {
           {pieces.map((piece, index) => (
             <div
               key={piece.id}
-              className={`rounded-md bg-slate-800 px-3 py-2 text-center text-sm ${
-                piece.indexInBlock === 0 && index > 0 ? 'mt-4' : ''
-              }`}
+              className={`rounded-md border-2 px-3 py-2 text-center text-sm ${
+                // Alternate styles by block, as on the Present tab.
+                piece.blockIndex % 2 === 0
+                  ? 'border-slate-700 bg-slate-800'
+                  : 'border-sky-900 bg-sky-950/70'
+              } ${piece.indexInBlock === 0 && index > 0 ? 'mt-4' : ''}`}
             >
               {piece.lines.map((line) => (
                 <div key={line.id} className="whitespace-pre-wrap">
