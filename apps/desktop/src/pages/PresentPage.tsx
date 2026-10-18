@@ -245,7 +245,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           : // Alternate styles by block so slides from one block read as a group.
                             piece.blockIndex % 2 === 0
                             ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
-                            : 'border-sky-900 bg-sky-950/70 hover:border-sky-700'
+                            : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
                       } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
                     >
                       {keyLabel && (

@@ -215,7 +215,7 @@ export function SongForm(props: {
                 // Alternate styles by block, as on the Present tab.
                 piece.blockIndex % 2 === 0
                   ? 'border-slate-700 bg-slate-800'
-                  : 'border-sky-900 bg-sky-950/70'
+                  : 'border-sky-700 bg-sky-900/60'
               } ${piece.indexInBlock === 0 && index > 0 ? 'mt-4' : ''}`}
             >
               {piece.lines.map((line) => (
