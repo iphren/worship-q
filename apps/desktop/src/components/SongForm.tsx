@@ -13,6 +13,8 @@ export interface SongDraft {
   lyrics: string;
 }
 
+type Tab = 'lyrics' | 'copyright' | 'preview';
+
 const draftOf = (song: Song | null): SongDraft => ({
   title: song?.title ?? '',
   author: song?.author ?? '',
@@ -47,7 +49,7 @@ export function SongForm(props: {
   const { song, onDirtyChange } = props;
   const [draft, setDraft] = useState(() => draftOf(song));
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'lyrics' | 'preview'>('lyrics');
+  const [tab, setTab] = useState<Tab>('lyrics');
   const settings = useQuery(() => session.store.getPresentationSettings(session.workspace.id), []);
   const linesPerPiece = settings?.linesPerPiece ?? 2;
 
@@ -64,6 +66,7 @@ export function SongForm(props: {
   }, [draft.lyrics, linesPerPiece]);
 
   const invalid = invalidSongFields(fieldsOf(draft), new Date());
+  const tabs: Tab[] = props.lyricsOnly ? ['lyrics', 'preview'] : ['lyrics', 'copyright', 'preview'];
   const canSave =
     dirty &&
     !saving &&
@@ -104,81 +107,41 @@ export function SongForm(props: {
       }}
     >
       {!props.lyricsOnly && (
-        <div className="grid grid-cols-8 gap-3">
-          <label className="col-span-2">
-            <span className="label">{t('songs.title')}</span>
-            <input
-              className="field"
-              value={draft.title}
-              onChange={(e) => set({ title: e.target.value })}
-              autoFocus={!song}
-            />
-          </label>
-          <label className="col-span-2">
-            <span className="label">{t('songs.author')}</span>
-            <input
-              className="field"
-              value={draft.author}
-              placeholder={t('songs.authorHint')}
-              onChange={(e) => set({ author: e.target.value })}
-            />
-          </label>
-          <label className="col-span-2">
-            <span className="label">{t('songs.copyright')}</span>
-            <input
-              className="field"
-              value={draft.copyright}
-              onChange={(e) => set({ copyright: e.target.value })}
-            />
-          </label>
-          <label>
-            <span className="label">{t('songs.ccli')}</span>
-            <input
-              className="field"
-              inputMode="numeric"
-              value={draft.ccli}
-              aria-invalid={invalid.includes('ccli')}
-              onChange={(e) => set({ ccli: e.target.value })}
-            />
-            {invalid.includes('ccli') && (
-              <span className="mt-1 block text-xs text-rose-300">{t('songs.ccliInvalid')}</span>
-            )}
-          </label>
-          <label>
-            <span className="label">{t('songs.year')}</span>
-            <input
-              className="field"
-              inputMode="numeric"
-              value={draft.year}
-              aria-invalid={invalid.includes('year')}
-              onChange={(e) => set({ year: e.target.value })}
-            />
-            {invalid.includes('year') && (
-              <span className="mt-1 block text-xs text-rose-300">
-                {t('songs.yearInvalid', { max: maxSongYear(new Date()) })}
-              </span>
-            )}
-          </label>
-        </div>
+        <label>
+          <span className="label">{t('songs.title')}</span>
+          <input
+            className="field"
+            value={draft.title}
+            onChange={(e) => set({ title: e.target.value })}
+            autoFocus={!song}
+          />
+        </label>
       )}
       <div className="flex min-h-0 flex-1 flex-col">
         <div role="tablist" className="mb-2 flex gap-1 border-b border-slate-700">
-          {(['lyrics', 'preview'] as const).map((key) => (
+          {tabs.map((key) => (
             <button
               key={key}
               type="button"
               role="tab"
               aria-selected={tab === key}
               className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
-                tab === key
-                  ? 'border-sky-500 text-slate-100'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                tab === key ? 'border-sky-500' : 'border-transparent'
+              } ${
+                // Flag the copyright tab while one of its fields blocks saving.
+                key === 'copyright' && invalid.length > 0
+                  ? 'text-rose-300'
+                  : tab === key
+                    ? 'text-slate-100'
+                    : 'text-slate-400 hover:text-slate-200'
               }`}
               onClick={() => setTab(key)}
             >
               {key === 'lyrics'
                 ? t('songs.lyrics')
-                : `${t('songs.preview')} · ${t('songs.pieceCount', { count: pieces.length })}`}
+                : key === 'copyright'
+                  ? t('songs.copyrightTab')
+                  : `${t('songs.preview')} · ${t('songs.pieceCount', { count: pieces.length })}`}
             </button>
           ))}
         </div>
@@ -199,6 +162,60 @@ export function SongForm(props: {
             {t('songs.lyricsHint', { count: linesPerPiece })}
           </span>
         </div>
+        {!props.lyricsOnly && (
+          <div
+            role="tabpanel"
+            className={`min-h-0 flex-1 content-start gap-3 overflow-auto ${
+              tab === 'copyright' ? 'grid grid-cols-2' : 'hidden'
+            }`}
+          >
+            <label className="col-span-2">
+              <span className="label">{t('songs.author')}</span>
+              <input
+                className="field"
+                value={draft.author}
+                placeholder={t('songs.authorHint')}
+                onChange={(e) => set({ author: e.target.value })}
+              />
+            </label>
+            <label className="col-span-2">
+              <span className="label">{t('songs.copyright')}</span>
+              <input
+                className="field"
+                value={draft.copyright}
+                onChange={(e) => set({ copyright: e.target.value })}
+              />
+            </label>
+            <label>
+              <span className="label">{t('songs.ccli')}</span>
+              <input
+                className="field"
+                inputMode="numeric"
+                value={draft.ccli}
+                aria-invalid={invalid.includes('ccli')}
+                onChange={(e) => set({ ccli: e.target.value })}
+              />
+              {invalid.includes('ccli') && (
+                <span className="mt-1 block text-xs text-rose-300">{t('songs.ccliInvalid')}</span>
+              )}
+            </label>
+            <label>
+              <span className="label">{t('songs.year')}</span>
+              <input
+                className="field"
+                inputMode="numeric"
+                value={draft.year}
+                aria-invalid={invalid.includes('year')}
+                onChange={(e) => set({ year: e.target.value })}
+              />
+              {invalid.includes('year') && (
+                <span className="mt-1 block text-xs text-rose-300">
+                  {t('songs.yearInvalid', { max: maxSongYear(new Date()) })}
+                </span>
+              )}
+            </label>
+          </div>
+        )}
         <div
           role="tabpanel"
           className={`min-h-0 flex-1 space-y-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2 ${
