@@ -165,7 +165,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <span className="flex-1">
               {t('present.keptTooLong', { date: formatDate(liveDate) })}
             </span>
-            <button className="btn btn-sm" onClick={() => void end()}>
+            <button className="btn btn-sm" onClick={() => void session.goLive(nextDate)}>
               {t('present.keptTooLongAction', { next: formatDate(nextDate) })}
             </button>
             <button

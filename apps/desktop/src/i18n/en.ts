@@ -104,7 +104,7 @@ export const en = {
   'present.previousContentBody':
     'The screen keeps showing it until you present a slide from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',
-  'present.keptTooLongAction': 'End it and plan {next}',
+  'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
   'present.shortcuts': '↑ ↓ slide · ← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
