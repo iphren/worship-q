@@ -85,6 +85,8 @@ export class Session {
   private liveDate_: IsoDate | null = null;
   /** A date the operator chose to edit instead of the default one. */
   private chosenDate_: IsoDate | null = null;
+  /** The item the operator moved to without presenting it, on this device only. */
+  private browsedItemId_: string | null = null;
   /** The day the interface was last told about, to notice the date changing. */
   private day_: IsoDate;
   private version_ = 0;
@@ -171,6 +173,14 @@ export class Session {
     return date === this.openDate || date === this.liveDate;
   }
 
+  /**
+   * The run sheet item the operator moved to with `browseItem`, until another slide is
+   * presented. The slide keys act on it instead of the presented item.
+   */
+  get browsedItemId(): string | null {
+    return this.browsedItemId_;
+  }
+
   get presentingPreviousContent(): boolean {
     return this.live_ !== null && this.isLive && isPresentingPreviousContent(this.live_);
   }
@@ -212,6 +222,7 @@ export class Session {
 
   private async setLive(state: LiveState | null): Promise<void> {
     if (state === this.live_) return;
+    if (state?.presented !== this.live_?.presented) this.browsedItemId_ = null;
     this.live_ = state;
     if (state) {
       await this.store.saveLiveState(this.workspace_.id, state);
@@ -343,27 +354,48 @@ export class Session {
   }
 
   /**
-   * Presents a slide of the presented item by its position, counted from zero. With nothing
-   * presented from this run sheet, the item is the first one. False when there is no such slide.
+   * The item the slide keys act on: the browsed one, else the presented one, else the first
+   * item when nothing is presented from this run sheet.
+   */
+  private keyedItemId(sequence: readonly PlayablePiece[]): string | undefined {
+    const browsed = this.browsedItemId_;
+    if (browsed && sequence.some((entry) => entry.itemId === browsed)) return browsed;
+    const presented = this.live_?.presented;
+    return presented && presented.runSheetId === this.live_?.runSheetId
+      ? presented.itemId
+      : sequence[0]?.itemId;
+  }
+
+  /**
+   * Presents a slide of the keyed item by its position, counted from zero. False when there
+   * is no such slide.
    */
   playSlide(slide: number): Promise<boolean> {
     return this.mutate(async () => {
       if (!this.live_) return false;
       const sequence = await this.sequence();
-      const presented = this.live_.presented;
-      const itemId =
-        presented && presented.runSheetId === this.live_.runSheetId
-          ? presented.itemId
-          : sequence[0]?.itemId;
+      const itemId = this.keyedItemId(sequence);
       const piece = sequence.filter((entry) => entry.itemId === itemId)[slide];
       if (!piece) return false;
       return this.apply({ type: 'playPiece', itemId: piece.itemId, pieceId: piece.pieceId });
     });
   }
 
-  /** Presents the first slide of the next or the previous run sheet item. */
-  stepItem(by: 1 | -1): Promise<boolean> {
-    return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
+  /**
+   * Moves the slide keys to the next or the previous run sheet item with slides, leaving the
+   * screen as it is. False at either end of the run sheet.
+   */
+  browseItem(by: 1 | -1): Promise<boolean> {
+    return this.mutate(async () => {
+      if (!this.live_) return false;
+      const sequence = await this.sequence();
+      const items = [...new Set(sequence.map((entry) => entry.itemId))];
+      const current = items.indexOf(this.keyedItemId(sequence) ?? '');
+      const target = items[current < 0 ? (by === 1 ? 0 : -1) : current + by];
+      if (!target) return false;
+      this.browsedItemId_ = target;
+      return true;
+    });
   }
 
   setBlank(blank: boolean): Promise<boolean> {

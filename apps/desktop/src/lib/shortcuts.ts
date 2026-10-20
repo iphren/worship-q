@@ -4,6 +4,7 @@ export type PresentAction =
   /** Another slide of the same run sheet item; never moves to another item. */
   | 'slide-next'
   | 'slide-previous'
+  /** Moves the slide keys to another run sheet item; what is on screen stays. */
   | 'item-next'
   | 'item-previous'
   /** The next or previous slide of the whole run sheet, as presenter remotes expect. */
@@ -14,7 +15,7 @@ export type PresentAction =
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
   | 'toggle-blank'
-  /** A slide of the presented item by its position, counted from zero. */
+  /** A slide of the browsed or presented item by its position, counted from zero. */
   | { slide: number };
 
 /**
@@ -61,7 +62,7 @@ export function presentAction(event: KeyPress): PresentAction | null {
 export interface PresentControls {
   readonly live: { blank: boolean } | null;
   stepInItem(by: 1 | -1): Promise<unknown>;
-  stepItem(by: 1 | -1): Promise<unknown>;
+  browseItem(by: 1 | -1): Promise<unknown>;
   next(): Promise<unknown>;
   previous(): Promise<unknown>;
   setBlank(blank: boolean): Promise<unknown>;
@@ -76,9 +77,9 @@ export function runPresentAction(session: PresentControls, action: PresentAction
     case 'slide-previous':
       return void session.stepInItem(-1);
     case 'item-next':
-      return void session.stepItem(1);
+      return void session.browseItem(1);
     case 'item-previous':
-      return void session.stepItem(-1);
+      return void session.browseItem(-1);
     case 'next':
       return void session.next();
     case 'previous':

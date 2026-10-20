@@ -55,7 +55,7 @@ describe('runPresentAction', () => {
     const session: PresentControls = {
       live: { blank },
       stepInItem: record('stepInItem'),
-      stepItem: record('stepItem'),
+      browseItem: record('browseItem'),
       next: record('next'),
       previous: record('previous'),
       setBlank: async (value) => void calls.push(`setBlank(${value})`),

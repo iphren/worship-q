@@ -365,6 +365,57 @@ describe('jumping to a slide of the presented item', () => {
   });
 });
 
+describe('moving between items without presenting', () => {
+  beforeEach(async () => {
+    const first = await song('First', 'one\n\ntwo');
+    const second = await song('Second', 'three\n\nfour');
+    const third = await song('Third', 'five');
+    for (const { id } of [first, second, third]) await session.addSong(session.openDate, id);
+    await session.goLive(session.openDate);
+  });
+
+  const itemAt = async (index: number) => (await session.viewLive())!.entries[index]!.item.id;
+
+  it('leaves the screen as it is', async () => {
+    await playAt(0, 1);
+    expect(await session.browseItem(1)).toBe(true);
+    expect(session.browsedItemId).toBe(await itemAt(1));
+    expect(await shown()).toEqual(['two']);
+  });
+
+  it('moves the slide keys to the browsed item', async () => {
+    await playAt(0, 0);
+    await session.browseItem(1);
+    await session.browseItem(1);
+    expect(await session.playSlide(0)).toBe(true);
+    expect(await shown()).toEqual(['five']);
+    expect(session.browsedItemId).toBeNull();
+  });
+
+  it('starts from the first item when nothing is presented yet', async () => {
+    await session.browseItem(1);
+    expect(session.browsedItemId).toBe(await itemAt(1));
+  });
+
+  it('stays put at either end of the run sheet', async () => {
+    await playAt(0, 0);
+    expect(await session.browseItem(-1)).toBe(false);
+    expect(session.browsedItemId).toBeNull();
+    await session.browseItem(1);
+    await session.browseItem(1);
+    expect(await session.browseItem(1)).toBe(false);
+    expect(session.browsedItemId).toBe(await itemAt(2));
+  });
+
+  it('is forgotten once another slide is presented', async () => {
+    await playAt(0, 0);
+    await session.browseItem(1);
+    await session.next();
+    expect(session.browsedItemId).toBeNull();
+    expect(await shown()).toEqual(['two']);
+  });
+});
+
 describe('run-sheet edits in live mode', () => {
   let a: Awaited<ReturnType<typeof song>>;
   let b: Awaited<ReturnType<typeof song>>;

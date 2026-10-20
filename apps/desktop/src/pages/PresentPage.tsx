@@ -85,8 +85,12 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
   const entries = view?.date === liveDate ? view.entries : [];
-  // The item the slide keys act on: the presented one, or the first before anything is.
-  const keyedItemId = presented?.itemId ?? entries[0]?.item.id ?? null;
+  // The item the slide keys act on: the one moved to with left and right, else the presented
+  // one, or the first before anything is.
+  const browsedItemId = entries.some((entry) => entry.item.id === session.browsedItemId)
+    ? session.browsedItemId
+    : null;
+  const keyedItemId = browsedItemId ?? presented?.itemId ?? entries[0]?.item.id ?? null;
   const showKeptTooLong = session.keptTooLong && !dismissedNotices.has(liveDate);
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
 
@@ -116,6 +120,12 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
+
+  // Moving to another item with left and right brings it into view, as a run sheet click does.
+  useEffect(() => {
+    if (browsedItemId) showItem(browsedItemId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [browsedItemId]);
 
   /** Scrolls the slides column so `section` starts at the top, unless `keep` would leave view. */
   function scrollToTop(section: Element, keep?: Element): boolean {
