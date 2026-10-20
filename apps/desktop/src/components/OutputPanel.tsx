@@ -38,7 +38,7 @@ export function outputNeedsAttention(status: OutputStatus): boolean {
  * Shows where the slideshow is and lets the operator pick its screen. Picking a screen does
  * nothing by itself: the slideshow opens on the picked screen the next time it is opened.
  *
- * When compact it is a column of icon buttons, with the screens in a menu that opens beside it.
+ * When compact it is a row of icon buttons, with the screens in a menu that opens above it.
  */
 export function OutputPanel(props: { compact?: boolean }) {
   const { output } = useApp();
@@ -153,7 +153,7 @@ export function OutputPanel(props: { compact?: boolean }) {
   );
 }
 
-/** The screens behind one icon; the menu opens to the left, over the page. */
+/** The screens behind one icon; the menu opens upwards, over the page. */
 function ScreenMenu(props: { warn: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
@@ -187,7 +187,7 @@ function ScreenMenu(props: { warn: boolean; children: React.ReactNode }) {
         <Icon name="screen" />
       </button>
       {open && (
-        <div className="panel absolute top-0 right-full z-20 mr-2 w-72 space-y-2 bg-slate-800 p-3 text-sm shadow-xl">
+        <div className="panel absolute bottom-full left-0 z-20 mb-2 w-72 space-y-2 bg-slate-800 p-3 text-sm shadow-xl">
           <h2 className="label">{t('output.title')}</h2>
           {props.children}
         </div>

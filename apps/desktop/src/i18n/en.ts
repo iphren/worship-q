@@ -109,8 +109,6 @@ export const en = {
   'present.shortcuts': '↑ ↓ slide · ← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
   'present.blanked': 'Blank',
-  'present.collapsePanel': 'Close slideshow panel',
-  'present.expandPanel': 'Open slideshow panel',
 
   'output.title': 'Slideshow screen',
   'output.unset': 'Choose a screen, then open the slideshow.',

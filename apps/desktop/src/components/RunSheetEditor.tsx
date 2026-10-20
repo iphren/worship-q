@@ -1,5 +1,5 @@
 import type { IsoDate } from '@worship-q/protocol';
-import { useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { ConfirmDialog } from './Dialog';
@@ -20,16 +20,24 @@ export function RunSheetEditor(props: {
   activeItemId?: string | null;
   /** Makes the rows clickable; the grip and the row's buttons keep their own actions. */
   onSelectItem?: (itemId: string) => void;
+  /** Shown in place of the song list while the search is empty; songs show once searched for. */
+  idle?: ReactNode;
+  /** Shown under the song list while searching. */
+  footer?: ReactNode;
 }) {
   const { onSelectItem } = props;
   const session = useSession();
   const { date } = props;
   const editable = session.canEdit(date);
   const [search, setSearch] = useState('');
+  const idle = props.idle !== undefined && search.trim() === '';
   const view = useQuery(() => session.viewDate(date), [date]);
   const songs = useQuery(
-    () => (editable ? session.store.listSongs(session.workspace.id, search) : Promise.resolve([])),
-    [search, editable],
+    () =>
+      editable && !idle
+        ? session.store.listSongs(session.workspace.id, search)
+        : Promise.resolve([]),
+    [search, editable, idle],
   );
   const saved = view?.date === date ? view.entries : [];
   // A dropped item shows in its new place straight away, until the reloaded view replaces it.
@@ -196,28 +204,34 @@ export function RunSheetEditor(props: {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto">
-            {songs?.length === 0 && (
-              <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
-            )}
-            {songs?.map((song) => (
-              <li key={song.id}>
-                <SongPeek song={song}>
-                  <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
-                    <span className="truncate">{song.title || t('songs.untitled')}</span>
-                    <button
-                      className="btn btn-sm shrink-0"
-                      onClick={() => void session.addSong(date, song.id)}
-                    >
-                      + {t('runSheet.add')}
-                    </button>
-                  </div>
-                </SongPeek>
-              </li>
-            ))}
-          </ul>
+          {idle ? (
+            <div className="min-h-0 flex-1 overflow-auto pt-2">{props.idle}</div>
+          ) : (
+            <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto">
+              {songs?.length === 0 && (
+                <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
+              )}
+              {songs?.map((song) => (
+                <li key={song.id}>
+                  <SongPeek song={song}>
+                    <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
+                      <span className="truncate">{song.title || t('songs.untitled')}</span>
+                      <button
+                        className="btn btn-sm shrink-0"
+                        onClick={() => void session.addSong(date, song.id)}
+                      >
+                        + {t('runSheet.add')}
+                      </button>
+                    </div>
+                  </SongPeek>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!idle && props.footer}
         </div>
       )}
+      {!editable && props.idle}
       {editable && removing && (
         <ConfirmDialog
           title={t('runSheet.removeTitle', {
