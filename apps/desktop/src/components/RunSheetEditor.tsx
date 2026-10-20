@@ -20,9 +20,9 @@ export function RunSheetEditor(props: {
   activeItemId?: string | null;
   /** Makes the rows clickable; the grip and the row's buttons keep their own actions. */
   onSelectItem?: (itemId: string) => void;
-  /** Shown in place of the song list while the search is empty; songs show once searched for. */
-  idle?: ReactNode;
-  /** Shown under the song list while searching. */
+  /** Lists songs only once searched for, instead of all of them while the search is empty. */
+  searchOnly?: boolean;
+  /** Kept at the bottom, under the song search. */
   footer?: ReactNode;
 }) {
   const { onSelectItem } = props;
@@ -30,7 +30,7 @@ export function RunSheetEditor(props: {
   const { date } = props;
   const editable = session.canEdit(date);
   const [search, setSearch] = useState('');
-  const idle = props.idle !== undefined && search.trim() === '';
+  const idle = props.searchOnly === true && search.trim() === '';
   const view = useQuery(() => session.viewDate(date), [date]);
   const songs = useQuery(
     () =>
@@ -192,7 +192,9 @@ export function RunSheetEditor(props: {
         ))}
       </ol>
       {editable && (
-        <div className="flex min-h-40 flex-1 flex-col gap-1 border-t border-slate-700 pt-3">
+        <div
+          className={`flex flex-col gap-1 border-t border-slate-700 pt-3 ${idle ? '' : 'min-h-40 flex-1'}`}
+        >
           <input
             className="field"
             type="search"
@@ -204,9 +206,7 @@ export function RunSheetEditor(props: {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          {idle ? (
-            <div className="min-h-0 flex-1 overflow-auto pt-2">{props.idle}</div>
-          ) : (
+          {!idle && (
             <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto">
               {songs?.length === 0 && (
                 <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
@@ -228,10 +228,9 @@ export function RunSheetEditor(props: {
               ))}
             </ul>
           )}
-          {!idle && props.footer}
         </div>
       )}
-      {!editable && props.idle}
+      {props.footer && <div className="mt-auto">{props.footer}</div>}
       {editable && removing && (
         <ConfirmDialog
           title={t('runSheet.removeTitle', {

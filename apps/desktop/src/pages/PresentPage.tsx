@@ -14,6 +14,11 @@ import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
 
+type PanelTab = 'runSheet' | 'slideshow';
+
+/** The tab of the side panel last shown, kept while the app is open. */
+let lastPanelTab: PanelTab = 'runSheet';
+
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
@@ -69,6 +74,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [panelTab, setPanelTab] = useState(lastPanelTab);
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
@@ -182,81 +188,108 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
 
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-80 shrink-0 flex-col p-3">
-          <h2 className="label">{t('runSheet.title', { date: formatDate(liveDate) })}</h2>
-          <RunSheetEditor
-            date={liveDate}
-            activeItemId={presented?.itemId ?? null}
-            onSelectItem={showItem}
-            idle={
-              <div className="flex min-h-full flex-col gap-3">
-                <section className="space-y-2">
-                  <h2 className="label flex items-center gap-2">
-                    <span className="flex-1">{t('present.preview')}</span>
-                    {live.blank && <span className="text-amber-400">{t('present.blanked')}</span>}
-                  </h2>
-                  <SlidePreview />
-                  <div className="grid grid-cols-2 gap-2">
-                    <button className="btn" onClick={() => void session.previous()}>
-                      ← {t('present.previous')}
-                    </button>
-                    <button className="btn btn-primary" onClick={() => void session.next()}>
-                      {t('present.next')} →
-                    </button>
-                    <button
-                      className={`btn col-span-2 ${blankStyle}`}
-                      onClick={() => void session.setBlank(!live.blank)}
-                    >
-                      {live.blank ? t('present.unblank') : t('present.blank')}
-                    </button>
-                  </div>
-                  <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
-                </section>
-                <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
-                  {props.outputPanel}
+          <div role="tablist" className="mb-3 flex gap-1 border-b border-slate-700">
+            {(['runSheet', 'slideshow'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={panelTab === key}
+                className={`-mb-px min-w-0 truncate border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                  panelTab === key
+                    ? 'border-sky-500 text-slate-100'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+                onClick={() => {
+                  lastPanelTab = key;
+                  setPanelTab(key);
+                }}
+              >
+                {key === 'runSheet' ? t('runSheet.tab') : t('present.preview')}
+              </button>
+            ))}
+          </div>
+          {/* Both panes stay mounted so the song search survives a tab switch. */}
+          <div
+            role="tabpanel"
+            className={`min-h-0 flex-1 flex-col ${panelTab === 'runSheet' ? 'flex' : 'hidden'}`}
+          >
+            <RunSheetEditor
+              date={liveDate}
+              activeItemId={presented?.itemId ?? null}
+              onSelectItem={showItem}
+              searchOnly
+              footer={
+                <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
+                  <button
+                    className="btn px-0 py-2"
+                    title={t('present.previous')}
+                    aria-label={t('present.previous')}
+                    onClick={() => void session.previous()}
+                  >
+                    <Icon name="previous" />
+                  </button>
+                  <button
+                    className="btn btn-primary px-0 py-2"
+                    title={t('present.next')}
+                    aria-label={t('present.next')}
+                    onClick={() => void session.next()}
+                  >
+                    <Icon name="next" />
+                  </button>
+                  <button
+                    className={`btn px-0 py-2 ${blankStyle}`}
+                    title={live.blank ? t('present.unblank') : t('present.blank')}
+                    aria-label={live.blank ? t('present.unblank') : t('present.blank')}
+                    onClick={() => void session.setBlank(!live.blank)}
+                  >
+                    <Icon name="blank" />
+                  </button>
+                  <OutputPanel compact />
+                  <button
+                    className="btn btn-danger px-0 py-2"
+                    title={t('present.end')}
+                    aria-label={t('present.end')}
+                    onClick={() => setConfirmEnd(true)}
+                  >
+                    <Icon name="stop" />
+                  </button>
                 </div>
-                <button className="btn btn-danger mt-auto" onClick={() => setConfirmEnd(true)}>
-                  {t('present.end')}
-                </button>
+              }
+            />
+          </div>
+          <div
+            role="tabpanel"
+            className={`min-h-0 flex-1 flex-col overflow-auto ${panelTab === 'slideshow' ? 'flex' : 'hidden'}`}
+          >
+            <div className="flex min-h-full flex-col gap-3">
+              <section className="space-y-2">
+                {live.blank && <p className="label text-amber-400">{t('present.blanked')}</p>}
+                <SlidePreview />
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="btn" onClick={() => void session.previous()}>
+                    ← {t('present.previous')}
+                  </button>
+                  <button className="btn btn-primary" onClick={() => void session.next()}>
+                    {t('present.next')} →
+                  </button>
+                  <button
+                    className={`btn col-span-2 ${blankStyle}`}
+                    onClick={() => void session.setBlank(!live.blank)}
+                  >
+                    {live.blank ? t('present.unblank') : t('present.blank')}
+                  </button>
+                </div>
+                <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
+              </section>
+              <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
+                {props.outputPanel}
               </div>
-            }
-            footer={
-              <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
-                <button
-                  className="btn px-0 py-2"
-                  title={t('present.previous')}
-                  aria-label={t('present.previous')}
-                  onClick={() => void session.previous()}
-                >
-                  <Icon name="previous" />
-                </button>
-                <button
-                  className="btn btn-primary px-0 py-2"
-                  title={t('present.next')}
-                  aria-label={t('present.next')}
-                  onClick={() => void session.next()}
-                >
-                  <Icon name="next" />
-                </button>
-                <button
-                  className={`btn px-0 py-2 ${blankStyle}`}
-                  title={live.blank ? t('present.unblank') : t('present.blank')}
-                  aria-label={live.blank ? t('present.unblank') : t('present.blank')}
-                  onClick={() => void session.setBlank(!live.blank)}
-                >
-                  <Icon name="blank" />
-                </button>
-                <OutputPanel compact />
-                <button
-                  className="btn btn-danger px-0 py-2"
-                  title={t('present.end')}
-                  aria-label={t('present.end')}
-                  onClick={() => setConfirmEnd(true)}
-                >
-                  <Icon name="stop" />
-                </button>
-              </div>
-            }
-          />
+              <button className="btn btn-danger mt-auto" onClick={() => setConfirmEnd(true)}>
+                {t('present.end')}
+              </button>
+            </div>
+          </div>
         </aside>
 
         <main ref={slidesRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
