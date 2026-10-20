@@ -121,10 +121,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
 
-  // Moving to another item with left and right brings it into view, as a run sheet click does.
+  // Moving to another item with left and right brings it to the top, without the flash.
   useEffect(() => {
-    if (browsedItemId) showItem(browsedItemId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const section = slidesRef.current?.querySelector(`section[data-item-id="${browsedItemId}"]`);
+    if (browsedItemId && section) scrollToTop(section);
   }, [browsedItemId]);
 
   /** Scrolls the slides column so `section` starts at the top, unless `keep` would leave view. */
