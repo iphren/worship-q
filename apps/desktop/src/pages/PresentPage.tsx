@@ -213,9 +213,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           )}
           {entries.map((entry, index) => (
             <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
-              <header className="mb-1.5 flex items-center gap-2">
-                <h3 className="min-w-0 truncate text-sm font-semibold">
-                  <span className="mr-2 text-slate-500">{index + 1}</span>
+              <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
+                <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
+                  <span className="mr-2 text-slate-400">{index + 1}</span>
                   {entry.song.title || t('songs.untitled')}
                 </h3>
                 {entry.song.removedAt && (
