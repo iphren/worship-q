@@ -203,13 +203,15 @@ export function RunSheetEditor(props: {
             {songs?.map((song) => (
               <li key={song.id}>
                 <SongPeek song={song}>
-                  <button
-                    className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-slate-700"
-                    onClick={() => void session.addSong(date, song.id)}
-                  >
+                  <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
                     <span className="truncate">{song.title || t('songs.untitled')}</span>
-                    <span className="shrink-0 text-xs text-sky-400">+ {t('runSheet.add')}</span>
-                  </button>
+                    <button
+                      className="btn btn-sm shrink-0"
+                      onClick={() => void session.addSong(date, song.id)}
+                    >
+                      + {t('runSheet.add')}
+                    </button>
+                  </div>
                 </SongPeek>
               </li>
             ))}
