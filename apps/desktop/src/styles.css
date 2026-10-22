@@ -36,6 +36,28 @@ textarea {
   user-select: text;
 }
 
+/* Always-visible scroll bars: macOS overlay bars hide until you scroll, which hides that a
+   column has more content. Styling the bar opts the web view out of overlay mode. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: #475569 padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}
+
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-1 rounded-md border border-slate-600 bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40;
