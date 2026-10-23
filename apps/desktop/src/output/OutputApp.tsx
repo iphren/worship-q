@@ -65,7 +65,7 @@ export function OutputApp() {
         cursor: frame.hideCursor ? 'none' : undefined,
       }}
     >
-      <Slide frame={frame} width={size.width} height={size.height} />
+      <Slide frame={frame} width={size.width} height={size.height} transition />
     </div>
   );
 }

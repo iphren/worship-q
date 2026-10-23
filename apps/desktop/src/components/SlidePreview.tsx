@@ -34,6 +34,7 @@ export function SlidePreview(props: { frame?: OutputFrame }) {
           width={width}
           height={height}
           displayWidth={displayWidth}
+          transition
         />
       )}
     </div>
