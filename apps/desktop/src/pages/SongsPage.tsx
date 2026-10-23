@@ -1,10 +1,11 @@
 import type { IsoDate, Song } from '@worship-q/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
+import { useScrollMemory } from '../lib/scrollMemory';
 
 /** The song being edited; `key` changes only when the operator picks another song. */
 interface Editing {
@@ -27,6 +28,8 @@ export function SongsPage() {
     return () => clearTimeout(timer);
   }, [added]);
   const songs = useQuery(() => session.store.listSongs(session.workspace.id, search), [search]);
+  const listRef = useRef<HTMLUListElement>(null);
+  useScrollMemory(listRef, `songs:${search}`);
 
   const open = (song: Song | null) => {
     setEditing((current) => ({ key: (current?.key ?? 0) + 1, song }));
@@ -73,7 +76,7 @@ export function SongsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto">
+        <ul ref={listRef} className="min-h-0 flex-1 space-y-0.5 overflow-auto">
           {songs?.length === 0 && (
             <li className="px-1 py-3 text-sm text-slate-500">
               {search.trim() ? t('songs.noMatch', { search: search.trim() }) : t('songs.empty')}

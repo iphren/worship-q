@@ -9,6 +9,7 @@ import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { SongForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
+import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
@@ -78,6 +79,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
+  const slideshowRef = useRef<HTMLDivElement>(null);
   const shownItemRef = useRef<string | null>(null);
   // Set when a click on a slide moves to another item, so the column stays where it was.
   const clickedItemRef = useRef(false);
@@ -96,6 +98,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const showKeptTooLong = session.keptTooLong && !dismissedNotices.has(liveDate);
   const blankStyle = live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
+  useScrollMemory(slidesRef, `present.slides:${liveDate}`);
+  useScrollMemory(slideshowRef, 'present.slideshow');
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -259,6 +263,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             />
           </div>
           <div
+            ref={slideshowRef}
             role="tabpanel"
             className={`min-h-0 flex-1 flex-col overflow-auto ${panelTab === 'slideshow' ? 'flex' : 'hidden'}`}
           >

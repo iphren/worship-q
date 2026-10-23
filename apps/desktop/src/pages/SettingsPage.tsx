@@ -9,12 +9,13 @@ import {
   type OutputFrame,
 } from '@worship-q/protocol';
 import { SCHEMA_VERSION } from '@worship-q/store';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview } from '../components/SlidePreview';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
+import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
 
 const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
@@ -44,6 +45,10 @@ export function SettingsPage() {
   const session = useSession();
   const status = useOutputStatus();
   const workspaceId = session.workspace.id;
+  const mainRef = useRef<HTMLDivElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
+  useScrollMemory(mainRef, 'settings.main');
+  useScrollMemory(asideRef, 'settings.preview');
   const settings = useQuery(() => session.store.getPresentationSettings(workspaceId), []);
   const profile = useQuery(() => session.store.getOutputProfile(workspaceId), []);
   const backgrounds = useQuery(() => session.store.listBackgrounds(workspaceId), []);
@@ -173,7 +178,7 @@ export function SettingsPage() {
 
   return (
     <div className="flex h-full min-h-0 gap-4 p-4">
-      <div className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
+      <div ref={mainRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
         <Section
           title={t('settings.meetingDays')}
           hint={t('settings.meetingDaysHint', { label: meetingDaysLabel(days) })}
@@ -407,7 +412,7 @@ export function SettingsPage() {
         </Section>
       </div>
 
-      <aside className="w-64 shrink-0 space-y-4 overflow-auto">
+      <aside ref={asideRef} className="w-64 shrink-0 space-y-4 overflow-auto">
         <section className="panel space-y-2 p-3">
           <h2 className="label">{t('present.preview')}</h2>
           <SlidePreview frame={sample} />

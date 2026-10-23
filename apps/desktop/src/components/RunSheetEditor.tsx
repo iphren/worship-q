@@ -2,6 +2,7 @@ import type { IsoDate } from '@worship-q/protocol';
 import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
+import { useScrollMemory } from '../lib/scrollMemory';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
@@ -48,6 +49,10 @@ export function RunSheetEditor(props: {
       : saved;
   const [drag, setDrag] = useState<Drag | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
+  const songsRef = useRef<HTMLUListElement>(null);
+  const mode = props.searchOnly ? 'live' : 'plan';
+  useScrollMemory(listRef, `runSheet:${mode}:${date}`);
+  useScrollMemory(songsRef, `runSheet.songs:${mode}:${search}`);
   const grab = useRef<{
     y: number;
     scroll: number;
@@ -207,7 +212,7 @@ export function RunSheetEditor(props: {
             onChange={(e) => setSearch(e.target.value)}
           />
           {!idle && (
-            <ul className="min-h-0 flex-1 space-y-0.5 overflow-auto">
+            <ul ref={songsRef} className="min-h-0 flex-1 space-y-0.5 overflow-auto">
               {songs?.length === 0 && (
                 <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
               )}

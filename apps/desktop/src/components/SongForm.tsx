@@ -1,8 +1,9 @@
 import { assignLineIds, buildPieces } from '@worship-q/lyrics';
 import { cleanSongFields, invalidSongFields, maxSongYear, type Song } from '@worship-q/protocol';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
+import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
   title: string;
@@ -50,6 +51,13 @@ export function SongForm(props: {
   const [draft, setDraft] = useState(() => draftOf(song));
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<Tab>('lyrics');
+  const lyricsRef = useRef<HTMLTextAreaElement>(null);
+  const copyrightRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const scrollKey = `${props.quick ? 'quick' : 'page'}:${song?.id ?? 'new'}`;
+  useScrollMemory(lyricsRef, `songForm.lyrics:${scrollKey}`);
+  useScrollMemory(copyrightRef, `songForm.copyright:${scrollKey}`);
+  useScrollMemory(previewRef, `songForm.preview:${scrollKey}`);
   const settings = useQuery(() => session.store.getPresentationSettings(session.workspace.id), []);
   const linesPerPiece = settings?.linesPerPiece ?? 2;
 
@@ -151,6 +159,7 @@ export function SongForm(props: {
           className={`min-h-0 flex-1 flex-col ${tab === 'lyrics' ? 'flex' : 'hidden'}`}
         >
           <textarea
+            ref={lyricsRef}
             className="field min-h-40 flex-1 resize-none leading-relaxed"
             aria-label={t('songs.lyrics')}
             value={draft.lyrics}
@@ -163,6 +172,7 @@ export function SongForm(props: {
           </span>
         </div>
         <div
+          ref={copyrightRef}
           role="tabpanel"
           className={`min-h-0 flex-1 content-start gap-3 overflow-auto ${
             tab === 'copyright' ? 'grid grid-cols-2' : 'hidden'
@@ -215,6 +225,7 @@ export function SongForm(props: {
           </label>
         </div>
         <div
+          ref={previewRef}
           role="tabpanel"
           className={`min-h-0 flex-1 space-y-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2 ${
             tab === 'preview' ? '' : 'hidden'
