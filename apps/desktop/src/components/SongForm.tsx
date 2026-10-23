@@ -9,7 +9,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
-import { BackgroundPicker } from './BackgroundPicker';
+import { SongBackgroundFields } from './BackgroundPicker';
 import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
@@ -70,7 +70,6 @@ export function SongForm(props: {
   useScrollMemory(previewRef, `songForm.preview:${scrollKey}`);
   useScrollMemory(settingsRef, `songForm.settings:${scrollKey}`);
   const settings = useQuery(() => session.store.getPresentationSettings(session.workspace.id), []);
-  const profile = useQuery(() => session.store.getOutputProfile(session.workspace.id), []);
   const linesPerPiece = settings?.linesPerPiece ?? 2;
 
   const saved = draftOf(song);
@@ -271,55 +270,10 @@ export function SongForm(props: {
           role="tabpanel"
           className={`min-h-0 flex-1 space-y-3 overflow-auto ${tab === 'settings' ? '' : 'hidden'}`}
         >
-          <fieldset className="space-y-2">
-            <legend className="label">{t('songs.background')}</legend>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                className="mt-1"
-                checked={draft.background === null}
-                onChange={() => set({ background: null })}
-              />
-              <span>
-                {t('songs.backgroundDefault')}
-                <span className="block text-xs text-slate-400">
-                  {t('songs.backgroundDefaultHint')}
-                </span>
-              </span>
-            </label>
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                className="mt-1"
-                checked={draft.background !== null}
-                disabled={!profile}
-                // Start from the slideshow background, so only what differs needs choosing.
-                onChange={() =>
-                  profile &&
-                  set({
-                    background: {
-                      color: profile.backgroundColor,
-                      assetId: profile.backgroundAssetId,
-                    },
-                  })
-                }
-              />
-              <span>
-                {t('songs.backgroundOwn')}
-                <span className="block text-xs text-slate-400">{t('songs.backgroundOwnHint')}</span>
-              </span>
-            </label>
-          </fieldset>
-          {draft.background && (
-            <div className="space-y-3 pl-6">
-              <BackgroundPicker
-                color={draft.background.color}
-                assetId={draft.background.assetId}
-                onColor={(color) => set({ background: { ...draft.background!, color } })}
-                onAsset={(assetId) => set({ background: { ...draft.background!, assetId } })}
-              />
-            </div>
-          )}
+          <SongBackgroundFields
+            value={draft.background}
+            onChange={(background) => set({ background })}
+          />
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">

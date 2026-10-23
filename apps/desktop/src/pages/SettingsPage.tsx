@@ -7,11 +7,13 @@ import {
   MIN_SCALE,
   type BackgroundAsset,
   type OutputFrame,
+  type Song,
+  type SongBackground,
 } from '@worship-q/protocol';
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
-import { BackgroundPicker } from '../components/BackgroundPicker';
+import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview } from '../components/SlidePreview';
@@ -41,6 +43,33 @@ function errorText(error: unknown): string {
   return t('settings.failed', { error: code });
 }
 
+/**
+ * The background of the song on screen. Changes are saved after a short pause, so dragging
+ * the color picker does not save a revision of the song for every step.
+ */
+function OnScreenSongBackground(props: { song: Song }) {
+  const session = useSession();
+  const { song } = props;
+  const [value, setValue] = useState(song.background);
+  const timer = useRef<number | undefined>(undefined);
+  const pending = useRef<(() => void) | null>(null);
+  // Save what is still waiting when the page is left.
+  useEffect(() => () => pending.current?.(), []);
+
+  function change(background: SongBackground | null) {
+    setValue(background);
+    window.clearTimeout(timer.current);
+    pending.current = () => {
+      window.clearTimeout(timer.current);
+      pending.current = null;
+      void session.saveSong(song.id, { background });
+    };
+    timer.current = window.setTimeout(() => pending.current?.(), 400);
+  }
+
+  return <SongBackgroundFields value={value} onChange={change} />;
+}
+
 export function SettingsPage() {
   const { output } = useApp();
   const session = useSession();
@@ -52,6 +81,11 @@ export function SettingsPage() {
   useScrollMemory(asideRef, 'settings.preview');
   const settings = useQuery(() => session.store.getPresentationSettings(workspaceId), []);
   const profile = useQuery(() => session.store.getOutputProfile(workspaceId), []);
+  const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
+  const onScreen = useQuery(
+    async () => (onScreenId ? session.store.getSong(onScreenId) : null),
+    [onScreenId],
+  );
   const [fonts, setFonts] = useState<string[]>([]);
   const [version, setVersion] = useState('');
   const [missing, setMissing] = useState('');
@@ -283,7 +317,10 @@ export function SettingsPage() {
           </label>
         </Section>
 
-        <Section title={t('settings.background')}>
+        <Section
+          title={t('settings.background')}
+          hint={onScreen?.background ? t('settings.backgroundCovered') : undefined}
+        >
           <BackgroundPicker
             color={profile.backgroundColor}
             assetId={profile.backgroundAssetId}
@@ -295,6 +332,15 @@ export function SettingsPage() {
             {t('settings.backgroundImport')}
           </button>
         </Section>
+
+        {onScreen && (
+          <Section
+            title={t('settings.songBackground', { title: onScreen.title || t('songs.untitled') })}
+            hint={t('settings.songBackgroundHint')}
+          >
+            <OnScreenSongBackground key={onScreen.id} song={onScreen} />
+          </Section>
+        )}
 
         <Section title={t('settings.backup')} hint={t('settings.backupHint')}>
           <div className="flex gap-2">

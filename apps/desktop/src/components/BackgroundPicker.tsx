@@ -1,4 +1,4 @@
-import type { BackgroundAsset } from '@worship-q/protocol';
+import type { BackgroundAsset, SongBackground } from '@worship-q/protocol';
 import { useEffect, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
@@ -120,6 +120,63 @@ export function BackgroundPicker(props: {
           );
         })}
       </div>
+    </>
+  );
+}
+
+/** Whether a song uses the slideshow background or its own, and which one. */
+export function SongBackgroundFields(props: {
+  value: SongBackground | null;
+  onChange(value: SongBackground | null): void;
+}) {
+  const session = useSession();
+  const profile = useQuery(() => session.store.getOutputProfile(session.workspace.id), []);
+  const { value, onChange } = props;
+
+  return (
+    <>
+      <fieldset className="space-y-2">
+        <legend className="label">{t('songs.background')}</legend>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            className="mt-1"
+            checked={value === null}
+            onChange={() => onChange(null)}
+          />
+          <span>
+            {t('songs.backgroundDefault')}
+            <span className="block text-xs text-slate-400">{t('songs.backgroundDefaultHint')}</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            className="mt-1"
+            checked={value !== null}
+            disabled={!profile}
+            // Start from the slideshow background, so only what differs needs choosing.
+            onChange={() =>
+              profile &&
+              onChange({ color: profile.backgroundColor, assetId: profile.backgroundAssetId })
+            }
+          />
+          <span>
+            {t('songs.backgroundOwn')}
+            <span className="block text-xs text-slate-400">{t('songs.backgroundOwnHint')}</span>
+          </span>
+        </label>
+      </fieldset>
+      {value && (
+        <div className="space-y-3 pl-6">
+          <BackgroundPicker
+            color={value.color}
+            assetId={value.assetId}
+            onColor={(color) => onChange({ ...value, color })}
+            onAsset={(assetId) => onChange({ ...value, assetId })}
+          />
+        </div>
+      )}
     </>
   );
 }

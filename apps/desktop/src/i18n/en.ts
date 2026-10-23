@@ -163,6 +163,10 @@ export const en = {
   'settings.backgroundSelected': 'Selected',
   'settings.backgroundMissing': 'File missing',
   'settings.backgroundTypes': 'Backgrounds',
+  'settings.backgroundCovered':
+    'The song on screen has its own background, so this one shows again after it.',
+  'settings.songBackground': 'Background for “{title}”',
+  'settings.songBackgroundHint': 'The song on screen now. Changes are saved with the song.',
   'settings.backup': 'Backup',
   'settings.backupHint':
     'Save everything in this workspace to one file, or bring it back from one.',
