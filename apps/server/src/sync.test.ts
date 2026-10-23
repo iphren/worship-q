@@ -5,6 +5,7 @@ import { SyncClient, type FileTransfer, type InstanceApi } from '@worship-q/sync
 import { describe, expect, it } from 'vitest';
 import { openDatabase } from './db';
 import { Instance } from './instance';
+import { applyLegacyImport, parseLegacyExport, planLegacyImport, type LegacySong } from './legacy';
 
 /** A clock shared by every device in a test, so edits have a clear order. */
 function sharedClock(start = '2026-10-21T09:00:00.000Z') {
@@ -230,5 +231,116 @@ describe('synchronization between two devices', () => {
     instance.revokeDevice(enrolled!.id);
     await branch.client.run();
     expect(branch.client.status.kind).toBe('error');
+  });
+});
+
+describe('importing the legacy lyrics service', () => {
+  const legacy = (songId: number, overrides: Partial<LegacySong> = {}): LegacySong => ({
+    songId,
+    id: `song${songId}`,
+    title: `Song ${songId}`,
+    lyrics: 'one\ntwo\n\nthree',
+    lyricist: 'Writer',
+    composer: 'Writer',
+    copyright: '',
+    ccli: '',
+    year: 2020,
+    deleted: 0,
+    ...overrides,
+  });
+
+  async function imported(
+    songs: LegacySong[],
+    instance: Instance,
+    workspaceId: string,
+    now: string,
+  ) {
+    const plan = planLegacyImport(instance, workspaceId, songs, now);
+    applyLegacyImport(instance, workspaceId, plan);
+    return plan;
+  }
+
+  it('reads both a JSON array and one object per line', () => {
+    const rows = [legacy(1), legacy(2)];
+    expect(parseLegacyExport(JSON.stringify(rows))).toEqual(rows);
+    expect(parseLegacyExport(rows.map((r) => JSON.stringify(r)).join('\n') + '\n')).toEqual(rows);
+  });
+
+  it('brings live legacy songs to a computer that uses the church’s copy', async () => {
+    const { clock, instance, workspace, code } = await setup();
+    const plan = await imported(
+      [
+        legacy(1, {
+          title: '世界真光',
+          lyricist: 'Tim Hughes',
+          composer: 'Tim Hughes',
+          ccli: '3217555',
+        }),
+        legacy(2, { lyricist: '游智婷', composer: '陳麒安' }),
+        legacy(3, { deleted: 1 }),
+        legacy(4, { id: 'song4-probation' }),
+        legacy(5, { lyrics: '' }),
+      ],
+      instance,
+      workspace.id,
+      clock.now(),
+    );
+    expect(plan).toMatchObject({ added: 2, skipped: 1, removed: 0 });
+
+    clock.advance();
+    const home = await device('home', clock, instance);
+    await home.session.createSong({ title: 'Sample', lyrics: 'x' });
+    await home.connect(code, 'replace');
+
+    const songs = await home.store.listSongs(home.session.workspace.id);
+    expect(songs.map((s) => [s.title, s.author, s.ccli])).toEqual([
+      ['Song 2', '游智婷, 陳麒安', null],
+      ['世界真光', 'Tim Hughes', '3217555'],
+    ]);
+    expect(await home.store.listSongRevisions(songs[0]!.id)).toHaveLength(1);
+  });
+
+  it('updates changed songs on a second import, keeping what was edited in Worship Q', async () => {
+    const { clock, instance, workspace, code } = await setup();
+    await imported([legacy(1), legacy(2), legacy(3)], instance, workspace.id, clock.now());
+    clock.advance();
+    const home = await device('home', clock, instance);
+    await home.connect(code, 'replace');
+    const byTitle = async () =>
+      new Map((await home.store.listSongs(home.session.workspace.id)).map((s) => [s.title, s]));
+    const before = await byTitle();
+
+    clock.advance();
+    await home.session.saveSong(before.get('Song 2')!.id, { lyrics: 'edited at home' });
+    await home.client.run();
+
+    clock.advance();
+    const plan = await imported(
+      [legacy(1, { lyrics: 'one\ntwo\n\nthree changed' }), legacy(2, { lyrics: 'legacy edit' })],
+      instance,
+      workspace.id,
+      clock.now(),
+    );
+    expect(plan).toMatchObject({
+      added: 0,
+      updated: 1,
+      unchanged: 0,
+      removed: 1,
+      kept: ['Song 2'],
+    });
+    expect(planLegacyImport(instance, workspace.id, [legacy(1)], clock.now()).records).toHaveLength(
+      2,
+    );
+
+    clock.advance();
+    await home.client.run();
+    const after = await byTitle();
+    const song1 = after.get('Song 1')!;
+    expect(song1.lyrics).toBe('one\ntwo\n\nthree changed');
+    expect(song1.revision).toBe(2);
+    // Unchanged lines keep their identifiers, so a presented slide stays in place.
+    expect(song1.lineIds.slice(0, 2)).toEqual(before.get('Song 1')!.lineIds.slice(0, 2));
+    expect(after.get('Song 2')!.lyrics).toBe('edited at home');
+    expect(after.has('Song 3')).toBe(false);
   });
 });

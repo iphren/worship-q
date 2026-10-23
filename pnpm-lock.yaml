@@ -158,6 +158,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.2
+      '@worship-q/lyrics':
+        specifier: workspace:*
+        version: link:../../packages/lyrics
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

@@ -254,6 +254,27 @@ export class Instance {
     };
   }
 
+  /** A workspace's records of one kind, each with the device that last stored it. */
+  records(
+    workspaceId: string,
+    kind: SyncRecord['kind'],
+  ): { record: SyncRecord; deviceId: string }[] {
+    return this.db
+      .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ? ORDER BY seq')
+      .all(workspaceId, kind)
+      .map((row) => ({
+        record: {
+          kind,
+          id: text(row.id),
+          key: text(row.key),
+          revision: Number(row.revision),
+          updatedAt: text(row.updated_at),
+          data: JSON.parse(text(row.data)) as Record<string, unknown>,
+        },
+        deviceId: text(row.device_id),
+      }));
+  }
+
   /** Whether a workspace's records mention a background file, so devices may fetch it. */
   hasBackground(workspaceId: string, fileName: string): boolean {
     return (

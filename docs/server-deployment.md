@@ -84,8 +84,36 @@ Church defaults: `linesPerPiece` (1–8), `wrapLongLines` (true/false),
 `'"Noto Sans SC"'`). A workspace that sets its own value in Settings keeps it; "Use church
 default" goes back to the church's.
 
+| `import legacy <workspace-id> <file\|-> [--dry-run]` | Imports songs from the legacy lyrics service |
+
 The connection code lets any computer join the workspace. Give it only to people who may
 prepare that workspace's content, and replace it with `workspace code` if it leaks.
+
+## Importing songs from the legacy lyrics service
+
+Export the live songs from the legacy service's MariaDB, one JSON object per line. Run this
+in the legacy service's folder, which holds its `.env`:
+
+```sh
+set -a; . ./.env; set +a
+sudo mysql --default-character-set=utf8mb4 -N -B -r "$MARIADB" -e "
+  SELECT JSON_OBJECT('songId', songId, 'id', id, 'title', title, 'lyricist', lyricist,
+    'composer', composer, 'lyrics', lyrics, 'copyright', copyright, 'year', year, 'ccli', ccli)
+  FROM songs WHERE deleted = 0 AND id NOT LIKE '%-probation' ORDER BY songId" > ~/legacy-songs.jsonl
+```
+
+Then, from the repository folder, import it into a workspace. Check with `--dry-run` first:
+
+```sh
+docker compose -f apps/server/compose.yaml exec -T worship-q \
+  node dist/cli.js import legacy <workspace-id> - --dry-run < ~/legacy-songs.jsonl
+```
+
+The author is the lyricist and the composer, named once when they are the same person.
+Importing again later updates the songs changed in the legacy service and removes the ones
+deleted there. Songs edited in Worship Q since they were imported are left as they are. Do
+the import before a workspace's first computer connects, so that computer can choose
+**Use the church's copy**.
 
 ## Connecting a desktop
 
