@@ -49,23 +49,89 @@ export interface SlideProps {
   transition?: boolean;
 }
 
-interface Lyrics {
-  /** Changes whenever different lyrics are shown, which is what a transition fades across. */
+interface Layer {
+  /** Changes whenever the layer shows something else, which is what a transition fades across. */
   key: string;
+}
+
+interface Lyrics extends Layer {
   lines: string[];
   style: CSSProperties;
 }
 
-function fade(element: HTMLElement | null, from: number, to: number) {
-  return element?.animate?.([{ opacity: from }, { opacity: to }], {
+interface Background extends Layer {
+  color: string;
+  media: OutputFrame['background']['media'];
+}
+
+const CAN_ANIMATE = typeof Element !== 'undefined' && 'animate' in Element.prototype;
+
+/** Animates opacity to `to`, from `from` or else from wherever it is now. */
+function fade(element: HTMLElement | undefined, from: number | null, to: number) {
+  if (!element || !CAN_ANIMATE) return undefined;
+  const start = from ?? Number(getComputedStyle(element).opacity);
+  for (const animation of element.getAnimations()) animation.cancel();
+  return element.animate([{ opacity: start }, { opacity: to }], {
     duration: TRANSITION_MS,
     easing: 'ease-in-out',
     fill: 'forwards',
   });
 }
 
+/**
+ * Crossfades a layer: what it showed before stays on screen, under the new content, until that
+ * has faded in. The old content keeps its element, so a video plays on while it fades. With
+ * `fadeOut` the old content also fades away as the new arrives; without it, it is covered.
+ */
+function useCrossfade<T extends Layer>(current: T | null, enabled: boolean, fadeOut: boolean) {
+  const [leaving, setLeaving] = useState<T[]>([]);
+  const [last, setLast] = useState(current);
+  const key = current?.key ?? null;
+  if (last !== current) {
+    setLast(current);
+    if (enabled && CAN_ANIMATE && last && last.key !== key) {
+      setLeaving([...leaving.filter((layer) => layer.key !== last.key && layer.key !== key), last]);
+    }
+  }
+
+  const elements = useRef(new Map<string, HTMLElement>());
+  const started = useRef(new WeakSet<HTMLElement>());
+  const shownKey = useRef(key);
+
+  useLayoutEffect(() => {
+    if (shownKey.current === key) return;
+    shownKey.current = key;
+    if (!enabled || key === null) return;
+    const element = elements.current.get(key);
+    // Content coming back mid-fade picks up from where it had faded to.
+    const returning = element !== undefined && started.current.delete(element);
+    fade(element, returning ? null : 0, 1);
+  }, [key, enabled]);
+
+  useLayoutEffect(() => {
+    for (const layer of leaving) {
+      const element = elements.current.get(layer.key);
+      if (!element || started.current.has(element)) continue;
+      started.current.add(element);
+      const animation = fade(element, null, fadeOut ? 0 : 1);
+      if (animation) {
+        animation.onfinish = () =>
+          setLeaving((list) => list.filter((item) => item.key !== layer.key));
+      }
+    }
+  }, [leaving, fadeOut]);
+
+  const layers = leaving.filter((layer) => layer.key !== key);
+  if (current) layers.push(current);
+  const ref = (layerKey: string) => (element: HTMLElement | null) => {
+    if (element) elements.current.set(layerKey, element);
+    else elements.current.delete(layerKey);
+  };
+  return { layers, ref };
+}
+
 /** Draws one frame at the output's own pixel size. */
-export function Slide({ frame, width, height, measure, transition }: SlideProps) {
+export function Slide({ frame, width, height, measure, transition = false }: SlideProps) {
   const [mediaFailed, setMediaFailed] = useState<string | null>(null);
   const [fontsReady, setFontsReady] = useState(0);
 
@@ -94,63 +160,49 @@ export function Slide({ frame, width, height, measure, transition }: SlideProps)
   const piece = !frame.blank && fitted && pieceIndex >= 0 ? fitted.song.pieces[pieceIndex] : null;
 
   const media = frame.background.media;
-  const showMedia = media && mediaFailed !== media.url;
-  const onMedia = Boolean(showMedia);
-  const color = onMedia ? '#ffffff' : contrastTextColor(frame.background.color);
-  const fill: CSSProperties = {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  };
+  const shownMedia = media && mediaFailed !== media.url ? media : null;
+  const onMedia = shownMedia !== null;
+  const backgroundColor = frame.background.color;
+  const color = onMedia ? '#ffffff' : contrastTextColor(backgroundColor);
+  const songId = frame.song?.id;
+  const pieceId = frame.pieceId;
+  const fontFamily = frame.fontFamily;
 
-  const lyrics: Lyrics | null =
-    piece && fitted
-      ? {
-          key: `${frame.song!.id}:${frame.pieceId}`,
-          lines: piece.lines,
-          style: {
-            left: fitted.geometry.marginX,
-            top: fitted.geometry.marginY,
-            width: fitted.geometry.width,
-            height: fitted.geometry.height,
-            fontFamily: cssFontFamily(frame.fontFamily),
-            fontSize: piece.fontSize,
-            lineHeight: fitted.geometry.lineHeight,
-            color,
-            textShadow: onMedia
-              ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)'
-              : 'none',
-          },
-        }
-      : null;
+  const background = useMemo<Background>(
+    () => ({
+      key: `${backgroundColor}|${shownMedia?.url ?? ''}`,
+      color: backgroundColor,
+      media: shownMedia,
+    }),
+    [backgroundColor, shownMedia],
+  );
 
-  // The lyrics last drawn, so a change of lyrics can fade them out over the new ones.
-  const shown = useRef(lyrics);
-  const [outgoing, setOutgoing] = useState<Lyrics | null>(null);
-  const incomingRef = useRef<HTMLDivElement>(null);
-  const outgoingRef = useRef<HTMLDivElement>(null);
-  const lyricsKey = lyrics?.key ?? null;
+  const lyrics = useMemo<Lyrics | null>(
+    () =>
+      piece && fitted
+        ? {
+            key: `${songId}:${pieceId}`,
+            lines: piece.lines,
+            style: {
+              left: fitted.geometry.marginX,
+              top: fitted.geometry.marginY,
+              width: fitted.geometry.width,
+              height: fitted.geometry.height,
+              fontFamily: cssFontFamily(fontFamily),
+              fontSize: piece.fontSize,
+              lineHeight: fitted.geometry.lineHeight,
+              color,
+              textShadow: onMedia
+                ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)'
+                : 'none',
+            },
+          }
+        : null,
+    [piece, fitted, songId, pieceId, fontFamily, color, onMedia],
+  );
 
-  useLayoutEffect(() => {
-    const previous = shown.current;
-    if (!transition || (previous?.key ?? null) === lyricsKey) return;
-    setOutgoing(previous);
-    fade(incomingRef.current, 0, 1);
-  }, [lyricsKey, transition]);
-
-  useLayoutEffect(() => {
-    shown.current = lyrics;
-  });
-
-  useLayoutEffect(() => {
-    if (!outgoing) return;
-    const animation = fade(outgoingRef.current, 1, 0);
-    if (!animation) return setOutgoing(null);
-    animation.onfinish = () => setOutgoing(null);
-    return () => animation.cancel();
-  }, [outgoing]);
+  const backgrounds = useCrossfade(background, transition, false);
+  const lyricLayers = useCrossfade(lyrics, transition, true);
 
   return (
     <div
@@ -159,33 +211,59 @@ export function Slide({ frame, width, height, measure, transition }: SlideProps)
         width,
         height,
         overflow: 'hidden',
-        background: frame.background.color,
+        background: backgroundColor,
       }}
     >
-      {showMedia && media.kind === 'image' && (
+      {backgrounds.layers.map((layer) => (
+        <BackgroundBlock
+          key={layer.key}
+          ref={backgrounds.ref(layer.key)}
+          background={layer}
+          onMediaError={setMediaFailed}
+        />
+      ))}
+      {lyricLayers.layers.map((layer) => (
+        <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
+      ))}
+    </div>
+  );
+}
+
+function BackgroundBlock(props: {
+  background: Background;
+  ref: Ref<HTMLDivElement>;
+  onMediaError: (url: string) => void;
+}) {
+  const { color, media } = props.background;
+  const fill: CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  };
+  return (
+    <div ref={props.ref} style={{ position: 'absolute', inset: 0, background: color }}>
+      {media?.kind === 'image' && (
         <img
-          key={media.url}
           src={media.url}
           alt=""
           draggable={false}
           style={fill}
-          onError={() => setMediaFailed(media.url)}
+          onError={() => props.onMediaError(media.url)}
         />
       )}
-      {showMedia && media.kind === 'video' && (
+      {media?.kind === 'video' && (
         <video
-          key={media.url}
           src={media.url}
           style={fill}
           autoPlay
           loop
           muted
           playsInline
-          onError={() => setMediaFailed(media.url)}
+          onError={() => props.onMediaError(media.url)}
         />
       )}
-      {outgoing && <LyricsBlock ref={outgoingRef} lyrics={outgoing} />}
-      {lyrics && <LyricsBlock key={lyrics.key} ref={incomingRef} lyrics={lyrics} />}
     </div>
   );
 }
