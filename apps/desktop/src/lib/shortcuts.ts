@@ -1,7 +1,10 @@
 /** Keyboard shortcuts for presenting, shared by the operator window and the slideshow window. */
 
 export type PresentAction =
-  /** Another slide of the same run sheet item; never moves to another item. */
+  /**
+   * Another slide of the same run sheet item; never moves to another item. After moving to
+   * another item, its first or last slide.
+   */
   | 'slide-next'
   | 'slide-previous'
   /** Moves the slide keys to another run sheet item; what is on screen stays. */
@@ -10,7 +13,10 @@ export type PresentAction =
   /** The next or previous slide of the whole run sheet, as presenter remotes expect. */
   | 'next'
   | 'previous'
-  /** Shows the lyrics again while blank, otherwise the same as `next`. */
+  /**
+   * Shows the lyrics again while blank, otherwise the same as `next`; after moving to another
+   * item, presents its first slide.
+   */
   | 'unblank-or-next'
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
@@ -65,6 +71,7 @@ export interface PresentControls {
   browseItem(by: 1 | -1): Promise<unknown>;
   next(): Promise<unknown>;
   previous(): Promise<unknown>;
+  unblankOrNext(): Promise<unknown>;
   setBlank(blank: boolean): Promise<unknown>;
   playSlide(slide: number): Promise<unknown>;
 }
@@ -85,7 +92,7 @@ export function runPresentAction(session: PresentControls, action: PresentAction
     case 'previous':
       return void session.previous();
     case 'unblank-or-next':
-      return void (session.live?.blank ? session.setBlank(false) : session.next());
+      return void session.unblankOrNext();
     case 'hide-lyrics':
       return void session.setBlank(true);
     case 'toggle-blank':

@@ -58,22 +58,17 @@ describe('runPresentAction', () => {
       browseItem: record('browseItem'),
       next: record('next'),
       previous: record('previous'),
+      unblankOrNext: record('unblankOrNext'),
       setBlank: async (value) => void calls.push(`setBlank(${value})`),
       playSlide: record('playSlide'),
     };
     return { session, calls };
   };
 
-  it('shows the lyrics again with space while blank, without moving', () => {
+  it('leaves space to the session, which knows whether to unblank or move on', () => {
     const { session, calls } = controls(true);
     runPresentAction(session, 'unblank-or-next');
-    expect(calls).toEqual(['setBlank(false)']);
-  });
-
-  it('moves to the next slide with space otherwise', () => {
-    const { session, calls } = controls(false);
-    runPresentAction(session, 'unblank-or-next');
-    expect(calls).toEqual(['next']);
+    expect(calls).toEqual(['unblankOrNext']);
   });
 });
 

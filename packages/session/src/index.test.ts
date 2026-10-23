@@ -410,9 +410,72 @@ describe('moving between items without presenting', () => {
   it('is forgotten once another slide is presented', async () => {
     await playAt(0, 0);
     await session.browseItem(1);
-    await session.next();
+    await playAt(0, 1);
     expect(session.browsedItemId).toBeNull();
+    await session.next();
+    expect(await shown()).toEqual(['three']);
+  });
+
+  it('presents the browsed item with down, next and space', async () => {
+    await playAt(0, 0);
+    await session.browseItem(1);
+    await session.stepInItem(1);
+    expect(await shown()).toEqual(['three']);
+
+    await session.browseItem(1);
+    await session.next();
+    expect(await shown()).toEqual(['five']);
+
+    await session.browseItem(-1);
+    await session.unblankOrNext();
+    expect(await shown()).toEqual(['three']);
+  });
+
+  it('presents the last slide of the browsed item with up', async () => {
+    await playAt(2, 0);
+    await session.browseItem(-1);
+    await session.stepInItem(-1);
+    expect(await shown()).toEqual(['four']);
+  });
+
+  it('presents the browsed item rather than the blanked one', async () => {
+    await playAt(0, 0);
+    await session.setBlank(true);
+    await session.browseItem(1);
+    await session.unblankOrNext();
+    expect(session.live!.blank).toBe(false);
+    expect(await shown()).toEqual(['three']);
+
+    await session.setBlank(true);
+    await session.browseItem(1);
+    await session.stepInItem(1);
+    expect(session.live!.blank).toBe(false);
+    expect(await shown()).toEqual(['five']);
+  });
+
+  it('acts on the presented item when browsing back to it', async () => {
+    await playAt(0, 0);
+    await session.browseItem(1);
+    await session.browseItem(-1);
+    await session.stepInItem(1);
     expect(await shown()).toEqual(['two']);
+  });
+
+  it('can be moved to any item directly', async () => {
+    await playAt(0, 0);
+    expect(await session.browseTo(await itemAt(2))).toBe(true);
+    expect(await shown()).toEqual(['one']);
+    await session.stepInItem(1);
+    expect(await shown()).toEqual(['five']);
+    expect(await session.browseTo('missing')).toBe(false);
+  });
+
+  it('unblanks with space while blank when no other item is browsed', async () => {
+    await playAt(0, 0);
+    await session.setBlank(true);
+    await session.unblankOrNext();
+    expect(session.live!.blank).toBe(false);
+    expect(await shown()).toEqual(['one']);
   });
 });
 

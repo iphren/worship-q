@@ -340,17 +340,56 @@ export class Session {
     return this.mutate(() => this.apply({ type: 'playPiece', itemId, pieceId }));
   }
 
+  /**
+   * The next slide of the run sheet. After moving to another item it presents that item's
+   * first slide instead.
+   */
   next(): Promise<boolean> {
-    return this.mutate(() => this.apply({ type: 'next' }));
+    return this.mutate(async () => (await this.playBrowsed(1)) ?? this.apply({ type: 'next' }));
+  }
+
+  /**
+   * Shows the lyrics again while blank, otherwise the same as `next`. After moving to
+   * another item it presents that item's first slide instead.
+   */
+  unblankOrNext(): Promise<boolean> {
+    return this.mutate(
+      async () =>
+        (await this.playBrowsed(1)) ?? this.apply({ type: this.live_?.blank ? 'unblank' : 'next' }),
+    );
   }
 
   previous(): Promise<boolean> {
     return this.mutate(() => this.apply({ type: 'previous' }));
   }
 
-  /** Steps to another slide of the presented item, never leaving it. */
+  /**
+   * Steps to another slide of the presented item, never leaving it. After moving to another
+   * item it presents that item's first slide, or its last when stepping back.
+   */
   stepInItem(by: 1 | -1): Promise<boolean> {
-    return this.mutate(() => this.apply({ type: by === 1 ? 'nextInItem' : 'previousInItem' }));
+    return this.mutate(
+      async () =>
+        (await this.playBrowsed(by)) ??
+        this.apply({ type: by === 1 ? 'nextInItem' : 'previousInItem' }),
+    );
+  }
+
+  /**
+   * Presents the first or the last slide of the browsed item when it is not the presented
+   * one; null when there is no such item, so the caller acts on the presented item.
+   */
+  private async playBrowsed(by: 1 | -1): Promise<boolean | null> {
+    const browsed = this.browsedItemId_;
+    const presented = this.live_?.presented;
+    if (!this.live_ || !browsed) return null;
+    if (presented?.runSheetId === this.live_.runSheetId && presented.itemId === browsed) {
+      return null;
+    }
+    const pieces = (await this.sequence()).filter((entry) => entry.itemId === browsed);
+    const piece = by === 1 ? pieces[0] : pieces[pieces.length - 1];
+    if (!piece) return null;
+    return this.apply({ type: 'playPiece', itemId: piece.itemId, pieceId: piece.pieceId });
   }
 
   /**
@@ -394,6 +433,16 @@ export class Session {
       const target = items[current < 0 ? (by === 1 ? 0 : -1) : current + by];
       if (!target) return false;
       this.browsedItemId_ = target;
+      return true;
+    });
+  }
+
+  /** Moves the slide keys to a run sheet item, leaving the screen as it is. */
+  browseTo(itemId: string): Promise<boolean> {
+    return this.mutate(async () => {
+      if (!this.live_) return false;
+      if (!(await this.sequence()).some((entry) => entry.itemId === itemId)) return false;
+      this.browsedItemId_ = itemId;
       return true;
     });
   }

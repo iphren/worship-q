@@ -148,6 +148,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   }
 
   function showItem(itemId: string) {
+    void session.browseTo(itemId);
     const section = slidesRef.current?.querySelector(`section[data-item-id="${itemId}"]`);
     if (!section) return;
     scrollToTop(section);
