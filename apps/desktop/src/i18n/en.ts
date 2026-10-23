@@ -151,7 +151,7 @@ export const en = {
   'settings.font': 'Font',
   'settings.fontDefault': 'System default',
   'settings.fontMissing':
-    'This font has no characters for {count} characters used in your songs (such as {sample}). They will appear in a different font.',
+    'This font doesn’t include {count} of the characters in your songs. They will be shown in a different font.',
   'settings.scale': 'Text size',
   'settings.scaleHint': 'The size is fitted to each song automatically; this adjusts it.',
   'settings.hideCursor': 'Hide the mouse cursor on the slideshow',

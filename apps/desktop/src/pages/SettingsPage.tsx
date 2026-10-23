@@ -195,7 +195,7 @@ export function SettingsPage() {
         },
         pieceId: 'sample',
       };
-  const missingChars = Array.from(missing);
+  const missingCount = Array.from(missing).length;
 
   return (
     <div className="flex h-full min-h-0 gap-4 p-4">
@@ -279,12 +279,9 @@ export function SettingsPage() {
               ))}
             </select>
           </label>
-          {missingChars.length > 0 && (
+          {missingCount > 0 && (
             <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
-              {t('settings.fontMissing', {
-                count: missingChars.length,
-                sample: missingChars.slice(0, 8).join(' '),
-              })}
+              {t('settings.fontMissing', { count: missingCount })}
             </p>
           )}
           <label className="flex items-center gap-3 text-sm">
