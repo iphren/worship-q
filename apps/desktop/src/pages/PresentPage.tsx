@@ -274,10 +274,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                 <SlidePreview />
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn" onClick={() => void session.previous()}>
-                    ← {t('present.previous')}
+                    ↑ {t('present.previous')}
                   </button>
                   <button className="btn btn-primary" onClick={() => void session.next()}>
-                    {t('present.next')} →
+                    {t('present.next')} ↓
                   </button>
                   <button
                     className={`btn col-span-2 ${blankStyle}`}
