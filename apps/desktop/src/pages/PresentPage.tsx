@@ -222,6 +222,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <RunSheetEditor
               date={liveDate}
               activeItemId={presented?.itemId ?? null}
+              keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
               onSelectItem={showItem}
               searchOnly
               footer={

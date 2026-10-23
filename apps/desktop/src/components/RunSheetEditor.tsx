@@ -19,6 +19,8 @@ function reorder<T>(list: readonly T[], from: number, to: number): T[] {
 export function RunSheetEditor(props: {
   date: IsoDate;
   activeItemId?: string | null;
+  /** The item moved to without presenting it, which the slide keys now act on. */
+  keyedItemId?: string | null;
   /** Makes the rows clickable; the grip and the row's buttons keep their own actions. */
   onSelectItem?: (itemId: string) => void;
   /** Lists songs only once searched for, instead of all of them while the search is empty. */
@@ -133,7 +135,7 @@ export function RunSheetEditor(props: {
                 : entry.item.id === props.activeItemId
                   ? 'bg-sky-900/60'
                   : 'bg-slate-900/60'
-            } ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''} ${
+            } ${entry.item.id === props.keyedItemId && !drag ? 'ring-2 ring-sky-400 ring-inset' : ''} ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''} ${
               onSelectItem && !drag
                 ? 'cursor-pointer transition hover:bg-slate-700/70 active:scale-[0.98] active:bg-sky-800/70'
                 : ''
