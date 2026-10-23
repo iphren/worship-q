@@ -21,6 +21,8 @@ const MONITOR_POLL_MS = 2000;
 
 export interface OutputStatus {
   frame: OutputFrame;
+  /** What the subtitle overlay page shows. */
+  subtitle: OutputFrame;
   decision: OutputDecision;
   monitors: MonitorIdentity[];
   /** System display names by monitor name. */
@@ -45,6 +47,7 @@ const identity = (monitor: Monitor): MonitorIdentity => ({
 export class OutputController {
   private status_: OutputStatus = {
     frame: EMPTY_FRAME,
+    subtitle: { ...EMPTY_FRAME, layout: 'subtitle' },
     decision: { kind: 'unset' },
     monitors: [],
     labels: {},
@@ -116,9 +119,11 @@ export class OutputController {
     const frame = await this.session.frame((asset) => this.urls.get(asset.fileName) ?? '');
     // A selected background whose file is missing falls back to the solid color.
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;
+    const subtitle = await this.session.frame(() => '', 'subtitle');
     if (this.stopped) return;
-    this.update({ frame });
+    this.update({ frame, subtitle });
     await this.send();
+    await native.publishOverlay(subtitle).catch(console.error);
   }
 
   private async send(): Promise<void> {

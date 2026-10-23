@@ -187,11 +187,15 @@ export type OutputTarget = z.infer<typeof OutputTargetSchema>;
 export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 1.5;
 
+export const OutputKindSchema = z.enum(['slideshow', 'subtitle']);
+export type OutputKind = z.infer<typeof OutputKindSchema>;
+
 export const OutputProfileSchema = z.object({
   id: IdSchema,
   workspaceId: IdSchema,
-  kind: z.literal('slideshow'),
-  /** Null means the system default font. */
+  /** The slideshow fills a screen; the subtitle overlay is a page for OBS and similar. */
+  kind: OutputKindSchema,
+  /** Null uses the church default font, else the system default. */
   fontFamily: z.string().nullable(),
   scale: z.number().min(MIN_SCALE).max(MAX_SCALE),
   backgroundColor: ColorSchema,
@@ -253,6 +257,8 @@ export type CommandType = Command['type'];
 
 /** Everything an output needs to draw the current moment of a presentation. */
 export interface OutputFrame {
+  /** Slideshow: lyrics over a background. Subtitle: a lower band over transparency. */
+  layout: OutputKind;
   /** True shows the background without lyrics. */
   blank: boolean;
   /** Null means the system default font. */
@@ -271,6 +277,7 @@ export interface OutputFrame {
 }
 
 export const EMPTY_FRAME: OutputFrame = {
+  layout: 'slideshow',
   blank: false,
   fontFamily: null,
   scale: 1,
@@ -280,3 +287,5 @@ export const EMPTY_FRAME: OutputFrame = {
   song: null,
   pieceId: null,
 };
+
+export * from './wire';

@@ -142,6 +142,31 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE song_revision ADD COLUMN background_asset_id TEXT`,
     ],
   },
+  {
+    version: 5,
+    statements: [
+      // Defaults received from the church instance; workspace settings take precedence.
+      `CREATE TABLE church_setting (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )`,
+      // This device's connection to a church instance. Never synchronized.
+      `CREATE TABLE sync_state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )`,
+      // Remote controllers an operator approved; each grant is revocable.
+      `CREATE TABLE remote_grant (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL REFERENCES workspace(id),
+        secret_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        revoked_at TEXT
+      )`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

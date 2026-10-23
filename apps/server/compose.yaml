@@ -1,0 +1,17 @@
+# docker compose -f apps/server/compose.yaml up -d --build   (run from the repository root)
+services:
+  worship-q:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    environment:
+      WORSHIP_Q_NAME: ${WORSHIP_Q_NAME:-Worship Q}
+    # Your reverse proxy forwards to this port; it is only reachable from this machine.
+    ports:
+      - '127.0.0.1:${WORSHIP_Q_PORT:-8080}:8080'
+    volumes:
+      - worship-q-data:/data
+
+volumes:
+  worship-q-data:

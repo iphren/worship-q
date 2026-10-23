@@ -8,7 +8,13 @@ import {
   type Ref,
 } from 'react';
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
-import { contrastTextColor, fitSong, outputGeometry, type Measure } from './layout';
+import {
+  contrastTextColor,
+  fitSong,
+  outputGeometry,
+  subtitleGeometry,
+  type Measure,
+} from './layout';
 
 export { EMPTY_FRAME, type OutputFrame };
 
@@ -145,7 +151,10 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
 
   const fitted = useMemo(() => {
     if (!frame.song || width <= 0 || height <= 0) return null;
-    const geometry = outputGeometry(width, height, { wrap: frame.wrap, scale: frame.scale });
+    const geometry =
+      frame.layout === 'subtitle'
+        ? subtitleGeometry(width, height, { scale: frame.scale })
+        : outputGeometry(width, height, { wrap: frame.wrap, scale: frame.scale });
     const song = fitSong(
       frame.song.pieces.map((piece) => piece.lines),
       geometry,
@@ -154,16 +163,28 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
     return { geometry, song };
     // fontsReady: measure again once fonts have loaded.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame.song, frame.wrap, frame.scale, frame.fontFamily, width, height, measure, fontsReady]);
+  }, [
+    frame.song,
+    frame.wrap,
+    frame.scale,
+    frame.fontFamily,
+    frame.layout,
+    width,
+    height,
+    measure,
+    fontsReady,
+  ]);
 
   const pieceIndex = frame.song?.pieces.findIndex((piece) => piece.id === frame.pieceId) ?? -1;
   const piece = !frame.blank && fitted && pieceIndex >= 0 ? fitted.song.pieces[pieceIndex] : null;
 
-  const media = frame.background.media;
+  const subtitle = frame.layout === 'subtitle';
+  // A subtitle overlay is drawn over transparency, for compositing in OBS.
+  const media = subtitle ? null : frame.background.media;
   const shownMedia = media && mediaFailed !== media.url ? media : null;
   const onMedia = shownMedia !== null;
-  const backgroundColor = frame.background.color;
-  const color = onMedia ? '#ffffff' : contrastTextColor(backgroundColor);
+  const backgroundColor = subtitle ? 'transparent' : frame.background.color;
+  const color = onMedia || subtitle ? '#ffffff' : contrastTextColor(backgroundColor);
   const songId = frame.song?.id;
   const pieceId = frame.pieceId;
   const fontFamily = frame.fontFamily;
@@ -192,13 +213,23 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
               fontSize: piece.fontSize,
               lineHeight: fitted.geometry.lineHeight,
               color,
-              textShadow: onMedia
-                ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)'
-                : 'none',
+              justifyContent: subtitle ? 'flex-end' : 'center',
+              ...(subtitle
+                ? {
+                    // An outline keeps the text readable over any video.
+                    WebkitTextStroke: '0.12em rgba(0,0,0,0.85)',
+                    paintOrder: 'stroke fill',
+                    textShadow: '0 0.04em 0.12em rgba(0,0,0,0.7)',
+                  }
+                : {
+                    textShadow: onMedia
+                      ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)'
+                      : 'none',
+                  }),
             },
           }
         : null,
-    [piece, fitted, songId, pieceId, fontFamily, color, onMedia],
+    [piece, fitted, songId, pieceId, fontFamily, color, onMedia, subtitle],
   );
 
   const backgrounds = useCrossfade(background, transition, false);
@@ -277,7 +308,6 @@ function LyricsBlock(props: { lyrics: Lyrics; ref: Ref<HTMLDivElement> }) {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
         fontWeight: FONT_WEIGHT,
         textAlign: 'center',
         ...props.lyrics.style,

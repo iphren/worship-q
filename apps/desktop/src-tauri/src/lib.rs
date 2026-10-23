@@ -1,12 +1,15 @@
 //! Native core of the Worship Q desktop app.
 //!
-//! Kept deliberately small (decision D12): windows, files, fonts and the database. All
-//! presentation and planning logic lives in the shared TypeScript packages.
+//! Kept deliberately small (decision D12): windows, files, fonts, the database, file
+//! transfers and the localhost overlay page. All presentation, planning and
+//! synchronization logic lives in the shared TypeScript packages.
 
+mod cloud;
 mod db;
 mod files;
 mod fonts;
 mod output;
+mod overlay;
 
 use std::fs;
 use tauri::{Emitter, Manager, WindowEvent};
@@ -32,6 +35,8 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
             app.manage(db::AppData::open(dir)?);
+            app.manage(overlay::Overlay::new());
+            overlay::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -67,6 +72,12 @@ pub fn run() {
             files::background_path,
             files::export_backup,
             files::restore_backup,
+            cloud::upload_background,
+            cloud::download_background,
+            cloud::upload_backup,
+            cloud::backup_before_join,
+            overlay::overlay_publish,
+            overlay::overlay_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");

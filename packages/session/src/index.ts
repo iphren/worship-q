@@ -25,15 +25,17 @@ import type {
   IsoDate,
   LiveState,
   OutputFrame,
+  OutputKind,
   OutputProfile,
   PresentationSettings,
+  RemoteCommand,
   RunSheet,
   RunSheetItem,
   Song,
   SongFields,
   Workspace,
 } from '@worship-q/protocol';
-import type { CopyMode, OutputProfilePatch, Store } from '@worship-q/store';
+import type { AppliedChanges, CopyMode, OutputProfilePatch, Store } from '@worship-q/store';
 
 export interface SessionClock {
   now(): Date;
@@ -324,9 +326,9 @@ export class Session {
 
   // ── Live commands ────────────────────────────────────────────────────────
 
-  private async apply(command: CommandInput): Promise<boolean> {
+  private async apply(command: CommandInput, id = this.store.newId()): Promise<boolean> {
     if (!this.live_) return false;
-    const outcome = applyCommand(this.live_, { ...command, id: this.store.newId() } as Command, {
+    const outcome = applyCommand(this.live_, { ...command, id } as Command, {
       now: this.nowIso(),
       sequence: await this.sequence(),
     });
@@ -445,6 +447,14 @@ export class Session {
       this.browsedItemId_ = itemId;
       return true;
     });
+  }
+
+  /**
+   * A command from a remote controller. Its identifier comes with it, so a command sent
+   * again after a reconnection is applied once. Remote controllers can only navigate.
+   */
+  remoteCommand(id: string, command: RemoteCommand): Promise<boolean> {
+    return this.mutate(() => this.apply(command, id));
   }
 
   setBlank(blank: boolean): Promise<boolean> {
@@ -604,7 +614,10 @@ export class Session {
    * Changes presentation settings. When the number of lines per piece changes while a song
    * is on screen, the presentation moves to the piece holding the first line that was shown.
    */
-  updatePresentationSettings(patch: Partial<PresentationSettings>): Promise<PresentationSettings> {
+  /** A null value goes back to the church default. */
+  updatePresentationSettings(patch: {
+    [K in keyof PresentationSettings]?: PresentationSettings[K] | null;
+  }): Promise<PresentationSettings> {
     return this.mutate(async () => {
       const before = await this.store.getPresentationSettings(this.workspace_.id);
       const after = await this.store.updatePresentationSettings(this.workspace_.id, patch);
@@ -627,8 +640,61 @@ export class Session {
     });
   }
 
-  updateOutputProfile(patch: OutputProfilePatch): Promise<OutputProfile> {
-    return this.mutate(() => this.store.updateOutputProfile(this.workspace_.id, patch));
+  updateOutputProfile(
+    patch: OutputProfilePatch,
+    kind: OutputKind = 'slideshow',
+  ): Promise<OutputProfile> {
+    return this.mutate(() => this.store.updateOutputProfile(this.workspace_.id, patch, kind));
+  }
+
+  /** The font an output uses: its own choice, else the church default, else the system's. */
+  async fontFamily(kind: OutputKind): Promise<string | null> {
+    const profile = await this.store.getOutputProfile(this.workspace_.id, kind);
+    if (profile.fontFamily) return profile.fontFamily;
+    const church = await this.store.getChurchSettings();
+    return (kind === 'slideshow' ? church.slideshowFontFamily : church.subtitleFontFamily) ?? null;
+  }
+
+  // ── Changes from other devices ───────────────────────────────────────────
+
+  /**
+   * Runs a change made outside this session, such as content received from the church
+   * instance, in turn with the session's own operations. Afterwards the workspace and the
+   * live state are read again; when the presented song's lyrics changed, the presentation
+   * follows them as it does for a local edit.
+   */
+  external<T>(change: () => Promise<T>): Promise<T> {
+    return this.mutate(async () => {
+      const presentedId = this.live_?.presented?.songId;
+      const before = presentedId ? await this.store.getSong(presentedId) : null;
+      const linesBefore = (await this.store.getPresentationSettings(this.workspace_.id))
+        .linesPerPiece;
+      const result = await change();
+
+      this.workspace_ = (await this.store.getWorkspace()) ?? this.workspace_;
+      const saved = await this.store.loadLiveState(this.workspace_.id);
+      let live = saved && this.live_ ? { ...this.live_, ...pickIds(saved) } : (saved ?? this.live_);
+      const after = before ? await this.store.getSong(before.id) : null;
+      const linesAfter = (await this.store.getPresentationSettings(this.workspace_.id))
+        .linesPerPiece;
+      if (live && before && after) {
+        live = relocatePresented(
+          live,
+          before.id,
+          buildPieces(before.lyrics, before.lineIds, linesBefore),
+          buildPieces(after.lyrics, after.lineIds, linesAfter),
+          this.nowIso(),
+        );
+      }
+      if (live && !(await this.store.getRunSheet(live.runSheetId))) live = null;
+      if (live !== this.live_ || live) await this.setLive(live);
+      return result;
+    });
+  }
+
+  /** Applies content received from the church instance. */
+  applyRemote(apply: () => Promise<AppliedChanges>): Promise<AppliedChanges> {
+    return this.external(apply);
   }
 
   addBackground(asset: Parameters<Store['addBackground']>[1]): Promise<BackgroundAsset> {
@@ -645,10 +711,14 @@ export class Session {
    * What the output should show right now. Lyrics and settings are read fresh, so a saved
    * edit or a changed setting reaches the screen without replaying the piece.
    */
-  async frame(mediaUrl: (asset: BackgroundAsset) => string): Promise<OutputFrame> {
+  async frame(
+    mediaUrl: (asset: BackgroundAsset) => string,
+    kind: OutputKind = 'slideshow',
+  ): Promise<OutputFrame> {
     const workspaceId = this.workspace_.id;
     const settings = await this.store.getPresentationSettings(workspaceId);
-    const profile = await this.store.getOutputProfile(workspaceId);
+    const profile = await this.store.getOutputProfile(workspaceId, kind);
+    const fontFamily = await this.fontFamily(kind);
     const presented = this.isLive ? this.live_!.presented : null;
     const song = presented ? await this.store.getSong(presented.songId) : null;
     // The presented song's own background, if it has one, replaces the slideshow's.
@@ -661,10 +731,12 @@ export class Session {
       : undefined;
 
     const frame: OutputFrame = {
+      layout: kind,
       blank: this.isLive && this.live_!.blank,
-      fontFamily: profile.fontFamily,
+      fontFamily,
       scale: profile.scale,
-      wrap: settings.wrapLongLines,
+      // Subtitles keep source-line boundaries and are never wrapped.
+      wrap: kind === 'slideshow' && settings.wrapLongLines,
       hideCursor: profile.hideCursor,
       background: {
         color: background.color,
@@ -689,3 +761,8 @@ export class Session {
 }
 
 export type { CopyMode };
+
+/** The parts of a saved live state that refer to run sheets, after they were remapped. */
+function pickIds(saved: LiveState): Pick<LiveState, 'runSheetId' | 'presented'> {
+  return { runSheetId: saved.runSheetId, presented: saved.presented };
+}

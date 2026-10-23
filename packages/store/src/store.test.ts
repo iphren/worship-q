@@ -48,14 +48,17 @@ describe('migrations', () => {
     );
     expect(tables.map((t) => t.name)).toEqual([
       'background_asset',
+      'church_setting',
       'live_state',
       'output_profile',
+      'remote_grant',
       'run_sheet',
       'run_sheet_item',
       'setting',
       'song',
       'song_revision',
       'song_search',
+      'sync_state',
       'workspace',
     ]);
   });

@@ -4,3 +4,4 @@ target/
 apps/desktop/src-tauri/gen/
 *.log
 .DS_Store
+apps/server/data/

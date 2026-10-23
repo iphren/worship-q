@@ -1,5 +1,6 @@
 import { assignLineIds } from '@worship-q/lyrics';
 import {
+  ChurchSettingsSchema,
   DEFAULT_PRESENTATION_SETTINGS,
   invalidSongFields,
   LiveStateSchema,
@@ -8,8 +9,10 @@ import {
   PresentationSettingsSchema,
   type BackgroundAsset,
   type BackgroundKind,
+  type ChurchSettings,
   type IsoDate,
   type LiveState,
+  type OutputKind,
   type OutputProfile,
   type PresentationSettings,
   type RunSheet,
@@ -134,7 +137,7 @@ function toOutputProfile(row: Row): OutputProfile {
   return {
     id: text(row.id),
     workspaceId: text(row.workspace_id),
-    kind: 'slideshow',
+    kind: text(row.kind) === 'subtitle' ? 'subtitle' : 'slideshow',
     fontFamily: optional(row.font_family),
     scale: Number(row.scale),
     backgroundColor: text(row.background_color),
@@ -178,7 +181,7 @@ export type CopyMode = 'append' | 'replace';
 export class Store {
   constructor(
     readonly db: SqlDriver,
-    private readonly env: StoreEnv,
+    readonly env: StoreEnv,
   ) {}
 
   newId(): string {
@@ -219,6 +222,16 @@ export class Store {
     return workspace;
   }
 
+  async setWorkspaceName(workspaceId: string, name: string): Promise<Workspace> {
+    await this.db.batch([
+      {
+        sql: `UPDATE workspace SET name = ?, revision = revision + 1, updated_at = ? WHERE id = ? AND name <> ?`,
+        params: [name, this.env.now(), workspaceId, name],
+      },
+    ]);
+    return (await this.getWorkspace())!;
+  }
+
   async setMeetingDays(workspaceId: string, days: readonly number[]): Promise<Workspace> {
     const normalized = [...new Set(days)].filter((d) => d >= 0 && d <= 6).sort((a, b) => a - b);
     await this.db.batch([
@@ -256,7 +269,7 @@ export class Store {
   }
 
   /** Stores the search keys of a song, replacing earlier ones. */
-  private searchUpsert(song: Pick<Song, 'id' | 'title' | 'lyrics'>): Statement {
+  searchUpsert(song: Pick<Song, 'id' | 'title' | 'lyrics'>): Statement {
     const keys = songKeys(song);
     return {
       sql: `INSERT OR REPLACE INTO song_search (song_id, version, title_text, title_pinyin, title_initials,
@@ -653,30 +666,58 @@ export class Store {
 
   // ── Settings ─────────────────────────────────────────────────────────────
 
-  async getPresentationSettings(workspaceId: string): Promise<PresentationSettings> {
+  /** Settings this workspace sets itself, without the church defaults. */
+  async getWorkspaceSettings(workspaceId: string): Promise<Partial<PresentationSettings>> {
     const rows = await this.db.select<{ key: string; value: string }>(
       'SELECT key, value FROM setting WHERE workspace_id = ?',
       [workspaceId],
     );
     const stored: Record<string, unknown> = {};
     for (const row of rows) stored[row.key] = json<unknown>(row.value, undefined);
-    const merged: Record<string, unknown> = { ...DEFAULT_PRESENTATION_SETTINGS };
+    const own: Record<string, unknown> = {};
     for (const key of Object.keys(
       DEFAULT_PRESENTATION_SETTINGS,
     ) as (keyof PresentationSettings)[]) {
       const candidate = PresentationSettingsSchema.shape[key].safeParse(stored[key]);
-      if (candidate.success) merged[key] = candidate.data;
+      if (candidate.success) own[key] = candidate.data;
     }
-    return merged as PresentationSettings;
+    return own as Partial<PresentationSettings>;
   }
 
+  /**
+   * The settings in effect: the workspace's own, else the church default, else the built-in
+   * default.
+   */
+  async getPresentationSettings(workspaceId: string): Promise<PresentationSettings> {
+    const church = await this.getChurchSettings();
+    const inherited: Partial<PresentationSettings> = {};
+    if (church.linesPerPiece !== undefined) inherited.linesPerPiece = church.linesPerPiece;
+    if (church.wrapLongLines !== undefined) inherited.wrapLongLines = church.wrapLongLines;
+    return {
+      ...DEFAULT_PRESENTATION_SETTINGS,
+      ...inherited,
+      ...(await this.getWorkspaceSettings(workspaceId)),
+    };
+  }
+
+  /**
+   * Sets workspace settings. A null value stops overriding the church default; it is stored
+   * rather than deleted so that the change reaches other devices.
+   */
   async updatePresentationSettings(
     workspaceId: string,
-    patch: Partial<PresentationSettings>,
+    patch: { [K in keyof PresentationSettings]?: PresentationSettings[K] | null },
   ): Promise<PresentationSettings> {
-    const valid = PresentationSettingsSchema.partial().parse(patch);
+    const valid = PresentationSettingsSchema.partial().parse(
+      Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== null)),
+    );
+    const cleared = Object.fromEntries(
+      Object.entries(patch)
+        .filter(([key, value]) => value === null && key in DEFAULT_PRESENTATION_SETTINGS)
+        .map(([key]) => [key, null]),
+    );
     const now = this.env.now();
-    const statements = Object.entries(valid)
+    const statements = Object.entries({ ...valid, ...cleared })
       .filter(([, value]) => value !== undefined)
       .map(([key, value]) => ({
         sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
@@ -686,6 +727,34 @@ export class Store {
       }));
     if (statements.length > 0) await this.db.batch(statements);
     return this.getPresentationSettings(workspaceId);
+  }
+
+  async getChurchSettings(): Promise<ChurchSettings> {
+    const rows = await this.db.select<{ key: string; value: string }>(
+      'SELECT key, value FROM church_setting',
+    );
+    const stored: Record<string, unknown> = {};
+    for (const row of rows) stored[row.key] = json<unknown>(row.value, undefined);
+    const parsed: Record<string, unknown> = {};
+    for (const [key, schema] of Object.entries(ChurchSettingsSchema.shape)) {
+      const candidate = schema.safeParse(stored[key]);
+      if (candidate.success && candidate.data !== undefined) parsed[key] = candidate.data;
+    }
+    return parsed as ChurchSettings;
+  }
+
+  /** Replaces the church defaults with those last received from the instance. */
+  async setChurchSettings(settings: ChurchSettings): Promise<void> {
+    const valid = ChurchSettingsSchema.parse(settings);
+    await this.db.batch([
+      { sql: 'DELETE FROM church_setting' },
+      ...Object.entries(valid)
+        .filter(([, value]) => value !== undefined)
+        .map(([key, value]) => ({
+          sql: 'INSERT INTO church_setting (key, value) VALUES (?, ?)',
+          params: [key, JSON.stringify(value)] as SqlValue[],
+        })),
+    ]);
   }
 
   // ── Backgrounds ──────────────────────────────────────────────────────────
@@ -732,20 +801,23 @@ export class Store {
 
   // ── Output profile ───────────────────────────────────────────────────────
 
-  /** The slideshow output's settings, created with defaults on first use. */
-  async getOutputProfile(workspaceId: string): Promise<OutputProfile> {
-    const query = `SELECT * FROM output_profile WHERE workspace_id = ? AND kind = 'slideshow'`;
-    let rows = await this.db.select<Row>(query, [workspaceId]);
+  /** An output's settings, created with defaults on first use. */
+  async getOutputProfile(
+    workspaceId: string,
+    kind: OutputKind = 'slideshow',
+  ): Promise<OutputProfile> {
+    const query = `SELECT * FROM output_profile WHERE workspace_id = ? AND kind = ?`;
+    let rows = await this.db.select<Row>(query, [workspaceId, kind]);
     if (!rows[0]) {
       await this.db.batch([
         {
           sql: `INSERT INTO output_profile (id, workspace_id, kind, font_family, scale, background_color, revision, updated_at)
-                VALUES (?, ?, 'slideshow', NULL, 1, '#000000', 1, ?)
+                VALUES (?, ?, ?, NULL, 1, '#000000', 1, ?)
                 ON CONFLICT (workspace_id, kind) DO NOTHING`,
-          params: [this.env.newId(), workspaceId, this.env.now()],
+          params: [this.env.newId(), workspaceId, kind, this.env.now()],
         },
       ]);
-      rows = await this.db.select<Row>(query, [workspaceId]);
+      rows = await this.db.select<Row>(query, [workspaceId, kind]);
     }
     return toOutputProfile(rows[0]!);
   }
@@ -753,8 +825,9 @@ export class Store {
   async updateOutputProfile(
     workspaceId: string,
     patch: OutputProfilePatch,
+    kind: OutputKind = 'slideshow',
   ): Promise<OutputProfile> {
-    const current = await this.getOutputProfile(workspaceId);
+    const current = await this.getOutputProfile(workspaceId, kind);
     const next = OutputProfileSchema.parse({
       ...current,
       ...patch,
@@ -781,6 +854,51 @@ export class Store {
       },
     ]);
     return next;
+  }
+
+  // ── Remote-control grants ────────────────────────────────────────────────
+
+  async addRemoteGrant(
+    workspaceId: string,
+    grant: { id: string; secretHash: string; name: string },
+  ): Promise<void> {
+    const now = this.env.now();
+    await this.db.batch([
+      {
+        sql: `INSERT INTO remote_grant (id, workspace_id, secret_hash, name, created_at, last_seen_at)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        params: [grant.id, workspaceId, grant.secretHash, grant.name, now, now],
+      },
+    ]);
+  }
+
+  /** An unrevoked grant of the workspace, recording that it was used. */
+  async useRemoteGrant(
+    workspaceId: string,
+    id: string,
+  ): Promise<{ secretHash: string; name: string } | null> {
+    const rows = await this.db.select<Row>(
+      'SELECT * FROM remote_grant WHERE id = ? AND workspace_id = ? AND revoked_at IS NULL',
+      [id, workspaceId],
+    );
+    if (!rows[0]) return null;
+    await this.db.batch([
+      {
+        sql: 'UPDATE remote_grant SET last_seen_at = ? WHERE id = ?',
+        params: [this.env.now(), id],
+      },
+    ]);
+    return { secretHash: text(rows[0].secret_hash), name: text(rows[0].name) };
+  }
+
+  async revokeRemoteGrants(workspaceId: string, id?: string): Promise<void> {
+    await this.db.batch([
+      {
+        sql: `UPDATE remote_grant SET revoked_at = ?
+              WHERE workspace_id = ? AND revoked_at IS NULL ${id ? 'AND id = ?' : ''}`,
+        params: id ? [this.env.now(), workspaceId, id] : [this.env.now(), workspaceId],
+      },
+    ]);
   }
 
   // ── Live state ───────────────────────────────────────────────────────────
