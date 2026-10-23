@@ -395,11 +395,11 @@ export function SettingsPage() {
               <div className="space-y-1 text-sm">
                 <p className="text-slate-300">{t('subtitle.url')}</p>
                 <div className="flex items-center gap-2">
-                  <code className="rounded bg-slate-900 px-2 py-1 text-xs select-all">
+                  <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
                     {overlay.url}
                   </code>
                   <button
-                    className="btn btn-sm"
+                    className="btn btn-sm shrink-0 whitespace-nowrap"
                     onClick={() => {
                       void navigator.clipboard.writeText(overlay.url).then(() => setCopied(true));
                       window.setTimeout(() => setCopied(false), 1500);
