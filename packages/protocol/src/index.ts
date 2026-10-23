@@ -26,6 +26,16 @@ export const WorkspaceSchema = z.object({
 });
 export type Workspace = z.infer<typeof WorkspaceSchema>;
 
+const ColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/** A background chosen for one song in place of the slideshow's own. */
+export const SongBackgroundSchema = z.object({
+  color: ColorSchema,
+  /** Image or video; the color is used when null or missing. */
+  assetId: IdSchema.nullable(),
+});
+export type SongBackground = z.infer<typeof SongBackgroundSchema>;
+
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),
@@ -40,6 +50,8 @@ export const SongFieldsSchema = z.object({
   ccli: z.string().regex(/^\d+$/).nullable(),
   /** Year the song was written, when known; see `maxSongYear`. */
   year: z.number().int().nullable(),
+  /** Null uses the slideshow background from the settings. */
+  background: SongBackgroundSchema.nullable(),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -78,6 +90,7 @@ export function cleanSongFields(fields: SongFields): SongFields {
     copyright: clean(fields.copyright).trim(),
     ccli: ccli === '' ? null : ccli,
     year: fields.year,
+    background: fields.background,
   };
 }
 
@@ -181,7 +194,7 @@ export const OutputProfileSchema = z.object({
   /** Null means the system default font. */
   fontFamily: z.string().nullable(),
   scale: z.number().min(MIN_SCALE).max(MAX_SCALE),
-  backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  backgroundColor: ColorSchema,
   /** Selected image or video; the solid color is used when null or missing. */
   backgroundAssetId: IdSchema.nullable(),
   /** True hides the mouse cursor while it is over the slideshow. */

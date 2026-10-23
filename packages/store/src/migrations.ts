@@ -132,6 +132,16 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 4,
+    statements: [
+      // A song's own background; no color means the slideshow background is used.
+      `ALTER TABLE song ADD COLUMN background_color TEXT`,
+      `ALTER TABLE song ADD COLUMN background_asset_id TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN background_color TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN background_asset_id TEXT`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

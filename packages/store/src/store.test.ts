@@ -327,6 +327,24 @@ describe('songs', () => {
     ]);
   });
 
+  it("keeps a song's own background with each revision", async () => {
+    const song = await store.createSong(workspaceId, { title: 'Song' });
+    expect(song.background).toBeNull();
+    const background = { color: '#336699', assetId: 'bg' };
+    const updated = await store.updateSong(song.id, { background });
+    expect(updated.revision).toBe(2);
+    expect((await store.getSong(song.id))!.background).toEqual(background);
+    expect(await store.updateSong(song.id, { background: { ...background } })).toMatchObject({
+      revision: 2,
+    });
+    await store.updateSong(song.id, { background: null });
+    expect((await store.listSongRevisions(song.id)).map((r) => r.background)).toEqual([
+      null,
+      background,
+      null,
+    ]);
+  });
+
   it('records a song without CCLI number or year as having none', async () => {
     const song = await store.createSong(workspaceId, { title: 'Plain' });
     expect(await store.getSong(song.id)).toMatchObject({ ccli: null, year: null });

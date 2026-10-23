@@ -649,10 +649,15 @@ export class Session {
     const workspaceId = this.workspace_.id;
     const settings = await this.store.getPresentationSettings(workspaceId);
     const profile = await this.store.getOutputProfile(workspaceId);
-    const asset = profile.backgroundAssetId
-      ? (await this.store.listBackgrounds(workspaceId)).find(
-          (b) => b.id === profile.backgroundAssetId,
-        )
+    const presented = this.isLive ? this.live_!.presented : null;
+    const song = presented ? await this.store.getSong(presented.songId) : null;
+    // The presented song's own background, if it has one, replaces the slideshow's.
+    const background = song?.background ?? {
+      color: profile.backgroundColor,
+      assetId: profile.backgroundAssetId,
+    };
+    const asset = background.assetId
+      ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
       : undefined;
 
     const frame: OutputFrame = {
@@ -662,15 +667,13 @@ export class Session {
       wrap: settings.wrapLongLines,
       hideCursor: profile.hideCursor,
       background: {
-        color: profile.backgroundColor,
+        color: background.color,
         media: asset ? { kind: asset.kind, url: mediaUrl(asset) } : null,
       },
       song: null,
       pieceId: null,
     };
 
-    const presented = this.isLive ? this.live_!.presented : null;
-    const song = presented ? await this.store.getSong(presented.songId) : null;
     if (presented && song) {
       const pieces = buildPieces(song.lyrics, song.lineIds, settings.linesPerPiece);
       frame.song = {

@@ -910,4 +910,29 @@ describe('output frame', () => {
     await session.updateOutputProfile({ backgroundAssetId: 'never-imported' });
     expect((await session.frame(mediaUrl)).background.media).toBeNull();
   });
+
+  it("uses the presented song's own background in place of the slideshow's", async () => {
+    await session.addBackground({
+      id: 'bg',
+      kind: 'image',
+      fileName: 'bg.png',
+      originalName: 'Sky.png',
+    });
+    await session.updateOutputProfile({ backgroundAssetId: 'bg', backgroundColor: '#222222' });
+    const songId = session.live!.presented!.songId;
+    await session.saveSong(songId, { background: { color: '#336699', assetId: null } });
+    frame = await session.frame(mediaUrl);
+    expect(frame.background).toEqual({ color: '#336699', media: null });
+
+    // Blanking keeps the song's background on screen.
+    await session.setBlank(true);
+    expect((await session.frame(mediaUrl)).background.color).toBe('#336699');
+
+    await session.saveSong(songId, { background: null });
+    frame = await session.frame(mediaUrl);
+    expect(frame.background).toEqual({
+      color: '#222222',
+      media: { kind: 'image', url: 'media://bg.png' },
+    });
+  });
 });

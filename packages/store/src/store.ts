@@ -34,6 +34,10 @@ type Row = Record<string, SqlValue>;
 const text = (value: SqlValue | undefined) => String(value ?? '');
 const optional = (value: SqlValue | undefined) => (value == null ? null : String(value));
 const optionalNumber = (value: SqlValue | undefined) => (value == null ? null : Number(value));
+const songBackground = (row: Row) =>
+  row.background_color == null
+    ? null
+    : { color: String(row.background_color), assetId: optional(row.background_asset_id) };
 const json = <T>(value: SqlValue | undefined, fallback: T): T => {
   try {
     return value == null ? fallback : (JSON.parse(String(value)) as T);
@@ -65,6 +69,7 @@ function toSong(row: Row): Song {
     copyright: text(row.copyright),
     ccli: optional(row.ccli),
     year: optionalNumber(row.year),
+    background: songBackground(row),
     revision: Number(row.revision),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
@@ -84,6 +89,7 @@ function toSongRevision(row: Row): SongRevision {
     copyright: text(row.copyright),
     ccli: optional(row.ccli),
     year: optionalNumber(row.year),
+    background: songBackground(row),
     createdAt: text(row.created_at),
   };
 }
@@ -228,8 +234,9 @@ export class Store {
 
   private revisionInsert(song: Song): Statement {
     return {
-      sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year,
+              background_color, background_asset_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -241,6 +248,8 @@ export class Store {
         song.copyright,
         song.ccli,
         song.year,
+        song.background?.color ?? null,
+        song.background?.assetId ?? null,
         song.updatedAt,
       ],
     };
@@ -284,6 +293,7 @@ export class Store {
       copyright: fields.copyright ?? '',
       ccli: fields.ccli ?? null,
       year: fields.year ?? null,
+      background: fields.background ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -292,8 +302,9 @@ export class Store {
     this.validate(song);
     await this.db.batch([
       {
-        sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year, revision, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
+                background_color, background_asset_id, revision, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -304,6 +315,8 @@ export class Store {
           song.copyright,
           song.ccli,
           song.year,
+          song.background?.color ?? null,
+          song.background?.assetId ?? null,
           1,
           now,
           now,
@@ -329,7 +342,9 @@ export class Store {
       next.author === current.author &&
       next.copyright === current.copyright &&
       next.ccli === current.ccli &&
-      next.year === current.year;
+      next.year === current.year &&
+      next.background?.color === current.background?.color &&
+      next.background?.assetId === current.background?.assetId;
     if (unchanged) return current;
     this.validate(next);
 
@@ -339,7 +354,7 @@ export class Store {
     await this.db.batch([
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
-                revision = ?, updated_at = ?
+                background_color = ?, background_asset_id = ?, revision = ?, updated_at = ?
               WHERE id = ?`,
         params: [
           next.title,
@@ -349,6 +364,8 @@ export class Store {
           next.copyright,
           next.ccli,
           next.year,
+          next.background?.color ?? null,
+          next.background?.assetId ?? null,
           next.revision,
           next.updatedAt,
           id,

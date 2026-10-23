@@ -11,6 +11,7 @@ import {
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
+import { BackgroundPicker } from '../components/BackgroundPicker';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview } from '../components/SlidePreview';
@@ -51,11 +52,9 @@ export function SettingsPage() {
   useScrollMemory(asideRef, 'settings.preview');
   const settings = useQuery(() => session.store.getPresentationSettings(workspaceId), []);
   const profile = useQuery(() => session.store.getOutputProfile(workspaceId), []);
-  const backgrounds = useQuery(() => session.store.listBackgrounds(workspaceId), []);
   const [fonts, setFonts] = useState<string[]>([]);
   const [version, setVersion] = useState('');
   const [missing, setMissing] = useState('');
-  const [thumbs, setThumbs] = useState<Record<string, string | null>>({});
   const [restoreFrom, setRestoreFrom] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
@@ -78,19 +77,7 @@ export function SettingsPage() {
     };
   }, [fontFamily, session, workspaceId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all(
-      (backgrounds ?? []).map(
-        async (asset) => [asset.id, await native.backgroundUrl(asset.fileName)] as const,
-      ),
-    ).then((pairs) => !cancelled && setThumbs(Object.fromEntries(pairs)));
-    return () => {
-      cancelled = true;
-    };
-  }, [backgrounds]);
-
-  if (!settings || !profile || !backgrounds) return null;
+  if (!settings || !profile) return null;
 
   const days = session.workspace.meetingDays;
   const toggleDay = (day: number) =>
@@ -297,84 +284,13 @@ export function SettingsPage() {
         </Section>
 
         <Section title={t('settings.background')}>
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.backgroundColor')}</span>
-            <input
-              type="color"
-              className="h-8 w-14 rounded border border-slate-600 bg-transparent"
-              value={profile.backgroundColor}
-              onChange={(e) =>
-                void session.updateOutputProfile({ backgroundColor: e.target.value })
-              }
-            />
-          </label>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
-            <button
-              className={`flex aspect-video items-center justify-center rounded-md border-2 text-xs ${
-                profile.backgroundAssetId === null ? 'border-sky-400' : 'border-slate-600'
-              }`}
-              style={{ background: profile.backgroundColor }}
-              onClick={() => void session.updateOutputProfile({ backgroundAssetId: null })}
-            >
-              <span className="rounded bg-black/60 px-1.5 py-0.5">
-                {t('settings.backgroundNone')}
-              </span>
-            </button>
-            {backgrounds.map((asset) => {
-              const url = thumbs[asset.id];
-              const selected = profile.backgroundAssetId === asset.id;
-              return (
-                <div
-                  key={asset.id}
-                  className={`relative aspect-video overflow-hidden rounded-md border-2 bg-black ${
-                    selected ? 'border-sky-400' : 'border-slate-600'
-                  }`}
-                >
-                  <button
-                    className="absolute inset-0"
-                    title={asset.originalName}
-                    onClick={() =>
-                      void session.updateOutputProfile({ backgroundAssetId: asset.id })
-                    }
-                  >
-                    {url && asset.kind === 'image' && (
-                      <img
-                        src={url}
-                        alt=""
-                        draggable={false}
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    {url && asset.kind === 'video' && (
-                      <video
-                        src={url}
-                        muted
-                        playsInline
-                        preload="metadata"
-                        className="h-full w-full object-cover"
-                      />
-                    )}
-                    {url === null && (
-                      <span className="text-xs text-amber-400">
-                        {t('settings.backgroundMissing')}
-                      </span>
-                    )}
-                  </button>
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/60 px-1.5 py-0.5 text-xs">
-                    {selected ? `✓ ${t('settings.backgroundSelected')} · ` : ''}
-                    {asset.originalName}
-                  </span>
-                  <button
-                    className="absolute top-1 right-1 rounded bg-black/70 px-1.5 text-xs hover:bg-rose-700"
-                    title={t('common.remove')}
-                    onClick={() => void removeBackground(asset)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+          <BackgroundPicker
+            color={profile.backgroundColor}
+            assetId={profile.backgroundAssetId}
+            onColor={(backgroundColor) => void session.updateOutputProfile({ backgroundColor })}
+            onAsset={(backgroundAssetId) => void session.updateOutputProfile({ backgroundAssetId })}
+            onRemove={(asset) => void removeBackground(asset)}
+          />
           <button className="btn" onClick={() => void importBackground()}>
             {t('settings.backgroundImport')}
           </button>

@@ -13,6 +13,7 @@ describe('song fields', () => {
         copyright: '讚美之泉\n',
         ccli: ' ',
         year: 2006,
+        background: null,
       }),
     ).toEqual({
       title: '耶和华你是我的神',
@@ -21,11 +22,19 @@ describe('song fields', () => {
       copyright: '讚美之泉',
       ccli: null,
       year: 2006,
+      background: null,
     });
   });
 
   it('keeps a CCLI number without surrounding spaces', () => {
-    const fields = { title: '', lyrics: '', author: '', copyright: '', year: null };
+    const fields = {
+      title: '',
+      lyrics: '',
+      author: '',
+      copyright: '',
+      year: null,
+      background: null,
+    };
     expect(cleanSongFields({ ...fields, ccli: ' 4702289 ' }).ccli).toBe('4702289');
   });
 

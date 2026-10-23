@@ -42,6 +42,13 @@ export const en = {
   'songs.preview': 'Preview',
   'songs.previewEmpty': 'Slides appear here as you type.',
   'songs.pieceCount': '{count} slides',
+  'songs.settingsTab': 'Settings',
+  'songs.background': 'Background',
+  'songs.backgroundDefault': 'Slideshow background',
+  'songs.backgroundDefaultHint': 'The background chosen in Settings, shared by every song.',
+  'songs.backgroundOwn': 'This song’s own background',
+  'songs.backgroundOwnHint':
+    'Shown only while this song is presented. Add images and videos in Settings.',
   'songs.addToRunSheet': 'Add to run sheet · {date}',
   'songs.addedToRunSheet': 'Added',
   'songs.removeTitle': 'Remove “{title}”?',
