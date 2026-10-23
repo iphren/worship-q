@@ -14,6 +14,8 @@ WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /repo/apps/server/dist ./dist
 COPY --from=build /repo/apps/remote/dist ./remote
+# The server runs as `node`; a new volume takes this folder's owner.
+RUN mkdir -p /data && chown node:node /data
 VOLUME /data
 EXPOSE 8080
 USER node
