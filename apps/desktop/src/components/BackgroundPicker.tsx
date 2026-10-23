@@ -65,6 +65,19 @@ export function BackgroundPicker(props: {
               className={`relative aspect-video overflow-hidden rounded-md border-2 bg-black ${
                 selected ? 'border-sky-400' : 'border-slate-600'
               }`}
+              // Videos play while the pointer is over them, and go back to the first frame after.
+              onMouseEnter={(e) =>
+                void e.currentTarget
+                  .querySelector('video')
+                  ?.play()
+                  .catch(() => {})
+              }
+              onMouseLeave={(e) => {
+                const video = e.currentTarget.querySelector('video');
+                if (!video) return;
+                video.pause();
+                video.currentTime = 0;
+              }}
             >
               <button
                 type="button"
@@ -79,6 +92,7 @@ export function BackgroundPicker(props: {
                   <video
                     src={url}
                     muted
+                    loop
                     playsInline
                     preload="metadata"
                     className="h-full w-full object-cover"
