@@ -1,7 +1,7 @@
 /** English interface text. Other languages provide the same keys (decision D8). */
 export const en = {
   'app.name': 'Worship Q',
-  'app.windowTitle': '{workspace} · {date} — Worship Q',
+  'app.windowTitle': '{workspace} · {date}',
   'app.loading': 'Opening your workspace…',
   'app.failed': 'Worship Q could not open its data.',
   'app.newerData':
