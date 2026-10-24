@@ -182,7 +182,9 @@ export const en = {
   'settings.backgroundTypes': 'Backgrounds',
   'settings.backgroundCovered':
     'The song on screen has its own background, so this one shows again after it.',
-  'settings.songBackground': 'Background for “{title}”',
+  'settings.backgroundWorkspace': 'Workspace',
+  'settings.backgroundWorkspaceHint': 'Shown behind every song that has no background of its own.',
+  'settings.songBackground': 'Song · {title}',
   'settings.songBackgroundHint': 'The song on screen now. Changes are saved with the song.',
   'settings.backup': 'Backup',
   'settings.backupHint':

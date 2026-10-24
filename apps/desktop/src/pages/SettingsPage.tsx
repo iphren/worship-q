@@ -101,6 +101,9 @@ export function SettingsPage() {
   const [missing, setMissing] = useState('');
   const [restoreFrom, setRestoreFrom] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'song'>('workspace');
+  // The song tab only exists while a song is on screen.
+  const backgroundTab = onScreen ? chosenBackgroundTab : 'workspace';
 
   useEffect(() => {
     void native.listFontFamilies().then(setFonts);
@@ -363,31 +366,6 @@ export function SettingsPage() {
           </label>
         </Section>
 
-        <Section
-          title={t('settings.background')}
-          hint={onScreen?.background ? t('settings.backgroundCovered') : undefined}
-        >
-          <BackgroundPicker
-            color={profile.backgroundColor}
-            assetId={profile.backgroundAssetId}
-            onColor={(backgroundColor) => void session.updateOutputProfile({ backgroundColor })}
-            onAsset={(backgroundAssetId) => void session.updateOutputProfile({ backgroundAssetId })}
-            onRemove={(asset) => void removeBackground(asset)}
-          />
-          <button className="btn" onClick={() => void importBackground()}>
-            {t('settings.backgroundImport')}
-          </button>
-        </Section>
-
-        {onScreen && (
-          <Section
-            title={t('settings.songBackground', { title: onScreen.title || t('songs.untitled') })}
-            hint={t('settings.songBackgroundHint')}
-          >
-            <OnScreenSongBackground key={onScreen.id} song={onScreen} />
-          </Section>
-        )}
-
         <Section title={t('subtitle.title')} hint={t('subtitle.hint')}>
           {overlay?.error ? (
             <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
@@ -446,6 +424,62 @@ export function SettingsPage() {
               {Math.round(subtitleProfile.scale * 100)}%
             </span>
           </label>
+        </Section>
+
+        <Section
+          title={t('settings.background')}
+          hint={
+            backgroundTab === 'song'
+              ? t('settings.songBackgroundHint')
+              : onScreen?.background
+                ? t('settings.backgroundCovered')
+                : t('settings.backgroundWorkspaceHint')
+          }
+        >
+          {onScreen && (
+            <div role="tablist" className="flex gap-1 border-b border-slate-700">
+              {(['workspace', 'song'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={backgroundTab === key}
+                  className={`-mb-px min-w-0 truncate border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                    backgroundTab === key
+                      ? 'border-sky-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                  onClick={() => setBackgroundTab(key)}
+                >
+                  {key === 'workspace'
+                    ? t('settings.backgroundWorkspace')
+                    : t('settings.songBackground', {
+                        title: onScreen.title || t('songs.untitled'),
+                      })}
+                </button>
+              ))}
+            </div>
+          )}
+          {backgroundTab === 'song' && onScreen ? (
+            <div role="tabpanel" className="space-y-3">
+              <OnScreenSongBackground key={onScreen.id} song={onScreen} />
+            </div>
+          ) : (
+            <div role={onScreen ? 'tabpanel' : undefined} className="space-y-3">
+              <BackgroundPicker
+                color={profile.backgroundColor}
+                assetId={profile.backgroundAssetId}
+                onColor={(backgroundColor) => void session.updateOutputProfile({ backgroundColor })}
+                onAsset={(backgroundAssetId) =>
+                  void session.updateOutputProfile({ backgroundAssetId })
+                }
+                onRemove={(asset) => void removeBackground(asset)}
+              />
+              <button className="btn" onClick={() => void importBackground()}>
+                {t('settings.backgroundImport')}
+              </button>
+            </div>
+          )}
         </Section>
 
         <Section title={t('workspaces.title')} hint={t('workspaces.hint')}>
