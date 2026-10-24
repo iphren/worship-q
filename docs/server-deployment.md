@@ -9,19 +9,35 @@ backups, all under the data directory (`/data` in the container).
 
 ## Run it with Docker
 
-From the repository root on the server:
+From the repository root on the server, save your settings once in `apps/server/.env`,
+next to `compose.yaml`. Docker Compose reads them every time it starts the container:
 
 ```sh
-WORSHIP_Q_NAME="Our Church" docker compose -f apps/server/compose.yaml up -d --build
+cat > apps/server/.env <<'END'
+WORSHIP_Q_NAME=Our Church
+WORSHIP_Q_PORT=8080
+END
 ```
 
-The container listens on `127.0.0.1:8080` (set `WORSHIP_Q_PORT` to change it). Point your
-reverse proxy at it. TLS is expected in front of it: phones and desktops must reach it over
-HTTPS.
+Then start it:
+
+```sh
+docker compose -f apps/server/compose.yaml up -d --build
+```
+
+Without the file, both fall back to their defaults each time the container is created.
+Check what Compose will use with
+`docker compose -f apps/server/compose.yaml config | grep -E "WORSHIP_Q_NAME|published"`.
+The `.env` file is ignored by Git and left out of the image, so pulling updates never
+touches it.
+
+The container listens on `127.0.0.1:8080`, or on `WORSHIP_Q_PORT`. Point your reverse
+proxy at it. TLS is expected in front of it: phones and desktops must reach it over HTTPS.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `WORSHIP_Q_NAME` | `Worship Q` | Shown by `/api/v1/info` |
+| `WORSHIP_Q_NAME` | `Worship Q` | Shown by `/api/v1/info` and `/`; only a label |
+| `WORSHIP_Q_PORT` | `8080` | Port on `127.0.0.1` the reverse proxy forwards to |
 | `WORSHIP_Q_DATA` | `/data` | Database, background files and backups |
 | `PORT` | `8080` | Port inside the container |
 
