@@ -50,6 +50,8 @@ export interface ServerConfig {
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
+/** A converted slide's image or its small copy; see the decks route. */
+const DECK_IMAGE = /^deck-[0-9a-f-]{36}-\d{3,}(-t)?\.jpg$/;
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
 const PING_MS = 25_000;
 
@@ -113,6 +115,24 @@ export async function buildServer(config: ServerConfig) {
     /** Slide decks can be imported. */
     decks: config.convertDeck !== undefined,
   }));
+
+  // Slide images for phones, which have no device token. A deck image's name holds a random
+  // identifier, so only someone shown the slides can name one.
+  app.get<{ Params: { workspace: string; name: string } }>(
+    '/api/v1/remote/files/:workspace/:name',
+    async (request, reply) => {
+      const { workspace, name } = request.params;
+      if (!/^[0-9a-f-]{36}$/.test(workspace) || !DECK_IMAGE.test(name)) {
+        return reply.code(404).send({ error: 'not-found' });
+      }
+      const path = join(filesDir(workspace), name);
+      if (!existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+      reply.header('cache-control', 'public, max-age=31536000, immutable');
+      reply.header('content-length', statSync(path).size);
+      reply.type('image/jpeg');
+      return reply.send(createReadStream(path));
+    },
+  );
 
   app.post<{ Body: { protocolVersion?: number; code?: string; deviceName?: string } }>(
     '/api/v1/enroll',
@@ -212,8 +232,10 @@ export async function buildServer(config: ServerConfig) {
         const pages: Deck['pages'] = [];
         for (const page of converted.pages) {
           const image = `deck-${id}-${page.image}`;
+          const thumbnail = `deck-${id}-${page.image.replace(/\.jpg$/, '-t.jpg')}`;
           await rename(join(out, page.image), join(dir, image));
-          pages.push({ image, slide: page.slide, step: page.step, text: page.text });
+          await rename(join(out, page.thumbnail), join(dir, thumbnail));
+          pages.push({ image, thumbnail, slide: page.slide, step: page.step, text: page.text });
         }
         return {
           source,

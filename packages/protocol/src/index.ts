@@ -40,6 +40,8 @@ export type SongBackground = z.infer<typeof SongBackgroundSchema>;
 export const DeckPageSchema = z.object({
   /** Name of the image among the workspace's files. */
   image: z.string().min(1),
+  /** A small copy for phones, kept on the church server only; older imports have none. */
+  thumbnail: z.string().min(1).optional(),
   /** The slide's position in the original file, from 1. */
   slide: z.number().int().min(1),
   /** Clicks into the slide's animations; 0 before the first. */

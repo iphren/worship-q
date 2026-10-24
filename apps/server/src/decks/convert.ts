@@ -42,7 +42,12 @@ export interface ConvertOptions {
 
 export interface ConvertedPage extends DeckPage {
   image: string;
+  /** A small copy of the image, for phones. */
+  thumbnail: string;
 }
+
+const THUMBNAIL_WIDTH = 320;
+const THUMBNAIL_HEIGHT = 240;
 
 export interface ConvertedDeck {
   pages: ConvertedPage[];
@@ -170,30 +175,34 @@ export async function convertDeck(
     size = await pdfPageSize(options, pdf);
   }
 
-  const maxWidth = options.maxWidth ?? 1920;
-  const maxHeight = options.maxHeight ?? 1080;
-  const dpi = Math.min((maxWidth / size.width) * 72, (maxHeight / size.height) * 72);
+  const fit = (width: number, height: number) =>
+    Math.min((width / size.width) * 72, (height / size.height) * 72);
+  const dpi = fit(options.maxWidth ?? 1920, options.maxHeight ?? 1080);
   for (const old of await readdir(outDir)) {
-    if (/^\d+\.jpg$/.test(old)) await rm(join(outDir, old));
+    if (/^(t-)?\d+\.jpg$/.test(old)) await rm(join(outDir, old));
   }
-  await run(
-    options.ghostscript,
-    [
-      '-q',
-      '-dNOPAUSE',
-      '-dBATCH',
-      '-dSAFER',
-      '-sDEVICE=jpeg',
-      `-dJPEGQ=${options.jpegQuality ?? 85}`,
-      `-r${dpi.toFixed(3)}`,
-      '-dTextAlphaBits=4',
-      '-dGraphicsAlphaBits=4',
-      '-o',
-      join(outDir, '%03d.jpg'),
-      pdf,
-    ],
-    { timeout: 300_000 },
-  );
+  const render = (resolution: number, quality: number, pattern: string) =>
+    run(
+      options.ghostscript,
+      [
+        '-q',
+        '-dNOPAUSE',
+        '-dBATCH',
+        '-dSAFER',
+        '-sDEVICE=jpeg',
+        `-dJPEGQ=${quality}`,
+        `-r${resolution.toFixed(3)}`,
+        '-dTextAlphaBits=4',
+        '-dGraphicsAlphaBits=4',
+        '-o',
+        join(outDir, pattern),
+        pdf,
+      ],
+      { timeout: 300_000 },
+    );
+  await render(dpi, options.jpegQuality ?? 85, '%03d.jpg');
+  // Small copies for phones, which fetch them over the venue's connection.
+  await render(fit(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT), 75, 't-%03d.jpg');
   const images = (await readdir(outDir)).filter((f) => /^\d+\.jpg$/.test(f)).sort();
   if (!pages || pages.length !== images.length) {
     // A PDF, or LibreOffice laid out a different number of slides than expected.
@@ -201,7 +210,7 @@ export async function convertDeck(
     pages = images.map((_, i) => ({ slide: i + 1, step: 0, text: text[i] ?? [] }));
   }
   return {
-    pages: pages.map((page, i) => ({ ...page, image: images[i]! })),
+    pages: pages.map((page, i) => ({ ...page, image: images[i]!, thumbnail: `t-${images[i]!}` })),
     width: Math.round((size.width / 72) * dpi),
     height: Math.round((size.height / 72) * dpi),
   };

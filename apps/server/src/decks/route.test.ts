@@ -35,12 +35,14 @@ describe('importing a slide deck', () => {
       mkdirSync(outDir, { recursive: true });
       writeFileSync(join(outDir, '001.jpg'), 'one');
       writeFileSync(join(outDir, '002.jpg'), 'two');
+      writeFileSync(join(outDir, 't-001.jpg'), 'small one');
+      writeFileSync(join(outDir, 't-002.jpg'), 'small two');
       return {
         width: 1440,
         height: 1080,
         pages: [
-          { image: '001.jpg', slide: 1, step: 0, text: ['Title'] },
-          { image: '002.jpg', slide: 1, step: 1, text: ['Title', 'More'] },
+          { image: '001.jpg', thumbnail: 't-001.jpg', slide: 1, step: 0, text: ['Title'] },
+          { image: '002.jpg', thumbnail: 't-002.jpg', slide: 1, step: 1, text: ['Title', 'More'] },
         ],
       };
     });
@@ -69,10 +71,28 @@ describe('importing a slide deck', () => {
       headers,
     });
     expect(image.body).toBe('two');
+
+    // Phones fetch the small copies without a device token, and nothing else.
+    expect(deck.pages[1]!.thumbnail).toBe(deck.pages[1]!.image.replace('.jpg', '-t.jpg'));
+    const thumbnail = await app.inject({
+      method: 'GET',
+      url: `/api/v1/remote/files/${workspace.id}/${deck.pages[1]!.thumbnail}`,
+    });
+    expect(thumbnail.statusCode).toBe(200);
+    expect(thumbnail.body).toBe('small two');
+    expect(thumbnail.headers['content-type']).toBe('image/jpeg');
+    writeFileSync(join(dataDir, 'files', workspace.id, 'background.jpg'), 'private');
+    for (const name of ['background.jpg', '..%2Finstance.db', 'deck-x-001.jpg']) {
+      const refused = await app.inject({
+        method: 'GET',
+        url: `/api/v1/remote/files/${workspace.id}/${name}`,
+      });
+      expect(refused.statusCode).toBe(404);
+    }
     // Nothing of the upload is left behind.
     expect(existsSync(join(dataDir, 'work'))).toBe(true);
     expect(readdirSync(join(dataDir, 'work'))).toEqual([]);
-    expect(readdirSync(join(dataDir, 'files', workspace.id))).toHaveLength(2);
+    expect(readdirSync(join(dataDir, 'files', workspace.id))).toHaveLength(5);
     await app.close();
   });
 

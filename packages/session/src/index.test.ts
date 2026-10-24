@@ -983,6 +983,19 @@ describe('imported slide decks', () => {
     expect((await session.frame(mediaUrl)).picture).toBeNull();
   });
 
+  it('still presents a deck removed from the library from the run sheets that use it', async () => {
+    const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
+    await session.addSong(session.openDate, created.id);
+    await session.removeSong(created.id);
+    expect(await store.listSongs(session.workspace.id)).toEqual([]);
+    const view = await session.viewDate(session.openDate);
+    expect(view.entries[0]!.song.removedAt).not.toBeNull();
+    expect(view.entries[0]!.pieces).toHaveLength(4);
+    await session.goLive(session.openDate);
+    await session.next();
+    expect((await session.frame(mediaUrl)).picture?.url).toBe('media://deck-a-001.jpg');
+  });
+
   it('keeps the deck through edits and in the song’s history', async () => {
     const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
     const saved = await session.saveSong(created.id, { title: 'Sunday sermon' });

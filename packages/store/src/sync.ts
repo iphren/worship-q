@@ -399,8 +399,9 @@ export class SyncStore {
     const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
     const lineIds = Array.isArray(d.lineIds) ? d.lineIds : [];
     const deck = deckOf(d.deck);
-    // A deck's slide images are fetched like background files.
-    if (deck && !d.removedAt) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
+    // A deck's slide images are fetched like background files, also for a deck removed from
+    // the library: run sheets that use it still present it.
+    if (deck) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
     return [
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,

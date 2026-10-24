@@ -143,7 +143,9 @@ function Live({ view }: { view: RemoteView | null }) {
             <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
               {item.title || 'Untitled song'}
             </h2>
-            <div className="grid gap-2">
+            <div
+              className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+            >
               {item.pieces.map((piece) => {
                 const active =
                   view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
@@ -155,7 +157,7 @@ function Live({ view }: { view: RemoteView | null }) {
                     onClick={() =>
                       connection.send({ type: 'playPiece', itemId: item.itemId, pieceId: piece.id })
                     }
-                    className={`rounded-lg border px-3 py-2 text-left text-[15px] leading-snug ${
+                    className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
                       active
                         ? view.blank
                           ? 'border-amber-400 bg-amber-900/50'
@@ -166,9 +168,16 @@ function Live({ view }: { view: RemoteView | null }) {
                           : 'border-sky-700 bg-sky-900/60'
                     }`}
                   >
-                    {piece.lines.map((line, index) => (
-                      <div key={index}>{line || ' '}</div>
-                    ))}
+                    {piece.thumbnail ? (
+                      <img
+                        src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                        alt={piece.lines.join(' ')}
+                        loading="lazy"
+                        className="block w-full rounded"
+                      />
+                    ) : (
+                      piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
+                    )}
                   </button>
                 );
               })}

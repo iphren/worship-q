@@ -162,7 +162,10 @@ export interface RemoteItemView {
   title: string;
   removed: boolean;
   /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
-  pieces: { id: string; lines: string[]; block?: number }[];
+  /**
+   * `thumbnail` names a small image of an imported slide, served to phones by the instance.
+   */
+  pieces: { id: string; lines: string[]; block?: number; thumbnail?: string }[];
 }
 
 /** What a remote controller is shown of the live presentation. */
