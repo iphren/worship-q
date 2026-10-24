@@ -191,6 +191,14 @@ export const MIGRATIONS: Migration[] = [
          OR background_asset_id IS NOT NULL`,
     ],
   },
+  {
+    // A web page shown live instead of lyrics, kept with the song as JSON.
+    version: 8,
+    statements: [
+      `ALTER TABLE song ADD COLUMN website TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN website TEXT`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

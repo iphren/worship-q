@@ -55,20 +55,27 @@ export function SlidePreview(props: { frame?: OutputFrame }) {
   const monitor = status.decision.kind === 'open' ? status.decision.monitor : null;
   const width = monitor?.width ?? 1920;
   const height = monitor?.height ?? 1080;
+  const frame = props.frame ?? status.frame;
 
   return (
     <div
       ref={holder}
-      className="w-full overflow-hidden rounded-md border border-slate-600 bg-black"
+      className="relative w-full overflow-hidden rounded-md border border-slate-600 bg-black"
     >
       {displayWidth > 0 && (
         <ScaledSlide
-          frame={props.frame ?? status.frame}
+          frame={frame}
           width={width}
           height={height}
           displayWidth={displayWidth}
           transition
         />
+      )}
+      {/* The page itself is only on the slideshow screen; here it is named by its address. */}
+      {frame.website && (
+        <div className="absolute inset-0 flex items-center justify-center p-2">
+          <span className="truncate text-xs text-slate-400">🌐 {frame.website.url}</span>
+        </div>
       )}
     </div>
   );

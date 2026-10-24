@@ -25,6 +25,8 @@ export const native = {
   outputMonitor: () => invoke<MonitorIdentity | null>('output_monitor'),
   /** Starts moving a windowed slideshow with the mouse; does nothing when it is full screen. */
   dragOutput: () => invoke<void>('drag_output'),
+  /** Shows a web page over the whole slideshow, or takes it away when null. */
+  outputWebsite: (url: string | null) => invoke<void>('output_website', { url }),
   /** How the slideshow is shown, or null when it is closed. */
   outputMode: () => invoke<'fullscreen' | 'windowed' | null>('output_mode'),
   /** System display names by monitor name; empty where the system has none. */

@@ -8,7 +8,7 @@ import {
   type TestEnv,
 } from '@worship-q/store/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ReadOnlyDateError, Session, songPieces, type StartKind } from './index';
+import { ReadOnlyDateError, Session, songPieces, WEBSITE_PIECE_ID, type StartKind } from './index';
 
 // The clock starts on Sunday 11 October 2026, 09:00 in the workspace timezone (UTC).
 const SUNDAY = '2026-10-11';
@@ -951,7 +951,7 @@ describe('imported slide decks', () => {
   };
 
   it('has one piece per image, each slide counting as a block', async () => {
-    const pieces = songPieces({ lyrics: '', lineIds: [], deck }, 2);
+    const pieces = songPieces({ lyrics: '', lineIds: [], deck, website: null }, 2);
     expect(pieces.map((p) => [p.id, p.blockIndex, p.indexInBlock, p.image])).toEqual([
       ['deck-a-001.jpg', 0, 0, 'deck-a-001.jpg'],
       ['deck-a-002.jpg', 1, 0, 'deck-a-002.jpg'],
@@ -1021,5 +1021,54 @@ describe('imported slide decks', () => {
     expect((await store.getSong(created.id))!.deck).toEqual(deck);
     const history = await store.listSongRevisions(created.id);
     expect(history.map((r) => r.deck?.pages.length)).toEqual([4, 4]);
+  });
+});
+
+describe('websites', () => {
+  const website = { url: 'https://example.org/live' };
+
+  it('has one piece, named by its address', () => {
+    const pieces = songPieces({ lyrics: '', lineIds: [], deck: null, website }, 2);
+    expect(pieces).toEqual([
+      {
+        id: WEBSITE_PIECE_ID,
+        blockIndex: 0,
+        indexInBlock: 0,
+        lines: [{ id: `${WEBSITE_PIECE_ID}:0`, text: 'https://example.org/live' }],
+      },
+    ]);
+  });
+
+  it('shows the page on the slideshow only, and not while blank', async () => {
+    const created = await session.createSong({ title: 'Live stream', website });
+    await session.addSong(session.openDate, created.id);
+    await session.goLive(session.openDate);
+    await session.next();
+    let frame = await session.frame(mediaUrl);
+    expect(frame).toMatchObject({
+      website,
+      song: null,
+      picture: null,
+      pieceId: WEBSITE_PIECE_ID,
+      background: { color: '#000000', media: null },
+    });
+    expect((await session.frame(mediaUrl, 'subtitle')).website).toBeNull();
+
+    await session.setBlank(true);
+    expect((await session.frame(mediaUrl)).website).toBeNull();
+    await session.setBlank(false);
+    await session.clear();
+    frame = await session.frame(mediaUrl);
+    expect(frame.website).toBeNull();
+  });
+
+  it('keeps the website through edits and in the song’s history', async () => {
+    const created = await session.createSong({ title: 'Live stream', website });
+    const moved = { url: 'https://example.org/stream' };
+    const saved = await session.saveSong(created.id, { website: moved });
+    expect(saved.website).toEqual(moved);
+    expect((await store.getSong(created.id))!.website).toEqual(moved);
+    const history = await store.listSongRevisions(created.id);
+    expect(history.map((r) => r.website?.url)).toEqual([website.url, moved.url]);
   });
 });

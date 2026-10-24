@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanSongFields, invalidSongFields, maxSongYear } from './index';
+import { cleanSongFields, invalidSongFields, maxSongYear, websiteUrl } from './index';
 
 const now = new Date('2026-10-17T09:00:00.000Z');
 
@@ -15,6 +15,7 @@ describe('song fields', () => {
         year: 2006,
         background: null,
         deck: null,
+        website: null,
       }),
     ).toEqual({
       title: '耶和华你是我的神',
@@ -25,6 +26,7 @@ describe('song fields', () => {
       year: 2006,
       background: null,
       deck: null,
+      website: null,
     });
   });
 
@@ -37,6 +39,7 @@ describe('song fields', () => {
       year: null,
       background: null,
       deck: null,
+      website: null,
     };
     expect(cleanSongFields({ ...fields, ccli: ' 4702289 ' }).ccli).toBe('4702289');
   });
@@ -53,5 +56,20 @@ describe('song fields', () => {
     expect(invalidSongFields({ ccli: '打開眾城門', year: 20155 }, now)).toEqual(['ccli', 'year']);
     expect(invalidSongFields({ ccli: '', year: 2028 }, now)).toEqual(['ccli', 'year']);
     expect(invalidSongFields({ ccli: '12 34', year: 2001.5 }, now)).toEqual(['ccli', 'year']);
+  });
+});
+
+describe('website addresses', () => {
+  it('completes an address typed without a scheme', () => {
+    expect(websiteUrl(' example.org/live ')).toBe('https://example.org/live');
+    expect(websiteUrl('http://example.org')).toBe('http://example.org/');
+    expect(websiteUrl('localhost:8080')).toBe('https://localhost:8080/');
+  });
+
+  it('rejects anything that is not a web address', () => {
+    expect(websiteUrl('')).toBeNull();
+    expect(websiteUrl('javascript:alert(1)')).toBeNull();
+    expect(websiteUrl('file:///etc/passwd')).toBeNull();
+    expect(websiteUrl('http://')).toBeNull();
   });
 });

@@ -13,6 +13,8 @@ import { DeckBadge } from '../components/DeckBadge';
 interface Editing {
   key: number;
   song: Song | null;
+  /** With no song, a new website is being added instead of a song. */
+  website?: boolean;
 }
 
 export function SongsPage() {
@@ -20,7 +22,7 @@ export function SongsPage() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [pending, setPending] = useState<{ song: Song | null } | null>(null);
+  const [pending, setPending] = useState<{ song: Song | null; website?: boolean } | null>(null);
   const [removing, setRemoving] = useState<{ song: Song; usage: IsoDate[] } | null>(null);
   /** The `Editing.key` of a song just added to the run sheet; cleared after a moment. */
   const [added, setAdded] = useState<number | null>(null);
@@ -33,14 +35,14 @@ export function SongsPage() {
   const listRef = useRef<HTMLUListElement>(null);
   useScrollMemory(listRef, `songs:${search}`);
 
-  const open = (song: Song | null) => {
-    setEditing((current) => ({ key: (current?.key ?? 0) + 1, song }));
+  const open = (song: Song | null, website?: boolean) => {
+    setEditing((current) => ({ key: (current?.key ?? 0) + 1, song, website }));
     setDirty(false);
   };
-  const select = (song: Song | null) => {
+  const select = (song: Song | null, website?: boolean) => {
     if (song && song.id === editing?.song?.id) return;
-    if (dirty) setPending({ song });
-    else open(song);
+    if (dirty) setPending({ song, website });
+    else open(song, website);
   };
 
   async function addToRunSheet(song: Song, key: number) {
@@ -66,6 +68,9 @@ export function SongsPage() {
       <aside className="flex w-52 shrink-0 flex-col gap-2 border-r border-slate-700 p-3">
         <button className="btn btn-primary" onClick={() => select(null)}>
           + {t('songs.new')}
+        </button>
+        <button className="btn" onClick={() => select(null, true)}>
+          + {t('songs.newWebsite')}
         </button>
         <ImportSlides onImported={(song) => select(song)} />
         <input
@@ -108,6 +113,7 @@ export function SongsPage() {
           <SongForm
             key={editing.key}
             song={editing.song}
+            website={editing.website}
             onDirtyChange={setDirty}
             onSaved={(song) => setEditing((current) => current && { ...current, song })}
             actions={
@@ -157,7 +163,7 @@ export function SongsPage() {
           danger
           onCancel={() => setPending(null)}
           onConfirm={() => {
-            open(pending.song);
+            open(pending.song, pending.website);
             setPending(null);
           }}
         />

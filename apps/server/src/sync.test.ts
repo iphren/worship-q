@@ -137,6 +137,29 @@ describe('synchronization between two devices', () => {
     expect(await titles(home)).toEqual(['Branch song', 'Home song']);
   });
 
+  it('takes a website and its history to another device', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance);
+    const created = await branch.session.createSong({
+      title: 'Live stream',
+      website: { url: 'https://example.org/live' },
+    });
+    await branch.session.saveSong(created.id, { website: { url: 'https://example.org/stream' } });
+    await branch.connect(code, 'upload');
+    clock.advance();
+    const home = await device('home', clock, instance);
+    await home.connect(code, 'replace');
+
+    expect((await home.store.getSong(created.id))?.website).toEqual({
+      url: 'https://example.org/stream',
+    });
+    const history = await home.store.listSongRevisions(created.id);
+    expect(history.map((r) => r.website?.url)).toEqual([
+      'https://example.org/live',
+      'https://example.org/stream',
+    ]);
+  });
+
   it('brings a lyrics fix made at home to the presented song, keeping the position', async () => {
     const { clock, instance, code } = await setup();
     const branch = await device('branch', clock, instance);

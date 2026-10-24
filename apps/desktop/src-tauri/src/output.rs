@@ -5,10 +5,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindowBuilder,
+    webview::WebviewBuilder, AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, Url,
+    WebviewUrl, WebviewWindowBuilder,
 };
 
 pub const OUTPUT_LABEL: &str = "output";
+/// The webview over the slideshow that shows a presented website.
+const WEBSITE_LABEL: &str = "output-website";
 /// Tells the interface the operator asked to close the slideshow from its own window.
 pub const CLOSE_REQUEST_EVENT: &str = "output-close-request";
 /// The share of its screen the slideshow takes when it is first put in a window.
@@ -185,6 +188,9 @@ pub async fn open_output(
 
 #[tauri::command]
 pub async fn close_output(app: AppHandle) -> Result<(), String> {
+    if let Some(website) = app.get_webview(WEBSITE_LABEL) {
+        let _ = website.close();
+    }
     if let Some(window) = app.get_webview_window(OUTPUT_LABEL) {
         // Hidden first, so nothing is left on screen should the system be slow to let go of it.
         let _ = window.hide();
@@ -242,4 +248,46 @@ pub fn drag_output(app: AppHandle) -> Result<(), String> {
         }
         _ => Ok(()),
     }
+}
+
+/// Shows a web page over the whole slideshow, or takes it away when there is no address.
+/// The page has a webview of its own rather than a frame in the slideshow's page, which many
+/// sites refuse. It is closed rather than hidden, so its video and sound stop with it.
+#[tauri::command]
+pub async fn output_website(app: AppHandle, url: Option<String>) -> Result<(), String> {
+    let existing = app.get_webview(WEBSITE_LABEL);
+    let Some(url) = url else {
+        if let Some(webview) = existing {
+            webview.close().map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    };
+    let url = Url::parse(&url).map_err(|e| e.to_string())?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err("not-a-website".into());
+    }
+    if let Some(webview) = existing {
+        if webview.url().map(|current| current == url).unwrap_or(false) {
+            return Ok(());
+        }
+        return webview.navigate(url).map_err(|e| e.to_string());
+    }
+    let Some(window) = app.get_window(OUTPUT_LABEL) else {
+        return Ok(());
+    };
+    let size = window.inner_size().map_err(|e| e.to_string())?;
+    window
+        .add_child(
+            WebviewBuilder::new(WEBSITE_LABEL, WebviewUrl::External(url))
+                .focused(false)
+                .auto_resize(),
+            PhysicalPosition::new(0, 0),
+            size,
+        )
+        .map_err(|e| e.to_string())?;
+    // Keep the keyboard with the operator.
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.set_focus();
+    }
+    Ok(())
 }

@@ -66,6 +66,7 @@ pub fn run() {
             output::output_monitor,
             output::output_mode,
             output::drag_output,
+            output::output_website,
             output::monitor_labels,
             files::import_background,
             files::remove_background_file,

@@ -67,6 +67,32 @@ export function deckLyrics(deck: Deck): string {
   return deck.pages.map((page) => page.text.join('\n')).join('\n\n');
 }
 
+/** A web page shown live on the slideshow instead of lyrics. */
+export const WebsiteSchema = z.object({
+  /** An `http` or `https` address; see `websiteUrl`. */
+  url: z.string().refine((url) => websiteUrl(url) === url),
+});
+export type Website = z.infer<typeof WebsiteSchema>;
+
+/**
+ * The address typed for a website, made complete: `https://` is added when no scheme is
+ * given. Null when it is not a usable `http` or `https` address.
+ */
+export function websiteUrl(input: string): string | null {
+  const trimmed = input.trim();
+  if (trimmed === '') return null;
+  // A colon followed by digits is a port, as in `localhost:8080`, not a scheme.
+  const candidate = /^[a-z][a-z\d+.-]*:(?!\d)/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    if (!url.hostname) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),
@@ -85,6 +111,8 @@ export const SongFieldsSchema = z.object({
   background: SongBackgroundSchema.nullable(),
   /** Imported slides, shown instead of the lyrics; null for an ordinary song. */
   deck: DeckSchema.nullable(),
+  /** A web page, shown instead of the lyrics; null for an ordinary song. */
+  website: WebsiteSchema.nullable(),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -125,6 +153,7 @@ export function cleanSongFields(fields: SongFields): SongFields {
     year: fields.year,
     background: fields.background,
     deck: fields.deck,
+    website: fields.website,
   };
 }
 
@@ -312,6 +341,8 @@ export interface OutputFrame {
   pieceId: string | null;
   /** An imported slide, shown whole in place of lyrics. */
   picture: { url: string } | null;
+  /** A web page shown live over the slideshow, by the output window itself. */
+  website: { url: string } | null;
 }
 
 export const EMPTY_FRAME: OutputFrame = {
@@ -325,6 +356,7 @@ export const EMPTY_FRAME: OutputFrame = {
   song: null,
   pieceId: null,
   picture: null,
+  website: null,
 };
 
 export * from './wire';

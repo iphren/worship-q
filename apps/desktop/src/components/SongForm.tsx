@@ -3,6 +3,7 @@ import {
   cleanSongFields,
   invalidSongFields,
   maxSongYear,
+  websiteUrl,
   type Deck,
   type Song,
   type SongBackground,
@@ -43,6 +44,7 @@ function fieldsOf(draft: SongDraft) {
     ...draft,
     year: year === '' ? null : /^-?\d+$/.test(year) ? Number(year) : NaN,
     deck: null,
+    website: null,
   });
 }
 
@@ -57,13 +59,95 @@ type SongFormProps = {
   onSaved(song: Song): void;
   onDirtyChange?(dirty: boolean): void;
   actions?: ReactNode;
+  /** With no song, adds a website instead of a song. */
+  website?: boolean;
 };
 
 export function SongForm(props: SongFormProps) {
+  if (props.song?.website || (!props.song && props.website)) return <WebsiteForm {...props} />;
   return props.song?.deck ? (
     <DeckForm {...props} song={props.song} deck={props.song.deck} />
   ) : (
     <LyricsForm {...props} />
+  );
+}
+
+/** A web page shown live on the slideshow: a title and its address. */
+function WebsiteForm(props: SongFormProps) {
+  const session = useSession();
+  const { song, onDirtyChange } = props;
+  const [title, setTitle] = useState(song?.title ?? '');
+  const [address, setAddress] = useState(song?.website?.url ?? '');
+  const [saving, setSaving] = useState(false);
+  const url = websiteUrl(address);
+  const dirty =
+    title.trim() !== (song?.title ?? '') || address.trim() !== (song?.website?.url ?? '');
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  const canSave = dirty && !saving && url !== null;
+
+  async function save() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      // An untitled website is named after its site.
+      const fields = { title: title.trim() || new URL(url).hostname, website: { url } };
+      const result = song
+        ? await session.saveSong(song.id, fields)
+        : await session.createSong(fields);
+      setTitle(result.title);
+      setAddress(result.website?.url ?? '');
+      props.onSaved(result);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="flex h-full min-h-0 flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      {!props.quick && (
+        <label>
+          <span className="label">{t('songs.title')}</span>
+          <input
+            className="field"
+            value={title}
+            placeholder={url ? new URL(url).hostname : undefined}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+      )}
+      <label>
+        <span className="label">{t('songs.websiteUrl')}</span>
+        <input
+          className="field"
+          type="url"
+          inputMode="url"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          placeholder="https://"
+          value={address}
+          aria-invalid={address.trim() !== '' && url === null}
+          onChange={(e) => setAddress(e.target.value)}
+          autoFocus={!song}
+        />
+        {address.trim() !== '' && url === null && (
+          <span className="mt-1 block text-xs text-rose-300">{t('songs.websiteInvalid')}</span>
+        )}
+      </label>
+      <p className="text-xs text-slate-400">{t('songs.websiteHint')}</p>
+      <div className="mt-auto flex items-center justify-end gap-2">
+        {props.actions}
+        <button type="submit" className="btn btn-primary" disabled={!canSave}>
+          {t('common.save')}
+        </button>
+      </div>
+    </form>
   );
 }
 

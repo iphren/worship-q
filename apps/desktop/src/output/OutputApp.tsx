@@ -56,6 +56,12 @@ export function OutputApp() {
     };
   }, []);
 
+  // A website is shown by a webview of its own over this page, opened by the native side.
+  const websiteUrl = frame.website?.url ?? null;
+  useEffect(() => {
+    void native.outputWebsite(websiteUrl).catch(console.error);
+  }, [websiteUrl]);
+
   return (
     <div
       style={{

@@ -54,6 +54,12 @@ export const en = {
   'songs.deckSource': 'Imported from {source}',
   'songs.deckHint':
     'To change the slides, edit the original file and import it again. Only the title can be changed here.',
+  'songs.newWebsite': 'New website',
+  'songs.websiteBadge': 'Web',
+  'songs.websiteUrl': 'Address',
+  'songs.websiteInvalid': 'A web address, such as https://example.org',
+  'songs.websiteHint':
+    'The page is shown live on the slideshow screen while presented, with its own video and sound. Nothing is shown on the subtitle overlay. Some pages need you to sign in or accept cookies on the slideshow screen first.',
   'songs.settingsTab': 'Settings',
   'songs.background': 'Background',
   'songs.backgroundDefault': 'Slideshow background',

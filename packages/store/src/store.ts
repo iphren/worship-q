@@ -21,6 +21,7 @@ import {
   type Song,
   type SongFields,
   type SongRevision,
+  type Website,
   type Workspace,
 } from '@worship-q/protocol';
 import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
@@ -75,6 +76,7 @@ function toSong(row: Row): Song {
     year: optionalNumber(row.year),
     background: songBackground(row),
     deck: json<Deck | null>(row.deck, null),
+    website: json<Website | null>(row.website, null),
     revision: Number(row.revision),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
@@ -96,6 +98,7 @@ function toSongRevision(row: Row): SongRevision {
     year: optionalNumber(row.year),
     background: songBackground(row),
     deck: json<Deck | null>(row.deck, null),
+    website: json<Website | null>(row.website, null),
     createdAt: text(row.created_at),
   };
 }
@@ -261,8 +264,8 @@ export class Store {
   private revisionInsert(song: Song): Statement {
     return {
       sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year,
-              background_color, background_asset_id, deck, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              background_color, background_asset_id, deck, website, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -277,6 +280,7 @@ export class Store {
         song.background?.color ?? null,
         song.background?.assetId ?? null,
         song.deck ? JSON.stringify(song.deck) : null,
+        song.website ? JSON.stringify(song.website) : null,
         song.updatedAt,
       ],
     };
@@ -322,6 +326,7 @@ export class Store {
       year: fields.year ?? null,
       background: fields.background ?? null,
       deck: fields.deck ?? null,
+      website: fields.website ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -331,8 +336,8 @@ export class Store {
     await this.db.batch([
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, revision, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                background_color, background_asset_id, deck, website, revision, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -346,6 +351,7 @@ export class Store {
           song.background?.color ?? null,
           song.background?.assetId ?? null,
           song.deck ? JSON.stringify(song.deck) : null,
+          song.website ? JSON.stringify(song.website) : null,
           1,
           now,
           now,
@@ -374,7 +380,8 @@ export class Store {
       next.year === current.year &&
       next.background?.color === current.background?.color &&
       next.background?.assetId === current.background?.assetId &&
-      JSON.stringify(next.deck) === JSON.stringify(current.deck);
+      JSON.stringify(next.deck) === JSON.stringify(current.deck) &&
+      JSON.stringify(next.website) === JSON.stringify(current.website);
     if (unchanged) return current;
     this.validate(next);
 
@@ -384,7 +391,8 @@ export class Store {
     await this.db.batch([
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
-                background_color = ?, background_asset_id = ?, deck = ?, revision = ?, updated_at = ?
+                background_color = ?, background_asset_id = ?, deck = ?, website = ?, revision = ?,
+                updated_at = ?
               WHERE id = ?`,
         params: [
           next.title,
@@ -397,6 +405,7 @@ export class Store {
           next.background?.color ?? null,
           next.background?.assetId ?? null,
           next.deck ? JSON.stringify(next.deck) : null,
+          next.website ? JSON.stringify(next.website) : null,
           next.revision,
           next.updatedAt,
           id,

@@ -56,14 +56,29 @@ export type StartKind =
    */
   | 'started';
 
+/** Identifier of a website's one piece, which shows its address as its text. */
+export const WEBSITE_PIECE_ID = 'website';
+
 /**
- * A song's pieces: its lyrics in groups of lines, or one per image of an imported deck.
- * A deck's pieces count each slide as a block, so the clicks of one slide read as a group.
+ * A song's pieces: its lyrics in groups of lines, one per image of an imported deck, or a
+ * single one for a website. A deck's pieces count each slide as a block, so the clicks of one
+ * slide read as a group.
  */
 export function songPieces(
-  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck'>,
+  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'>,
   linesPerPiece: number,
 ): Piece[] {
+  if (song.website) {
+    const { url } = song.website;
+    return [
+      {
+        id: WEBSITE_PIECE_ID,
+        blockIndex: 0,
+        indexInBlock: 0,
+        lines: [{ id: `${WEBSITE_PIECE_ID}:0`, text: url }],
+      },
+    ];
+  }
   if (!song.deck) return buildPieces(song.lyrics, song.lineIds, linesPerPiece);
   let blockIndex = -1;
   let lastSlide: number | null = null;
@@ -755,13 +770,15 @@ export class Session {
     const presented = this.isLive ? this.live_!.presented : null;
     const song = presented ? await this.store.getSong(presented.songId) : null;
     // The presented song's own background, if it has one, replaces the slideshow's. Slides
-    // are shown whole, on black where their shape differs from the screen's.
-    const background = song?.deck
-      ? { color: '#000000', assetId: null }
-      : (song?.background ?? {
-          color: profile.backgroundColor,
-          assetId: profile.backgroundAssetId,
-        });
+    // are shown whole, on black where their shape differs from the screen's, and a website
+    // is on black while it loads.
+    const background =
+      song?.deck || song?.website
+        ? { color: '#000000', assetId: null }
+        : (song?.background ?? {
+            color: profile.backgroundColor,
+            assetId: profile.backgroundAssetId,
+          });
     const asset = background.assetId
       ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
       : undefined;
@@ -781,9 +798,16 @@ export class Session {
       song: null,
       pieceId: null,
       picture: null,
+      website: null,
     };
 
-    if (presented && song?.deck) {
+    if (presented && song?.website) {
+      // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
+      if (presented.pieceId === WEBSITE_PIECE_ID) {
+        if (kind === 'slideshow' && !frame.blank) frame.website = { url: song.website.url };
+        frame.pieceId = WEBSITE_PIECE_ID;
+      }
+    } else if (presented && song?.deck) {
       // A subtitle overlay has no lyrics to show for slides.
       const page = song.deck.pages.find((p) => p.image === presented.pieceId);
       if (page && kind === 'slideshow' && !frame.blank)

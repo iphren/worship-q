@@ -343,7 +343,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                 )}
                 <span className="flex-1" />
-                {!entry.song.removedAt && !entry.song.deck && (
+                {!entry.song.removedAt && !entry.song.deck && !entry.song.website && (
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setEditingSong(entry.song)}
