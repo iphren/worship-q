@@ -7,6 +7,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   ChurchSettingsSchema,
   syncWins,
+  wellFormed,
   type ChurchSettings,
   type SyncRecord,
 } from '@worship-q/protocol';
@@ -196,7 +197,8 @@ export class Instance {
            revision = excluded.revision, updated_at = excluded.updated_at, seq = excluded.seq,
            data = excluded.data, device_id = excluded.device_id`,
       );
-      for (const incoming of records) {
+      for (const received of records) {
+        const incoming = wellFormed(received);
         const existing = find.get(workspaceId, incoming.kind, incoming.key);
         let record = incoming;
         if (existing && text(existing.id) !== incoming.id) {
@@ -247,7 +249,8 @@ export class Instance {
         key: text(row.key),
         revision: Number(row.revision),
         updatedAt: text(row.updated_at),
-        data: JSON.parse(text(row.data)) as Record<string, unknown>,
+        // Text stored before broken characters were replaced on the way in is fixed here.
+        data: wellFormed(JSON.parse(text(row.data)) as Record<string, unknown>),
       })),
       cursor: page.length > 0 ? Number(page[page.length - 1]!.seq) : since,
       more: rows.length > limit,

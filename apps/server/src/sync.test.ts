@@ -372,3 +372,32 @@ describe('importing the legacy lyrics service', () => {
     expect(after.has('Song 3')).toBe(false);
   });
 });
+
+describe('text holding half of a surrogate pair', () => {
+  it('is replaced on the way in, and in what was stored before', async () => {
+    const { clock, instance, workspace } = await setup();
+    const song = (id: string, title: string) => ({
+      kind: 'song' as const,
+      id,
+      key: id,
+      revision: 1,
+      updatedAt: clock.now(),
+      data: { title, lyrics: 'a\ud83d b', lineIds: ['x'] },
+    });
+    instance.push(workspace.id, 'device', [song('s1', 'ok \ud83d\ude00')]);
+    // As if stored by an earlier version of the instance.
+    instance.db
+      .prepare(
+        `INSERT INTO record (workspace_id, kind, key, id, revision, updated_at, seq, data, device_id)
+         VALUES (?, 'song', 's2', 's2', 1, ?, 99, ?, 'device')`,
+      )
+      .run(workspace.id, clock.now(), JSON.stringify(song('s2', '\udc00x').data));
+
+    const { records } = instance.pull(workspace.id, 0);
+    expect(records.map((r) => [r.data.title, r.data.lyrics])).toEqual([
+      ['ok \ud83d\ude00', 'a\ufffd b'],
+      ['\ufffdx', 'a\ufffd b'],
+    ]);
+    expect(JSON.stringify(records)).not.toMatch(/\\ud[89ab]|\\udc/i);
+  });
+});

@@ -1,12 +1,14 @@
 /** Everything the interface asks of the native core. */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import type { MonitorIdentity } from '@worship-q/protocol';
+import { wellFormed, type MonitorIdentity } from '@worship-q/protocol';
 import type { SqlDriver, SqlValue, Statement } from '@worship-q/store';
 
+// Commands reach Rust as JSON, which rejects text holding half of a surrogate pair.
 export const tauriDriver: SqlDriver = {
   select: <Row>(sql: string, params: SqlValue[] = []) =>
-    invoke<Row[]>('db_select', { sql, params }),
-  batch: (statements: Statement[]) => invoke<void>('db_batch', { statements }),
+    invoke<Row[]>('db_select', { sql, params: wellFormed(params) }),
+  batch: (statements: Statement[]) =>
+    invoke<void>('db_batch', { statements: wellFormed(statements) }),
 };
 
 export const native = {

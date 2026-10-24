@@ -222,3 +222,20 @@ export type RelayToCoordinator =
 
 /** Header carrying the protocol version on every request to the instance. */
 export const PROTOCOL_HEADER = 'x-worship-q-protocol';
+
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Replaces each half of a broken surrogate pair with U+FFFD, in a string or anywhere in an
+ * object. JavaScript strings may hold one, but JSON readers outside JavaScript reject it.
+ */
+export function wellFormed<T>(value: T): T {
+  if (typeof value === 'string') return value.replace(LONE_SURROGATE, '�') as T;
+  if (Array.isArray(value)) return value.map(wellFormed) as T;
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, wellFormed(item)]),
+    ) as T;
+  }
+  return value;
+}
