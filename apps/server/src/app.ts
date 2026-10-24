@@ -7,8 +7,9 @@ import {
   rmSync,
   statSync,
 } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { rename } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import type { Readable } from 'node:stream';
 import cors from '@fastify/cors';
@@ -22,10 +23,12 @@ import {
   PROTOCOL_VERSION,
   PushRequestSchema,
   UPDATE_NEEDED,
+  type Deck,
   type EnrollResponse,
   type PullResponse,
   type PushResponse,
 } from '@worship-q/protocol';
+import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import type { DeviceRow, Instance } from './instance';
 import { Relay } from './relay';
 
@@ -38,6 +41,11 @@ export interface ServerConfig {
   name: string;
   /** Backups kept per workspace; older ones are removed. */
   keepBackups?: number;
+  /**
+   * Converts an uploaded slide deck into images in `outDir`; see `convertDeck`. Without it,
+   * slide decks cannot be imported.
+   */
+  convertDeck?: (source: string, outDir: string, workDir: string) => Promise<ConvertedDeck>;
   logger?: boolean;
 }
 
@@ -63,6 +71,13 @@ export async function buildServer(config: ServerConfig) {
     trustProxy: true,
   });
   const filesDir = (workspaceId: string) => join(config.dataDir, 'files', workspaceId);
+  // One conversion at a time: LibreOffice is heavy, and its settings folder is shared.
+  let conversions: Promise<unknown> = Promise.resolve();
+  const queued = <T>(task: () => Promise<T>): Promise<T> => {
+    const result = conversions.then(task, task);
+    conversions = result.catch(() => undefined);
+    return result;
+  };
   const backupsDir = (workspaceId: string) => join(config.dataDir, 'backups', workspaceId);
 
   // Devices authenticate with a bearer token, never cookies, so any origin may call the API.
@@ -95,6 +110,8 @@ export async function buildServer(config: ServerConfig) {
     name: config.name,
     protocolVersion: PROTOCOL_VERSION,
     minProtocolVersion: MIN_PROTOCOL_VERSION,
+    /** Slide decks can be imported. */
+    decks: config.convertDeck !== undefined,
   }));
 
   app.post<{ Body: { protocolVersion?: number; code?: string; deviceName?: string } }>(
@@ -170,6 +187,49 @@ export async function buildServer(config: ServerConfig) {
       reply.header('content-length', statSync(path).size);
       reply.type('application/octet-stream');
       return reply.send(createReadStream(path));
+    });
+
+    // Converts a slide deck into images kept with the workspace's files, and describes them.
+    // The device then fetches the images and saves the deck as a song.
+    api.post<{ Querystring: { name?: string } }>('/api/v1/decks', async (request, reply) => {
+      const convert = config.convertDeck;
+      if (!convert) return reply.code(501).send({ error: 'decks-unavailable' });
+      const source = basename(String(request.query.name ?? '')) || 'slides.pptx';
+      const extension = extname(source).toLowerCase();
+      if (!DECK_EXTENSIONS.includes(extension)) {
+        return reply.code(400).send({ error: 'unsupported-format' });
+      }
+      const id = randomUUID();
+      const work = join(config.dataDir, 'work', id);
+      mkdirSync(work, { recursive: true });
+      try {
+        const upload = join(work, `upload${extension}`);
+        await receive(request.body as Readable, upload);
+        const out = join(work, 'out');
+        const converted = await queued(() => convert(upload, out, join(work, 'convert')));
+        const dir = filesDir(request.device!.workspaceId);
+        mkdirSync(dir, { recursive: true });
+        const pages: Deck['pages'] = [];
+        for (const page of converted.pages) {
+          const image = `deck-${id}-${page.image}`;
+          await rename(join(out, page.image), join(dir, image));
+          pages.push({ image, slide: page.slide, step: page.step, text: page.text });
+        }
+        return {
+          source,
+          width: converted.width,
+          height: converted.height,
+          pages,
+        } satisfies Deck;
+      } catch (error) {
+        request.log.error(error);
+        return reply.code(422).send({
+          error: 'conversion-failed',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        rmSync(work, { recursive: true, force: true });
+      }
     });
 
     api.put('/api/v1/backups', async (request) => {

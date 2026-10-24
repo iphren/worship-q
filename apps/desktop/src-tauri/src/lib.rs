@@ -75,6 +75,7 @@ pub fn run() {
             cloud::upload_background,
             cloud::download_background,
             cloud::upload_backup,
+            cloud::import_deck,
             cloud::backup_before_join,
             overlay::overlay_publish,
             overlay::overlay_status,

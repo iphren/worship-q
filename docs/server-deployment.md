@@ -119,6 +119,30 @@ deleted there. Songs edited in Worship Q since they were imported are left as th
 the import before a workspace's first computer connects, so that computer can choose
 **Use the church's copy**.
 
+## Importing slide decks
+
+**Songs → Import slides** on a connected desktop sends a PowerPoint (.pptx, .ppt, .ppsx),
+Keynote, OpenDocument (.odp) or PDF file to the server. The server lays the slides out with
+LibreOffice and draws each one as an image with Ghostscript, both included in the Docker image.
+A slide with click animations becomes one image per click; hidden slides are left out. The
+deck is saved as a song that presents its images, and other computers fetch the images when
+they synchronize, so presenting works offline.
+
+Converting takes about 10–20 seconds for 100 slides; one deck is converted at a time.
+Without LibreOffice or Ghostscript (`WORSHIP_Q_SOFFICE`, `WORSHIP_Q_GHOSTSCRIPT` point to
+them if they are elsewhere), the server starts as usual and the button explains that slides
+cannot be converted. To try a file on the command line:
+
+```sh
+docker compose -f apps/server/compose.yaml exec worship-q \
+  node dist/cli.js deck convert /data/some-deck.pptx /data/deck-test
+```
+
+Text keeps its place only when the server has the deck's fonts. The image includes Chinese
+fonts (Noto CJK), fonts with the same widths as Calibri, Cambria, Arial and Times New Roman,
+and Microsoft's free core fonts such as Trebuchet MS when they could be downloaded while
+building.
+
 ## Connecting a desktop
 
 1. `workspace create "North Branch"` prints a connection code.

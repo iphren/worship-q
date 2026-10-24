@@ -18,7 +18,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ChurchSettingsSchema } from '@worship-q/protocol';
 import { openDatabase } from './db';
-import { convertDeck } from './decks/convert';
+import { convertDeck, deckTools } from './decks/convert';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport } from './legacy';
 
@@ -132,12 +132,7 @@ switch (`${area} ${action}`) {
     if (!file || !outDir) fail('Usage: deck convert <file> <out-dir>');
     const started = Date.now();
     const deck = await convertDeck(resolve(file), resolve(outDir), {
-      soffice:
-        process.env.WORSHIP_Q_SOFFICE ??
-        (process.platform === 'darwin'
-          ? '/Applications/LibreOffice.app/Contents/MacOS/soffice'
-          : 'soffice'),
-      ghostscript: process.env.WORSHIP_Q_GHOSTSCRIPT ?? 'gs',
+      ...deckTools(),
       workDir: join(resolve(outDir), '.work'),
     });
     writeFileSync(join(outDir, 'deck.json'), JSON.stringify(deck, null, 2));

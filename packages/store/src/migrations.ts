@@ -167,6 +167,14 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    // Slides imported from PowerPoint, Keynote or PDF, kept with the song as JSON.
+    version: 6,
+    statements: [
+      `ALTER TABLE song ADD COLUMN deck TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN deck TEXT`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

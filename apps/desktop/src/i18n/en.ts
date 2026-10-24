@@ -42,6 +42,18 @@ export const en = {
   'songs.preview': 'Preview',
   'songs.previewEmpty': 'Slides appear here as you type.',
   'songs.pieceCount': '{count} slides',
+  'songs.importSlides': 'Import slides',
+  'songs.importHint':
+    'PowerPoint, Keynote, OpenDocument or PDF. Each click of an animation becomes its own slide.',
+  'songs.importNeedsServer': 'Connect to your church’s server in Settings to import slides.',
+  'songs.importUnavailable': 'Your church’s server cannot convert slides yet.',
+  'songs.importConverting': 'Converting “{name}” on the church server. This can take a minute…',
+  'songs.importFetching': 'Fetching slides: {done} of {total}…',
+  'songs.importFailed': 'Could not import the slides: {message}',
+  'songs.deckBadge': 'Slides',
+  'songs.deckSource': 'Imported from {source}',
+  'songs.deckHint':
+    'To change the slides, edit the original file and import it again. Only the title can be changed here.',
   'songs.settingsTab': 'Settings',
   'songs.background': 'Background',
   'songs.backgroundDefault': 'Slideshow background',
@@ -109,8 +121,7 @@ export const en = {
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',
   'present.previousContent': 'Previous content',
-  'present.previousContentBody':
-    'Shown until you present from this run sheet.',
+  'present.previousContentBody': 'Shown until you present from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',

@@ -36,6 +36,35 @@ export const SongBackgroundSchema = z.object({
 });
 export type SongBackground = z.infer<typeof SongBackgroundSchema>;
 
+/** One image of an imported slide deck: a slide as it looks after some clicks. */
+export const DeckPageSchema = z.object({
+  /** Name of the image among the workspace's files. */
+  image: z.string().min(1),
+  /** The slide's position in the original file, from 1. */
+  slide: z.number().int().min(1),
+  /** Clicks into the slide's animations; 0 before the first. */
+  step: z.number().int().min(0),
+  /** The text shown, one entry per line, for phones and search. */
+  text: z.array(z.string()),
+});
+export type DeckPage = z.infer<typeof DeckPageSchema>;
+
+/** Slides imported from PowerPoint, Keynote or PDF, shown as images instead of lyrics. */
+export const DeckSchema = z.object({
+  /** The file the slides came from. */
+  source: z.string(),
+  /** Size of every image in pixels. */
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+  pages: z.array(DeckPageSchema),
+});
+export type Deck = z.infer<typeof DeckSchema>;
+
+/** The text a deck's song keeps as its lyrics, so search finds the slides. */
+export function deckLyrics(deck: Deck): string {
+  return deck.pages.map((page) => page.text.join('\n')).join('\n\n');
+}
+
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),
@@ -52,6 +81,8 @@ export const SongFieldsSchema = z.object({
   year: z.number().int().nullable(),
   /** Null uses the slideshow background from the settings. */
   background: SongBackgroundSchema.nullable(),
+  /** Imported slides, shown instead of the lyrics; null for an ordinary song. */
+  deck: DeckSchema.nullable(),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -91,6 +122,7 @@ export function cleanSongFields(fields: SongFields): SongFields {
     ccli: ccli === '' ? null : ccli,
     year: fields.year,
     background: fields.background,
+    deck: fields.deck,
   };
 }
 
@@ -274,6 +306,8 @@ export interface OutputFrame {
   /** The presented song as pieces of source lines; the whole song is needed for fitting. */
   song: { id: string; pieces: { id: string; lines: string[] }[] } | null;
   pieceId: string | null;
+  /** An imported slide, shown whole in place of lyrics. */
+  picture: { url: string } | null;
 }
 
 export const EMPTY_FRAME: OutputFrame = {
@@ -286,6 +320,7 @@ export const EMPTY_FRAME: OutputFrame = {
   background: { color: '#000000', media: null },
   song: null,
   pieceId: null,
+  picture: null,
 };
 
 export * from './wire';

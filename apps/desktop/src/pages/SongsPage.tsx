@@ -1,6 +1,7 @@
+import { open as openFile } from '@tauri-apps/plugin-dialog';
 import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { useQuery, useSession } from '../app/context';
+import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
@@ -65,6 +66,7 @@ export function SongsPage() {
         <button className="btn btn-primary" onClick={() => select(null)}>
           + {t('songs.new')}
         </button>
+        <ImportSlides onImported={(song) => select(song)} />
         <input
           className="field"
           type="search"
@@ -91,6 +93,11 @@ export function SongsPage() {
                   }`}
                   onClick={() => select(song)}
                 >
+                  {song.deck && (
+                    <span className="mr-1.5 rounded bg-slate-700 px-1 py-px text-[10px] font-semibold tracking-wide text-slate-300 uppercase">
+                      {t('songs.deckBadge')}
+                    </span>
+                  )}
                   {song.title || t('songs.untitled')}
                 </button>
               </SongPeek>
@@ -178,6 +185,87 @@ export function SongsPage() {
           onCancel={() => setRemoving(null)}
           onConfirm={() => void remove(removing.song)}
         />
+      )}
+    </div>
+  );
+}
+
+const DECK_EXTENSIONS = ['pptx', 'ppsx', 'pptm', 'potx', 'ppt', 'pps', 'odp', 'key', 'pdf'];
+
+type ImportState =
+  | { kind: 'idle' }
+  | { kind: 'converting'; name: string }
+  | { kind: 'fetching'; done: number; total: number }
+  | { kind: 'failed'; message: string };
+
+/** Imports a slide deck through the church server, which turns it into images. */
+function ImportSlides(props: { onImported(song: Song): void }) {
+  const { cloud } = useApp();
+  const status = useCloud();
+  const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [state, setState] = useState<ImportState>({ kind: 'idle' });
+  useEffect(() => {
+    let active = true;
+    void cloud.decksAvailable().then((value) => active && setAvailable(value));
+    return () => {
+      active = false;
+    };
+  }, [cloud, connected, status.state?.server]);
+
+  async function choose() {
+    const source = await openFile({
+      multiple: false,
+      filters: [{ name: t('songs.importSlides'), extensions: DECK_EXTENSIONS }],
+    });
+    if (typeof source !== 'string') return;
+    const name = source.split(/[\\/]/).pop() ?? source;
+    try {
+      const song = await cloud.importDeck(source, (stage, done, total) =>
+        setState(
+          stage === 'converting' ? { kind: 'converting', name } : { kind: 'fetching', done, total },
+        ),
+      );
+      setState({ kind: 'idle' });
+      props.onImported(song);
+    } catch (error) {
+      setState({ kind: 'failed', message: String(error) });
+    }
+  }
+
+  const busy = state.kind === 'converting' || state.kind === 'fetching';
+  const hint = !connected
+    ? t('songs.importNeedsServer')
+    : available === false
+      ? t('songs.importUnavailable')
+      : t('songs.importHint');
+  return (
+    <div className="space-y-1">
+      <button
+        className="btn w-full"
+        disabled={!connected || !available || busy}
+        title={hint}
+        onClick={() => void choose()}
+      >
+        {t('songs.importSlides')}…
+      </button>
+      {state.kind === 'converting' && (
+        <p className="text-xs text-slate-400">
+          {t('songs.importConverting', { name: state.name })}
+        </p>
+      )}
+      {state.kind === 'fetching' && (
+        <p className="text-xs text-slate-400">
+          {t('songs.importFetching', { done: state.done, total: state.total })}
+        </p>
+      )}
+      {state.kind === 'failed' && (
+        <p className="text-xs text-rose-300">
+          {t('songs.importFailed', { message: state.message })}
+        </p>
+      )}
+      {(!connected || available === false) && state.kind === 'idle' && (
+        <p className="text-xs text-slate-500">{hint}</p>
       )}
     </div>
   );

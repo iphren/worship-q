@@ -102,6 +102,49 @@ pub async fn download_background(
     .map_err(err)?
 }
 
+/// Sends a slide deck chosen by the operator to the instance, which converts it into images.
+/// Returns the instance's description of the converted deck, as JSON.
+#[tauri::command(async)]
+pub async fn import_deck(server: String, token: String, source: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let path = std::path::PathBuf::from(&source);
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or("invalid file name")?
+            .to_string();
+        let url =
+            reqwest::Url::parse_with_params(&format!("{server}/api/v1/decks"), &[("name", name)])
+                .map_err(err)?;
+        let file = File::open(&path).map_err(err)?;
+        let length = file.metadata().map_err(err)?.len();
+        let response = client()?
+            .post(url)
+            .bearer_auth(token)
+            .header(PROTOCOL_HEADER, PROTOCOL_VERSION)
+            .header("content-type", "application/octet-stream")
+            .body(reqwest::blocking::Body::sized(file, length))
+            .send()
+            .map_err(err)?;
+        let status = response.status().as_u16();
+        let body = response.text().map_err(err)?;
+        match status {
+            200..=299 => Ok(body),
+            // The instance explains why it could not convert the file.
+            422 => Err(serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|v| v["message"].as_str().map(String::from))
+                .unwrap_or_else(|| "the slides could not be converted".into())),
+            401 => Err("unauthorized".into()),
+            426 => Err("update-needed".into()),
+            501 => Err("decks-unavailable".into()),
+            status => Err(format!("server answered {status}")),
+        }
+    })
+    .await
+    .map_err(err)?
+}
+
 /// Makes a backup of the whole workspace and sends it to the instance.
 #[tauri::command(async)]
 pub async fn upload_backup(

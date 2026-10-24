@@ -24,6 +24,8 @@ export interface Piece {
   blockIndex: number;
   indexInBlock: number;
   lines: PieceLine[];
+  /** An imported slide's image, shown instead of the lines; see `Deck`. */
+  image?: string;
 }
 
 export interface PieceDiff {

@@ -10,6 +10,7 @@ import {
   type BackgroundAsset,
   type BackgroundKind,
   type ChurchSettings,
+  type Deck,
   type IsoDate,
   type LiveState,
   type OutputKind,
@@ -73,6 +74,7 @@ function toSong(row: Row): Song {
     ccli: optional(row.ccli),
     year: optionalNumber(row.year),
     background: songBackground(row),
+    deck: json<Deck | null>(row.deck, null),
     revision: Number(row.revision),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
@@ -93,6 +95,7 @@ function toSongRevision(row: Row): SongRevision {
     ccli: optional(row.ccli),
     year: optionalNumber(row.year),
     background: songBackground(row),
+    deck: json<Deck | null>(row.deck, null),
     createdAt: text(row.created_at),
   };
 }
@@ -248,8 +251,8 @@ export class Store {
   private revisionInsert(song: Song): Statement {
     return {
       sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year,
-              background_color, background_asset_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              background_color, background_asset_id, deck, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -263,6 +266,7 @@ export class Store {
         song.year,
         song.background?.color ?? null,
         song.background?.assetId ?? null,
+        song.deck ? JSON.stringify(song.deck) : null,
         song.updatedAt,
       ],
     };
@@ -307,6 +311,7 @@ export class Store {
       ccli: fields.ccli ?? null,
       year: fields.year ?? null,
       background: fields.background ?? null,
+      deck: fields.deck ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -316,8 +321,8 @@ export class Store {
     await this.db.batch([
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, revision, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                background_color, background_asset_id, deck, revision, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -330,6 +335,7 @@ export class Store {
           song.year,
           song.background?.color ?? null,
           song.background?.assetId ?? null,
+          song.deck ? JSON.stringify(song.deck) : null,
           1,
           now,
           now,
@@ -357,7 +363,8 @@ export class Store {
       next.ccli === current.ccli &&
       next.year === current.year &&
       next.background?.color === current.background?.color &&
-      next.background?.assetId === current.background?.assetId;
+      next.background?.assetId === current.background?.assetId &&
+      JSON.stringify(next.deck) === JSON.stringify(current.deck);
     if (unchanged) return current;
     this.validate(next);
 
@@ -367,7 +374,7 @@ export class Store {
     await this.db.batch([
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
-                background_color = ?, background_asset_id = ?, revision = ?, updated_at = ?
+                background_color = ?, background_asset_id = ?, deck = ?, revision = ?, updated_at = ?
               WHERE id = ?`,
         params: [
           next.title,
@@ -379,6 +386,7 @@ export class Store {
           next.year,
           next.background?.color ?? null,
           next.background?.assetId ?? null,
+          next.deck ? JSON.stringify(next.deck) : null,
           next.revision,
           next.updatedAt,
           id,

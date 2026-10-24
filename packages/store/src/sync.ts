@@ -7,7 +7,13 @@
  * created one for the same date agree on the instance's identifier, and the device's
  * own is replaced by it.
  */
-import { syncWins, type SyncKind, type SyncRecord } from '@worship-q/protocol';
+import {
+  DeckSchema,
+  syncWins,
+  type Deck,
+  type SyncKind,
+  type SyncRecord,
+} from '@worship-q/protocol';
 import type { SqlValue, Statement } from './driver';
 import type { Store } from './store';
 
@@ -392,16 +398,20 @@ export class SyncStore {
     const d = record.data;
     const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
     const lineIds = Array.isArray(d.lineIds) ? d.lineIds : [];
+    const deck = deckOf(d.deck);
+    // A deck's slide images are fetched like background files.
+    if (deck && !d.removedAt) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
     return [
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, revision, created_at, updated_at, removed_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                background_color, background_asset_id, deck, revision, created_at, updated_at, removed_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT (id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
                 line_ids = excluded.line_ids, author = excluded.author, copyright = excluded.copyright,
                 ccli = excluded.ccli, year = excluded.year, background_color = excluded.background_color,
-                background_asset_id = excluded.background_asset_id, revision = excluded.revision,
-                updated_at = excluded.updated_at, removed_at = excluded.removed_at`,
+                background_asset_id = excluded.background_asset_id, deck = excluded.deck,
+                revision = excluded.revision, updated_at = excluded.updated_at,
+                removed_at = excluded.removed_at`,
         params: [
           record.id,
           workspaceId,
@@ -414,6 +424,7 @@ export class SyncStore {
           numOrNull(d.year),
           background ? strOrNull(background.color) : null,
           background ? strOrNull(background.assetId) : null,
+          deck ? JSON.stringify(deck) : null,
           record.revision,
           str(d.createdAt) || record.updatedAt,
           record.updatedAt,
@@ -608,6 +619,7 @@ function songData(row: Row): Record<string, unknown> {
       row.background_color == null
         ? null
         : { color: text(row.background_color), assetId: optional(row.background_asset_id) },
+    deck: parse(row.deck) ?? null,
     createdAt: text(row.created_at),
     removedAt: optional(row.removed_at),
   };
@@ -620,8 +632,8 @@ function applySongRevision(record: SyncRecord): Statement {
     // A revision another device numbered the same as one here is kept out; the song itself
     // still settles on the winning content.
     sql: `INSERT OR IGNORE INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author,
-            copyright, ccli, year, background_color, background_asset_id, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            copyright, ccli, year, background_color, background_asset_id, deck, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     params: [
       record.id,
       str(d.songId),
@@ -635,9 +647,16 @@ function applySongRevision(record: SyncRecord): Statement {
       numOrNull(d.year),
       background ? strOrNull(background.color) : null,
       background ? strOrNull(background.assetId) : null,
+      deckOf(d.deck) ? JSON.stringify(d.deck) : null,
       record.updatedAt,
     ],
   };
+}
+
+/** A deck received from another device, or null when there is none or it is unreadable. */
+function deckOf(value: unknown): Deck | null {
+  const parsed = DeckSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 function remapRunSheetStatements(from: string, to: string): Statement[] {

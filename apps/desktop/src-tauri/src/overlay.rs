@@ -49,7 +49,10 @@ pub fn start(app: &AppHandle<Wry>) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let router = Router::new()
-            .route("/", get(|| async { Redirect::temporary("/overlay/subtitle") }))
+            .route(
+                "/",
+                get(|| async { Redirect::temporary("/overlay/subtitle") }),
+            )
             .route("/overlay/subtitle", get(page))
             .route("/assets/{*file}", get(asset))
             .route("/ws", get(socket))
@@ -91,10 +94,7 @@ async fn page(AxumState(state): AxumState<ServerState>) -> Response {
     StatusCode::NOT_FOUND.into_response()
 }
 
-async fn asset(
-    AxumState(state): AxumState<ServerState>,
-    Path(file): Path<String>,
-) -> Response {
+async fn asset(AxumState(state): AxumState<ServerState>, Path(file): Path<String>) -> Response {
     if file.contains("..") {
         return StatusCode::NOT_FOUND.into_response();
     }
@@ -102,10 +102,7 @@ async fn asset(
         .unwrap_or_else(|| StatusCode::NOT_FOUND.into_response())
 }
 
-async fn socket(
-    AxumState(state): AxumState<ServerState>,
-    upgrade: WebSocketUpgrade,
-) -> Response {
+async fn socket(AxumState(state): AxumState<ServerState>, upgrade: WebSocketUpgrade) -> Response {
     upgrade.on_upgrade(move |ws| follow(ws, state.frames))
 }
 

@@ -3,6 +3,7 @@ import {
   cleanSongFields,
   invalidSongFields,
   maxSongYear,
+  type Deck,
   type Song,
   type SongBackground,
 } from '@worship-q/protocol';
@@ -10,6 +11,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { SongBackgroundFields } from './BackgroundPicker';
+import { SlideImage } from './SlideImage';
 import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
@@ -40,6 +42,7 @@ function fieldsOf(draft: SongDraft) {
   return cleanSongFields({
     ...draft,
     year: year === '' ? null : /^-?\d+$/.test(year) ? Number(year) : NaN,
+    deck: null,
   });
 }
 
@@ -47,14 +50,90 @@ function fieldsOf(draft: SongDraft) {
  * Song editor with a tabbed preview of the generated slides. Used for the library and for
  * fixing lyrics during a presentation. Give it a `key` so it resets when the song changes.
  */
-export function SongForm(props: {
+type SongFormProps = {
   song: Song | null;
   /** Hide the title and open on the lyrics, for quick fixes while live. */
   quick?: boolean;
   onSaved(song: Song): void;
   onDirtyChange?(dirty: boolean): void;
   actions?: ReactNode;
-}) {
+};
+
+export function SongForm(props: SongFormProps) {
+  return props.song?.deck ? (
+    <DeckForm {...props} song={props.song} deck={props.song.deck} />
+  ) : (
+    <LyricsForm {...props} />
+  );
+}
+
+/** An imported slide deck: its title can be changed, its slides only by importing again. */
+function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
+  const session = useSession();
+  const { song, deck, onDirtyChange } = props;
+  const [title, setTitle] = useState(song.title);
+  const [saving, setSaving] = useState(false);
+  const dirty = title.trim() !== song.title;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  const canSave = dirty && !saving && title.trim() !== '';
+
+  async function save() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const result = await session.saveSong(song.id, { title: title.trim() });
+      setTitle(result.title);
+      props.onSaved(result);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="flex h-full min-h-0 flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      {!props.quick && (
+        <label>
+          <span className="label">{t('songs.title')}</span>
+          <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+      )}
+      <p className="text-xs text-slate-400">
+        {t('songs.deckSource', { source: deck.source })} ·{' '}
+        {t('songs.pieceCount', { count: deck.pages.length })}
+        <br />
+        {t('songs.deckHint')}
+      </p>
+      <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] content-start gap-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2">
+        {deck.pages.map((page) => (
+          <figure key={page.image} className="rounded-md bg-black">
+            <SlideImage
+              image={page.image}
+              className="w-full rounded-md"
+              style={{ aspectRatio: `${deck.width} / ${deck.height}` }}
+            />
+            <figcaption className="px-1 py-0.5 text-[10px] text-slate-500">
+              {page.step > 0 ? `${page.slide}.${page.step}` : page.slide}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        {props.actions}
+        <button type="submit" className="btn btn-primary" disabled={!canSave}>
+          {t('common.save')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function LyricsForm(props: SongFormProps) {
   const session = useSession();
   const { song, onDirtyChange } = props;
   const [draft, setDraft] = useState(() => draftOf(song));

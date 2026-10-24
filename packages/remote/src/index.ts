@@ -79,7 +79,14 @@ export async function buildRemoteView(
       removed: entry.song.removedAt !== null,
       pieces: entry.pieces.map((piece) => ({
         id: piece.id,
-        lines: piece.lines.map((line) => line.text),
+        lines:
+          piece.lines.length > 0 || !piece.image
+            ? piece.lines.map((line) => line.text)
+            : // An imported slide without text, such as a photo, is named by its place.
+              [
+                `Slide ${piece.blockIndex + 1}` +
+                  (piece.indexInBlock > 0 ? ` · ${piece.indexInBlock + 1}` : ''),
+              ],
         block: piece.blockIndex,
       })),
     })),

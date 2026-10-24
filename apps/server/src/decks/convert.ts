@@ -33,6 +33,8 @@ export interface ConvertOptions {
   ghostscript: string;
   /** A folder for intermediate files, emptied first. */
   workDir: string;
+  /** LibreOffice's settings folder, kept between conversions so it starts faster. */
+  profileDir?: string;
   maxWidth?: number;
   maxHeight?: number;
   jpegQuality?: number;
@@ -78,7 +80,7 @@ async function soffice(options: ConvertOptions, format: string, input: string, o
     [
       '--headless',
       '--norestore',
-      `-env:UserInstallation=file://${join(options.workDir, 'profile')}`,
+      `-env:UserInstallation=file://${options.profileDir ?? join(options.workDir, 'profile')}`,
       '--convert-to',
       format,
       '--outdir',
@@ -203,4 +205,32 @@ export async function convertDeck(
     width: Math.round((size.width / 72) * dpi),
     height: Math.round((size.height / 72) * dpi),
   };
+}
+
+export interface DeckTools {
+  soffice: string;
+  ghostscript: string;
+}
+
+/** Where LibreOffice and Ghostscript are expected, unless set in the environment. */
+export function deckTools(): DeckTools {
+  return {
+    soffice:
+      process.env.WORSHIP_Q_SOFFICE ??
+      (process.platform === 'darwin'
+        ? '/Applications/LibreOffice.app/Contents/MacOS/soffice'
+        : 'soffice'),
+    ghostscript: process.env.WORSHIP_Q_GHOSTSCRIPT ?? 'gs',
+  };
+}
+
+/** Whether both tools can be run, so slide decks can be converted. */
+export async function deckToolsAvailable(tools: DeckTools): Promise<boolean> {
+  try {
+    await run(tools.ghostscript, ['--version'], { timeout: 10_000 });
+    await run(tools.soffice, ['--version'], { timeout: 60_000 });
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -7,9 +7,12 @@
  */
 import { getVersion } from '@tauri-apps/api/app';
 import {
+  DeckSchema,
+  deckLyrics,
   PROTOCOL_VERSION,
   type CoordinatorToRelay,
   type RelayToCoordinator,
+  type Song,
 } from '@worship-q/protocol';
 import { RemoteHost } from '@worship-q/remote';
 import type { Session } from '@worship-q/session';
@@ -62,6 +65,7 @@ export class CloudController {
   private timers: number[] = [];
   private stopped = false;
   private syncing = false;
+  private decks: { server: string; available: Promise<boolean> } | null = null;
 
   constructor(
     private readonly session: Session,
@@ -234,6 +238,49 @@ export class CloudController {
     if (!this.connected || this.status_.backup.kind === 'running') return;
     const last = this.state?.lastBackupAt ? Date.parse(this.state.lastBackupAt) : 0;
     if (Date.now() - last > BACKUP_EVERY_MS) await this.backupNow();
+  }
+
+  // ── Slide decks ──────────────────────────────────────────────────────────
+
+  /** Whether the church instance can convert slide decks. */
+  decksAvailable(): Promise<boolean> {
+    const server = this.state?.server;
+    if (!server || !this.connected) return Promise.resolve(false);
+    if (this.decks?.server !== server) {
+      const available = fetch(`${server}/api/v1/info`)
+        .then((response) => response.json() as Promise<{ decks?: boolean }>)
+        .then((info) => info.decks === true)
+        .catch(() => {
+          // Asked again next time, in case the instance was only out of reach.
+          this.decks = null;
+          return false;
+        });
+      this.decks = { server, available };
+    }
+    return this.decks.available;
+  }
+
+  /**
+   * Has the church instance convert a slide deck into images, fetches them, and saves the
+   * deck as a song. Other computers fetch the images when the song reaches them.
+   */
+  async importDeck(
+    source: string,
+    onProgress: (stage: 'converting' | 'fetching', done: number, total: number) => void,
+  ): Promise<Song> {
+    const { server, deviceToken } = this.state ?? {};
+    if (!server || !deviceToken || !this.connected) throw new Error('not-connected');
+    onProgress('converting', 0, 0);
+    const deck = DeckSchema.parse(JSON.parse(await native.importDeck(server, deviceToken, source)));
+    let done = 0;
+    onProgress('fetching', done, deck.pages.length);
+    for (const page of deck.pages) {
+      await native.downloadBackground(server, deviceToken, page.image);
+      onProgress('fetching', ++done, deck.pages.length);
+    }
+    this.output.forgetFiles();
+    const title = deck.source.replace(/\.[^.]+$/, '');
+    return this.session.createSong({ title, lyrics: deckLyrics(deck), deck });
   }
 
   // ── Remote control ───────────────────────────────────────────────────────

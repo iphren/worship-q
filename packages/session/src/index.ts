@@ -56,6 +56,34 @@ export type StartKind =
    */
   | 'started';
 
+/**
+ * A song's pieces: its lyrics in groups of lines, or one per image of an imported deck.
+ * A deck's pieces count each slide as a block, so the clicks of one slide read as a group.
+ */
+export function songPieces(
+  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck'>,
+  linesPerPiece: number,
+): Piece[] {
+  if (!song.deck) return buildPieces(song.lyrics, song.lineIds, linesPerPiece);
+  let blockIndex = -1;
+  let lastSlide: number | null = null;
+  let indexInBlock = 0;
+  return song.deck.pages.map((page) => {
+    if (page.slide !== lastSlide) {
+      blockIndex++;
+      indexInBlock = 0;
+      lastSlide = page.slide;
+    }
+    return {
+      id: page.image,
+      blockIndex,
+      indexInBlock: indexInBlock++,
+      lines: page.text.map((text, i) => ({ id: `${page.image}:${i}`, text })),
+      image: page.image,
+    };
+  });
+}
+
 export interface RunSheetEntry {
   item: RunSheetItem;
   /** The song, also when it has since been removed from the library. */
@@ -292,7 +320,7 @@ export class Session {
       if (!songs.has(item.songId)) songs.set(item.songId, await this.store.getSong(item.songId));
       const song = songs.get(item.songId);
       if (!song) continue;
-      entries.push({ item, song, pieces: buildPieces(song.lyrics, song.lineIds, linesPerPiece) });
+      entries.push({ item, song, pieces: songPieces(song, linesPerPiece) });
     }
     return entries;
   }
@@ -593,8 +621,8 @@ export class Session {
           relocatePresented(
             this.live_,
             id,
-            buildPieces(before.lyrics, before.lineIds, linesPerPiece),
-            buildPieces(after.lyrics, after.lineIds, linesPerPiece),
+            songPieces(before, linesPerPiece),
+            songPieces(after, linesPerPiece),
             this.nowIso(),
           ),
         );
@@ -629,8 +657,8 @@ export class Session {
             relocatePresented(
               this.live_,
               song.id,
-              buildPieces(song.lyrics, song.lineIds, before.linesPerPiece),
-              buildPieces(song.lyrics, song.lineIds, after.linesPerPiece),
+              songPieces(song, before.linesPerPiece),
+              songPieces(song, after.linesPerPiece),
               this.nowIso(),
             ),
           );
@@ -681,8 +709,8 @@ export class Session {
         live = relocatePresented(
           live,
           before.id,
-          buildPieces(before.lyrics, before.lineIds, linesBefore),
-          buildPieces(after.lyrics, after.lineIds, linesAfter),
+          songPieces(before, linesBefore),
+          songPieces(after, linesAfter),
           this.nowIso(),
         );
       }
@@ -712,7 +740,7 @@ export class Session {
    * edit or a changed setting reaches the screen without replaying the piece.
    */
   async frame(
-    mediaUrl: (asset: BackgroundAsset) => string,
+    mediaUrl: (fileName: string) => string,
     kind: OutputKind = 'slideshow',
   ): Promise<OutputFrame> {
     const workspaceId = this.workspace_.id;
@@ -721,11 +749,14 @@ export class Session {
     const fontFamily = await this.fontFamily(kind);
     const presented = this.isLive ? this.live_!.presented : null;
     const song = presented ? await this.store.getSong(presented.songId) : null;
-    // The presented song's own background, if it has one, replaces the slideshow's.
-    const background = song?.background ?? {
-      color: profile.backgroundColor,
-      assetId: profile.backgroundAssetId,
-    };
+    // The presented song's own background, if it has one, replaces the slideshow's. Slides
+    // are shown whole, on black where their shape differs from the screen's.
+    const background = song?.deck
+      ? { color: '#000000', assetId: null }
+      : (song?.background ?? {
+          color: profile.backgroundColor,
+          assetId: profile.backgroundAssetId,
+        });
     const asset = background.assetId
       ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
       : undefined;
@@ -740,14 +771,21 @@ export class Session {
       hideCursor: profile.hideCursor,
       background: {
         color: background.color,
-        media: asset ? { kind: asset.kind, url: mediaUrl(asset) } : null,
+        media: asset ? { kind: asset.kind, url: mediaUrl(asset.fileName) } : null,
       },
       song: null,
       pieceId: null,
+      picture: null,
     };
 
-    if (presented && song) {
-      const pieces = buildPieces(song.lyrics, song.lineIds, settings.linesPerPiece);
+    if (presented && song?.deck) {
+      // A subtitle overlay has no lyrics to show for slides.
+      const page = song.deck.pages.find((p) => p.image === presented.pieceId);
+      if (page && kind === 'slideshow' && !frame.blank)
+        frame.picture = { url: mediaUrl(page.image) };
+      frame.pieceId = page ? page.image : null;
+    } else if (presented && song) {
+      const pieces = songPieces(song, settings.linesPerPiece);
       frame.song = {
         id: song.id,
         pieces: pieces.map((piece) => ({ id: piece.id, lines: piece.lines.map((l) => l.text) })),

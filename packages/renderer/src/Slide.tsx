@@ -65,6 +65,10 @@ interface Lyrics extends Layer {
   style: CSSProperties;
 }
 
+interface Picture extends Layer {
+  url: string;
+}
+
 interface Background extends Layer {
   color: string;
   media: OutputFrame['background']['media'];
@@ -232,8 +236,16 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
     [piece, fitted, songId, pieceId, fontFamily, color, onMedia, subtitle],
   );
 
+  const pictureUrl = frame.picture?.url ?? null;
+  const picture = useMemo<Picture | null>(
+    () => (pictureUrl ? { key: pictureUrl, url: pictureUrl } : null),
+    [pictureUrl],
+  );
+
   const backgrounds = useCrossfade(background, transition, false);
   const lyricLayers = useCrossfade(lyrics, transition, true);
+  // The next slide covers the last one as it fades in; only going blank fades a slide out.
+  const pictureLayers = useCrossfade(picture, transition, picture === null);
 
   return (
     <div
@@ -255,6 +267,23 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
       ))}
       {lyricLayers.layers.map((layer) => (
         <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
+      ))}
+      {pictureLayers.layers.map((layer) => (
+        <img
+          key={layer.key}
+          ref={pictureLayers.ref(layer.key)}
+          src={layer.url}
+          alt=""
+          draggable={false}
+          // A slide is shown whole, keeping its shape.
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+          }}
+        />
       ))}
     </div>
   );

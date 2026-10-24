@@ -116,9 +116,18 @@ export class OutputController {
         this.urls.set(asset.fileName, await native.backgroundUrl(asset.fileName));
       }
     }
-    const frame = await this.session.frame((asset) => this.urls.get(asset.fileName) ?? '');
+    // The presented deck's images, so moving to the next slide finds its file at once.
+    const presented = this.session.live?.presented;
+    const song = presented ? await this.session.store.getSong(presented.songId) : null;
+    for (const page of song?.deck?.pages ?? []) {
+      if (!this.urls.get(page.image))
+        this.urls.set(page.image, await native.backgroundUrl(page.image));
+    }
+    const frame = await this.session.frame((fileName) => this.urls.get(fileName) ?? '');
     // A selected background whose file is missing falls back to the solid color.
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;
+    // A slide whose image has not arrived yet shows nothing rather than a broken image.
+    if (frame.picture && !frame.picture.url) frame.picture = null;
     const subtitle = await this.session.frame(() => '', 'subtitle');
     if (this.stopped) return;
     this.update({ frame, subtitle });

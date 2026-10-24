@@ -42,6 +42,9 @@ export const native = {
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('download_background', { server, token, fileName }),
+  /** Has the church instance convert a slide deck; returns the converted deck as JSON. */
+  importDeck: (server: string, token: string, source: string) =>
+    invoke<string>('import_deck', { server, token, source }),
   /** Makes a backup and sends it to the church instance. */
   uploadBackup: (server: string, token: string) => invoke<void>('upload_backup', { server, token }),
   /** Saves a backup in the app's data folder; returns its path. */
