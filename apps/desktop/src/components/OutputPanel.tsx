@@ -120,35 +120,35 @@ export function OutputPanel(props: { compact?: boolean }) {
       {props.compact ? <Icon name={icon} /> : label}
     </button>
   );
-  const actions =
-    current === null && !windowed ? (
-      action('open', t('output.openAction'), () => output.open(), {
+  const closed = current === null && !windowed;
+  const mode = closed
+    ? action('open', t('output.openAction'), () => output.open(), {
         primary: true,
         disabled: selected === null,
       })
-    ) : (
-      <>
-        {windowed
-          ? action('fullScreen', t('output.fullScreenAction'), () => output.makeFullScreen(), {
-              primary: true,
-            })
-          : action('windowed', t('output.windowedAction'), () => output.makeWindowed())}
-        {action('close', t('output.closeAction'), () => output.close())}
-      </>
-    );
+    : windowed
+      ? action('fullScreen', t('output.fullScreenAction'), () => output.makeFullScreen(), {
+          primary: true,
+        })
+      : action('windowed', t('output.windowedAction'), () => output.makeWindowed());
+  const close = closed ? null : action('close', t('output.closeAction'), () => output.close());
 
   if (props.compact) {
     return (
       <>
+        {mode}
         <ScreenMenu warn={warn}>{screens}</ScreenMenu>
-        {actions}
+        {close}
       </>
     );
   }
   return (
     <div className="space-y-2 text-sm">
       {screens}
-      <div className="flex flex-wrap gap-2">{actions}</div>
+      <div className="flex flex-wrap gap-2">
+        {mode}
+        {close}
+      </div>
     </div>
   );
 }
