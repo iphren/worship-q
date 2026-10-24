@@ -72,10 +72,14 @@ async function device(name: string, clock: Clock, instance: Instance) {
     store,
     client,
     syncStore,
-    async connect(code: string, mode: 'upload' | 'merge' | 'replace') {
+    /** Enrolls and joins without synchronizing yet. */
+    async join(code: string, mode: 'upload' | 'merge' | 'replace') {
       const enrolled = await client.enroll('https://example.org', code, name);
       token = enrolled.deviceToken;
       await client.join(mode);
+    },
+    async connect(code: string, mode: 'upload' | 'merge' | 'replace') {
+      await this.join(code, mode);
       // The app reopens its session after joining; here the same session carries on.
       await client.run();
       expect(client.status.kind).toBe('idle');
@@ -189,6 +193,31 @@ describe('synchronization between two devices', () => {
       [branch, home].map(async (d) => (await d.session.viewDate(date)).runSheet?.id),
     );
     expect(ids[0]).toBe(ids[1]);
+  });
+
+  it('keeps a planned run sheet when a joining device opens the date before its first pull', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance);
+    const song = await branch.session.createSong({ title: 'Amazing Grace', lyrics: 'a' });
+    const date = '2026-11-01';
+    await branch.session.editRunSheet(date);
+    await branch.session.addSong(date, song.id);
+    await branch.connect(code, 'upload');
+
+    clock.advance();
+    const home = await device('home', clock, instance);
+    await home.join(code, 'replace');
+    clock.advance();
+    // The reopened app opens the next meeting day before anything has been pulled.
+    await home.store.ensureRunSheet(home.session.workspace.id, date);
+    clock.advance();
+    await home.client.run();
+    await branch.client.run();
+
+    for (const d of [branch, home]) {
+      const view = await d.session.viewDate(date);
+      expect(view.entries.map((e) => e.song.title)).toEqual(['Amazing Grace']);
+    }
   });
 
   it('applies church defaults unless the workspace sets its own', async () => {

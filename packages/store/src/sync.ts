@@ -219,6 +219,8 @@ export class SyncStore {
         'SELECT * FROM run_sheet_item WHERE run_sheet_id = ? ORDER BY position, created_at',
         [text(row.id)],
       );
+      // A run sheet only opened here, never edited, would otherwise overwrite the church's.
+      if (untouched(Number(row.revision), items.length)) continue;
       records.push({
         kind: 'runSheet',
         id: text(row.id),
@@ -455,7 +457,18 @@ export class SyncStore {
       changes.remapped.set(localId, record.id);
       changes.runSheets.add(record.id);
     }
-    if (current && !syncWins(record, current)) return statements;
+    // A run sheet only opened here, never edited, gives way to any copy from the instance.
+    const opened =
+      current &&
+      untouched(
+        current.revision,
+        (
+          await this.db.select('SELECT 1 FROM run_sheet_item WHERE run_sheet_id = ? LIMIT 1', [
+            text(current.row.id),
+          ])
+        ).length,
+      );
+    if (current && !opened && !syncWins(record, current)) return statements;
 
     changes.runSheets.add(record.id);
     const items: Row[] = [];
@@ -605,6 +618,11 @@ export class SyncStore {
       },
     ]);
   }
+}
+
+/** A run sheet created when its date was opened, with nothing ever added. */
+function untouched(revision: number, itemCount: number): boolean {
+  return revision <= 1 && itemCount === 0;
 }
 
 function songData(row: Row): Record<string, unknown> {

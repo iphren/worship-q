@@ -206,6 +206,9 @@ export class Instance {
           remap[incoming.id] = text(existing.id);
           record = { ...incoming, id: text(existing.id) };
         }
+        // A run sheet a device only opened, never edited, never replaces a known one. Older
+        // apps still send them.
+        if (existing && incoming.kind === 'runSheet' && untouchedRunSheet(incoming)) continue;
         const current = existing
           ? { revision: Number(existing.revision), updatedAt: text(existing.updated_at) }
           : null;
@@ -357,4 +360,10 @@ function toDevice(row: Record<string, SqlValue>): DeviceRow {
     lastSeenAt: text(row.last_seen_at),
     revokedAt: optional(row.revoked_at),
   };
+}
+
+/** A run sheet created when a device opened its date, with nothing ever added. */
+function untouchedRunSheet(record: SyncRecord): boolean {
+  const items = record.data.items;
+  return record.revision <= 1 && (!Array.isArray(items) || items.length === 0);
 }
