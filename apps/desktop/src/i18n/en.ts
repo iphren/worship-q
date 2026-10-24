@@ -120,9 +120,9 @@ export const en = {
 
   'runSheet.title': 'Run sheet · {date}',
   'runSheet.tab': 'Run sheet',
-  'runSheet.empty': 'No songs yet. Search below to add one.',
-  'runSheet.addSong': 'Search songs to add',
-  'runSheet.noSongs': 'No songs found.',
+  'runSheet.empty': 'Nothing planned yet. Search below to add songs, slides or websites.',
+  'runSheet.addSong': 'Search library to add',
+  'runSheet.noSongs': 'Nothing found.',
   'runSheet.drag': 'Drag to reorder',
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
@@ -133,7 +133,8 @@ export const en = {
   'present.nothingLive': 'Nothing is live',
   'present.nothingLiveBody': 'Go live with a run sheet to present it on the slideshow screen.',
   'present.goLiveWith': 'Go live with {date}',
-  'present.emptyRunSheet': 'The live run sheet has no songs yet. Add songs on the left.',
+  'present.emptyRunSheet':
+    'The live run sheet is empty. Add songs, slides or websites on the left.',
   'present.previous': 'Previous',
   'present.next': 'Next',
   'present.blank': 'Blank',
