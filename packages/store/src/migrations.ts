@@ -175,6 +175,22 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE song_revision ADD COLUMN deck TEXT`,
     ],
   },
+  {
+    // An output's font, size and background are shared by the workspace's computers, as a
+    // setting. A look changed from the defaults becomes that setting, dated now so that it
+    // reaches the other computers.
+    version: 7,
+    statements: [
+      `INSERT OR IGNORE INTO setting (workspace_id, key, value, revision, updated_at)
+       SELECT workspace_id, 'outputLook.' || kind,
+         json_object('fontFamily', font_family, 'scale', scale,
+           'backgroundColor', background_color, 'backgroundAssetId', background_asset_id),
+         1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       FROM output_profile
+       WHERE font_family IS NOT NULL OR scale <> 1 OR background_color <> '#000000'
+         OR background_asset_id IS NOT NULL`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

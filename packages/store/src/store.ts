@@ -178,6 +178,16 @@ export type OutputProfilePatch = Partial<
   >
 >;
 
+/** What an output looks like. Synchronized as a workspace setting, unlike its screen. */
+const OUTPUT_LOOK_KEYS = ['fontFamily', 'scale', 'backgroundColor', 'backgroundAssetId'] as const;
+const OutputLookSchema = OutputProfileSchema.pick({
+  fontFamily: true,
+  scale: true,
+  backgroundColor: true,
+  backgroundAssetId: true,
+});
+const outputLookKey = (kind: OutputKind) => `outputLook.${kind}`;
+
 export type CopyMode = 'append' | 'replace';
 
 /** Data access for one local database. Every write in the app goes through here. */
@@ -804,6 +814,12 @@ export class Store {
               WHERE background_asset_id = ?`,
         params: [now, id],
       },
+      {
+        sql: `UPDATE setting SET value = json_set(value, '$.backgroundAssetId', json('null')),
+                revision = revision + 1, updated_at = ?
+              WHERE key LIKE 'outputLook.%' AND json_extract(value, '$.backgroundAssetId') = ?`,
+        params: [now, id],
+      },
     ]);
   }
 
@@ -827,7 +843,12 @@ export class Store {
       ]);
       rows = await this.db.select<Row>(query, [workspaceId, kind]);
     }
-    return toOutputProfile(rows[0]!);
+    const look = await this.db.select<{ value: string }>(
+      'SELECT value FROM setting WHERE workspace_id = ? AND key = ?',
+      [workspaceId, outputLookKey(kind)],
+    );
+    const shared = OutputLookSchema.partial().safeParse(json<unknown>(look[0]?.value, {}));
+    return { ...toOutputProfile(rows[0]!), ...(shared.success ? shared.data : {}) };
   }
 
   async updateOutputProfile(
@@ -842,7 +863,19 @@ export class Store {
       revision: current.revision + 1,
       updatedAt: this.env.now(),
     });
+    const statements: Statement[] = [];
+    if (OUTPUT_LOOK_KEYS.some((key) => key in patch && patch[key] !== current[key])) {
+      // The look is shared by every computer of the workspace; the screen stays this one's.
+      const look = Object.fromEntries(OUTPUT_LOOK_KEYS.map((key) => [key, next[key]]));
+      statements.push({
+        sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
+              ON CONFLICT (workspace_id, key) DO UPDATE
+              SET value = excluded.value, revision = setting.revision + 1, updated_at = excluded.updated_at`,
+        params: [workspaceId, outputLookKey(kind), JSON.stringify(look), next.updatedAt],
+      });
+    }
     await this.db.batch([
+      ...statements,
       {
         sql: `UPDATE output_profile
               SET font_family = ?, scale = ?, background_color = ?, background_asset_id = ?,

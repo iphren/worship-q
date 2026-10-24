@@ -220,6 +220,55 @@ describe('synchronization between two devices', () => {
     }
   });
 
+  it('shares each output’s font, size and background, but not its screen', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance);
+    await branch.connect(code, 'upload');
+    const home = await device('home', clock, instance);
+    await home.connect(code, 'replace');
+    const homeScreen = {
+      monitor: { name: 'Projector', x: 1920, y: 0, width: 1920, height: 1080 },
+      enabled: true,
+      allowOperatorScreen: false,
+    };
+    await home.session.updateOutputProfile({ target: homeScreen });
+
+    clock.advance();
+    await branch.session.updateOutputProfile({ fontFamily: 'Noto Sans SC', scale: 1.2 });
+    await branch.session.updateOutputProfile(
+      { backgroundColor: '#102030', target: null },
+      'subtitle',
+    );
+    await branch.client.run();
+    await home.client.run();
+
+    const id = home.session.workspace.id;
+    expect(await home.store.getOutputProfile(id)).toMatchObject({
+      fontFamily: 'Noto Sans SC',
+      scale: 1.2,
+      target: homeScreen,
+    });
+    expect((await home.store.getOutputProfile(id, 'subtitle')).backgroundColor).toBe('#102030');
+
+    // A removed background stops being selected on every computer.
+    clock.advance();
+    const asset = await home.session.addBackground({
+      id: 'bg-1',
+      kind: 'image',
+      fileName: 'bg-1.jpg',
+      originalName: 'bg.jpg',
+    });
+    await home.session.updateOutputProfile({ backgroundAssetId: asset.id });
+    await home.client.run();
+    await branch.client.run();
+    expect((await branch.store.getOutputProfile(id)).backgroundAssetId).toBe('bg-1');
+    clock.advance();
+    await branch.session.removeBackground('bg-1');
+    await branch.client.run();
+    await home.client.run();
+    expect((await home.store.getOutputProfile(id)).backgroundAssetId).toBeNull();
+  });
+
   it('applies church defaults unless the workspace sets its own', async () => {
     const { clock, instance, code } = await setup();
     instance.setChurchSetting('linesPerPiece', 4);
