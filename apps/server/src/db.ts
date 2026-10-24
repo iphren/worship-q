@@ -61,6 +61,26 @@ const MIGRATIONS: string[][] = [
       created_at TEXT NOT NULL
     )`,
   ],
+  [
+    // A workspace that manages the Church Library keeps its songs and backgrounds there.
+    `ALTER TABLE workspace ADD COLUMN manage_library INTEGER NOT NULL DEFAULT 0`,
+    // The Church Library: songs, their history and backgrounds every workspace sees. A
+    // workspace record with the same kind and key overrides one of these in that workspace.
+    // `workspace_id` is where the record came from. Shares `seq` with `record`.
+    `CREATE TABLE church_record (
+      kind TEXT NOT NULL,
+      key TEXT NOT NULL,
+      id TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      data TEXT NOT NULL,
+      device_id TEXT,
+      workspace_id TEXT,
+      PRIMARY KEY (kind, key)
+    )`,
+    `CREATE INDEX church_record_feed ON church_record(seq)`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

@@ -219,6 +219,25 @@ export const en = {
   'subtitle.unavailable': 'The overlay page could not be started: {error}',
   'subtitle.preview': 'Subtitle overlay',
 
+  'workspaces.title': 'Workspaces on this computer',
+  'workspaces.hint':
+    'Each workspace keeps its own songs, run sheets, settings and church connection. Switching reopens Worship Q.',
+  'workspaces.unnamed': 'New workspace',
+  'workspaces.local': 'Not connected',
+  'workspaces.current': 'Open',
+  'workspaces.switch': 'Switch',
+  'workspaces.add': 'Add workspace',
+  'workspaces.remove': 'Remove…',
+  'workspaces.removeTitle': 'Remove “{name}” from this computer?',
+  'workspaces.removeBody':
+    'Its songs, run sheets and settings are deleted from this computer; a backup is saved in the app’s data folder first. Content synchronized with the church server stays there.',
+  'workspaces.removed': 'Removed. A backup was saved at {path}',
+  'workspaces.leaveLiveTitle': 'Close the presentation?',
+  'workspaces.leaveLiveBody':
+    'Worship Q reopens in the other workspace, and the slideshow on this computer closes.',
+  'workspaces.leaveLiveConfirm': 'Reopen',
+  'workspaces.failed': 'That did not work: {error}',
+  'workspaces.choose': 'Switch workspace',
   'church.title': 'Church connection',
   'church.hint':
     'Connect to your church’s Worship Q server to prepare songs and run sheets from other computers, back up off-site, and control the presentation from a phone.',

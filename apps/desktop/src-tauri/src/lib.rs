@@ -10,6 +10,7 @@ mod files;
 mod fonts;
 mod output;
 mod overlay;
+mod workspaces;
 
 use std::fs;
 use tauri::{Emitter, Manager, WindowEvent};
@@ -32,7 +33,8 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            let dir = app.path().app_data_dir()?;
+            let root = app.path().app_data_dir()?;
+            let dir = workspaces::active_dir(&root);
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
             app.manage(db::AppData::open(dir)?);
             app.manage(overlay::Overlay::new());
@@ -80,6 +82,10 @@ pub fn run() {
             cloud::backup_before_join,
             overlay::overlay_publish,
             overlay::overlay_status,
+            workspaces::list_workspaces,
+            workspaces::add_workspace,
+            workspaces::switch_workspace,
+            workspaces::remove_workspace,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");

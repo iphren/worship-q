@@ -4,6 +4,8 @@
  *   workspace create <name>     create a workspace and print its connection code
  *   workspace list
  *   workspace code <id>         replace a workspace's connection code
+ *   workspace library <id> on|off [--yes]
+ *                               whether the workspace manages the Church Library
  *   device list [workspace-id]
  *   device revoke <device-id>
  *   settings show
@@ -19,6 +21,7 @@ import { join, resolve } from 'node:path';
 import { ChurchSettingsSchema } from '@worship-q/protocol';
 import { openDatabase } from './db';
 import { convertDeck, deckTools } from './decks/convert';
+import { moveFilesToChurch } from './files';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport } from './legacy';
 
@@ -49,15 +52,68 @@ switch (`${area} ${action}`) {
   }
   case 'workspace list':
     table(
-      instance
-        .listWorkspaces()
-        .map((w) => ({ id: w.id, name: w.name, content: w.contentId ?? '(empty)' })),
+      instance.listWorkspaces().map((w) => ({
+        id: w.id,
+        name: w.name,
+        content: w.contentId ?? '(empty)',
+        churchLibrary: w.manageLibrary ? 'manages' : '',
+      })),
     );
     break;
   case 'workspace code': {
     const [id] = rest;
     if (!id) fail('Usage: workspace code <workspace-id>');
     console.log(`New connection code: ${instance.rotateCode(id)}`);
+    break;
+  }
+  case 'workspace library': {
+    const yes = rest.includes('--yes');
+    const [id, setting] = rest.filter((arg) => arg !== '--yes');
+    if (!id || (setting !== 'on' && setting !== 'off')) {
+      fail('Usage: workspace library <workspace-id> on|off [--yes]');
+    }
+    const workspace = instance.getWorkspace(id);
+    if (!workspace) fail(`No workspace ${id}. See: workspace list`);
+    const on = setting === 'on';
+    if (workspace.manageLibrary === on) {
+      console.log(
+        `“${workspace.name}” ${on ? 'already manages' : 'does not manage'} the Church Library.`,
+      );
+      break;
+    }
+    if (on) {
+      const plan = instance.libraryPlan(id);
+      const list = (title: string, items: string[]) => {
+        console.log(`${title}: ${items.length}`);
+        for (const item of items) console.log(`  ${item}`);
+      };
+      console.log(`“${workspace.name}” will manage the Church Library:`);
+      console.log('its songs and backgrounds become the church’s, for every workspace.');
+      list('Songs that become the church’s', plan.songs);
+      list('Backgrounds that become the church’s', plan.backgrounds);
+      list(
+        'Church songs this workspace changed; its version replaces them church-wide, also in workspaces without their own',
+        plan.overrides,
+      );
+      list('Church songs and backgrounds this workspace removed, which reappear', plan.hidden);
+      console.log('From then on, its additions, edits and removals change the Church Library.');
+    } else {
+      console.log(`“${workspace.name}” will stop managing the Church Library.`);
+      console.log('The Church Library stays as it is. New songs and backgrounds stay in the');
+      console.log('workspace, and edits to church songs become the workspace’s own versions.');
+    }
+    if (!yes) {
+      console.log('Nothing was changed. Run again with --yes to do this.');
+      break;
+    }
+    instance.setManageLibrary(id, on);
+    if (on) {
+      const moved = moveFilesToChurch(dataDir, id);
+      console.log(`Done; ${moved} files moved to the Church Library.`);
+    } else {
+      console.log('Done.');
+    }
+    console.log('Connected computers receive the change at their next sync, within a minute.');
     break;
   }
   case 'device list':
@@ -147,6 +203,7 @@ switch (`${area} ${action}`) {
     console.log(
       [
         'workspace create <name> | workspace list | workspace code <id>',
+        'workspace library <id> on|off [--yes]',
         'device list [workspace-id] | device revoke <device-id>',
         'settings show | settings set <key> <json> | settings unset <key>',
         'import legacy <workspace-id> <file|-> [--dry-run]',

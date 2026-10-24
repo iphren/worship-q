@@ -79,6 +79,11 @@ export class Relay {
     }
   }
 
+  /** Tells every desktop of every workspace, except the one that made the change, to pull. */
+  contentChangedAll(exceptDeviceId: string): void {
+    for (const workspaceId of this.rooms.keys()) this.contentChanged(workspaceId, exceptDeviceId);
+  }
+
   /** Disconnects a revoked device straight away. */
   deviceRevoked(deviceId: string): void {
     for (const room of this.rooms.values()) {

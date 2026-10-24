@@ -12,6 +12,7 @@ import {
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
 import { RemoteControlDialog, RemoteRequestsBanner } from './components/RemoteControl';
+import { WorkspaceButton } from './components/WorkspaceSwitcher';
 import { t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
@@ -116,6 +117,7 @@ function Sidebar({ page }: { page: Page }) {
         </NavButton>
       ))}
       <span className="flex-1" />
+      <WorkspaceButton />
       <button
         className={`relative rounded-md p-2 ${
           remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'

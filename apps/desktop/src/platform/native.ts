@@ -58,4 +58,22 @@ export const native = {
   overlayStatus: () => invoke<[string, string | null]>('overlay_status'),
   restoreBackup: (source: string, maxSchemaVersion: number) =>
     invoke<void>('restore_backup', { source, maxSchemaVersion }),
+  /** The workspaces kept on this computer. */
+  listWorkspaces: () => invoke<WorkspaceEntry[]>('list_workspaces'),
+  /** Makes a new, empty workspace and reopens the app in it. */
+  addWorkspace: () => invoke<void>('add_workspace'),
+  /** Reopens the app in another workspace on this computer. */
+  switchWorkspace: (id: string) => invoke<void>('switch_workspace', { id }),
+  /** Removes a workspace other than the open one; returns where its backup was saved. */
+  removeWorkspace: (id: string) => invoke<string>('remove_workspace', { id }),
 };
+
+export interface WorkspaceEntry {
+  id: string;
+  /** The workspace open now. */
+  active: boolean;
+  /** Null until the workspace was first opened. */
+  name: string | null;
+  /** The church server it is connected to, if any. */
+  server: string | null;
+}

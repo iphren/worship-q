@@ -29,6 +29,7 @@ import {
   type PushResponse,
 } from '@worship-q/protocol';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
+import { churchFilesDir, findFile, workspaceFilesDir } from './files';
 import type { DeviceRow, Instance } from './instance';
 import { Relay } from './relay';
 
@@ -72,7 +73,11 @@ export async function buildServer(config: ServerConfig) {
     // Behind CloudFront and a reverse proxy.
     trustProxy: true,
   });
-  const filesDir = (workspaceId: string) => join(config.dataDir, 'files', workspaceId);
+  // New files of a workspace that manages the Church Library are the church's.
+  const uploadDir = (workspaceId: string) =>
+    instance.getWorkspace(workspaceId)?.manageLibrary
+      ? churchFilesDir(config.dataDir)
+      : workspaceFilesDir(config.dataDir, workspaceId);
   // One conversion at a time: LibreOffice is heavy, and its settings folder is shared.
   let conversions: Promise<unknown> = Promise.resolve();
   const queued = <T>(task: () => Promise<T>): Promise<T> => {
@@ -125,8 +130,8 @@ export async function buildServer(config: ServerConfig) {
       if (!/^[0-9a-f-]{36}$/.test(workspace) || !DECK_IMAGE.test(name)) {
         return reply.code(404).send({ error: 'not-found' });
       }
-      const path = join(filesDir(workspace), name);
-      if (!existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+      const path = findFile(config.dataDir, workspace, name);
+      if (!path) return reply.code(404).send({ error: 'not-found' });
       reply.header('cache-control', 'public, max-age=31536000, immutable');
       reply.header('content-length', statSync(path).size);
       reply.type('image/jpeg');
@@ -166,6 +171,7 @@ export async function buildServer(config: ServerConfig) {
         name: workspace.name,
         contentId: workspace.contentId,
         deviceName: request.device!.name,
+        manageLibrary: workspace.manageLibrary,
       };
     });
 
@@ -179,8 +185,14 @@ export async function buildServer(config: ServerConfig) {
       const parsed = PushRequestSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: 'invalid-records' });
       const device = request.device!;
-      const { remap, stored } = instance.push(device.workspaceId, device.id, parsed.data.records);
-      if (stored > 0) relay.contentChanged(device.workspaceId, device.id);
+      const { remap, stored, central } = instance.push(
+        device.workspaceId,
+        device.id,
+        parsed.data.records,
+      );
+      // The Church Library reaches every workspace.
+      if (central > 0) relay.contentChangedAll(device.id);
+      else if (stored > 0) relay.contentChanged(device.workspaceId, device.id);
       return { remap } satisfies PushResponse;
     });
 
@@ -193,7 +205,7 @@ export async function buildServer(config: ServerConfig) {
     api.put<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
       if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
-      const dir = filesDir(request.device!.workspaceId);
+      const dir = uploadDir(request.device!.workspaceId);
       mkdirSync(dir, { recursive: true });
       await receive(request.body as Readable, join(dir, name));
       return { stored: true };
@@ -202,8 +214,8 @@ export async function buildServer(config: ServerConfig) {
     api.get<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
       if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
-      const path = join(filesDir(request.device!.workspaceId), name);
-      if (!existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+      const path = findFile(config.dataDir, request.device!.workspaceId, name);
+      if (!path) return reply.code(404).send({ error: 'not-found' });
       reply.header('content-length', statSync(path).size);
       reply.type('application/octet-stream');
       return reply.send(createReadStream(path));
@@ -227,7 +239,7 @@ export async function buildServer(config: ServerConfig) {
         await receive(request.body as Readable, upload);
         const out = join(work, 'out');
         const converted = await queued(() => convert(upload, out, join(work, 'convert')));
-        const dir = filesDir(request.device!.workspaceId);
+        const dir = uploadDir(request.device!.workspaceId);
         mkdirSync(dir, { recursive: true });
         const pages: Deck['pages'] = [];
         for (const page of converted.pages) {

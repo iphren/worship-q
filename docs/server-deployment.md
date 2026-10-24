@@ -73,6 +73,7 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 | `workspace create <name>` | Creates a workspace and prints its connection code |
 | `workspace list` | Lists workspaces |
 | `workspace code <id>` | Replaces a workspace's connection code; enrolled devices keep working |
+| `workspace library <id> on\|off [--yes]` | Whether the workspace manages the Church Library; without `--yes` it only shows what would change |
 | `device list [workspace-id]` | Lists enrolled computers |
 | `device revoke <device-id>` | Disconnects a computer; it must enroll again |
 | `settings show` | Shows the church defaults |
@@ -88,6 +89,36 @@ default" goes back to the church's.
 
 The connection code lets any computer join the workspace. Give it only to people who may
 prepare that workspace's content, and replace it with `workspace code` if it leaks.
+
+## The Church Library
+
+Songs and backgrounds of the Church Library are seen by every workspace. A workspace that
+manages it (`workspace library <id> on`) adds, edits and removes them directly. In every
+other workspace:
+
+- new songs and backgrounds stay in that workspace;
+- editing a church song makes the workspace its own version, which replaces the church's
+  there only, and later church edits leave it alone;
+- removing a church song or background hides it in that workspace only.
+
+When the church removes a song, a workspace's own version of it stays as that workspace's
+song.
+
+Turning it on first shows what will happen, and changes nothing without `--yes`:
+
+```sh
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> on
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> on --yes
+```
+
+The workspace's songs and backgrounds become the church's. Its own versions of church
+songs replace them for every workspace, including workspaces without their own version.
+Church songs and backgrounds it hid reappear. Its files move to the church's folder.
+Turning it off leaves the Church Library as it is.
+
+Import legacy songs only once, into the workspace that manages the Church Library. The
+imported songs keep the same identifiers every time, so importing them again into another
+workspace makes them that workspace's own versions of the church's.
 
 ## Importing songs from the legacy lyrics service
 

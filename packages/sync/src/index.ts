@@ -23,6 +23,8 @@ export interface WorkspaceInfo {
   name: string;
   contentId: string | null;
   deviceName: string;
+  /** Its songs and backgrounds are the Church Library's; absent from older instances. */
+  manageLibrary?: boolean;
 }
 
 /** What the device asks of its church instance. */

@@ -17,6 +17,23 @@ export interface WorkspaceRow {
   id: string;
   name: string;
   contentId: string | null;
+  /** Its songs and backgrounds are the Church Library's (“Manage Church Library”). */
+  manageLibrary: boolean;
+}
+
+/** The kinds of record the Church Library holds. */
+export const LIBRARY_KINDS: readonly SyncRecord['kind'][] = ['song', 'songRevision', 'background'];
+
+/** What turning on “Manage Church Library” for a workspace does, by title. */
+export interface LibraryPlan {
+  /** Songs of the workspace that become the church's. */
+  songs: string[];
+  /** Backgrounds of the workspace that become the church's. */
+  backgrounds: string[];
+  /** Church songs the workspace changed; its version replaces them for every workspace. */
+  overrides: string[];
+  /** Church songs and backgrounds the workspace removed, which reappear for it. */
+  hidden: string[];
 }
 
 export interface DeviceRow {
@@ -58,7 +75,7 @@ export class Instance {
 
   createWorkspace(name: string): { workspace: WorkspaceRow; code: string } {
     const code = enrollmentCode();
-    const workspace = { id: randomUUID(), name, contentId: null };
+    const workspace = { id: randomUUID(), name, contentId: null, manageLibrary: false };
     this.db
       .prepare(
         'INSERT INTO workspace (id, name, content_id, enroll_hash, created_at) VALUES (?, ?, NULL, ?, ?)',
@@ -78,21 +95,12 @@ export class Instance {
   }
 
   listWorkspaces(): WorkspaceRow[] {
-    return this.db
-      .prepare('SELECT * FROM workspace ORDER BY created_at')
-      .all()
-      .map((row) => ({
-        id: text(row.id),
-        name: text(row.name),
-        contentId: optional(row.content_id),
-      }));
+    return this.db.prepare('SELECT * FROM workspace ORDER BY created_at').all().map(toWorkspace);
   }
 
   getWorkspace(id: string): WorkspaceRow | null {
     const row = this.db.prepare('SELECT * FROM workspace WHERE id = ?').get(id);
-    return row
-      ? { id: text(row.id), name: text(row.name), contentId: optional(row.content_id) }
-      : null;
+    return row ? toWorkspace(row) : null;
   }
 
   /**
@@ -176,19 +184,29 @@ export class Instance {
   /**
    * Stores the records that win over what the instance has. A run sheet is one per date:
    * one arriving under a new identifier for a date already known keeps the known
-   * identifier, and the device is told to adopt it. Returns the remapped identifiers and
-   * whether anything was stored.
+   * identifier, and the device is told to adopt it. Returns the remapped identifiers, how
+   * many records were stored, and how many of those went to the Church Library.
+   *
+   * Songs and backgrounds of a workspace that manages the Church Library go to it. In any
+   * other workspace, a change to a church song or background is kept as that workspace's
+   * own version of it: an edit replaces the church's in that workspace, a removal hides it
+   * there.
    */
   push(
     workspaceId: string,
     deviceId: string,
     records: readonly SyncRecord[],
-  ): { remap: Record<string, string>; stored: number } {
+  ): { remap: Record<string, string>; stored: number; central: number } {
     const remap: Record<string, string> = {};
     let stored = 0;
+    let central = 0;
+    const manages = this.getWorkspace(workspaceId)?.manageLibrary ?? false;
     transaction(this.db, () => {
       const find = this.db.prepare(
         'SELECT id, revision, updated_at FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
+      );
+      const findChurch = this.db.prepare(
+        'SELECT revision, updated_at FROM church_record WHERE kind = ? AND key = ?',
       );
       const upsert = this.db.prepare(
         `INSERT INTO record (workspace_id, kind, key, id, revision, updated_at, seq, data, device_id)
@@ -197,9 +215,24 @@ export class Instance {
            revision = excluded.revision, updated_at = excluded.updated_at, seq = excluded.seq,
            data = excluded.data, device_id = excluded.device_id`,
       );
+      const version = (row: Record<string, SqlValue> | undefined) =>
+        row ? { revision: Number(row.revision), updatedAt: text(row.updated_at) } : null;
       for (const received of records) {
         const incoming = wellFormed(received);
         const existing = find.get(workspaceId, incoming.kind, incoming.key);
+        if (isLibraryKind(incoming.kind)) {
+          const church = findChurch.get(incoming.kind, incoming.key);
+          if (manages && !existing) {
+            if (!syncWins(incoming, version(church))) continue;
+            this.putChurch(incoming, deviceId, workspaceId);
+            stored++;
+            central++;
+            continue;
+          }
+          // A church record sent back as it was received is not a change of this
+          // workspace's own.
+          if (!existing && church && !syncWins(incoming, version(church))) continue;
+        }
         let record = incoming;
         if (existing && text(existing.id) !== incoming.id) {
           if (incoming.kind !== 'runSheet') continue;
@@ -209,10 +242,7 @@ export class Instance {
         // A run sheet a device only opened, never edited, never replaces a known one. Older
         // apps still send them.
         if (existing && incoming.kind === 'runSheet' && untouchedRunSheet(incoming)) continue;
-        const current = existing
-          ? { revision: Number(existing.revision), updatedAt: text(existing.updated_at) }
-          : null;
-        if (!syncWins(record, current)) continue;
+        if (!syncWins(record, version(existing))) continue;
         upsert.run(
           workspaceId,
           record.kind,
@@ -227,7 +257,29 @@ export class Instance {
         stored++;
       }
     });
-    return { remap, stored };
+    return { remap, stored, central };
+  }
+
+  private putChurch(record: SyncRecord, deviceId: string | null, workspaceId: string): void {
+    this.db
+      .prepare(
+        `INSERT INTO church_record (kind, key, id, revision, updated_at, seq, data, device_id, workspace_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (kind, key) DO UPDATE SET id = excluded.id, revision = excluded.revision,
+           updated_at = excluded.updated_at, seq = excluded.seq, data = excluded.data,
+           device_id = excluded.device_id, workspace_id = excluded.workspace_id`,
+      )
+      .run(
+        record.kind,
+        record.key,
+        record.id,
+        record.revision,
+        record.updatedAt,
+        this.nextSeq(),
+        JSON.stringify(record.data),
+        deviceId,
+        workspaceId,
+      );
   }
 
   private nextSeq(): number {
@@ -235,50 +287,123 @@ export class Instance {
     return Number(this.db.prepare(`SELECT value FROM counter WHERE name = 'seq'`).get()!.value);
   }
 
-  /** Records changed after `since` in the change feed, oldest first. */
+  /**
+   * Records changed after `since` in the change feed, oldest first: the workspace's own,
+   * and the Church Library's except where the workspace has its own version.
+   */
   pull(
     workspaceId: string,
     since: number,
     limit = 500,
   ): { records: SyncRecord[]; cursor: number; more: boolean } {
     const rows = this.db
-      .prepare('SELECT * FROM record WHERE workspace_id = ? AND seq > ? ORDER BY seq LIMIT ?')
-      .all(workspaceId, since, limit + 1);
+      .prepare(
+        `SELECT kind, key, id, revision, updated_at, data, seq FROM record
+         WHERE workspace_id = ? AND seq > ?
+         UNION ALL
+         SELECT c.kind, c.key, c.id, c.revision, c.updated_at, c.data, c.seq FROM church_record c
+         WHERE c.seq > ? AND NOT EXISTS (SELECT 1 FROM record r
+           WHERE r.workspace_id = ? AND r.kind = c.kind AND r.key = c.key)
+         ORDER BY seq LIMIT ?`,
+      )
+      .all(workspaceId, since, since, workspaceId, limit + 1);
     const page = rows.slice(0, limit);
     return {
-      records: page.map((row) => ({
-        kind: text(row.kind) as SyncRecord['kind'],
-        id: text(row.id),
-        key: text(row.key),
-        revision: Number(row.revision),
-        updatedAt: text(row.updated_at),
+      records: page.map((row) => {
+        const record = toRecord(row);
         // Text stored before broken characters were replaced on the way in is fixed here.
-        data: wellFormed(JSON.parse(text(row.data)) as Record<string, unknown>),
-      })),
+        return { ...record, data: wellFormed(record.data) };
+      }),
       cursor: page.length > 0 ? Number(page[page.length - 1]!.seq) : since,
       more: rows.length > limit,
     };
   }
 
-  /** A workspace's records of one kind, each with the device that last stored it. */
+  /**
+   * A workspace's records of one kind, each with the device that last stored it. Songs and
+   * backgrounds of a workspace that manages the Church Library are the church's.
+   */
   records(
     workspaceId: string,
     kind: SyncRecord['kind'],
   ): { record: SyncRecord; deviceId: string }[] {
+    const church = isLibraryKind(kind) && this.getWorkspace(workspaceId)?.manageLibrary;
+    const rows = church
+      ? this.db.prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY seq').all(kind)
+      : this.db
+          .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ? ORDER BY seq')
+          .all(workspaceId, kind);
+    return rows.map((row) => ({ record: toRecord(row), deviceId: text(row.device_id) }));
+  }
+
+  // ── Church Library ───────────────────────────────────────────────────────
+
+  private libraryRows(workspaceId: string) {
+    const kinds = LIBRARY_KINDS.map(() => '?').join(', ');
+    const findChurch = this.db.prepare('SELECT * FROM church_record WHERE kind = ? AND key = ?');
     return this.db
-      .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ? ORDER BY seq')
-      .all(workspaceId, kind)
-      .map((row) => ({
-        record: {
-          kind,
-          id: text(row.id),
-          key: text(row.key),
-          revision: Number(row.revision),
-          updatedAt: text(row.updated_at),
-          data: JSON.parse(text(row.data)) as Record<string, unknown>,
-        },
-        deviceId: text(row.device_id),
-      }));
+      .prepare(`SELECT * FROM record WHERE workspace_id = ? AND kind IN (${kinds}) ORDER BY seq`)
+      .all(workspaceId, ...LIBRARY_KINDS)
+      .map((own) => ({ own, church: findChurch.get(text(own.kind), text(own.key)) }));
+  }
+
+  /** What `setManageLibrary(workspaceId, true)` would do. */
+  libraryPlan(workspaceId: string): LibraryPlan {
+    const plan: LibraryPlan = { songs: [], backgrounds: [], overrides: [], hidden: [] };
+    for (const { own, church } of this.libraryRows(workspaceId)) {
+      const kind = text(own.kind);
+      if (kind === 'songRevision') continue;
+      const churchLive = church && !removed(church.data);
+      if (removed(own.data)) {
+        if (churchLive) plan.hidden.push(titleOf(church.data));
+      } else if (churchLive) {
+        plan.overrides.push(titleOf(own.data));
+      } else {
+        (kind === 'song' ? plan.songs : plan.backgrounds).push(titleOf(own.data));
+      }
+    }
+    return plan;
+  }
+
+  /**
+   * Turns “Manage Church Library” on or off. Turning it on brings the workspace's songs and
+   * backgrounds into the Church Library: its own versions of church songs replace them for
+   * every workspace, and church songs and backgrounds it removed reappear for it. Turning
+   * it off leaves the Church Library as it is.
+   *
+   * Background files are not moved here; see `moveFilesToChurch`.
+   */
+  setManageLibrary(workspaceId: string, on: boolean): void {
+    transaction(this.db, () => {
+      const result = this.db
+        .prepare('UPDATE workspace SET manage_library = ? WHERE id = ?')
+        .run(on ? 1 : 0, workspaceId);
+      if (Number(result.changes) === 0) throw new Error(`No workspace ${workspaceId}`);
+      if (!on) return;
+      const drop = this.db.prepare(
+        'DELETE FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
+      );
+      for (const { own, church } of this.libraryRows(workspaceId)) {
+        const record = toRecord(own);
+        if (church) {
+          const churchRecord = toRecord(church);
+          const hidden = removed(own.data) && !removed(church.data);
+          // Newer than any copy a device has, so every device takes it.
+          this.putChurch(
+            {
+              ...(hidden ? churchRecord : record),
+              revision: Math.max(record.revision, churchRecord.revision) + 1,
+              updatedAt: this.now(),
+            },
+            hidden ? optional(church.device_id) : optional(own.device_id),
+            hidden ? text(church.workspace_id) : workspaceId,
+          );
+        } else {
+          this.putChurch(record, optional(own.device_id), workspaceId);
+        }
+        drop.run(workspaceId, record.kind, record.key);
+      }
+    });
   }
 
   /** Whether a workspace's records mention a background file, so devices may fetch it. */
@@ -350,6 +475,34 @@ export class Instance {
     this.db.prepare('DELETE FROM backup WHERE id = ?').run(id);
   }
 }
+
+function toWorkspace(row: Record<string, SqlValue>): WorkspaceRow {
+  return {
+    id: text(row.id),
+    name: text(row.name),
+    contentId: optional(row.content_id),
+    manageLibrary: Number(row.manage_library ?? 0) === 1,
+  };
+}
+
+function toRecord(row: Record<string, SqlValue>): SyncRecord {
+  return {
+    kind: text(row.kind) as SyncRecord['kind'],
+    id: text(row.id),
+    key: text(row.key),
+    revision: Number(row.revision),
+    updatedAt: text(row.updated_at),
+    data: JSON.parse(text(row.data)) as Record<string, unknown>,
+  };
+}
+
+const isLibraryKind = (kind: string) => (LIBRARY_KINDS as readonly string[]).includes(kind);
+const removed = (data: SqlValue | undefined) =>
+  (JSON.parse(text(data)) as { removedAt?: unknown }).removedAt != null;
+const titleOf = (data: SqlValue | undefined) => {
+  const parsed = JSON.parse(text(data)) as { title?: unknown; originalName?: unknown };
+  return String(parsed.title ?? parsed.originalName ?? '');
+};
 
 function toDevice(row: Record<string, SqlValue>): DeviceRow {
   return {

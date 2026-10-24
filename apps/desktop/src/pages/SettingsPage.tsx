@@ -18,6 +18,7 @@ import { ChurchConnection } from '../components/ChurchConnection';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
+import { WorkspaceList } from '../components/WorkspaceSwitcher';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
@@ -445,6 +446,10 @@ export function SettingsPage() {
               {Math.round(subtitleProfile.scale * 100)}%
             </span>
           </label>
+        </Section>
+
+        <Section title={t('workspaces.title')} hint={t('workspaces.hint')}>
+          <WorkspaceList />
         </Section>
 
         <Section title={t('church.title')} hint={t('church.hint')}>

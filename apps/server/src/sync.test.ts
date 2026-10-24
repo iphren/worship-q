@@ -1,9 +1,13 @@
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Session } from '@worship-q/session';
 import { migrate, Store, SyncStore, type StoreEnv } from '@worship-q/store';
 import { openNodeDriver } from '@worship-q/store/testing';
 import { SyncClient, type FileTransfer, type InstanceApi } from '@worship-q/sync';
 import { describe, expect, it } from 'vitest';
 import { openDatabase } from './db';
+import { churchFilesDir, findFile, moveFilesToChurch, workspaceFilesDir } from './files';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport, type LegacySong } from './legacy';
 
@@ -500,5 +504,170 @@ describe('text holding half of a surrogate pair', () => {
       ['\ufffdx', 'a\ufffd b'],
     ]);
     expect(JSON.stringify(records)).not.toMatch(/\\ud[89ab]|\\udc/i);
+  });
+});
+
+describe('the Church Library', () => {
+  /** Workspace A, whose computer has songs, and an empty workspace B. */
+  async function twoBranches() {
+    const { clock, instance, workspace: a, code: codeA } = await setup();
+    const { workspace: b, code: codeB } = instance.createWorkspace('South Branch');
+    const north = await device('north', clock, instance);
+    const grace = await north.session.createSong({ title: 'Amazing Grace', lyrics: 'a\nb' });
+    const holy = await north.session.createSong({ title: 'Holy Holy', lyrics: 'c' });
+    await north.session.addBackground({
+      id: 'bg-1',
+      kind: 'image',
+      fileName: 'bg-1.jpg',
+      originalName: 'Sunrise.jpg',
+    });
+    await north.connect(codeA, 'upload');
+    clock.advance();
+    return { clock, instance, a, b, codeB, north, grace, holy };
+  }
+
+  const titles = async (d: Awaited<ReturnType<typeof device>>) =>
+    (await d.store.listSongs(d.session.workspace.id)).map((s) => s.title).sort();
+
+  it('brings the songs and backgrounds of the workspace that manages it to another', async () => {
+    const { clock, instance, a, b, codeB, north } = await twoBranches();
+    expect(instance.libraryPlan(a.id)).toEqual({
+      songs: ['Amazing Grace', 'Holy Holy'],
+      backgrounds: ['Sunrise.jpg'],
+      overrides: [],
+      hidden: [],
+    });
+    instance.setManageLibrary(a.id, true);
+    expect(instance.getWorkspace(a.id)?.manageLibrary).toBe(true);
+
+    const south = await device('south', clock, instance);
+    await south.connect(codeB, 'upload');
+    expect(await titles(south)).toEqual(['Amazing Grace', 'Holy Holy']);
+    const backgrounds = await south.store.listBackgrounds(south.session.workspace.id);
+    expect(backgrounds.map((bg) => bg.originalName)).toEqual(['Sunrise.jpg']);
+
+    // Later additions in A are the church's too; B's stay its own.
+    clock.advance();
+    await north.session.createSong({ title: 'New Church Song', lyrics: 'x' });
+    await north.client.run();
+    await south.session.createSong({ title: 'South Only', lyrics: 'y' });
+    await south.client.run();
+    await north.client.run();
+    expect(await titles(south)).toEqual([
+      'Amazing Grace',
+      'Holy Holy',
+      'New Church Song',
+      'South Only',
+    ]);
+    expect(await titles(north)).toEqual(['Amazing Grace', 'Holy Holy', 'New Church Song']);
+    // Content B only received is not taken for B's own.
+    expect(instance.records(b.id, 'song').map((r) => r.record.data.title)).toEqual(['South Only']);
+    expect(north.client.status.kind).toBe('idle');
+  });
+
+  it('keeps a workspace’s edits and removals of church songs to itself', async () => {
+    const { clock, instance, a, codeB, north, grace, holy } = await twoBranches();
+    instance.setManageLibrary(a.id, true);
+    const south = await device('south', clock, instance);
+    await south.connect(codeB, 'upload');
+
+    clock.advance();
+    await south.session.saveSong(grace.id, { title: 'Amazing Grace (South)' });
+    await south.session.removeSong(holy.id);
+    await south.client.run();
+    await north.client.run();
+    expect(await titles(north)).toEqual(['Amazing Grace', 'Holy Holy']);
+    expect(await titles(south)).toEqual(['Amazing Grace (South)']);
+
+    // A church edit does not overwrite B's own version.
+    clock.advance();
+    await north.session.saveSong(grace.id, { lyrics: 'changed by the church' });
+    await north.client.run();
+    await south.client.run();
+    expect((await south.store.getSong(grace.id))?.title).toBe('Amazing Grace (South)');
+    expect((await south.store.getSong(grace.id))?.lyrics).toBe('a\nb');
+  });
+
+  it('removes a church song everywhere, except where a workspace has its own version', async () => {
+    const { clock, instance, a, codeB, north, grace, holy } = await twoBranches();
+    instance.setManageLibrary(a.id, true);
+    const south = await device('south', clock, instance);
+    await south.connect(codeB, 'upload');
+    clock.advance();
+    await south.session.saveSong(grace.id, { title: 'Grace, South' });
+    await south.client.run();
+
+    clock.advance();
+    await north.session.removeSong(grace.id);
+    await north.session.removeSong(holy.id);
+    await north.client.run();
+    await south.client.run();
+    expect(await titles(north)).toEqual([]);
+    expect(await titles(south)).toEqual(['Grace, South']);
+  });
+
+  it('brings a workspace’s own versions into the Church Library when it starts managing it', async () => {
+    const { clock, instance, a, b, codeB, north, grace, holy } = await twoBranches();
+    instance.setManageLibrary(a.id, true);
+    const south = await device('south', clock, instance);
+    await south.connect(codeB, 'upload');
+    clock.advance();
+    await south.session.saveSong(grace.id, { title: 'Grace, South' });
+    await south.session.removeSong(holy.id);
+    await south.session.createSong({ title: 'South Only', lyrics: 'y' });
+    await south.session.removeBackground('bg-1');
+    await south.client.run();
+    expect(await south.store.listBackgrounds(south.session.workspace.id)).toEqual([]);
+
+    instance.setManageLibrary(a.id, false);
+    expect(instance.libraryPlan(b.id)).toEqual({
+      songs: ['South Only'],
+      backgrounds: [],
+      overrides: ['Grace, South'],
+      hidden: ['Sunrise.jpg', 'Holy Holy'],
+    });
+    clock.advance();
+    instance.setManageLibrary(b.id, true);
+    expect(
+      instance
+        .records(b.id, 'song')
+        .map((r) => r.record.data.title)
+        .sort(),
+    ).toEqual(['Grace, South', 'Holy Holy', 'South Only']);
+
+    await south.client.run();
+    await north.client.run();
+    expect(await titles(south)).toEqual(['Grace, South', 'Holy Holy', 'South Only']);
+    expect(await titles(north)).toEqual(['Grace, South', 'Holy Holy', 'South Only']);
+    const backgrounds = await south.store.listBackgrounds(south.session.workspace.id);
+    expect(backgrounds.map((bg) => bg.originalName)).toEqual(['Sunrise.jpg']);
+
+    // A no longer manages it: its new songs stay its own.
+    clock.advance();
+    await north.session.createSong({ title: 'North Only', lyrics: 'z' });
+    await north.client.run();
+    await south.client.run();
+    expect(await titles(south)).toEqual(['Grace, South', 'Holy Holy', 'South Only']);
+  });
+});
+
+describe('Church Library files', () => {
+  it('are found in the workspace’s folder, then the church’s, and moved there', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-files-'));
+    try {
+      const own = workspaceFilesDir(dataDir, 'ws-a');
+      mkdirSync(own, { recursive: true });
+      writeFileSync(join(own, 'a.jpg'), 'a');
+      writeFileSync(join(own, 'b.jpg.partial'), 'b');
+      expect(findFile(dataDir, 'ws-a', 'a.jpg')).toBe(join(own, 'a.jpg'));
+      expect(findFile(dataDir, 'ws-b', 'a.jpg')).toBeNull();
+
+      expect(moveFilesToChurch(dataDir, 'ws-a')).toBe(1);
+      expect(findFile(dataDir, 'ws-b', 'a.jpg')).toBe(join(churchFilesDir(dataDir), 'a.jpg'));
+      expect(existsSync(join(own, 'a.jpg'))).toBe(false);
+      expect(moveFilesToChurch(dataDir, 'ws-missing')).toBe(0);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 });
