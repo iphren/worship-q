@@ -7,7 +7,12 @@ import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
-import { DeckBadge } from '../components/DeckBadge';
+
+/** The library is listed in three tabs: ordinary songs, imported slide decks and websites. */
+type Kind = 'songs' | 'slides' | 'web';
+const KINDS: Kind[] = ['songs', 'slides', 'web'];
+
+const kindOf = (song: Song): Kind => (song.website ? 'web' : song.deck ? 'slides' : 'songs');
 
 /** The song being edited; `key` changes only when the operator picks another song. */
 interface Editing {
@@ -19,6 +24,7 @@ interface Editing {
 
 export function SongsPage() {
   const session = useSession();
+  const [kind, setKind] = useState<Kind>('songs');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -31,9 +37,10 @@ export function SongsPage() {
     const timer = setTimeout(() => setAdded(null), 2000);
     return () => clearTimeout(timer);
   }, [added]);
-  const songs = useQuery(() => session.store.listSongs(session.workspace.id, search), [search]);
+  const library = useQuery(() => session.store.listSongs(session.workspace.id, search), [search]);
+  const songs = library?.filter((song) => kindOf(song) === kind);
   const listRef = useRef<HTMLUListElement>(null);
-  useScrollMemory(listRef, `songs:${search}`);
+  useScrollMemory(listRef, `songs:${kind}:${search}`);
 
   const open = (song: Song | null, website?: boolean) => {
     setEditing((current) => ({ key: (current?.key ?? 0) + 1, song, website }));
@@ -66,13 +73,35 @@ export function SongsPage() {
   return (
     <div className="flex h-full min-h-0">
       <aside className="flex w-52 shrink-0 flex-col gap-2 border-r border-slate-700 p-3">
-        <button className="btn btn-primary" onClick={() => select(null)}>
-          + {t('songs.new')}
-        </button>
-        <button className="btn" onClick={() => select(null, true)}>
-          + {t('songs.newWebsite')}
-        </button>
-        <ImportSlides onImported={(song) => select(song)} />
+        <div role="tablist" className="-mx-3 -mt-3 mb-1 flex border-b border-slate-700 px-1">
+          {KINDS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={kind === key}
+              className={`-mb-px flex-1 border-b-2 px-1 py-2 text-xs font-medium tracking-wide uppercase ${
+                kind === key
+                  ? 'border-sky-500 text-slate-100'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+              onClick={() => setKind(key)}
+            >
+              {t(`library.${key}`)}
+            </button>
+          ))}
+        </div>
+        {kind === 'songs' && (
+          <button className="btn btn-primary" onClick={() => select(null)}>
+            + {t('songs.new')}
+          </button>
+        )}
+        {kind === 'slides' && <ImportSlides onImported={(song) => select(song)} />}
+        {kind === 'web' && (
+          <button className="btn btn-primary" onClick={() => select(null, true)}>
+            + {t('songs.newWebsite')}
+          </button>
+        )}
         <input
           className="field"
           type="search"
@@ -80,14 +109,16 @@ export function SongsPage() {
           autoCapitalize="off"
           autoComplete="off"
           spellCheck={false}
-          placeholder={t('songs.search')}
+          placeholder={t(`library.${kind}Search`)}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <ul ref={listRef} className="min-h-0 flex-1 space-y-0.5 overflow-auto">
           {songs?.length === 0 && (
             <li className="px-1 py-3 text-sm text-slate-500">
-              {search.trim() ? t('songs.noMatch', { search: search.trim() }) : t('songs.empty')}
+              {search.trim()
+                ? t(`library.${kind}NoMatch`, { search: search.trim() })
+                : t(`library.${kind}Empty`)}
             </li>
           )}
           {songs?.map((song) => (
@@ -99,7 +130,6 @@ export function SongsPage() {
                   }`}
                   onClick={() => select(song)}
                 >
-                  <DeckBadge song={song} />
                   {song.title || t('songs.untitled')}
                 </button>
               </SongPeek>
@@ -245,12 +275,12 @@ function ImportSlides(props: { onImported(song: Song): void }) {
   return (
     <div className="space-y-1">
       <button
-        className="btn w-full"
+        className="btn btn-primary w-full"
         disabled={!connected || !available || busy}
         title={hint}
         onClick={() => void choose()}
       >
-        {t('songs.importSlides')}…
+        + {t('songs.importSlides')}…
       </button>
       {state.kind === 'converting' && (
         <p className="text-xs text-slate-400">
