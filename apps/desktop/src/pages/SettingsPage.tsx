@@ -13,7 +13,12 @@ import {
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
-import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
+import {
+  BackgroundPicker,
+  kindKey,
+  SongBackgroundFields,
+  songKind,
+} from '../components/BackgroundPicker';
 import { ChurchConnection } from '../components/ChurchConnection';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
@@ -69,7 +74,7 @@ function OnScreenSongBackground(props: { song: Song }) {
     timer.current = window.setTimeout(() => pending.current?.(), 400);
   }
 
-  return <SongBackgroundFields value={value} onChange={change} />;
+  return <SongBackgroundFields value={value} onChange={change} kind={songKind(song)} />;
 }
 
 export function SettingsPage() {
@@ -104,6 +109,7 @@ export function SettingsPage() {
   const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'song'>('workspace');
   // The song tab only exists while a song is on screen.
   const backgroundTab = onScreen ? chosenBackgroundTab : 'workspace';
+  const kind = onScreen ? songKind(onScreen) : 'song';
 
   useEffect(() => {
     void native.listFontFamilies().then(setFonts);
@@ -430,9 +436,9 @@ export function SettingsPage() {
           title={t('settings.background')}
           hint={
             backgroundTab === 'song'
-              ? t('settings.songBackgroundHint')
+              ? t(kindKey('settings.songBackgroundHint', kind))
               : onScreen?.background
-                ? t('settings.backgroundCovered')
+                ? t(kindKey('settings.backgroundCovered', kind))
                 : t('settings.backgroundWorkspaceHint')
           }
         >
@@ -453,7 +459,7 @@ export function SettingsPage() {
                 >
                   {key === 'workspace'
                     ? t('settings.backgroundWorkspace')
-                    : t('settings.songBackground', {
+                    : t(kindKey('settings.songBackground', kind), {
                         title: onScreen.title || t('songs.untitled'),
                       })}
                 </button>

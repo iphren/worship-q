@@ -67,6 +67,12 @@ export const en = {
   'songs.backgroundOwn': 'This song’s own background',
   'songs.backgroundOwnHint':
     'Shown only while this song is presented. Add images and videos in Settings.',
+  'songs.backgroundOwnDeck': 'These slides’ own background',
+  'songs.backgroundOwnHintDeck':
+    'Shown only while these slides are presented. Add images and videos in Settings.',
+  'songs.backgroundOwnWebsite': 'This website’s own background',
+  'songs.backgroundOwnHintWebsite':
+    'Shown only while this website is presented. Add images and videos in Settings.',
   'songs.addToRunSheet': 'Add to run sheet · {date}',
   'songs.addedToRunSheet': 'Added',
   'songs.removeTitle': 'Remove “{title}”?',
@@ -182,10 +188,19 @@ export const en = {
   'settings.backgroundTypes': 'Backgrounds',
   'settings.backgroundCovered':
     'The song on screen has its own background, so this one shows again after it.',
+  'settings.backgroundCoveredDeck':
+    'The slides on screen have their own background, so this one shows again after them.',
+  'settings.backgroundCoveredWebsite':
+    'The website on screen has its own background, so this one shows again after it.',
   'settings.backgroundWorkspace': 'Workspace',
   'settings.backgroundWorkspaceHint': 'Shown behind every song that has no background of its own.',
   'settings.songBackground': 'Song · {title}',
   'settings.songBackgroundHint': 'The song on screen now. Changes are saved with the song.',
+  'settings.songBackgroundDeck': 'Slides · {title}',
+  'settings.songBackgroundHintDeck': 'The slides on screen now. Changes are saved with the slides.',
+  'settings.songBackgroundWebsite': 'Web · {title}',
+  'settings.songBackgroundHintWebsite':
+    'The website on screen now. Changes are saved with the website.',
   'settings.backup': 'Backup',
   'settings.backupHint':
     'Save everything in this workspace to one file, or bring it back from one.',

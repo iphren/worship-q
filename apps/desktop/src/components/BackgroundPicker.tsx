@@ -1,7 +1,7 @@
-import type { BackgroundAsset, SongBackground } from '@worship-q/protocol';
+import type { BackgroundAsset, Song, SongBackground } from '@worship-q/protocol';
 import { useEffect, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
-import { t } from '../i18n';
+import { t, type MessageKey } from '../i18n';
 import { native } from '../platform/native';
 
 /**
@@ -124,14 +124,27 @@ export function BackgroundPicker(props: {
   );
 }
 
+/** What a song holds, for naming it: lyrics, an imported slide deck or a website. */
+export type SongKind = 'song' | 'deck' | 'website';
+
+export function songKind(song: Song): SongKind {
+  return song.deck ? 'deck' : song.website ? 'website' : 'song';
+}
+
+/** The message for a song kind: the key itself for lyrics, else the key with the kind's suffix. */
+export function kindKey(key: MessageKey, kind: SongKind): MessageKey {
+  return kind === 'song' ? key : (`${key}${kind === 'deck' ? 'Deck' : 'Website'}` as MessageKey);
+}
+
 /** Whether a song uses the slideshow background or its own, and which one. */
 export function SongBackgroundFields(props: {
   value: SongBackground | null;
   onChange(value: SongBackground | null): void;
+  kind?: SongKind;
 }) {
   const session = useSession();
   const profile = useQuery(() => session.store.getOutputProfile(session.workspace.id), []);
-  const { value, onChange } = props;
+  const { value, onChange, kind = 'song' } = props;
 
   return (
     <>
@@ -162,8 +175,10 @@ export function SongBackgroundFields(props: {
             }
           />
           <span>
-            {t('songs.backgroundOwn')}
-            <span className="block text-xs text-slate-400">{t('songs.backgroundOwnHint')}</span>
+            {t(kindKey('songs.backgroundOwn', kind))}
+            <span className="block text-xs text-slate-400">
+              {t(kindKey('songs.backgroundOwnHint', kind))}
+            </span>
           </span>
         </label>
       </fieldset>
