@@ -10,6 +10,8 @@ use tauri::{
 };
 
 pub const OUTPUT_LABEL: &str = "output";
+// The output is looked up as a window, never as a webview window: once it hosts the website's
+// webview as well, the system no longer counts it as one, and it would seem to be closed.
 /// The webview over the slideshow that shows a presented website.
 const WEBSITE_LABEL: &str = "output-website";
 /// Tells the interface the operator asked to close the slideshow from its own window.
@@ -97,7 +99,7 @@ pub fn monitor_labels() -> HashMap<String, String> {
 /// to its own Space, and a window closed during that transition can be left on screen with
 /// no way to dismiss it.
 #[cfg(target_os = "macos")]
-fn set_covering(window: &tauri::WebviewWindow, covering: bool) -> Result<(), String> {
+fn set_covering(window: &tauri::Window, covering: bool) -> Result<(), String> {
     use objc2_app_kit::{NSMainMenuWindowLevel, NSNormalWindowLevel, NSWindow};
 
     let target = window.clone();
@@ -133,7 +135,7 @@ fn frame(monitor: &Monitor, windowed: bool) -> (PhysicalPosition<i32>, PhysicalS
 
 /// Makes the output cover the monitor, or sit on it as a window the operator can drag to any
 /// screen. Either way it has no title bar: a windowed output is dragged by its picture.
-fn place(window: &tauri::WebviewWindow, monitor: &Monitor, windowed: bool) -> Result<(), String> {
+fn place(window: &tauri::Window, monitor: &Monitor, windowed: bool) -> Result<(), String> {
     let (position, size) = frame(monitor, windowed);
     #[cfg(not(target_os = "macos"))]
     window.set_fullscreen(false).map_err(|e| e.to_string())?;
@@ -163,7 +165,7 @@ pub async fn open_output(
     let monitors = main.available_monitors().map_err(|e| e.to_string())?;
     let target = find_monitor(monitors, &monitor).ok_or_else(|| "monitor-not-found".to_string())?;
 
-    let window = match app.get_webview_window(OUTPUT_LABEL) {
+    let window = match app.get_window(OUTPUT_LABEL) {
         Some(existing) => existing,
         None => {
             let (position, size) = frame(&target, windowed);
@@ -178,6 +180,8 @@ pub async fn open_output(
                 .inner_size(size.width as f64 / scale, size.height as f64 / scale)
                 .build()
                 .map_err(|e| e.to_string())?
+                .as_ref()
+                .window()
         }
     };
     place(&window, &target, windowed)?;
@@ -191,7 +195,7 @@ pub async fn close_output(app: AppHandle) -> Result<(), String> {
     if let Some(website) = app.get_webview(WEBSITE_LABEL) {
         let _ = website.close();
     }
-    if let Some(window) = app.get_webview_window(OUTPUT_LABEL) {
+    if let Some(window) = app.get_window(OUTPUT_LABEL) {
         // Hidden first, so nothing is left on screen should the system be slow to let go of it.
         let _ = window.hide();
         window.destroy().map_err(|e| e.to_string())?;
@@ -202,7 +206,7 @@ pub async fn close_output(app: AppHandle) -> Result<(), String> {
 /// Turns the full-screen output into a window on the screen it is on.
 #[tauri::command]
 pub async fn window_output(app: AppHandle) -> Result<(), String> {
-    let Some(window) = app.get_webview_window(OUTPUT_LABEL) else {
+    let Some(window) = app.get_window(OUTPUT_LABEL) else {
         return Ok(());
     };
     match window.current_monitor().map_err(|e| e.to_string())? {
@@ -230,7 +234,7 @@ pub fn output_monitor(app: AppHandle) -> Option<MonitorIdentity> {
 /// How the output is shown: `fullscreen`, `windowed`, or nothing when it is closed.
 #[tauri::command]
 pub fn output_mode(app: AppHandle) -> Option<&'static str> {
-    app.get_webview_window(OUTPUT_LABEL)?;
+    app.get_window(OUTPUT_LABEL)?;
     Some(if WINDOWED.load(Ordering::Relaxed) {
         "windowed"
     } else {
@@ -242,7 +246,7 @@ pub fn output_mode(app: AppHandle) -> Option<&'static str> {
 /// a screen stays where it is.
 #[tauri::command]
 pub fn drag_output(app: AppHandle) -> Result<(), String> {
-    match app.get_webview_window(OUTPUT_LABEL) {
+    match app.get_window(OUTPUT_LABEL) {
         Some(window) if WINDOWED.load(Ordering::Relaxed) => {
             window.start_dragging().map_err(|e| e.to_string())
         }
