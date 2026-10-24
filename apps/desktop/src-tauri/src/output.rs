@@ -218,10 +218,7 @@ pub async fn window_output(app: AppHandle) -> Result<(), String> {
 /// The monitor the output window is on right now, wherever the operator dragged it.
 #[tauri::command]
 pub fn output_monitor(app: AppHandle) -> Option<MonitorIdentity> {
-    let monitor = app
-        .get_window(OUTPUT_LABEL)?
-        .current_monitor()
-        .ok()??;
+    let monitor = app.get_window(OUTPUT_LABEL)?.current_monitor().ok()??;
     Some(MonitorIdentity {
         name: monitor.name().cloned().unwrap_or_default(),
         x: monitor.position().x as f64,

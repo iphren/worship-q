@@ -36,6 +36,9 @@ pub fn run() {
             let root = app.path().app_data_dir()?;
             let dir = workspaces::active_dir(&root);
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
+            // The configured scope covers only the first workspace's backgrounds.
+            app.asset_protocol_scope()
+                .allow_directory(dir.join(files::BACKGROUNDS_DIR), true)?;
             app.manage(db::AppData::open(dir)?);
             app.manage(overlay::Overlay::new());
             overlay::start(app.handle());
