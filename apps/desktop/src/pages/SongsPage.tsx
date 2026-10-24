@@ -110,6 +110,7 @@ export function SongsPage() {
           autoComplete="off"
           spellCheck={false}
           placeholder={t(`library.${kind}Search`)}
+          title={t(`library.${kind}SearchHint`)}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
