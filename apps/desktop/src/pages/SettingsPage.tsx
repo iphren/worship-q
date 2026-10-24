@@ -235,8 +235,10 @@ export function SettingsPage() {
     }
   }
 
-  // Show sample lyrics when nothing is being presented, so settings can be judged.
-  const sample: OutputFrame = status.frame.song
+  // Show sample lyrics when nothing is being presented, so settings can be judged. A slide
+  // counts as presented: the previews then show it, and an empty subtitle overlay.
+  const presenting = status.frame.song !== null || status.frame.pieceId !== null;
+  const sample: OutputFrame = presenting
     ? status.frame
     : {
         ...status.frame,
@@ -490,7 +492,7 @@ export function SettingsPage() {
           <h2 className="label">{t('subtitle.preview')}</h2>
           <SubtitlePreview
             frame={
-              status.subtitle.song
+              presenting
                 ? status.subtitle
                 : {
                     ...status.subtitle,

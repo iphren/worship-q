@@ -983,6 +983,24 @@ describe('imported slide decks', () => {
     expect((await session.frame(mediaUrl)).picture).toBeNull();
   });
 
+  it('clears the subtitles when a slide follows a song', async () => {
+    const hymn = await song('Hymn', 'one\ntwo');
+    const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
+    await session.addSong(session.openDate, hymn.id);
+    await session.addSong(session.openDate, created.id);
+    await session.goLive(session.openDate);
+    await session.next();
+    let subtitle = await session.frame(mediaUrl, 'subtitle');
+    expect(subtitle.song?.pieces.find((p) => p.id === subtitle.pieceId)?.lines).toEqual([
+      'one',
+      'two',
+    ]);
+    await session.next();
+    subtitle = await session.frame(mediaUrl, 'subtitle');
+    expect(subtitle).toMatchObject({ song: null, picture: null });
+    expect(subtitle.song?.pieces.find((p) => p.id === subtitle.pieceId)).toBeUndefined();
+  });
+
   it('still presents a deck removed from the library from the run sheets that use it', async () => {
     const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
     await session.addSong(session.openDate, created.id);
