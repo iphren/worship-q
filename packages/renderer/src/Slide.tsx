@@ -220,10 +220,9 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
               justifyContent: subtitle ? 'flex-end' : 'center',
               ...(subtitle
                 ? {
-                    // An outline keeps the text readable over any video.
-                    WebkitTextStroke: '0.12em rgba(0,0,0,0.85)',
-                    paintOrder: 'stroke fill',
-                    textShadow: '0 0.04em 0.12em rgba(0,0,0,0.7)',
+                    // A heavy shadow keeps the text readable over any video.
+                    textShadow:
+                      '0 0 0.15em rgba(0,0,0,0.9), 0 0 0.3em rgba(0,0,0,0.7), 0 0.05em 0.1em rgba(0,0,0,0.9)',
                   }
                 : {
                     textShadow: onMedia
