@@ -7,6 +7,7 @@ import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
+import { DeckBadge } from '../components/DeckBadge';
 
 /** The song being edited; `key` changes only when the operator picks another song. */
 interface Editing {
@@ -93,11 +94,7 @@ export function SongsPage() {
                   }`}
                   onClick={() => select(song)}
                 >
-                  {song.deck && (
-                    <span className="mr-1.5 rounded bg-slate-700 px-1 py-px text-[10px] font-semibold tracking-wide text-slate-300 uppercase">
-                      {t('songs.deckBadge')}
-                    </span>
-                  )}
+                  <DeckBadge song={song} />
                   {song.title || t('songs.untitled')}
                 </button>
               </SongPeek>

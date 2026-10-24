@@ -12,6 +12,7 @@ import { SongForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
+import { DeckBadge } from '../components/DeckBadge';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
@@ -309,6 +310,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
                 <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
                   <span className="mr-2 text-slate-400">{index + 1}</span>
+                  <DeckBadge song={entry.song} />
                   {entry.song.title || t('songs.untitled')}
                 </h3>
                 {entry.song.removedAt && (

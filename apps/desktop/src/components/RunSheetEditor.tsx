@@ -6,6 +6,7 @@ import { useScrollMemory } from '../lib/scrollMemory';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
+import { DeckBadge } from './DeckBadge';
 
 type Drag = { id: string; from: number; to: number; dy: number; step: number };
 
@@ -163,7 +164,10 @@ export function RunSheetEditor(props: {
             )}
             <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate">{entry.song.title || t('songs.untitled')}</span>
+              <span className="block truncate">
+                <DeckBadge song={entry.song} />
+                {entry.song.title || t('songs.untitled')}
+              </span>
               {entry.song.removedAt && (
                 <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
               )}
@@ -222,7 +226,10 @@ export function RunSheetEditor(props: {
                 <li key={song.id}>
                   <SongPeek song={song}>
                     <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
-                      <span className="truncate">{song.title || t('songs.untitled')}</span>
+                      <span className="truncate">
+                        <DeckBadge song={song} />
+                        {song.title || t('songs.untitled')}
+                      </span>
                       <button
                         className="btn btn-sm shrink-0"
                         onClick={() => void session.addSong(date, song.id)}
