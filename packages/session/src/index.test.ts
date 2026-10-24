@@ -1,5 +1,5 @@
 import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
-import type { BackgroundAsset, OutputFrame } from '@worship-q/protocol';
+import type { OutputFrame } from '@worship-q/protocol';
 import { Store } from '@worship-q/store';
 import {
   createTestEnv,
@@ -8,7 +8,7 @@ import {
   type TestEnv,
 } from '@worship-q/store/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ReadOnlyDateError, Session, type StartKind } from './index';
+import { ReadOnlyDateError, Session, songPieces, type StartKind } from './index';
 
 // The clock starts on Sunday 11 October 2026, 09:00 in the workspace timezone (UTC).
 const SUNDAY = '2026-10-11';
@@ -17,7 +17,7 @@ const LAST_SUNDAY = '2026-10-04';
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
-const mediaUrl = (asset: BackgroundAsset) => `media://${asset.fileName}`;
+const mediaUrl = (fileName: string) => `media://${fileName}`;
 
 let driver: NodeDriver;
 let env: TestEnv;
@@ -934,5 +934,74 @@ describe('output frame', () => {
       color: '#222222',
       media: { kind: 'image', url: 'media://bg.png' },
     });
+  });
+});
+
+describe('imported slide decks', () => {
+  const deck = {
+    source: 'Sermon.pptx',
+    width: 1440,
+    height: 1080,
+    pages: [
+      { image: 'deck-a-001.jpg', slide: 1, step: 0, text: ['Title'] },
+      { image: 'deck-a-002.jpg', slide: 2, step: 0, text: ['Point one'] },
+      { image: 'deck-a-003.jpg', slide: 2, step: 1, text: ['Point one', 'Point two'] },
+      { image: 'deck-a-004.jpg', slide: 4, step: 0, text: [] },
+    ],
+  };
+
+  it('has one piece per image, each slide counting as a block', async () => {
+    const pieces = songPieces({ lyrics: '', lineIds: [], deck }, 2);
+    expect(pieces.map((p) => [p.id, p.blockIndex, p.indexInBlock, p.image])).toEqual([
+      ['deck-a-001.jpg', 0, 0, 'deck-a-001.jpg'],
+      ['deck-a-002.jpg', 1, 0, 'deck-a-002.jpg'],
+      ['deck-a-003.jpg', 1, 1, 'deck-a-003.jpg'],
+      // Slide 3 was hidden; slide 4 still takes the next block.
+      ['deck-a-004.jpg', 2, 0, 'deck-a-004.jpg'],
+    ]);
+    expect(pieces[2]!.lines.map((l) => l.text)).toEqual(['Point one', 'Point two']);
+  });
+
+  it('presents each image whole on black, with nothing in the subtitle overlay', async () => {
+    const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
+    await session.addSong(session.openDate, created.id);
+    await session.goLive(session.openDate);
+    await session.next();
+    let frame = await session.frame(mediaUrl);
+    expect(frame.picture).toEqual({ url: 'media://deck-a-001.jpg' });
+    expect(frame.song).toBeNull();
+    expect(frame.background).toEqual({ color: '#000000', media: null });
+
+    await session.next();
+    await session.next();
+    frame = await session.frame(mediaUrl);
+    expect(frame.picture?.url).toBe('media://deck-a-003.jpg');
+    expect(frame.pieceId).toBe('deck-a-003.jpg');
+    expect((await session.frame(mediaUrl, 'subtitle')).picture).toBeNull();
+
+    await session.setBlank(true);
+    expect((await session.frame(mediaUrl)).picture).toBeNull();
+  });
+
+  it('still presents a deck removed from the library from the run sheets that use it', async () => {
+    const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
+    await session.addSong(session.openDate, created.id);
+    await session.removeSong(created.id);
+    expect(await store.listSongs(session.workspace.id)).toEqual([]);
+    const view = await session.viewDate(session.openDate);
+    expect(view.entries[0]!.song.removedAt).not.toBeNull();
+    expect(view.entries[0]!.pieces).toHaveLength(4);
+    await session.goLive(session.openDate);
+    await session.next();
+    expect((await session.frame(mediaUrl)).picture?.url).toBe('media://deck-a-001.jpg');
+  });
+
+  it('keeps the deck through edits and in the song’s history', async () => {
+    const created = await session.createSong({ title: 'Sermon', lyrics: 'Title', deck });
+    const saved = await session.saveSong(created.id, { title: 'Sunday sermon' });
+    expect(saved.deck).toEqual(deck);
+    expect((await store.getSong(created.id))!.deck).toEqual(deck);
+    const history = await store.listSongRevisions(created.id);
+    expect(history.map((r) => r.deck?.pages.length)).toEqual([4, 4]);
   });
 });

@@ -19,6 +19,8 @@
   "include": [
     "packages/*/src",
     "apps/desktop/src",
+    "apps/server/src",
+    "apps/remote/src",
     "apps/desktop/vite.config.ts",
     "vitest.config.ts"
   ]

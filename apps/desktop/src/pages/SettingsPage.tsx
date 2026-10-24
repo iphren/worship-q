@@ -14,9 +14,10 @@ import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
+import { ChurchConnection } from '../components/ChurchConnection';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
-import { SlidePreview } from '../components/SlidePreview';
+import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
@@ -80,7 +81,15 @@ export function SettingsPage() {
   useScrollMemory(mainRef, 'settings.main');
   useScrollMemory(asideRef, 'settings.preview');
   const settings = useQuery(() => session.store.getPresentationSettings(workspaceId), []);
+  const own = useQuery(() => session.store.getWorkspaceSettings(workspaceId), []);
+  const church = useQuery(() => session.store.getChurchSettings(), []);
   const profile = useQuery(() => session.store.getOutputProfile(workspaceId), []);
+  const subtitleProfile = useQuery(
+    () => session.store.getOutputProfile(workspaceId, 'subtitle'),
+    [],
+  );
+  const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
+  const [copied, setCopied] = useState(false);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
   const onScreen = useQuery(
     async () => (onScreenId ? session.store.getSong(onScreenId) : null),
@@ -95,10 +104,11 @@ export function SettingsPage() {
   useEffect(() => {
     void native.listFontFamilies().then(setFonts);
     void getVersion().then(setVersion);
+    void native.overlayStatus().then(([url, error]) => setOverlay({ url, error }));
   }, []);
 
-  // Warn when the chosen font lacks characters the songs use.
-  const fontFamily = profile?.fontFamily ?? null;
+  // Warn when the font in use lacks characters the songs use.
+  const fontFamily = profile?.fontFamily ?? church?.slideshowFontFamily ?? null;
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -111,7 +121,49 @@ export function SettingsPage() {
     };
   }, [fontFamily, session, workspaceId]);
 
-  if (!settings || !profile) return null;
+  if (!settings || !profile || !own || !church || !subtitleProfile) return null;
+
+  /** Says where a setting comes from, and offers to go back to the church default. */
+  function inheritance(key: 'linesPerPiece' | 'wrapLongLines') {
+    const churchValue = church![key];
+    if (churchValue === undefined) return null;
+    const shown =
+      typeof churchValue === 'boolean'
+        ? t(churchValue ? 'settings.yes' : 'settings.no')
+        : String(churchValue);
+    if (own![key] === undefined) {
+      return <p className="text-xs text-slate-400">{t('settings.inheritedHint')}</p>;
+    }
+    return (
+      <p className="flex items-center gap-2 text-xs text-slate-400">
+        {t('settings.overriddenHint', { value: shown })}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => void session.updatePresentationSettings({ [key]: null })}
+        >
+          {t('settings.useChurchDefault')}
+        </button>
+      </p>
+    );
+  }
+
+  function fontOptions(current: string | null, churchFont: string | null | undefined) {
+    return (
+      <>
+        <option value="">
+          {churchFont
+            ? t('settings.churchDefaultValue', { value: churchFont })
+            : t('settings.fontDefault')}
+        </option>
+        {current && !fonts.includes(current) && <option value={current}>{current}</option>}
+        {fonts.map((family) => (
+          <option key={family} value={family}>
+            {family}
+          </option>
+        ))}
+      </>
+    );
+  }
 
   const days = session.workspace.meetingDays;
   const toggleDay = (day: number) =>
@@ -242,6 +294,7 @@ export function SettingsPage() {
               ))}
             </select>
           </label>
+          {inheritance('linesPerPiece')}
           <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -256,6 +309,7 @@ export function SettingsPage() {
               <span className="block text-xs text-slate-400">{t('settings.wrapHint')}</span>
             </span>
           </label>
+          {inheritance('wrapLongLines')}
         </Section>
 
         <Section title={t('settings.slideshow')}>
@@ -268,15 +322,7 @@ export function SettingsPage() {
                 void session.updateOutputProfile({ fontFamily: e.target.value || null })
               }
             >
-              <option value="">{t('settings.fontDefault')}</option>
-              {profile.fontFamily && !fonts.includes(profile.fontFamily) && (
-                <option value={profile.fontFamily}>{profile.fontFamily}</option>
-              )}
-              {fonts.map((family) => (
-                <option key={family} value={family}>
-                  {family}
-                </option>
-              ))}
+              {fontOptions(profile.fontFamily, church.slideshowFontFamily)}
             </select>
           </label>
           {missingCount > 0 && (
@@ -339,6 +385,70 @@ export function SettingsPage() {
           </Section>
         )}
 
+        <Section title={t('subtitle.title')} hint={t('subtitle.hint')}>
+          {overlay?.error ? (
+            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
+              {t('subtitle.unavailable', { error: overlay.error })}
+            </p>
+          ) : (
+            overlay && (
+              <div className="space-y-1 text-sm">
+                <p className="text-slate-300">{t('subtitle.url')}</p>
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
+                    {overlay.url}
+                  </code>
+                  <button
+                    className="btn btn-sm shrink-0 whitespace-nowrap"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(overlay.url).then(() => setCopied(true));
+                      window.setTimeout(() => setCopied(false), 1500);
+                    }}
+                  >
+                    {copied ? t('subtitle.copied') : t('subtitle.copy')}
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.font')}</span>
+            <select
+              className="field max-w-sm"
+              value={subtitleProfile.fontFamily ?? ''}
+              onChange={(e) =>
+                void session.updateOutputProfile({ fontFamily: e.target.value || null }, 'subtitle')
+              }
+            >
+              {fontOptions(subtitleProfile.fontFamily, church.subtitleFontFamily)}
+            </select>
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.scale')}</span>
+            <input
+              type="range"
+              className="max-w-sm flex-1"
+              min={MIN_SCALE * 100}
+              max={MAX_SCALE * 100}
+              step={5}
+              value={Math.round(subtitleProfile.scale * 100)}
+              onChange={(e) =>
+                void session.updateOutputProfile(
+                  { scale: Number(e.target.value) / 100 },
+                  'subtitle',
+                )
+              }
+            />
+            <span className="w-12 text-right tabular-nums">
+              {Math.round(subtitleProfile.scale * 100)}%
+            </span>
+          </label>
+        </Section>
+
+        <Section title={t('church.title')} hint={t('church.hint')}>
+          <ChurchConnection />
+        </Section>
+
         <Section title={t('settings.backup')} hint={t('settings.backupHint')}>
           <div className="flex gap-2">
             <button className="btn" onClick={() => void exportBackup()}>
@@ -375,6 +485,21 @@ export function SettingsPage() {
         <section className="panel space-y-2 p-3">
           <h2 className="label">{t('present.preview')}</h2>
           <SlidePreview frame={sample} />
+        </section>
+        <section className="panel space-y-2 p-3">
+          <h2 className="label">{t('subtitle.preview')}</h2>
+          <SubtitlePreview
+            frame={
+              status.subtitle.song
+                ? status.subtitle
+                : {
+                    ...status.subtitle,
+                    blank: false,
+                    song: sample.song,
+                    pieceId: sample.pieceId,
+                  }
+            }
+          />
         </section>
         <section className="panel p-3">
           <h2 className="label">{t('output.title')}</h2>

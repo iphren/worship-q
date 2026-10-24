@@ -19,7 +19,7 @@ fn err(e: impl ToString) -> String {
 }
 
 /// A background file name is a bare name with an allowed extension, never a path.
-fn checked_name(file_name: &str) -> Result<&str, String> {
+pub fn checked_name(file_name: &str) -> Result<&str, String> {
     let plain = Path::new(file_name)
         .file_name()
         .and_then(|n| n.to_str())
@@ -37,7 +37,7 @@ fn checked_name(file_name: &str) -> Result<&str, String> {
     }
 }
 
-fn backgrounds_dir(data: &AppData) -> PathBuf {
+pub fn backgrounds_dir(data: &AppData) -> PathBuf {
     data.dir.join(BACKGROUNDS_DIR)
 }
 
@@ -75,6 +75,10 @@ pub fn background_path(data: State<'_, AppData>, file_name: String) -> Option<St
 /// Writes the whole local workspace, database and backgrounds, to one backup file.
 #[tauri::command(async)]
 pub fn export_backup(data: State<'_, AppData>, destination: String) -> Result<(), String> {
+    export_to(&data, Path::new(&destination))
+}
+
+pub fn export_to(data: &AppData, destination: &Path) -> Result<(), String> {
     let snapshot = data.dir.join("backup-snapshot.db");
     let _ = fs::remove_file(&snapshot);
     {
@@ -82,7 +86,7 @@ pub fn export_backup(data: State<'_, AppData>, destination: String) -> Result<()
         conn.execute("VACUUM INTO ?1", [snapshot.to_string_lossy().as_ref()])
             .map_err(err)?;
     }
-    let result = write_backup(&data, &snapshot, Path::new(&destination));
+    let result = write_backup(data, &snapshot, destination);
     let _ = fs::remove_file(&snapshot);
     result
 }

@@ -25,5 +25,11 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ['**/src-tauri/**'] },
   },
-  build: { target: 'es2022' },
+  build: {
+    target: 'es2022',
+    rollupOptions: {
+      // The subtitle overlay is a second page, served on localhost for OBS.
+      input: { main: 'index.html', overlay: 'overlay.html' },
+    },
+  },
 });

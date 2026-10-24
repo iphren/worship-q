@@ -36,6 +36,37 @@ export const SongBackgroundSchema = z.object({
 });
 export type SongBackground = z.infer<typeof SongBackgroundSchema>;
 
+/** One image of an imported slide deck: a slide as it looks after some clicks. */
+export const DeckPageSchema = z.object({
+  /** Name of the image among the workspace's files. */
+  image: z.string().min(1),
+  /** A small copy for phones, kept on the church server only; older imports have none. */
+  thumbnail: z.string().min(1).optional(),
+  /** The slide's position in the original file, from 1. */
+  slide: z.number().int().min(1),
+  /** Clicks into the slide's animations; 0 before the first. */
+  step: z.number().int().min(0),
+  /** The text shown, one entry per line, for phones and search. */
+  text: z.array(z.string()),
+});
+export type DeckPage = z.infer<typeof DeckPageSchema>;
+
+/** Slides imported from PowerPoint, Keynote or PDF, shown as images instead of lyrics. */
+export const DeckSchema = z.object({
+  /** The file the slides came from. */
+  source: z.string(),
+  /** Size of every image in pixels. */
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+  pages: z.array(DeckPageSchema),
+});
+export type Deck = z.infer<typeof DeckSchema>;
+
+/** The text a deck's song keeps as its lyrics, so search finds the slides. */
+export function deckLyrics(deck: Deck): string {
+  return deck.pages.map((page) => page.text.join('\n')).join('\n\n');
+}
+
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),
@@ -52,6 +83,8 @@ export const SongFieldsSchema = z.object({
   year: z.number().int().nullable(),
   /** Null uses the slideshow background from the settings. */
   background: SongBackgroundSchema.nullable(),
+  /** Imported slides, shown instead of the lyrics; null for an ordinary song. */
+  deck: DeckSchema.nullable(),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -91,6 +124,7 @@ export function cleanSongFields(fields: SongFields): SongFields {
     ccli: ccli === '' ? null : ccli,
     year: fields.year,
     background: fields.background,
+    deck: fields.deck,
   };
 }
 
@@ -187,11 +221,15 @@ export type OutputTarget = z.infer<typeof OutputTargetSchema>;
 export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 1.5;
 
+export const OutputKindSchema = z.enum(['slideshow', 'subtitle']);
+export type OutputKind = z.infer<typeof OutputKindSchema>;
+
 export const OutputProfileSchema = z.object({
   id: IdSchema,
   workspaceId: IdSchema,
-  kind: z.literal('slideshow'),
-  /** Null means the system default font. */
+  /** The slideshow fills a screen; the subtitle overlay is a page for OBS and similar. */
+  kind: OutputKindSchema,
+  /** Null uses the church default font, else the system default. */
   fontFamily: z.string().nullable(),
   scale: z.number().min(MIN_SCALE).max(MAX_SCALE),
   backgroundColor: ColorSchema,
@@ -253,6 +291,8 @@ export type CommandType = Command['type'];
 
 /** Everything an output needs to draw the current moment of a presentation. */
 export interface OutputFrame {
+  /** Slideshow: lyrics over a background. Subtitle: a lower band over transparency. */
+  layout: OutputKind;
   /** True shows the background without lyrics. */
   blank: boolean;
   /** Null means the system default font. */
@@ -268,9 +308,12 @@ export interface OutputFrame {
   /** The presented song as pieces of source lines; the whole song is needed for fitting. */
   song: { id: string; pieces: { id: string; lines: string[] }[] } | null;
   pieceId: string | null;
+  /** An imported slide, shown whole in place of lyrics. */
+  picture: { url: string } | null;
 }
 
 export const EMPTY_FRAME: OutputFrame = {
+  layout: 'slideshow',
   blank: false,
   fontFamily: null,
   scale: 1,
@@ -279,4 +322,7 @@ export const EMPTY_FRAME: OutputFrame = {
   background: { color: '#000000', media: null },
   song: null,
   pieceId: null,
+  picture: null,
 };
+
+export * from './wire';

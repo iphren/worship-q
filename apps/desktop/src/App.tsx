@@ -1,8 +1,17 @@
 import { NewerDatabaseError } from '@worship-q/store';
 import { useEffect, useMemo, useState } from 'react';
 import { boot, type Booted } from './app/boot';
-import { AppContext, useApp, useSession, type AppServices, type Page } from './app/context';
+import {
+  AppContext,
+  useApp,
+  useCloud,
+  useRemoteHost,
+  useSession,
+  type AppServices,
+  type Page,
+} from './app/context';
 import { Icon, type IconName } from './components/Icon';
+import { RemoteControlDialog, RemoteRequestsBanner } from './components/RemoteControl';
 import { t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
@@ -58,7 +67,12 @@ function Shell({ booted }: { booted: Booted }) {
   // Something is always live once the app has opened, so it opens on presenting.
   const [page, setPage] = useState<Page>('present');
   const services = useMemo<AppServices>(
-    () => ({ session: booted.session, output: booted.output, navigate: setPage }),
+    () => ({
+      session: booted.session,
+      output: booted.output,
+      cloud: booted.cloud,
+      navigate: setPage,
+    }),
     [booted],
   );
 
@@ -66,11 +80,14 @@ function Shell({ booted }: { booted: Booted }) {
     <AppContext.Provider value={services}>
       <div className="flex h-full">
         <Sidebar page={page} />
-        <div className="min-w-0 flex-1">
-          {page === 'songs' && <SongsPage />}
-          {page === 'calendar' && <CalendarPage />}
-          {page === 'present' && <PresentPage />}
-          {page === 'settings' && <SettingsPage />}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <RemoteRequestsBanner />
+          <div className="min-h-0 flex-1">
+            {page === 'songs' && <SongsPage />}
+            {page === 'calendar' && <CalendarPage />}
+            {page === 'present' && <PresentPage />}
+            {page === 'settings' && <SettingsPage />}
+          </div>
         </div>
       </div>
     </AppContext.Provider>
@@ -79,6 +96,10 @@ function Shell({ booted }: { booted: Booted }) {
 
 function Sidebar({ page }: { page: Page }) {
   const { liveDate } = useSession();
+  const cloud = useCloud();
+  const host = useRemoteHost();
+  const [remoteOpen, setRemoteOpen] = useState(false);
+  const remoteActive = cloud.relay.kind === 'coordinator' && host.connected.length > 0;
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-slate-700 bg-slate-950/60 py-3">
       {PAGES.map((entry) => (
@@ -95,6 +116,25 @@ function Sidebar({ page }: { page: Page }) {
         </NavButton>
       ))}
       <span className="flex-1" />
+      <button
+        className={`relative rounded-md p-2 ${
+          remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'
+        }`}
+        title={t('remote.title')}
+        aria-label={t('remote.title')}
+        onClick={(event) => {
+          event.currentTarget.blur();
+          setRemoteOpen(true);
+        }}
+      >
+        <Icon name="phone" />
+        {host.connected.length > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 rounded-full bg-sky-600 px-1 text-[10px] leading-4 font-semibold text-white">
+            {host.connected.length}
+          </span>
+        )}
+      </button>
+      {remoteOpen && <RemoteControlDialog onClose={() => setRemoteOpen(false)} />}
       {liveDate && (
         <NavButton
           target="present"

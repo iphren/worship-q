@@ -1,12 +1,14 @@
 /** Everything the interface asks of the native core. */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import type { MonitorIdentity } from '@worship-q/protocol';
+import { wellFormed, type MonitorIdentity } from '@worship-q/protocol';
 import type { SqlDriver, SqlValue, Statement } from '@worship-q/store';
 
+// Commands reach Rust as JSON, which rejects text holding half of a surrogate pair.
 export const tauriDriver: SqlDriver = {
   select: <Row>(sql: string, params: SqlValue[] = []) =>
-    invoke<Row[]>('db_select', { sql, params }),
-  batch: (statements: Statement[]) => invoke<void>('db_batch', { statements }),
+    invoke<Row[]>('db_select', { sql, params: wellFormed(params) }),
+  batch: (statements: Statement[]) =>
+    invoke<void>('db_batch', { statements: wellFormed(statements) }),
 };
 
 export const native = {
@@ -36,6 +38,22 @@ export const native = {
     return path ? convertFileSrc(path) : null;
   },
   exportBackup: (destination: string) => invoke<void>('export_backup', { destination }),
+  uploadBackground: (server: string, token: string, fileName: string) =>
+    invoke<void>('upload_background', { server, token, fileName }),
+  downloadBackground: (server: string, token: string, fileName: string) =>
+    invoke<void>('download_background', { server, token, fileName }),
+  /** Has the church instance convert a slide deck; returns the converted deck as JSON. */
+  importDeck: (server: string, token: string, source: string) =>
+    invoke<string>('import_deck', { server, token, source }),
+  /** Makes a backup and sends it to the church instance. */
+  uploadBackup: (server: string, token: string) => invoke<void>('upload_backup', { server, token }),
+  /** Saves a backup in the app's data folder; returns its path. */
+  backupBeforeJoin: () => invoke<string>('backup_before_join'),
+  /** Makes `frame` what the subtitle overlay page shows. */
+  publishOverlay: (frame: unknown) =>
+    invoke<void>('overlay_publish', { frame: JSON.stringify(frame) }),
+  /** The overlay page's address, and why it is unavailable if it is. */
+  overlayStatus: () => invoke<[string, string | null]>('overlay_status'),
   restoreBackup: (source: string, maxSchemaVersion: number) =>
     invoke<void>('restore_backup', { source, maxSchemaVersion }),
 };

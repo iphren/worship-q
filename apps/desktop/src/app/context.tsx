@@ -8,6 +8,7 @@ import {
   useSyncExternalStore,
   type DependencyList,
 } from 'react';
+import type { CloudController, CloudStatus } from './cloud';
 import type { OutputController } from './output';
 
 export type Page = 'songs' | 'calendar' | 'present' | 'settings';
@@ -15,6 +16,7 @@ export type Page = 'songs' | 'calendar' | 'present' | 'settings';
 export interface AppServices {
   session: Session;
   output: OutputController;
+  cloud: CloudController;
   navigate(page: Page): void;
 }
 
@@ -34,6 +36,22 @@ export function useSession(): Session {
     () => session.version,
   );
   return session;
+}
+
+/** The church connection's status, re-rendering the caller when it changes. */
+export function useCloud(): CloudStatus {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.subscribe, () => cloud.status);
+}
+
+/** Remote-control requests and controllers, re-rendering the caller when they change. */
+export function useRemoteHost() {
+  const { cloud } = useApp();
+  useSyncExternalStore(
+    (listener) => cloud.host.subscribe(listener),
+    () => cloud.host.version,
+  );
+  return cloud.host;
 }
 
 /**

@@ -42,6 +42,18 @@ export const en = {
   'songs.preview': 'Preview',
   'songs.previewEmpty': 'Slides appear here as you type.',
   'songs.pieceCount': '{count} slides',
+  'songs.importSlides': 'Import slides',
+  'songs.importHint':
+    'PowerPoint, Keynote, OpenDocument or PDF. Each click of an animation becomes its own slide.',
+  'songs.importNeedsServer': 'Connect to your church’s server in Settings to import slides.',
+  'songs.importUnavailable': 'Your church’s server cannot convert slides yet.',
+  'songs.importConverting': 'Converting “{name}” on the church server. This can take a minute…',
+  'songs.importFetching': 'Fetching slides: {done} of {total}…',
+  'songs.importFailed': 'Could not import the slides: {message}',
+  'songs.deckBadge': 'Slides',
+  'songs.deckSource': 'Imported from {source}',
+  'songs.deckHint':
+    'To change the slides, edit the original file and import it again. Only the title can be changed here.',
   'songs.settingsTab': 'Settings',
   'songs.background': 'Background',
   'songs.backgroundDefault': 'Slideshow background',
@@ -108,9 +120,8 @@ export const en = {
   'present.preview': 'Slideshow',
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',
-  'present.previousContent': 'Still presenting previous content',
-  'present.previousContentBody':
-    'The screen keeps showing it until you present a slide from this run sheet.',
+  'present.previousContent': 'Previous content',
+  'present.previousContentBody': 'Shown until you present from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
@@ -184,6 +195,101 @@ export const en = {
   'settings.about': 'About',
   'settings.version': 'Version {version}',
   'settings.timezone': 'Workspace timezone: {timezone}',
+  'settings.churchDefault': 'Church default',
+  'settings.churchDefaultValue': 'Church default ({value})',
+  'settings.useChurchDefault': 'Use church default',
+  'settings.inheritedHint': 'Set by your church. Changing it here applies to this workspace only.',
+  'settings.overriddenHint': 'This workspace’s own choice; the church default is {value}.',
+  'settings.yes': 'on',
+  'settings.no': 'off',
+
+  'subtitle.title': 'Subtitle overlay',
+  'subtitle.hint':
+    'Lyrics over a transparent background, for OBS and other streaming software on this computer. Lines are never wrapped.',
+  'subtitle.url':
+    'In OBS, add a Browser Source with this address, sized like your stream (for example 1920 × 1080):',
+  'subtitle.copy': 'Copy address',
+  'subtitle.copied': 'Copied',
+  'subtitle.unavailable': 'The overlay page could not be started: {error}',
+  'subtitle.preview': 'Subtitle overlay',
+
+  'church.title': 'Church connection',
+  'church.hint':
+    'Connect to your church’s Worship Q server to prepare songs and run sheets from other computers, back up off-site, and control the presentation from a phone.',
+  'church.address': 'Server address',
+  'church.addressPlaceholder': 'worship.example.org',
+  'church.code': 'Connection code',
+  'church.codePlaceholder': 'ABCD-EFGH-JKLM',
+  'church.deviceName': 'This computer’s name',
+  'church.deviceNameDefault': 'Presentation laptop',
+  'church.connect': 'Connect',
+  'church.connecting': 'Connecting…',
+  'church.invalidCode':
+    'That connection code was not accepted. Check it with whoever runs the server.',
+  'church.unreachable': 'The server could not be reached: {error}',
+  'church.updateNeeded':
+    'The server needs a newer version of Worship Q. Update the app, then try again.',
+  'church.joinTitle': 'Join “{name}”',
+  'church.joinUploadBody':
+    '“{name}” has no songs yet. This computer’s songs, run sheets and settings will become its content, and other computers that connect will receive them.',
+  'church.joinUpload': 'Upload and connect',
+  'church.joinChooseBody':
+    '“{name}” already has content, and so does this computer. Keep both, or replace this computer’s songs and run sheets with the church’s copy?',
+  'church.joinMerge': 'Keep both',
+  'church.joinReplace': 'Use the church’s copy',
+  'church.joinReplaceOnly':
+    'This computer will receive the songs, run sheets and settings of “{name}”.',
+  'church.joinReceive': 'Connect',
+  'church.joinBackupNote':
+    'A backup of this computer’s workspace is saved first, in the app’s data folder. Worship Q reopens when connected.',
+  'church.connectedTo': 'Connected to “{name}” at {server}',
+  'church.syncedAt': 'Up to date · {time}',
+  'church.syncing': 'Synchronizing…',
+  'church.neverSynced': 'Not synchronized yet',
+  'church.syncError':
+    'Could not synchronize: {error}. Worship Q keeps trying; everything still works here.',
+  'church.syncUpdateNeeded':
+    'The server runs a different version. Update Worship Q to keep synchronizing.',
+  'church.revoked': 'This computer was disconnected by the server’s administrator.',
+  'church.syncNow': 'Synchronize now',
+  'church.backupNow': 'Back up now',
+  'church.backingUp': 'Backing up…',
+  'church.lastBackup': 'Last off-site backup: {time}',
+  'church.noBackup': 'No off-site backup yet; one is made every 12 hours while the app is open.',
+  'church.backupFailed': 'The backup could not be sent: {error}',
+  'church.disconnect': 'Disconnect…',
+  'church.disconnectTitle': 'Disconnect from the church server?',
+  'church.disconnectBody':
+    'Songs and run sheets stay on this computer, but stop synchronizing. Phones lose remote control. You can connect again with a connection code.',
+  'church.remoteHere': 'Phones control the presentation on this computer.',
+  'church.remoteElsewhere': 'Phones control the presentation on “{name}”.',
+  'church.remoteNobody': 'No computer is receiving remote control right now.',
+  'church.remoteConnecting': 'Connecting to the remote-control relay…',
+  'church.takeOver': 'Use this computer',
+
+  'remote.title': 'Remote control',
+  'remote.notConnected':
+    'Remote control works through your church’s Worship Q server. Connect to it in Settings → Church connection.',
+  'remote.openSettings': 'Open Settings',
+  'remote.elsewhere':
+    'Phones currently control “{name}”. Choose Use this computer to receive them here instead.',
+  'remote.offline': 'Connecting to the server… Phones can join once it is reachable.',
+  'remote.scan':
+    'Scan with a phone’s camera, or send the link. Each phone must be approved here. The code changes every few minutes.',
+  'remote.copyLink': 'Copy link',
+  'remote.copied': 'Copied',
+  'remote.requests': 'Waiting for approval',
+  'remote.requestCode': 'Code {code}',
+  'remote.approve': 'Approve',
+  'remote.deny': 'Deny',
+  'remote.connected': 'Connected phones',
+  'remote.none': 'No phones connected.',
+  'remote.disconnect': 'Disconnect',
+  'remote.disconnectAll': 'Disconnect all',
+  'remote.banner': '“{name}” wants to control the presentation · code {code}',
+  'remote.limits':
+    'Phones can move between slides and blank the screen. They cannot edit or change settings.',
+
   'settings.sampleLine1': 'Amazing grace, how sweet the sound',
   'settings.sampleLine2': '奇异恩典，何等甘甜',
 } as const;

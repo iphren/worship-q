@@ -22,6 +22,10 @@ fontdb = "0.23"
 ttf-parser = "0.25"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tauri-plugin-window-state = "2"
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "ws"] }
+tokio = { version = "1", features = ["net", "sync", "macros"] }
+# The platform's own TLS: Security framework on macOS, SChannel on Windows.
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "http2"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

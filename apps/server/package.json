@@ -1,0 +1,31 @@
+{
+  "name": "@worship-q/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node dist/main.js",
+    "dev": "node build.mjs && WORSHIP_Q_DATA=./data node dist/main.js",
+    "cli": "WORSHIP_Q_DATA=./data node dist/cli.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "@fastify/static": "^10.1.7",
+    "@fastify/websocket": "^11.3.4",
+    "@xmldom/xmldom": "^0.9.12",
+    "fastify": "^5.12.7",
+    "fflate": "^0.8.3",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "@worship-q/lyrics": "workspace:*",
+    "@worship-q/protocol": "workspace:*",
+    "@worship-q/remote": "workspace:*",
+    "@worship-q/session": "workspace:*",
+    "@worship-q/store": "workspace:*",
+    "@worship-q/sync": "workspace:*",
+    "esbuild": "^0.28.2"
+  }
+}

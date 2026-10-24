@@ -3,6 +3,7 @@ import type { Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
+import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
@@ -11,6 +12,7 @@ import { SongForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
+import { DeckBadge } from '../components/DeckBadge';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
@@ -308,13 +310,14 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
                 <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
                   <span className="mr-2 text-slate-400">{index + 1}</span>
+                  <DeckBadge song={entry.song} />
                   {entry.song.title || t('songs.untitled')}
                 </h3>
                 {entry.song.removedAt && (
                   <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                 )}
                 <span className="flex-1" />
-                {!entry.song.removedAt && (
+                {!entry.song.removedAt && !entry.song.deck && (
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setEditingSong(entry.song)}
@@ -339,7 +342,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                         if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
                         void session.play(entry.item.id, piece.id);
                       }}
-                      className={`relative min-h-16 rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
+                      className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
                         active
                           ? live.blank
                             ? 'border-amber-400 bg-amber-900/30'
@@ -355,11 +358,21 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           {keyLabel}
                         </kbd>
                       )}
-                      {piece.lines.map((line) => (
-                        <span key={line.id} className="block truncate whitespace-pre">
-                          {line.text}
-                        </span>
-                      ))}
+                      {piece.image && entry.song.deck ? (
+                        <SlideImage
+                          image={piece.image}
+                          className="w-full rounded-sm"
+                          style={{
+                            aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
+                          }}
+                        />
+                      ) : (
+                        piece.lines.map((line) => (
+                          <span key={line.id} className="block truncate whitespace-pre">
+                            {line.text}
+                          </span>
+                        ))
+                      )}
                     </button>
                   );
                 })}

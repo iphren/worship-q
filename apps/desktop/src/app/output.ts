@@ -21,6 +21,8 @@ const MONITOR_POLL_MS = 2000;
 
 export interface OutputStatus {
   frame: OutputFrame;
+  /** What the subtitle overlay page shows. */
+  subtitle: OutputFrame;
   decision: OutputDecision;
   monitors: MonitorIdentity[];
   /** System display names by monitor name. */
@@ -45,6 +47,7 @@ const identity = (monitor: Monitor): MonitorIdentity => ({
 export class OutputController {
   private status_: OutputStatus = {
     frame: EMPTY_FRAME,
+    subtitle: { ...EMPTY_FRAME, layout: 'subtitle' },
     decision: { kind: 'unset' },
     monitors: [],
     labels: {},
@@ -57,6 +60,7 @@ export class OutputController {
   private picked: MonitorIdentity | null = null;
   private readonly listeners = new Set<() => void>();
   private readonly urls = new Map<string, string | null>();
+  private frameRequest = 0;
   private stopped = false;
   private syncing: Promise<void> = Promise.resolve();
   private cleanup: (() => void)[] = [];
@@ -106,19 +110,40 @@ export class OutputController {
     this.urls.clear();
   }
 
+  /** Where a stored file is, from the cache or else asked for; null when it is missing. */
+  private async fileUrl(fileName: string): Promise<string | null> {
+    const cached = this.urls.get(fileName);
+    if (cached) return cached;
+    const url = await native.backgroundUrl(fileName);
+    this.urls.set(fileName, url);
+    return url;
+  }
+
   private async refreshFrame(): Promise<void> {
+    const request = ++this.frameRequest;
+    // This frame's own copy of the locations: the cache may be emptied while it is built,
+    // after an import or a sync, which would otherwise blank the picture for a moment.
+    const resolved = new Map<string, string>();
     const backgrounds = await this.session.store.listBackgrounds(this.session.workspace.id);
-    for (const asset of backgrounds) {
-      if (!this.urls.has(asset.fileName)) {
-        this.urls.set(asset.fileName, await native.backgroundUrl(asset.fileName));
-      }
-    }
-    const frame = await this.session.frame((asset) => this.urls.get(asset.fileName) ?? '');
+    // The presented deck's images too, so moving to the next slide finds its file at once.
+    const presented = this.session.live?.presented;
+    const song = presented ? await this.session.store.getSong(presented.songId) : null;
+    const names = [
+      ...backgrounds.map((asset) => asset.fileName),
+      ...(song?.deck?.pages.map((page) => page.image) ?? []),
+    ];
+    for (const name of names) resolved.set(name, (await this.fileUrl(name)) ?? '');
+    const frame = await this.session.frame((fileName) => resolved.get(fileName) ?? '');
     // A selected background whose file is missing falls back to the solid color.
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;
-    if (this.stopped) return;
-    this.update({ frame });
+    // A slide whose image has not arrived yet shows nothing rather than a broken image.
+    if (frame.picture && !frame.picture.url) frame.picture = null;
+    const subtitle = await this.session.frame(() => '', 'subtitle');
+    // A later refresh started meanwhile has the newer frame; this one must not replace it.
+    if (this.stopped || request !== this.frameRequest) return;
+    this.update({ frame, subtitle });
     await this.send();
+    await native.publishOverlay(subtitle).catch(console.error);
   }
 
   private async send(): Promise<void> {

@@ -14,6 +14,7 @@ describe('song fields', () => {
         ccli: ' ',
         year: 2006,
         background: null,
+        deck: null,
       }),
     ).toEqual({
       title: '耶和华你是我的神',
@@ -23,6 +24,7 @@ describe('song fields', () => {
       ccli: null,
       year: 2006,
       background: null,
+      deck: null,
     });
   });
 
@@ -34,6 +36,7 @@ describe('song fields', () => {
       copyright: '',
       year: null,
       background: null,
+      deck: null,
     };
     expect(cleanSongFields({ ...fields, ccli: ' 4702289 ' }).ccli).toBe('4702289');
   });

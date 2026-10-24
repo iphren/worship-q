@@ -204,6 +204,38 @@ export function outputGeometry(
   };
 }
 
+/** Fraction of the output width and height the subtitle band may use. */
+export const SUBTITLE_WIDTH = 0.9;
+export const SUBTITLE_HEIGHT = 0.26;
+/** Gap below the subtitle band, as a fraction of the output height. */
+export const SUBTITLE_BOTTOM = 0.05;
+export const SUBTITLE_MIN_RATIO = 0.03;
+export const SUBTITLE_MAX_RATIO = 0.07;
+
+/**
+ * The fitting options for a subtitle overlay: a band near the bottom of the output. Lines
+ * are never wrapped, so source-line boundaries are kept (spec section 6).
+ */
+export function subtitleGeometry(
+  width: number,
+  height: number,
+  settings: { scale: number },
+): OutputGeometry {
+  const bandWidth = width * SUBTITLE_WIDTH;
+  const bandHeight = height * SUBTITLE_HEIGHT;
+  return {
+    width: bandWidth,
+    height: bandHeight,
+    marginX: (width - bandWidth) / 2,
+    marginY: height - bandHeight - height * SUBTITLE_BOTTOM,
+    lineHeight: 1.3,
+    wrap: false,
+    minSize: height * SUBTITLE_MIN_RATIO,
+    maxSize: height * SUBTITLE_MAX_RATIO,
+    scale: settings.scale,
+  };
+}
+
 /** Black or white, whichever reads better on a solid `#rrggbb` background. */
 export function contrastTextColor(background: string): '#000000' | '#ffffff' {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(background);

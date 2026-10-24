@@ -25,15 +25,17 @@ import type {
   IsoDate,
   LiveState,
   OutputFrame,
+  OutputKind,
   OutputProfile,
   PresentationSettings,
+  RemoteCommand,
   RunSheet,
   RunSheetItem,
   Song,
   SongFields,
   Workspace,
 } from '@worship-q/protocol';
-import type { CopyMode, OutputProfilePatch, Store } from '@worship-q/store';
+import type { AppliedChanges, CopyMode, OutputProfilePatch, Store } from '@worship-q/store';
 
 export interface SessionClock {
   now(): Date;
@@ -53,6 +55,34 @@ export type StartKind =
    * current or next meeting day.
    */
   | 'started';
+
+/**
+ * A song's pieces: its lyrics in groups of lines, or one per image of an imported deck.
+ * A deck's pieces count each slide as a block, so the clicks of one slide read as a group.
+ */
+export function songPieces(
+  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck'>,
+  linesPerPiece: number,
+): Piece[] {
+  if (!song.deck) return buildPieces(song.lyrics, song.lineIds, linesPerPiece);
+  let blockIndex = -1;
+  let lastSlide: number | null = null;
+  let indexInBlock = 0;
+  return song.deck.pages.map((page) => {
+    if (page.slide !== lastSlide) {
+      blockIndex++;
+      indexInBlock = 0;
+      lastSlide = page.slide;
+    }
+    return {
+      id: page.image,
+      blockIndex,
+      indexInBlock: indexInBlock++,
+      lines: page.text.map((text, i) => ({ id: `${page.image}:${i}`, text })),
+      image: page.image,
+    };
+  });
+}
 
 export interface RunSheetEntry {
   item: RunSheetItem;
@@ -290,7 +320,7 @@ export class Session {
       if (!songs.has(item.songId)) songs.set(item.songId, await this.store.getSong(item.songId));
       const song = songs.get(item.songId);
       if (!song) continue;
-      entries.push({ item, song, pieces: buildPieces(song.lyrics, song.lineIds, linesPerPiece) });
+      entries.push({ item, song, pieces: songPieces(song, linesPerPiece) });
     }
     return entries;
   }
@@ -324,9 +354,9 @@ export class Session {
 
   // ── Live commands ────────────────────────────────────────────────────────
 
-  private async apply(command: CommandInput): Promise<boolean> {
+  private async apply(command: CommandInput, id = this.store.newId()): Promise<boolean> {
     if (!this.live_) return false;
-    const outcome = applyCommand(this.live_, { ...command, id: this.store.newId() } as Command, {
+    const outcome = applyCommand(this.live_, { ...command, id } as Command, {
       now: this.nowIso(),
       sequence: await this.sequence(),
     });
@@ -445,6 +475,14 @@ export class Session {
       this.browsedItemId_ = itemId;
       return true;
     });
+  }
+
+  /**
+   * A command from a remote controller. Its identifier comes with it, so a command sent
+   * again after a reconnection is applied once. Remote controllers can only navigate.
+   */
+  remoteCommand(id: string, command: RemoteCommand): Promise<boolean> {
+    return this.mutate(() => this.apply(command, id));
   }
 
   setBlank(blank: boolean): Promise<boolean> {
@@ -583,8 +621,8 @@ export class Session {
           relocatePresented(
             this.live_,
             id,
-            buildPieces(before.lyrics, before.lineIds, linesPerPiece),
-            buildPieces(after.lyrics, after.lineIds, linesPerPiece),
+            songPieces(before, linesPerPiece),
+            songPieces(after, linesPerPiece),
             this.nowIso(),
           ),
         );
@@ -604,7 +642,10 @@ export class Session {
    * Changes presentation settings. When the number of lines per piece changes while a song
    * is on screen, the presentation moves to the piece holding the first line that was shown.
    */
-  updatePresentationSettings(patch: Partial<PresentationSettings>): Promise<PresentationSettings> {
+  /** A null value goes back to the church default. */
+  updatePresentationSettings(patch: {
+    [K in keyof PresentationSettings]?: PresentationSettings[K] | null;
+  }): Promise<PresentationSettings> {
     return this.mutate(async () => {
       const before = await this.store.getPresentationSettings(this.workspace_.id);
       const after = await this.store.updatePresentationSettings(this.workspace_.id, patch);
@@ -616,8 +657,8 @@ export class Session {
             relocatePresented(
               this.live_,
               song.id,
-              buildPieces(song.lyrics, song.lineIds, before.linesPerPiece),
-              buildPieces(song.lyrics, song.lineIds, after.linesPerPiece),
+              songPieces(song, before.linesPerPiece),
+              songPieces(song, after.linesPerPiece),
               this.nowIso(),
             ),
           );
@@ -627,8 +668,61 @@ export class Session {
     });
   }
 
-  updateOutputProfile(patch: OutputProfilePatch): Promise<OutputProfile> {
-    return this.mutate(() => this.store.updateOutputProfile(this.workspace_.id, patch));
+  updateOutputProfile(
+    patch: OutputProfilePatch,
+    kind: OutputKind = 'slideshow',
+  ): Promise<OutputProfile> {
+    return this.mutate(() => this.store.updateOutputProfile(this.workspace_.id, patch, kind));
+  }
+
+  /** The font an output uses: its own choice, else the church default, else the system's. */
+  async fontFamily(kind: OutputKind): Promise<string | null> {
+    const profile = await this.store.getOutputProfile(this.workspace_.id, kind);
+    if (profile.fontFamily) return profile.fontFamily;
+    const church = await this.store.getChurchSettings();
+    return (kind === 'slideshow' ? church.slideshowFontFamily : church.subtitleFontFamily) ?? null;
+  }
+
+  // ── Changes from other devices ───────────────────────────────────────────
+
+  /**
+   * Runs a change made outside this session, such as content received from the church
+   * instance, in turn with the session's own operations. Afterwards the workspace and the
+   * live state are read again; when the presented song's lyrics changed, the presentation
+   * follows them as it does for a local edit.
+   */
+  external<T>(change: () => Promise<T>): Promise<T> {
+    return this.mutate(async () => {
+      const presentedId = this.live_?.presented?.songId;
+      const before = presentedId ? await this.store.getSong(presentedId) : null;
+      const linesBefore = (await this.store.getPresentationSettings(this.workspace_.id))
+        .linesPerPiece;
+      const result = await change();
+
+      this.workspace_ = (await this.store.getWorkspace()) ?? this.workspace_;
+      const saved = await this.store.loadLiveState(this.workspace_.id);
+      let live = saved && this.live_ ? { ...this.live_, ...pickIds(saved) } : (saved ?? this.live_);
+      const after = before ? await this.store.getSong(before.id) : null;
+      const linesAfter = (await this.store.getPresentationSettings(this.workspace_.id))
+        .linesPerPiece;
+      if (live && before && after) {
+        live = relocatePresented(
+          live,
+          before.id,
+          songPieces(before, linesBefore),
+          songPieces(after, linesAfter),
+          this.nowIso(),
+        );
+      }
+      if (live && !(await this.store.getRunSheet(live.runSheetId))) live = null;
+      if (live !== this.live_ || live) await this.setLive(live);
+      return result;
+    });
+  }
+
+  /** Applies content received from the church instance. */
+  applyRemote(apply: () => Promise<AppliedChanges>): Promise<AppliedChanges> {
+    return this.external(apply);
   }
 
   addBackground(asset: Parameters<Store['addBackground']>[1]): Promise<BackgroundAsset> {
@@ -645,37 +739,53 @@ export class Session {
    * What the output should show right now. Lyrics and settings are read fresh, so a saved
    * edit or a changed setting reaches the screen without replaying the piece.
    */
-  async frame(mediaUrl: (asset: BackgroundAsset) => string): Promise<OutputFrame> {
+  async frame(
+    mediaUrl: (fileName: string) => string,
+    kind: OutputKind = 'slideshow',
+  ): Promise<OutputFrame> {
     const workspaceId = this.workspace_.id;
     const settings = await this.store.getPresentationSettings(workspaceId);
-    const profile = await this.store.getOutputProfile(workspaceId);
+    const profile = await this.store.getOutputProfile(workspaceId, kind);
+    const fontFamily = await this.fontFamily(kind);
     const presented = this.isLive ? this.live_!.presented : null;
     const song = presented ? await this.store.getSong(presented.songId) : null;
-    // The presented song's own background, if it has one, replaces the slideshow's.
-    const background = song?.background ?? {
-      color: profile.backgroundColor,
-      assetId: profile.backgroundAssetId,
-    };
+    // The presented song's own background, if it has one, replaces the slideshow's. Slides
+    // are shown whole, on black where their shape differs from the screen's.
+    const background = song?.deck
+      ? { color: '#000000', assetId: null }
+      : (song?.background ?? {
+          color: profile.backgroundColor,
+          assetId: profile.backgroundAssetId,
+        });
     const asset = background.assetId
       ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
       : undefined;
 
     const frame: OutputFrame = {
+      layout: kind,
       blank: this.isLive && this.live_!.blank,
-      fontFamily: profile.fontFamily,
+      fontFamily,
       scale: profile.scale,
-      wrap: settings.wrapLongLines,
+      // Subtitles keep source-line boundaries and are never wrapped.
+      wrap: kind === 'slideshow' && settings.wrapLongLines,
       hideCursor: profile.hideCursor,
       background: {
         color: background.color,
-        media: asset ? { kind: asset.kind, url: mediaUrl(asset) } : null,
+        media: asset ? { kind: asset.kind, url: mediaUrl(asset.fileName) } : null,
       },
       song: null,
       pieceId: null,
+      picture: null,
     };
 
-    if (presented && song) {
-      const pieces = buildPieces(song.lyrics, song.lineIds, settings.linesPerPiece);
+    if (presented && song?.deck) {
+      // A subtitle overlay has no lyrics to show for slides.
+      const page = song.deck.pages.find((p) => p.image === presented.pieceId);
+      if (page && kind === 'slideshow' && !frame.blank)
+        frame.picture = { url: mediaUrl(page.image) };
+      frame.pieceId = page ? page.image : null;
+    } else if (presented && song) {
+      const pieces = songPieces(song, settings.linesPerPiece);
       frame.song = {
         id: song.id,
         pieces: pieces.map((piece) => ({ id: piece.id, lines: piece.lines.map((l) => l.text) })),
@@ -689,3 +799,8 @@ export class Session {
 }
 
 export type { CopyMode };
+
+/** The parts of a saved live state that refer to run sheets, after they were remapped. */
+function pickIds(saved: LiveState): Pick<LiveState, 'runSheetId' | 'presented'> {
+  return { runSheetId: saved.runSheetId, presented: saved.presented };
+}
