@@ -219,7 +219,7 @@ pub async fn window_output(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn output_monitor(app: AppHandle) -> Option<MonitorIdentity> {
     let monitor = app
-        .get_webview_window(OUTPUT_LABEL)?
+        .get_window(OUTPUT_LABEL)?
         .current_monitor()
         .ok()??;
     Some(MonitorIdentity {
