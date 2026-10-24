@@ -91,22 +91,26 @@ prepare that workspace's content, and replace it with `workspace code` if it lea
 
 ## Importing songs from the legacy lyrics service
 
-Export the live songs from the legacy service's MariaDB, one JSON object per line. Run this
-in the legacy service's folder, which holds its `.env`:
+Export the live songs from the legacy service's MariaDB as tab-separated text, with the text
+columns in hexadecimal so line breaks in lyrics survive any client. Run this in the legacy
+service's folder, which holds its `.env`:
 
 ```sh
 set -a; . ./.env; set +a
-sudo mysql --default-character-set=utf8mb4 -N -B -r "$MARIADB" -e "
-  SELECT JSON_OBJECT('songId', songId, 'id', id, 'title', title, 'lyricist', lyricist,
-    'composer', composer, 'lyrics', lyrics, 'copyright', copyright, 'year', year, 'ccli', ccli)
-  FROM songs WHERE deleted = 0 AND id NOT LIKE '%-probation' ORDER BY songId" > ~/legacy-songs.jsonl
+sudo mysql --default-character-set=utf8mb4 -B "$MARIADB" -e "
+  SELECT songId, HEX(id) id_hex, HEX(title) title_hex, HEX(lyricist) lyricist_hex,
+    HEX(composer) composer_hex, HEX(lyrics) lyrics_hex, HEX(copyright) copyright_hex, year,
+    HEX(ccli) ccli_hex
+  FROM songs WHERE deleted = 0 AND id NOT LIKE '%-probation' ORDER BY songId" > ~/legacy-songs.tsv
 ```
+
+The import also reads a JSON array of the same columns, as a database tool exports it.
 
 Then, from the repository folder, import it into a workspace. Check with `--dry-run` first:
 
 ```sh
 docker compose -f apps/server/compose.yaml exec -T worship-q \
-  node dist/cli.js import legacy <workspace-id> - --dry-run < ~/legacy-songs.jsonl
+  node dist/cli.js import legacy <workspace-id> - --dry-run < ~/legacy-songs.tsv
 ```
 
 The author is the lyricist and the composer, named once when they are the same person.

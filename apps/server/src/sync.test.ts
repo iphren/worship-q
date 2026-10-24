@@ -266,6 +266,34 @@ describe('importing the legacy lyrics service', () => {
     expect(parseLegacyExport(rows.map((r) => JSON.stringify(r)).join('\n') + '\n')).toEqual(rows);
   });
 
+  it('reads text columns exported with HEX(), and refuses rows split by line breaks', () => {
+    const hex = (text: string) => Buffer.from(text, 'utf8').toString('hex').toUpperCase();
+    const tsv = `songId\ttitle_hex\tlyrics_hex\tccli_hex\n9\t${hex('世界真光')}\t${hex('a\tb\n\nc')}\tNULL\n`;
+    expect(parseLegacyExport(tsv)).toEqual([
+      { songId: '9', title: '世界真光', lyrics: 'a\tb\n\nc', ccli: null },
+    ]);
+    // An empty last value leaves only a trailing tab.
+    expect(parseLegacyExport('songId\tccli_hex\n9\t\n')).toEqual([{ songId: '9', ccli: '' }]);
+    expect(() => parseLegacyExport('songId\ttitle\tlyrics\n1\tA\tline 1\nline 2')).toThrow(/HEX/);
+  });
+
+  it('reads the tab-separated output of mysql --batch', () => {
+    const tsv = [
+      'songId\tid\ttitle\tlyrics\tccli\tyear',
+      '7\tabc\tA\\tB\tline 1\\nline 2\\n\\nC:\\\\x\tNULL\t2020',
+    ].join('\n');
+    expect(parseLegacyExport(tsv)).toEqual([
+      {
+        songId: '7',
+        id: 'abc',
+        title: 'A\tB',
+        lyrics: 'line 1\nline 2\n\nC:\\x',
+        ccli: null,
+        year: '2020',
+      },
+    ]);
+  });
+
   it('brings live legacy songs to a computer that uses the church’s copy', async () => {
     const { clock, instance, workspace, code } = await setup();
     const plan = await imported(

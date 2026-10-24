@@ -17,15 +17,15 @@ export const LEGACY_IMPORTER = 'legacy-import';
 
 /** A row of the legacy `songs` table; only the columns the import reads. */
 export interface LegacySong {
-  songId: number;
+  songId: number | string;
   id: string;
   title: string;
   lyrics: string | null;
   lyricist?: string | null;
   composer?: string | null;
   copyright?: string | null;
-  ccli?: string | null;
-  year?: number | null;
+  ccli?: string | number | null;
+  year?: number | string | null;
   deleted?: number | boolean;
 }
 
@@ -41,15 +41,57 @@ export interface LegacyImportPlan {
   skipped: number;
 }
 
-/** Reads an export: a JSON array of rows, or one JSON object per line. */
+/**
+ * Reads an export: a JSON array of rows, one JSON object per line, or the tab-separated
+ * output of `mysql --batch` with its header row, where `\n`, `\t` and `\\` are escaped
+ * and an empty value prints as NULL. A column named `<name>_hex` holds `HEX(<name>)`,
+ * which survives clients that leave line breaks unescaped.
+ */
 export function parseLegacyExport(content: string): LegacySong[] {
-  const trimmed = content.trim();
+  const trimmed = content.replace(/^\uFEFF/, '').trim();
   if (!trimmed) return [];
   if (trimmed.startsWith('[')) return JSON.parse(trimmed) as LegacySong[];
-  return trimmed
-    .split('\n')
+  if (trimmed.startsWith('{')) {
+    return trimmed
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line) as LegacySong);
+  }
+  // Only line breaks are trimmed: a trailing tab is an empty last value.
+  const [header, ...lines] = content
+    .replace(/^\uFEFF/, '')
+    .replace(/^\n+|\n+$/g, '')
+    .split('\n');
+  const columns = header!.split('\t').map((name) => name.trim());
+  if (!columns.includes('songId')) throw new Error('The export has no songId column.');
+  return lines
     .filter((line) => line.trim())
-    .map((line) => JSON.parse(line) as LegacySong);
+    .map((line, index) => {
+      const values = line.split('\t');
+      if (values.length !== columns.length) {
+        throw new Error(
+          `Row ${index + 1} has ${values.length} values instead of ${columns.length}: the ` +
+            'export has unescaped tabs or line breaks. Export text columns with HEX().',
+        );
+      }
+      const row: Record<string, unknown> = {};
+      columns.forEach((name, i) => {
+        const raw = values[i]!;
+        if (name.endsWith('_hex')) {
+          row[name.slice(0, -4)] =
+            raw === 'NULL' ? null : Buffer.from(raw.trim(), 'hex').toString('utf8');
+        } else {
+          row[name] = raw === 'NULL' ? null : unescapeBatch(raw);
+        }
+      });
+      return row as unknown as LegacySong;
+    });
+}
+
+function unescapeBatch(value: string): string {
+  return value.replace(/\\(.)/g, (_, c: string) =>
+    c === 'n' ? '\n' : c === 't' ? '\t' : c === '0' ? '\0' : c,
+  );
 }
 
 /** A stable UUID derived from `name`, so a legacy song keeps its identifier. */
@@ -59,7 +101,7 @@ function stableId(name: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
-const clean = (value: string | null | undefined) => (value ?? '').trim();
+const clean = (value: string | number | null | undefined) => String(value ?? '').trim();
 
 /** Lyricist and composer, once each when they are the same person. */
 function author(song: LegacySong): string {
@@ -68,7 +110,7 @@ function author(song: LegacySong): string {
 }
 
 function isLive(song: LegacySong): boolean {
-  return !Number(song.deleted ?? 0) && !song.id.endsWith('-probation');
+  return !Number(song.deleted ?? 0) && !String(song.id ?? '').endsWith('-probation');
 }
 
 /** The fields an import compares and writes. */
@@ -79,7 +121,7 @@ function contentOf(song: LegacySong) {
     author: author(song),
     copyright: clean(song.copyright),
     ccli: clean(song.ccli) || null,
-    year: typeof song.year === 'number' && song.year > 0 ? song.year : null,
+    year: Number(song.year) > 0 ? Number(song.year) : null,
   };
 }
 
