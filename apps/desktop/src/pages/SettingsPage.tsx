@@ -450,7 +450,10 @@ export function SettingsPage() {
                   type="button"
                   role="tab"
                   aria-selected={backgroundTab === key}
-                  className={`-mb-px min-w-0 truncate border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                  className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                    // Only the song's title gives way to a narrow window.
+                    key === 'workspace' ? 'shrink-0' : 'min-w-0 truncate'
+                  } ${
                     backgroundTab === key
                       ? 'border-sky-500 text-slate-100'
                       : 'border-transparent text-slate-400 hover:text-slate-200'
