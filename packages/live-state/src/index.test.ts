@@ -502,6 +502,21 @@ describe('relocatePresented', () => {
     expect(shownText(state, four)).toEqual(['a', 'b', 'c', 'd']);
   });
 
+  it('keeps presenting a slide without text while it still exists', () => {
+    const pieces = [
+      { id: 'img1', blockIndex: 0, indexInBlock: 0, lines: [] },
+      { id: 'img2', blockIndex: 1, indexInBlock: 0, lines: [] },
+    ];
+    const sequence = pieces.map((piece) => ({ itemId: 'i1', songId: 's1', pieceId: piece.id }));
+    const state = apply(
+      createLiveState('rs1', T0),
+      { type: 'playPiece', itemId: 'i1', pieceId: 'img2' },
+      sequence,
+    );
+    expect(relocatePresented(state, 's1', pieces, pieces, T0)).toBe(state);
+    expect(relocatePresented(state, 's1', pieces, [pieces[0]!], T0).presented).toBeNull();
+  });
+
   it('ignores edits to other songs', () => {
     const before = presenting('a\nb', 0);
     expect(relocatePresented(before.state, 'other', before.pieces, [], T0)).toBe(before.state);

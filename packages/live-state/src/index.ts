@@ -305,9 +305,11 @@ export function relocatePresented(
   const presented = state.presented;
   if (!presented || presented.songId !== songId) return state;
   const old = before.find((piece) => piece.id === presented.pieceId);
-  const pieceId = old
-    ? locatePiece(old, [...after])
-    : (after.find((piece) => piece.id === presented.pieceId)?.id ?? null);
+  // A slide without text has no lines to follow, so it stays while it still exists.
+  const pieceId =
+    (old && locatePiece(old, [...after])) ??
+    after.find((piece) => piece.id === presented.pieceId)?.id ??
+    null;
   if (pieceId === presented.pieceId) return state;
   return {
     ...state,
