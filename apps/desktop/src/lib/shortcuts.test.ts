@@ -21,6 +21,10 @@ describe('presentAction', () => {
     expect(press('Backspace')).toBe('hide-lyrics');
   });
 
+  it('clears the screen with delete', () => {
+    expect(press('Delete')).toBe('clear');
+  });
+
   it('moves through the whole run sheet with page down and up, and space', () => {
     expect(press('PageDown')).toBe('next');
     expect(press('PageUp')).toBe('previous');
@@ -61,6 +65,7 @@ describe('runPresentAction', () => {
       unblankOrNext: record('unblankOrNext'),
       setBlank: async (value) => void calls.push(`setBlank(${value})`),
       playSlide: record('playSlide'),
+      clear: record('clear'),
     };
     return { session, calls };
   };

@@ -189,7 +189,7 @@ function Live({ view }: { view: RemoteView | null }) {
         ))}
       </main>
 
-      <footer className="grid grid-cols-3 gap-2 border-t border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="grid grid-cols-4 gap-2 border-t border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           className={`${control} bg-slate-800`}
           disabled={!connected}
@@ -203,6 +203,13 @@ function Live({ view }: { view: RemoteView | null }) {
           onClick={() => connection.send({ type: view.blank ? 'unblank' : 'blank' })}
         >
           {view.blank ? 'Show' : 'Blank'}
+        </button>
+        <button
+          className={`${control} bg-slate-800`}
+          disabled={!connected || (!view.presented && !view.previousContent)}
+          onClick={() => connection.send({ type: 'clear' })}
+        >
+          Clear
         </button>
         <button
           className={`${control} bg-sky-600 text-white`}

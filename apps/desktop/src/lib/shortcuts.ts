@@ -21,6 +21,8 @@ export type PresentAction =
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
   | 'toggle-blank'
+  /** Takes the slide off the screen, staying live. */
+  | 'clear'
   /** A slide of the browsed or presented item by its position, counted from zero. */
   | { slide: number };
 
@@ -58,6 +60,8 @@ export function presentAction(event: KeyPress): PresentAction | null {
       return 'hide-lyrics';
     case '.':
       return 'toggle-blank';
+    case 'Delete':
+      return 'clear';
   }
   const key = event.key.toLowerCase();
   const slide = key.length === 1 ? SLIDE_KEYS.indexOf(key) : -1;
@@ -73,6 +77,7 @@ export interface PresentControls {
   previous(): Promise<unknown>;
   unblankOrNext(): Promise<unknown>;
   setBlank(blank: boolean): Promise<unknown>;
+  clear(): Promise<unknown>;
   playSlide(slide: number): Promise<unknown>;
 }
 
@@ -97,5 +102,7 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.setBlank(true);
     case 'toggle-blank':
       return void session.setBlank(!session.live?.blank);
+    case 'clear':
+      return void session.clear();
   }
 }

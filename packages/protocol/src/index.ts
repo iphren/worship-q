@@ -283,6 +283,8 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ ...commandBase, type: z.literal('previousItem') }),
   z.object({ ...commandBase, type: z.literal('blank') }),
   z.object({ ...commandBase, type: z.literal('unblank') }),
+  /** Takes the presented piece off the screen and stays live; next starts from the top. */
+  z.object({ ...commandBase, type: z.literal('clear') }),
   z.object({ ...commandBase, type: z.literal('goLive'), runSheetId: IdSchema }),
   z.object({ ...commandBase, type: z.literal('end') }),
 ]);

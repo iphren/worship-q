@@ -113,6 +113,7 @@ export const en = {
   'present.next': 'Next',
   'present.blank': 'Blank',
   'present.unblank': 'Show lyrics',
+  'present.clear': 'Clear screen',
   'present.end': 'End presentation',
   'present.endTitle': 'End the presentation?',
   'present.endBody':
@@ -125,9 +126,8 @@ export const en = {
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
-  'present.shortcuts': '↑ ↓ slide · ← → song · 1 2 3… jump · ⌫ hide lyrics',
+  'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
-  'present.blanked': 'Blank',
 
   'output.title': 'Slideshow screen',
   'output.unset': 'Choose a screen, then open the slideshow.',
@@ -288,7 +288,7 @@ export const en = {
   'remote.disconnectAll': 'Disconnect all',
   'remote.banner': '“{name}” wants to control the presentation · code {code}',
   'remote.limits':
-    'Phones can move between slides and blank the screen. They cannot edit or change settings.',
+    'Phones can move between slides and blank or clear the screen. They cannot edit or change settings.',
 
   'settings.sampleLine1': 'Amazing grace, how sweet the sound',
   'settings.sampleLine2': '奇异恩典，何等甘甜',

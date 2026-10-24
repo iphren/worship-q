@@ -22,6 +22,15 @@ type PanelTab = 'runSheet' | 'slideshow';
 /** The tab of the side panel last shown, kept while the app is open. */
 let lastPanelTab: PanelTab = 'runSheet';
 
+/** The key that does what a button does, shown on the button. */
+function KeyHint(props: { children: string }) {
+  return (
+    <kbd className="ml-1 rounded bg-black/25 px-1.5 font-sans text-[11px] leading-4 font-semibold opacity-80">
+      {props.children}
+    </kbd>
+  );
+}
+
 function isTyping(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
@@ -253,6 +262,15 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   >
                     <Icon name="blank" />
                   </button>
+                  <button
+                    className="btn px-0 py-2"
+                    title={t('present.clear')}
+                    aria-label={t('present.clear')}
+                    disabled={!live.presented}
+                    onClick={() => void session.clear()}
+                  >
+                    <Icon name="clear" />
+                  </button>
                   <OutputPanel compact />
                   <button
                     className="btn btn-danger px-0 py-2"
@@ -266,27 +284,35 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               }
             />
           </div>
+          {/* Always scrollable: a scroll bar that comes and goes narrows the preview, which
+              changes its height, which can bring the scroll bar back, and so on. */}
           <div
             ref={slideshowRef}
             role="tabpanel"
-            className={`min-h-0 flex-1 flex-col overflow-auto ${panelTab === 'slideshow' ? 'flex' : 'hidden'}`}
+            className={`min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll ${panelTab === 'slideshow' ? 'flex' : 'hidden'}`}
           >
             <div className="flex min-h-full flex-col gap-3">
               <section className="space-y-2">
-                {live.blank && <p className="label text-amber-400">{t('present.blanked')}</p>}
                 <SlidePreview />
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn" onClick={() => void session.previous()}>
-                    ↑ {t('present.previous')}
+                    {t('present.previous')} <KeyHint>↑</KeyHint>
                   </button>
                   <button className="btn btn-primary" onClick={() => void session.next()}>
-                    {t('present.next')} ↓
+                    {t('present.next')} <KeyHint>↓</KeyHint>
                   </button>
                   <button
                     className={`btn col-span-2 ${blankStyle}`}
                     onClick={() => void session.setBlank(!live.blank)}
                   >
-                    {live.blank ? t('present.unblank') : t('present.blank')}
+                    {live.blank ? t('present.unblank') : t('present.blank')} <KeyHint>.</KeyHint>
+                  </button>
+                  <button
+                    className="btn col-span-2"
+                    disabled={!live.presented}
+                    onClick={() => void session.clear()}
+                  >
+                    {t('present.clear')} <KeyHint>Del</KeyHint>
                   </button>
                 </div>
                 <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>

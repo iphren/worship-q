@@ -223,6 +223,20 @@ describe('moving between items', () => {
   });
 });
 
+describe('clear', () => {
+  it('takes the presented piece off the screen and stays live', () => {
+    let state = apply(apply(createLiveState('rs1', T0), { type: 'next' }), { type: 'blank' });
+    state = apply(state, { type: 'clear' });
+    expect(state).toMatchObject({ status: 'live', runSheetId: 'rs1', presented: null, blank: false });
+  });
+
+  it('starts from the first piece again on next', () => {
+    let state = apply(apply(createLiveState('rs1', T0), { type: 'next' }), { type: 'next' });
+    state = apply(state, { type: 'clear' });
+    expect(apply(state, { type: 'next' }).presented?.pieceId).toBe('a');
+  });
+});
+
 describe('blank', () => {
   it('blanks and unblanks without losing the presented piece', () => {
     let state = apply(createLiveState('rs1', T0), { type: 'next' });

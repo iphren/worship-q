@@ -207,6 +207,8 @@ function reduce(
       return { blank: true };
     case 'unblank':
       return { blank: false };
+    case 'clear':
+      return { presented: null, blank: false };
     case 'end':
       return { status: 'ended', presented: null, blank: false };
   }

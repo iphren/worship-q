@@ -489,6 +489,11 @@ export class Session {
     return this.mutate(() => this.apply({ type: blank ? 'blank' : 'unblank' }));
   }
 
+  /** Takes whatever is presented off the screen, staying live with the same run sheet. */
+  clear(): Promise<boolean> {
+    return this.mutate(() => this.apply({ type: 'clear' }));
+  }
+
   /**
    * Makes a date's run sheet the live one and opens it on this device. What is on screen
    * stays until another piece is played.

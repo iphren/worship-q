@@ -134,6 +134,7 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('previousItem') }),
   z.object({ type: z.literal('blank') }),
   z.object({ type: z.literal('unblank') }),
+  z.object({ type: z.literal('clear') }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 
