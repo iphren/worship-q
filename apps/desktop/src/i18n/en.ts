@@ -108,7 +108,7 @@ export const en = {
   'present.preview': 'Slideshow',
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',
-  'present.previousContent': 'Still presenting previous content',
+  'present.previousContent': 'Showing previous content',
   'present.previousContentBody':
     'The screen keeps showing it until you present a slide from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',
