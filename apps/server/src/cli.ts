@@ -11,11 +11,14 @@
  *   settings unset <key>
  *   import legacy <workspace-id> <file|-> [--dry-run]
  *                               songs exported from the legacy lyrics service
+ *   deck convert <file> <out-dir>
+ *                               renders a slide deck to images, one per click
  */
-import { mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { ChurchSettingsSchema } from '@worship-q/protocol';
 import { openDatabase } from './db';
+import { convertDeck } from './decks/convert';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport } from './legacy';
 
@@ -124,6 +127,27 @@ switch (`${area} ${action}`) {
     }
     break;
   }
+  case 'deck convert': {
+    const [file, outDir] = rest;
+    if (!file || !outDir) fail('Usage: deck convert <file> <out-dir>');
+    const started = Date.now();
+    const deck = await convertDeck(resolve(file), resolve(outDir), {
+      soffice:
+        process.env.WORSHIP_Q_SOFFICE ??
+        (process.platform === 'darwin'
+          ? '/Applications/LibreOffice.app/Contents/MacOS/soffice'
+          : 'soffice'),
+      ghostscript: process.env.WORSHIP_Q_GHOSTSCRIPT ?? 'gs',
+      workDir: join(resolve(outDir), '.work'),
+    });
+    writeFileSync(join(outDir, 'deck.json'), JSON.stringify(deck, null, 2));
+    const slides = new Set(deck.pages.map((p) => p.slide)).size;
+    console.log(
+      `${deck.pages.length} images (${deck.width}×${deck.height}) from ${slides} slides ` +
+        `in ${((Date.now() - started) / 1000).toFixed(1)} s.`,
+    );
+    break;
+  }
   default:
     console.log(
       [
@@ -131,6 +155,7 @@ switch (`${area} ${action}`) {
         'device list [workspace-id] | device revoke <device-id>',
         'settings show | settings set <key> <json> | settings unset <key>',
         'import legacy <workspace-id> <file|-> [--dry-run]',
+        'deck convert <file> <out-dir>',
       ].join('\n'),
     );
 }
