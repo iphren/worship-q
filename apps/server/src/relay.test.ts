@@ -101,7 +101,10 @@ describe('remote control through the relay', () => {
     ) as { grant: string };
     expect(approved.grant).toContain('.');
     const view = remote.socket.last<Extract<HostToRemote, { type: 'view' }>>();
-    expect(view.view.items[0]?.pieces.map((p) => p.lines)).toEqual([['one', 'two'], ['three']]);
+    expect(view.view.items[0]?.pieces.map((p) => [p.lines, p.block])).toEqual([
+      [['one', 'two'], 0],
+      [['three'], 1],
+    ]);
 
     remote.say({ type: 'command', id: 'c1', command: { type: 'next' } });
     // Sent twice after a reconnection, it is applied once.

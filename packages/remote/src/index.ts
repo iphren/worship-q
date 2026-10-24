@@ -80,6 +80,7 @@ export async function buildRemoteView(
       pieces: entry.pieces.map((piece) => ({
         id: piece.id,
         lines: piece.lines.map((line) => line.text),
+        block: piece.blockIndex,
       })),
     })),
     presented:

@@ -161,7 +161,8 @@ export interface RemoteItemView {
   itemId: string;
   title: string;
   removed: boolean;
-  pieces: { id: string; lines: string[] }[];
+  /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
+  pieces: { id: string; lines: string[]; block?: number }[];
 }
 
 /** What a remote controller is shown of the live presentation. */

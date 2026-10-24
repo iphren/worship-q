@@ -159,8 +159,11 @@ function Live({ view }: { view: RemoteView | null }) {
                       active
                         ? view.blank
                           ? 'border-amber-400 bg-amber-900/50'
-                          : 'border-sky-400 bg-sky-900/60 text-white'
-                        : 'border-slate-700 bg-slate-900'
+                          : 'border-emerald-500 bg-emerald-900/50 text-white'
+                        : // Alternate styles by block, as on the desktop.
+                          (piece.block ?? 0) % 2 === 0
+                          ? 'border-slate-700 bg-slate-900'
+                          : 'border-sky-700 bg-sky-900/60'
                     }`}
                   >
                     {piece.lines.map((line, index) => (
