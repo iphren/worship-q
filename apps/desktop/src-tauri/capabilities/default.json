@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the operator window and the slideshow output window",
   "windows": ["main", "output"],
-  "permissions": ["core:default", "dialog:default"]
+  "permissions": ["core:default", "core:window:allow-set-title", "dialog:default"]
 }

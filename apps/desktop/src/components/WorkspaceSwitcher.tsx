@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from '../app/context';
+import { useCloud, useSession } from '../app/context';
 import { t } from '../i18n';
 import { native, type WorkspaceEntry } from '../platform/native';
 import { ConfirmDialog, Dialog } from './Dialog';
@@ -15,9 +15,17 @@ export function useWorkspaces(): { workspaces: WorkspaceEntry[] | null; reload()
   return { workspaces, reload };
 }
 
+/** The current workspace's name: the church's name for it once joined, else its own. */
+export function useWorkspaceName(): string {
+  const session = useSession();
+  const { state } = useCloud();
+  const churchName = state?.joinedAt ? state.workspaceName : null;
+  return churchName || session.workspace.name || t('workspaces.unnamed');
+}
+
 /** Settings section: the workspaces on this computer, to switch between, add or remove. */
 export function WorkspaceList() {
-  const session = useSession();
+  const currentName = useWorkspaceName();
   const output = useOutputStatus();
   const { workspaces, reload } = useWorkspaces();
   const [busy, setBusy] = useState(false);
@@ -28,7 +36,7 @@ export function WorkspaceList() {
   const showing = output.windowed || output.decision.kind === 'open';
 
   const nameOf = (entry: WorkspaceEntry) =>
-    (entry.active ? session.workspace.name : entry.name) || t('workspaces.unnamed');
+    entry.active ? currentName : entry.name || t('workspaces.unnamed');
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -128,11 +136,10 @@ export function WorkspaceList() {
 
 /** Sidebar button showing the open workspace, once this computer keeps more than one. */
 export function WorkspaceButton() {
-  const session = useSession();
+  const name = useWorkspaceName();
   const { workspaces } = useWorkspaces();
   const [open, setOpen] = useState(false);
   if (!workspaces || workspaces.length < 2) return null;
-  const name = session.workspace.name || t('workspaces.unnamed');
   const initials = name
     .split(/\s+/)
     .filter(Boolean)

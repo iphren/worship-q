@@ -103,13 +103,6 @@ fn describe(dir: &Path) -> (Option<String>, Option<String>) {
     else {
         return (None, None);
     };
-    let name = conn
-        .query_row("SELECT name FROM workspace LIMIT 1", [], |row| {
-            row.get::<_, String>(0)
-        })
-        .optional()
-        .ok()
-        .flatten();
     // Values in `sync_state` are JSON.
     let state = |key: &str| -> Option<String> {
         let raw: String = conn
@@ -123,7 +116,21 @@ fn describe(dir: &Path) -> (Option<String>, Option<String>) {
             .flatten()?;
         serde_json::from_str::<Option<String>>(&raw).ok().flatten()
     };
-    (name, state("joinedAt").and(state("server")))
+    let own_name = conn
+        .query_row("SELECT name FROM workspace LIMIT 1", [], |row| {
+            row.get::<_, String>(0)
+        })
+        .optional()
+        .ok()
+        .flatten();
+    // Once joined, the church's name for the workspace is the one people know it by.
+    let joined = state("joinedAt").is_some();
+    let name = joined
+        .then(|| state("workspaceName"))
+        .flatten()
+        .filter(|n| !n.is_empty())
+        .or(own_name);
+    (name, joined.then(|| state("server")).flatten())
 }
 
 #[tauri::command(async)]

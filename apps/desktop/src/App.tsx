@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { NewerDatabaseError } from '@worship-q/store';
 import { useEffect, useMemo, useState } from 'react';
 import { boot, type Booted } from './app/boot';
@@ -12,8 +13,8 @@ import {
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
 import { RemoteControlDialog, RemoteRequestsBanner } from './components/RemoteControl';
-import { WorkspaceButton } from './components/WorkspaceSwitcher';
-import { t, type MessageKey } from './i18n';
+import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
+import { formatDate, t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -79,6 +80,7 @@ function Shell({ booted }: { booted: Booted }) {
 
   return (
     <AppContext.Provider value={services}>
+      <WindowTitle />
       <div className="flex h-full">
         <Sidebar page={page} />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -93,6 +95,22 @@ function Shell({ booted }: { booted: Booted }) {
       </div>
     </AppContext.Provider>
   );
+}
+
+/** Names the workspace and the run sheet being worked on in the window's title bar. */
+function WindowTitle() {
+  const { openDate } = useSession();
+  const workspace = useWorkspaceName();
+  const title = t('app.windowTitle', {
+    workspace,
+    date: formatDate(openDate),
+  });
+  useEffect(() => {
+    getCurrentWindow()
+      .setTitle(title)
+      .catch((error) => console.error(error));
+  }, [title]);
+  return null;
 }
 
 function Sidebar({ page }: { page: Page }) {
