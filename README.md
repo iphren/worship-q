@@ -65,3 +65,7 @@ pnpm --filter @worship-q/server cli workspace create "Test"
 ```
 
 See [Church server deployment](docs/server-deployment.md) for Docker and CloudFront.
+
+## License
+
+[MIT](LICENSE)

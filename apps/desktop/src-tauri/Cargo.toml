@@ -3,6 +3,7 @@ name = "worship-q"
 version = "0.1.0"
 description = "Worship Q desktop app"
 edition = "2021"
+license = "MIT"
 publish = false
 
 [lib]

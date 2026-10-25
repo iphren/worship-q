@@ -48,8 +48,8 @@ Each has a recommendation so work can start; the milestone that is blocked witho
 | D7 | Song fields beyond lyrics | Title, lyrics, optional author, copyright note, CCLI number (digits) and year (up to next year). Author is one line combining writers, with roles labelled only when they differ (`词：A`, `曲：B`, `译：C`, or `Words: A; Music: B`), names separated by `, ` | M2 |
 | D8 | App interface languages | Build with translatable text from the start; ship English first | M1 |
 | D9 | Background file types | JPEG and PNG images; MP4 (H.264) video, looped and muted | M8 |
-| D10 | Code signing and automatic updates | Sign on both platforms and ship automatic updates; this needs paid developer accounts | M10 |
-| D11 | Open-source license | Needed before the repository is public, not before coding | M10 |
+| D10 | Code signing and automatic updates | Ship automatic updates (Tauri updater, signed with its own key); defer OS code signing to save cost, with install steps for the first-run security warning on the download page | M10 |
+| D11 | Open-source license | MIT (`LICENSE` at the repository root) | M10 |
 | D12 | Where live-state logic lives | A shared TypeScript package run by the app's interface, with the Rust core limited to windows, files, and the database | M6 |
 | D13 | Song search | Every word of the search must match the title or lyrics. Traditional and Simplified match each other, as do 祢/你 and 祂/他; spaces and punctuation are ignored. Chinese text also matches by sound (homophones on purpose), and any search matches by toneless pinyin or pinyin initials (`yhh` → 耶和华). Readings of 多音字 come from our worship-phrase list, then the dictionary's context, then our single-character defaults. Keys are derived per device and rebuilt when the search version changes | M2 |
 
