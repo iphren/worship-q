@@ -1,0 +1,91 @@
+name: Release
+
+# Keeps a Release PR open with the next version and its changelog. Merging it tags vX.Y.Z,
+# creates a draft GitHub Release, and builds the signed installers and the updater feed into
+# it. Publishing the draft by hand is what releases it to users and to installed apps.
+#
+# The build runs here rather than on the tag: tags pushed with GITHUB_TOKEN start no workflows.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.release.outputs['apps/desktop--release_created'] }}
+      tag: ${{ steps.release.outputs['apps/desktop--tag_name'] }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One app for both Apple Silicon and Intel Macs.
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: windows-latest
+            args: ''
+            rust-targets: ''
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ needs.release-please.outputs.tag }}
+          releaseDraft: true
+          updaterJsonPreferNsis: true
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
+
+  # Both builds write into the same latest.json; a release missing a platform would leave
+  # its users without updates, so the draft is checked before anyone publishes it.
+  check:
+    needs: [release-please, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the updater feed lists every platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern latest.json
+          for platform in darwin-aarch64 darwin-x86_64 windows-x86_64; do
+            jq -e --arg p "$platform" '.platforms[$p].signature and .platforms[$p].url' latest.json > /dev/null \
+              || { echo "latest.json has no $platform update"; exit 1; }
+          done
+          jq -e --arg v "${TAG#v}" '.version == $v' latest.json > /dev/null \
+            || { echo "latest.json is not version ${TAG#v}"; exit 1; }
+          echo "latest.json covers every platform for $TAG. Test the installers, then publish the draft."

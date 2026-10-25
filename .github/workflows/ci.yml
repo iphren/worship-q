@@ -22,8 +22,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+  # Unsigned, to catch build breaks before merging; releases are built by release.yml.
   build:
     needs: check
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:

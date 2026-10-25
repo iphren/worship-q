@@ -36,7 +36,21 @@ they differ.
 Releases come from [release-please](https://github.com/googleapis/release-please): it keeps
 a Release PR open with the next version and `apps/desktop/CHANGELOG.md`, worked out from the
 Conventional Commit messages (`fix:` patch, `feat:` minor, `feat!:` major). Merging that PR
-tags `vX.Y.Z` and creates the GitHub Release.
+tags `vX.Y.Z` and creates a draft GitHub Release, and `.github/workflows/release.yml` builds
+the macOS (universal) and Windows installers into it, with the signed updater feed
+`latest.json`. Nothing reaches users until the draft is published:
+
+1. Wait for the Release workflow's `check` job, which confirms `latest.json` covers every
+   platform.
+2. Install the draft's builds on a Mac and a Windows PC and run through a service.
+3. Publish the draft. The download links and installed apps' updates now point at it.
+
+If a release turns out bad, mark the previous release as latest again (or edit its
+`latest.json` back) and ship a fix.
+
+Release builds need the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+repository secrets, which sign the updates. Losing that key means installed apps can no longer
+be updated.
 
 ```sh
 pnpm version:check          # are all the files on the same version?
