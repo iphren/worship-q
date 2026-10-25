@@ -4,3 +4,5 @@ target
 apps/desktop/src-tauri/gen
 apps/desktop/src-tauri/icons
 docs
+# Written by release-please
+apps/desktop/CHANGELOG.md
