@@ -89,3 +89,14 @@ jobs:
           jq -e --arg v "${TAG#v}" '.version == $v' latest.json > /dev/null \
             || { echo "latest.json is not version ${TAG#v}"; exit 1; }
           echo "latest.json covers every platform for $TAG. Test the installers, then publish the draft."
+      - name: Attach SHA256SUMS.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+          # A re-run finds the earlier list among the assets.
+          rm -f assets/SHA256SUMS.txt
+          (cd assets && sha256sum -- *) > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "$TAG" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
