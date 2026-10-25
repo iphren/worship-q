@@ -27,6 +27,22 @@ pnpm lint
 pnpm format
 ```
 
+## Versions and releases
+
+The desktop app's version lives in `apps/desktop/package.json`; `tauri.conf.json` reads it,
+and the root `package.json`, `Cargo.toml` and `Cargo.lock` are kept equal. CI fails when
+they differ.
+
+Releases come from [release-please](https://github.com/googleapis/release-please): it keeps
+a Release PR open with the next version and `apps/desktop/CHANGELOG.md`, worked out from the
+Conventional Commit messages (`fix:` patch, `feat:` minor, `feat!:` major). Merging that PR
+tags `vX.Y.Z` and creates the GitHub Release.
+
+```sh
+pnpm version:check          # are all the files on the same version?
+pnpm version:bump 1.2.3     # set it by hand, outside release-please
+```
+
 ## Layout
 
 ```text
