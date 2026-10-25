@@ -94,8 +94,13 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const shownItemRef = useRef<string | null>(null);
   // Set when a click on a slide moves to another item, so the column stays where it was.
   const clickedItemRef = useRef(false);
+  // Until when a change of the presented slide counts as made here, so the column follows
+  // it. Changes made from phones leave the column where it is; the locate button finds them.
+  // The column follows on opening the page too.
+  const followUntilRef = useRef(Infinity);
   // The item a run sheet click scrolled to; the count restarts the flash on a repeat click.
   const [flash, setFlash] = useState<{ itemId: string; count: number } | null>(null);
+  const [activeInView, setActiveInView] = useState(true);
 
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
@@ -117,6 +122,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
       const action = presentAction(event);
       if (!action) return;
+      follow();
       runPresentAction(session, action);
       event.preventDefault();
     };
@@ -130,7 +136,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     const clicked = clickedItemRef.current;
     shownItemRef.current = presented?.itemId ?? null;
     clickedItemRef.current = false;
-    if (!active) return;
+    const following = performance.now() < followUntilRef.current;
+    followUntilRef.current = 0;
+    if (!active || !following) return;
 
     // Moving to another item by keyboard or the controls brings its title to the top, as
     // long as the presented slide stays in view.
@@ -138,6 +146,25 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [presented?.itemId, presented?.pieceId]);
+
+  /** Lets the column follow the move about to be made here. */
+  function follow() {
+    followUntilRef.current = performance.now() + 1000;
+  }
+
+  // Offer the locate button while the presented slide is scrolled out of view.
+  useEffect(() => {
+    const active = activeRef.current;
+    const slides = slidesRef.current;
+    setActiveInView(true);
+    if (!active || !slides) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setActiveInView(entry!.intersectionRatio >= 0.5),
+      { root: slides, threshold: [0, 0.5, 1] },
+    );
+    observer.observe(active);
+    return () => observer.disconnect();
+  }, [presented?.itemId, presented?.pieceId, view]);
 
   // Moving to another item with left and right brings it to the top, without the flash.
   useEffect(() => {
@@ -242,7 +269,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     className="btn px-0 py-2"
                     title={t('present.previous')}
                     aria-label={t('present.previous')}
-                    onClick={() => void session.previous()}
+                    onClick={() => {
+                      follow();
+                      void session.previous();
+                    }}
                   >
                     <Icon name="previous" />
                   </button>
@@ -250,7 +280,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     className="btn btn-primary px-0 py-2"
                     title={t('present.next')}
                     aria-label={t('present.next')}
-                    onClick={() => void session.next()}
+                    onClick={() => {
+                      follow();
+                      void session.next();
+                    }}
                   >
                     <Icon name="next" />
                   </button>
@@ -295,10 +328,22 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               <section className="space-y-2">
                 <SlidePreview />
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="btn" onClick={() => void session.previous()}>
+                  <button
+                    className="btn"
+                    onClick={() => {
+                      follow();
+                      void session.previous();
+                    }}
+                  >
                     {t('present.previous')} <KeyHint>↑</KeyHint>
                   </button>
-                  <button className="btn btn-primary" onClick={() => void session.next()}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      follow();
+                      void session.next();
+                    }}
+                  >
                     {t('present.next')} <KeyHint>↓</KeyHint>
                   </button>
                   <button
@@ -366,6 +411,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                       ref={active ? activeRef : undefined}
                       onClick={() => {
                         if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
+                        follow();
                         void session.play(entry.item.id, piece.id);
                       }}
                       className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
@@ -414,6 +460,20 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             </section>
           ))}
         </main>
+        {presented && !activeInView && (
+          <button
+            className={`absolute right-8 bottom-8 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
+              live.blank ? 'border-amber-400 text-amber-300' : 'border-emerald-500 text-emerald-300'
+            }`}
+            title={t('present.locate')}
+            aria-label={t('present.locate')}
+            onClick={() =>
+              activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }
+          >
+            <Icon name="locate" />
+          </button>
+        )}
       </div>
 
       {editingSong && (

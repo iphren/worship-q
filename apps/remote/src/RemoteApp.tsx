@@ -102,18 +102,19 @@ function NameForm() {
 function Live({ view }: { view: RemoteView | null }) {
   const activeRef = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
-  // Set by this phone's Prev and Next, so the page follows only its own moves. Following
-  // moves made elsewhere would scroll the page away from what this phone is about to tap.
-  const followRef = useRef(false);
+  // Until when a change of the presented slide counts as this phone's Prev or Next, so the
+  // page follows only its own moves. Following moves made elsewhere would scroll the page
+  // away from what this phone is about to tap.
+  const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
   const connected = connection.connected;
   const presentedItem = view?.presented?.itemId;
   const presentedPiece = view?.presented?.pieceId;
   const loaded = view !== null;
   useEffect(() => {
-    if (followRef.current)
+    if (performance.now() < followUntilRef.current)
       activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    followRef.current = false;
+    followUntilRef.current = 0;
   }, [presentedItem, presentedPiece]);
 
   // Offer the locate button while the presented slide is scrolled out of view.
@@ -131,7 +132,7 @@ function Live({ view }: { view: RemoteView | null }) {
   }, [presentedItem, presentedPiece, loaded]);
 
   function step(type: 'previous' | 'next') {
-    followRef.current = true;
+    followUntilRef.current = performance.now() + 3000;
     connection.send({ type });
   }
 

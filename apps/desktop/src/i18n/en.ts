@@ -152,6 +152,7 @@ export const en = {
   'present.keptTooLong': 'The run sheet for {date} is still live.',
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
+  'present.locate': 'Go to current slide',
   'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
 

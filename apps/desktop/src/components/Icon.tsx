@@ -55,6 +55,13 @@ const ICONS = {
   ),
   grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />,
   stop: <rect x="5" y="5" width="14" height="14" rx="2" />,
+  locate: (
+    <>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </>
+  ),
   phone: (
     <>
       <rect x="6" y="2" width="12" height="20" rx="2" />
