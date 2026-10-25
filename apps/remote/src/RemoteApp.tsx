@@ -101,11 +101,39 @@ function NameForm() {
 
 function Live({ view }: { view: RemoteView | null }) {
   const activeRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  // Set by this phone's Prev and Next, so the page follows only its own moves. Following
+  // moves made elsewhere would scroll the page away from what this phone is about to tap.
+  const followRef = useRef(false);
+  const [activeInView, setActiveInView] = useState(true);
   const connected = connection.connected;
+  const presentedItem = view?.presented?.itemId;
   const presentedPiece = view?.presented?.pieceId;
+  const loaded = view !== null;
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }, [presentedPiece]);
+    if (followRef.current)
+      activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    followRef.current = false;
+  }, [presentedItem, presentedPiece]);
+
+  // Offer the locate button while the presented slide is scrolled out of view.
+  useEffect(() => {
+    const active = activeRef.current;
+    const main = mainRef.current;
+    setActiveInView(true);
+    if (!active || !main) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setActiveInView(entry!.intersectionRatio >= 0.5),
+      { root: main, threshold: [0, 0.5, 1] },
+    );
+    observer.observe(active);
+    return () => observer.disconnect();
+  }, [presentedItem, presentedPiece, loaded]);
+
+  function step(type: 'previous' | 'next') {
+    followRef.current = true;
+    connection.send({ type });
+  }
 
   if (!view) return <Message title="Connecting…" />;
   const control = 'rounded-xl py-4 text-lg font-semibold active:scale-[0.98] disabled:opacity-40';
@@ -134,66 +162,98 @@ function Live({ view }: { view: RemoteView | null }) {
         </p>
       )}
 
-      <main className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-4">
-        {view.items.length === 0 && (
-          <p className="p-6 text-center text-sm text-slate-400">The run sheet has no songs yet.</p>
-        )}
-        {view.items.map((item) => (
-          <section key={item.itemId}>
-            <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
-              {item.title || 'Untitled song'}
-            </h2>
-            <div
-              className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+      <div className="relative min-h-0 flex-1">
+        <main ref={mainRef} className="h-full space-y-5 overflow-y-auto px-3 py-4">
+          {view.items.length === 0 && (
+            <p className="p-6 text-center text-sm text-slate-400">
+              The run sheet has no songs yet.
+            </p>
+          )}
+          {view.items.map((item) => (
+            <section key={item.itemId}>
+              <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
+                {item.title || 'Untitled song'}
+              </h2>
+              <div
+                className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+              >
+                {item.pieces.map((piece) => {
+                  const active =
+                    view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
+                  return (
+                    <button
+                      key={piece.id}
+                      ref={active ? activeRef : undefined}
+                      disabled={!connected}
+                      onClick={() =>
+                        connection.send({
+                          type: 'playPiece',
+                          itemId: item.itemId,
+                          pieceId: piece.id,
+                        })
+                      }
+                      className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                        active
+                          ? view.blank
+                            ? 'border-amber-400 bg-amber-900/50'
+                            : 'border-emerald-500 bg-emerald-900/50 text-white'
+                          : // Alternate styles by block, as on the desktop.
+                            (piece.block ?? 0) % 2 === 0
+                            ? 'border-slate-700 bg-slate-900'
+                            : 'border-sky-700 bg-sky-900/60'
+                      }`}
+                    >
+                      {piece.thumbnail ? (
+                        <img
+                          src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                          alt={piece.lines.join(' ')}
+                          loading="lazy"
+                          className="block w-full rounded"
+                        />
+                      ) : (
+                        piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
+                      )}
+                    </button>
+                  );
+                })}
+                {item.pieces.length === 0 && (
+                  <p className="px-1 text-xs text-slate-500">This song has no lyrics.</p>
+                )}
+              </div>
+            </section>
+          ))}
+        </main>
+        {view.presented && !activeInView && (
+          <button
+            aria-label="Go to current slide"
+            onClick={() =>
+              activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }
+            className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+              view.blank ? 'border-amber-400 text-amber-300' : 'border-emerald-500 text-emerald-300'
+            }`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
             >
-              {item.pieces.map((piece) => {
-                const active =
-                  view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
-                return (
-                  <button
-                    key={piece.id}
-                    ref={active ? activeRef : undefined}
-                    disabled={!connected}
-                    onClick={() =>
-                      connection.send({ type: 'playPiece', itemId: item.itemId, pieceId: piece.id })
-                    }
-                    className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
-                      active
-                        ? view.blank
-                          ? 'border-amber-400 bg-amber-900/50'
-                          : 'border-emerald-500 bg-emerald-900/50 text-white'
-                        : // Alternate styles by block, as on the desktop.
-                          (piece.block ?? 0) % 2 === 0
-                          ? 'border-slate-700 bg-slate-900'
-                          : 'border-sky-700 bg-sky-900/60'
-                    }`}
-                  >
-                    {piece.thumbnail ? (
-                      <img
-                        src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
-                        alt={piece.lines.join(' ')}
-                        loading="lazy"
-                        className="block w-full rounded"
-                      />
-                    ) : (
-                      piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
-                    )}
-                  </button>
-                );
-              })}
-              {item.pieces.length === 0 && (
-                <p className="px-1 text-xs text-slate-500">This song has no lyrics.</p>
-              )}
-            </div>
-          </section>
-        ))}
-      </main>
+              <circle cx="12" cy="12" r="7" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       <footer className="grid grid-cols-4 gap-2 border-t border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           className={`${control} bg-slate-800`}
           disabled={!connected}
-          onClick={() => connection.send({ type: 'previous' })}
+          onClick={() => step('previous')}
         >
           ‹ Prev
         </button>
@@ -214,7 +274,7 @@ function Live({ view }: { view: RemoteView | null }) {
         <button
           className={`${control} bg-sky-600 text-white`}
           disabled={!connected}
-          onClick={() => connection.send({ type: 'next' })}
+          onClick={() => step('next')}
         >
           Next ›
         </button>
