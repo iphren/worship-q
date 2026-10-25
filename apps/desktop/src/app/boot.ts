@@ -3,6 +3,7 @@ import { migrate, Store } from '@worship-q/store';
 import { tauriDriver } from '../platform/native';
 import { CloudController } from './cloud';
 import { OutputController } from './output';
+import { UpdateController } from './update';
 
 /** Keeps the live state from expiring while the app is open. */
 const HEARTBEAT_MS = 60_000;
@@ -11,6 +12,7 @@ export interface Booted {
   session: Session;
   output: OutputController;
   cloud: CloudController;
+  updates: UpdateController;
   start: StartKind;
 }
 
@@ -30,5 +32,7 @@ export async function boot(): Promise<Booted> {
   const cloud = new CloudController(session, output);
   // The app opens without waiting for the network.
   void cloud.start().catch(console.error);
-  return { session, output, cloud, start };
+  const updates = new UpdateController(output);
+  updates.start();
+  return { session, output, cloud, updates, start };
 }

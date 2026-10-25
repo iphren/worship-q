@@ -23,6 +23,7 @@ import { ChurchConnection } from '../components/ChurchConnection';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
+import { UpdateStatusLine } from '../components/UpdateBanner';
 import { WorkspaceList } from '../components/WorkspaceSwitcher';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
@@ -525,6 +526,7 @@ export function SettingsPage() {
           <p className="text-sm text-slate-300">
             {t('app.name')} · {t('settings.version', { version })}
           </p>
+          <UpdateStatusLine />
           <p className="text-xs text-slate-400">
             {t('settings.timezone', { timezone: session.workspace.timezone })}
           </p>

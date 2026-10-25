@@ -10,6 +10,7 @@ import {
 } from 'react';
 import type { CloudController, CloudStatus } from './cloud';
 import type { OutputController } from './output';
+import type { UpdateController, UpdateStatus } from './update';
 
 export type Page = 'songs' | 'calendar' | 'present' | 'settings';
 
@@ -17,6 +18,7 @@ export interface AppServices {
   session: Session;
   output: OutputController;
   cloud: CloudController;
+  updates: UpdateController;
   navigate(page: Page): void;
 }
 
@@ -42,6 +44,12 @@ export function useSession(): Session {
 export function useCloud(): CloudStatus {
   const { cloud } = useApp();
   return useSyncExternalStore(cloud.subscribe, () => cloud.status);
+}
+
+/** The automatic update's status, re-rendering the caller when it changes. */
+export function useUpdates(): UpdateStatus {
+  const { updates } = useApp();
+  return useSyncExternalStore(updates.subscribe, () => updates.status);
 }
 
 /** Remote-control requests and controllers, re-rendering the caller when they change. */

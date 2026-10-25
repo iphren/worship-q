@@ -13,6 +13,7 @@ import {
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
 import { RemoteControlDialog, RemoteRequestsBanner } from './components/RemoteControl';
+import { UpdateBanner } from './components/UpdateBanner';
 import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
 import { formatDate, t, type MessageKey } from './i18n';
 import { CalendarPage } from './pages/CalendarPage';
@@ -73,6 +74,7 @@ function Shell({ booted }: { booted: Booted }) {
       session: booted.session,
       output: booted.output,
       cloud: booted.cloud,
+      updates: booted.updates,
       navigate: setPage,
     }),
     [booted],
@@ -85,6 +87,7 @@ function Shell({ booted }: { booted: Booted }) {
         <Sidebar page={page} />
         <div className="flex min-w-0 flex-1 flex-col">
           <RemoteRequestsBanner />
+          <UpdateBanner />
           <div className="min-h-0 flex-1">
             {page === 'songs' && <SongsPage />}
             {page === 'calendar' && <CalendarPage />}
