@@ -34,8 +34,7 @@ async function setup() {
   const host = new RemoteHost(session, () => 'North Branch');
 
   /** Connects a desktop the way the app does, wiring relay messages into the host. */
-  function desktop(name: string) {
-    const enrolled = instance.enroll(code, name)!;
+  function desktop(name: string, token = instance.enroll(code, name)!.token) {
     const socket = new FakeSocket();
     const handlers = relay.desktop(socket);
     const original = socket.send.bind(socket);
@@ -53,11 +52,11 @@ async function setup() {
       JSON.stringify({
         type: 'hello',
         protocolVersion: PROTOCOL_VERSION,
-        token: enrolled.token,
+        token,
         capabilities: { roles: ['coordinator'], appVersion: 'test' },
       }),
     );
-    return { socket, handlers };
+    return { socket, handlers, token };
   }
 
   function phone(fields: Record<string, unknown>) {
@@ -150,6 +149,30 @@ describe('remote control through the relay', () => {
     const remote = phone({ invite: host.invite() });
     await settle();
     expect(remote.socket.last()).toEqual({ type: 'unavailable', reason: 'presentation-offline' });
+  });
+
+  it('gives the role back to a coordinator that reconnects before its old connection ends', async () => {
+    const { desktop, phone, host } = await setup();
+    const asleep = desktop('Branch laptop');
+    const awake = desktop('Branch laptop', asleep.token);
+    expect(awake.socket.last()).toMatchObject({ type: 'ready', coordinator: true });
+    expect(asleep.socket.closed).toBe(4002);
+
+    // The old connection times out later; phones still reach the new one.
+    asleep.handlers.close();
+    const remote = phone({ invite: host.invite() });
+    await settle();
+    expect(remote.socket.last()).toMatchObject({ type: 'pending' });
+  });
+
+  it('answers pings from desktops and phones', async () => {
+    const { desktop, phone } = await setup();
+    const laptop = desktop('Branch laptop');
+    laptop.handlers.message(JSON.stringify({ type: 'ping' }));
+    expect(laptop.socket.last()).toEqual({ type: 'pong' });
+    const remote = phone({ invite: 'made-up' });
+    remote.say({ type: 'ping' });
+    expect(remote.socket.last()).toEqual({ type: 'pong' });
   });
 
   it('tells an outdated phone to update', async () => {

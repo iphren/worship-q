@@ -137,6 +137,7 @@ export class Relay {
       message: (raw) => {
         const message = parse(raw) as CoordinatorToRelay | null;
         if (!message || typeof message !== 'object') return;
+        if (message.type === 'ping') return send(socket, { type: 'pong' });
         if (!desktop) {
           if (message.type !== 'hello') return;
           if (!isCompatibleProtocol(message.protocolVersion)) {
@@ -152,8 +153,14 @@ export class Relay {
           workspaceId = device.workspaceId;
           const room = this.room(workspaceId);
           room.desktops.add(desktop);
-          if (!room.coordinator) becomeCoordinator(room, workspaceId);
-          else announce(room, workspaceId);
+          const previous = room.coordinator;
+          if (!previous) becomeCoordinator(room, workspaceId);
+          else if (previous.deviceId === device.id) {
+            // The coordinator reconnected, for example after the computer slept, before its
+            // old connection timed out here. The new connection keeps the role.
+            becomeCoordinator(room, workspaceId);
+            previous.socket.close(4002, 'replaced');
+          } else announce(room, workspaceId);
           return;
         }
         const room = this.room(workspaceId!);
@@ -201,6 +208,7 @@ export class Relay {
         const data = parse(raw);
         const parsed = RemoteToHostSchema.safeParse(data);
         if (!parsed.success) return;
+        if (parsed.data.type === 'ping') return send(socket, { type: 'pong' });
         if (!remote) {
           const hello = parsed.data;
           if (hello.type !== 'hello') return;

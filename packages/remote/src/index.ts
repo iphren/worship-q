@@ -233,7 +233,8 @@ export class RemoteHost {
       return link.send(from, { type: 'denied', reason: 'invalid-invite' });
     }
 
-    if (!this.controllers.has(from)) return;
+    // Pings are answered by the relay and never reach the coordinator.
+    if (message.type !== 'command' || !this.controllers.has(from)) return;
     const applied = await this.session.remoteCommand(message.id, message.command);
     link.send(from, { type: 'ack', id: message.id, applied });
   }

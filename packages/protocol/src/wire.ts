@@ -155,6 +155,8 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
     id: z.string().min(1).max(100),
     command: RemoteCommandSchema,
   }),
+  /** Answered by the relay, so a phone notices a connection lost while it slept. */
+  z.object({ type: z.literal('ping') }),
 ]);
 export type RemoteToHost = z.infer<typeof RemoteToHostSchema>;
 
@@ -194,7 +196,8 @@ export type HostToRemote =
 /** From the instance to a remote controller, about the connection itself. */
 export type RelayToRemote =
   | { type: 'update-needed' }
-  | { type: 'unavailable'; reason: 'no-workspace' | 'presentation-offline' };
+  | { type: 'unavailable'; reason: 'no-workspace' | 'presentation-offline' }
+  | { type: 'pong' };
 
 /**
  * From a desktop to the instance relay. Several desktops of a workspace may be connected;
@@ -207,7 +210,12 @@ export type CoordinatorToRelay =
   | { type: 'send'; to?: string; data: HostToRemote }
   | { type: 'drop'; to: string }
   /** Become the coordinator in place of another device. */
-  | { type: 'claim' };
+  | { type: 'claim' }
+  /**
+   * Answered with a pong. Browsers do not expose WebSocket pings, so this is how a desktop
+   * notices a connection the instance dropped while the computer slept.
+   */
+  | { type: 'ping' };
 
 /** From the instance relay to a desktop. */
 export type RelayToCoordinator =
@@ -223,7 +231,8 @@ export type RelayToCoordinator =
   /** Another device changed content; pull now. */
   | { type: 'changed' }
   | { type: 'message'; from: string; data: unknown }
-  | { type: 'left'; from: string };
+  | { type: 'left'; from: string }
+  | { type: 'pong' };
 
 /** Header carrying the protocol version on every request to the instance. */
 export const PROTOCOL_HEADER = 'x-worship-q-protocol';

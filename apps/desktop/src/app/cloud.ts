@@ -33,6 +33,8 @@ const SYNC_EVERY_MS = 60_000;
 const SYNC_AFTER_EDIT_MS = 2_000;
 const BACKUP_EVERY_MS = 12 * 60 * 60 * 1000;
 const RELAY_RETRY_MS = [1000, 3000, 10000, 30000];
+/** The relay is pinged this often; a ping left unanswered means the connection is gone. */
+const RELAY_PING_MS = 15_000;
 
 export type RelayStatus =
   | { kind: 'off' }
@@ -325,10 +327,36 @@ export class CloudController {
         }),
       );
     };
-    socket.onmessage = (event) => this.relayMessage(JSON.parse(String(event.data)));
-    socket.onclose = () => {
+    // A connection the instance dropped while the computer slept still looks open here, and
+    // the instance would no longer pass phones to it.
+    let answered = true;
+    let answers = false;
+    let ticked = Date.now();
+    const heartbeat = window.setInterval(() => {
+      const now = Date.now();
+      // A late timer means the computer slept for long enough to be dropped.
+      const slept = now - ticked > RELAY_PING_MS * 2;
+      ticked = now;
+      // Instances that never answer pings predate them and are not held to it.
+      if (slept || (answers && !answered)) return lost();
+      answered = false;
+      this.relaySend({ type: 'ping' });
+    }, RELAY_PING_MS);
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
+      const message = JSON.parse(String(event.data)) as RelayToCoordinator;
+      if (message.type === 'pong') {
+        answered = answers = true;
+        return;
+      }
+      this.relayMessage(message);
+    };
+    const lost = () => {
+      window.clearInterval(heartbeat);
       if (this.socket !== socket) return;
       this.socket = null;
+      // Closing a dead connection can take long to finish, so this does not wait for it.
+      socket.close();
       this.host.detach();
       const final = ['update-needed', 'unauthorized'].includes(this.status_.relay.kind);
       if (this.stopped || final || !this.connected) return;
@@ -336,6 +364,7 @@ export class CloudController {
       const delay = RELAY_RETRY_MS[Math.min(this.relayAttempt++, RELAY_RETRY_MS.length - 1)]!;
       this.relayTimer = window.setTimeout(() => this.connectRelay(), delay);
     };
+    socket.onclose = lost;
   }
 
   private relayMessage(message: RelayToCoordinator): void {

@@ -23,6 +23,8 @@ export type RemoteState =
   | { kind: 'update-needed' };
 
 const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
+/** The relay is pinged this often; a ping left unanswered means the connection is gone. */
+const PING_MS = 15_000;
 
 function storage(key: string, value?: string | null): string | null {
   try {
@@ -110,10 +112,35 @@ export class RemoteConnection {
         }),
       );
     };
-    socket.onmessage = (event) => this.receive(JSON.parse(String(event.data)));
-    socket.onclose = () => {
+    // A connection the instance dropped while the phone was locked still looks open here.
+    let answered = true;
+    let answers = false;
+    let ticked = Date.now();
+    const heartbeat = setInterval(() => {
+      const now = Date.now();
+      // A late timer means the phone slept for long enough to be dropped.
+      const slept = now - ticked > PING_MS * 2;
+      ticked = now;
+      // Instances that never answer pings predate them and are not held to it.
+      if (slept || (answers && !answered)) return lost();
+      answered = false;
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
+    }, PING_MS);
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
+      const message = JSON.parse(String(event.data)) as HostToRemote | RelayToRemote;
+      if (message.type === 'pong') {
+        answered = answers = true;
+        return;
+      }
+      this.receive(message);
+    };
+    const lost = () => {
+      clearInterval(heartbeat);
       if (this.socket !== socket) return;
       this.socket = null;
+      // Closing a dead connection can take long to finish, so this does not wait for it.
+      socket.close();
       if (this.stopped) return;
       const final = ['denied', 'update-needed', 'no-workspace'].includes(this.state_.kind);
       if (final) return;
@@ -121,6 +148,7 @@ export class RemoteConnection {
       const delay = RETRY_MS[Math.min(this.attempt++, RETRY_MS.length - 1)]!;
       this.timer = setTimeout(() => this.open(), delay);
     };
+    socket.onclose = lost;
   }
 
   private receive(message: HostToRemote | RelayToRemote): void {
@@ -150,6 +178,7 @@ export class RemoteConnection {
         this.attempt = 0;
         return this.set({ kind: 'live', view: message.view });
       case 'ack':
+      case 'pong':
         return;
     }
   }
