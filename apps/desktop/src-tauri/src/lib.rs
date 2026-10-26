@@ -13,8 +13,13 @@ mod overlay;
 mod workspaces;
 
 use std::fs;
-use tauri::{Emitter, Manager, WindowEvent};
-use tauri_plugin_window_state::StateFlags;
+use tauri::{Emitter, LogicalSize, Manager, WindowEvent};
+use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+const WINDOW_STATE_FLAGS: StateFlags = StateFlags::SIZE
+    .union(StateFlags::POSITION)
+    .union(StateFlags::MAXIMIZED)
+    .union(StateFlags::FULLSCREEN);
 
 pub fn run() {
     tauri::Builder::default()
@@ -22,19 +27,19 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         // The operator window opens where it was left. The output is placed on a chosen
-        // monitor each time, so it is left out.
+        // monitor each time, so it is left out. The operator window is restored in `setup`
+        // so its size can be checked against the minimum afterwards.
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .with_state_flags(
-                    StateFlags::SIZE
-                        | StateFlags::POSITION
-                        | StateFlags::MAXIMIZED
-                        | StateFlags::FULLSCREEN,
-                )
+                .with_state_flags(WINDOW_STATE_FLAGS)
                 .with_denylist(&[output::OUTPUT_LABEL])
+                .skip_initial_state("main")
                 .build(),
         )
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                restore_main_window(&window);
+            }
             let root = app.path().app_data_dir()?;
             let dir = workspaces::active_dir(&root);
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
@@ -94,4 +99,34 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");
+}
+
+/// Restores the operator window where it was left, then grows it back to the minimum size.
+///
+/// The saved size is in physical pixels, so a window saved on a standard display and reopened
+/// on a high-density one comes back at a fraction of its size, and macOS does not apply the
+/// minimum size to sizes set by the app.
+fn restore_main_window(window: &tauri::WebviewWindow) {
+    let _ = window.restore_state(WINDOW_STATE_FLAGS);
+    if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
+        return;
+    }
+    let Some(config) = window
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == "main")
+    else {
+        return;
+    };
+    let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) else {
+        return;
+    };
+    let size = size.to_logical::<f64>(scale);
+    let width = size.width.max(config.min_width.unwrap_or(0.0));
+    let height = size.height.max(config.min_height.unwrap_or(0.0));
+    if width != size.width || height != size.height {
+        let _ = window.set_size(LogicalSize::new(width, height));
+    }
 }
