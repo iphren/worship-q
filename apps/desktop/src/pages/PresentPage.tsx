@@ -1,8 +1,8 @@
 import { nextMeetingDate } from '@worship-q/calendar';
 import type { Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { useApp, useQuery, useSession } from '../app/context';
-import { ConfirmDialog, Dialog } from '../components/Dialog';
+import { useQuery, useSession } from '../app/context';
+import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
@@ -79,13 +79,11 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
 }
 
 function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
-  const { navigate } = useApp();
   const session = useSession();
   const liveDate = session.liveDate!;
   const live = session.live!;
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [confirmEnd, setConfirmEnd] = useState(false);
   const [panelTab, setPanelTab] = useState(lastPanelTab);
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -191,12 +189,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     if (!section) return;
     scrollToTop(section);
     setFlash((last) => ({ itemId, count: (last?.count ?? 0) + 1 }));
-  }
-
-  async function end() {
-    setConfirmEnd(false);
-    await session.endPresentation();
-    navigate('calendar');
   }
 
   return (
@@ -305,14 +297,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     <Icon name="clear" />
                   </button>
                   <OutputPanel compact />
-                  <button
-                    className="btn btn-danger px-0 py-2"
-                    title={t('present.end')}
-                    aria-label={t('present.end')}
-                    onClick={() => setConfirmEnd(true)}
-                  >
-                    <Icon name="stop" />
-                  </button>
                 </div>
               }
             />
@@ -365,9 +349,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
                 {props.outputPanel}
               </div>
-              <button className="btn btn-danger mt-auto" onClick={() => setConfirmEnd(true)}>
-                {t('present.end')}
-              </button>
             </div>
           </div>
         </aside>
@@ -497,16 +478,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             />
           </div>
         </Dialog>
-      )}
-      {confirmEnd && (
-        <ConfirmDialog
-          title={t('present.endTitle')}
-          body={t('present.endBody')}
-          confirmLabel={t('present.end')}
-          danger
-          onCancel={() => setConfirmEnd(false)}
-          onConfirm={() => void end()}
-        />
       )}
     </div>
   );

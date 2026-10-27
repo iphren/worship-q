@@ -140,10 +140,6 @@ export const en = {
   'present.blank': 'Blank',
   'present.unblank': 'Show lyrics',
   'present.clear': 'Clear screen',
-  'present.end': 'End presentation',
-  'present.endTitle': 'End the presentation?',
-  'present.endBody':
-    'The slideshow is cleared and the current or next meeting day opens for planning.',
   'present.preview': 'Slideshow',
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',

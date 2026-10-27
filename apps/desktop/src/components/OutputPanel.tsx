@@ -108,10 +108,10 @@ export function OutputPanel(props: { compact?: boolean }) {
     icon: IconName,
     label: string,
     run: () => Promise<unknown>,
-    options: { primary?: boolean; disabled?: boolean } = {},
+    options: { primary?: boolean; danger?: boolean; disabled?: boolean } = {},
   ) => (
     <button
-      className={`btn ${options.primary ? 'btn-primary' : ''} ${props.compact ? 'px-0 py-2' : 'btn-sm'}`}
+      className={`btn ${options.primary ? 'btn-primary' : options.danger ? 'btn-danger' : ''} ${props.compact ? 'px-0 py-2' : 'btn-sm'}`}
       disabled={options.disabled}
       title={props.compact ? label : undefined}
       aria-label={props.compact ? label : undefined}
@@ -131,7 +131,11 @@ export function OutputPanel(props: { compact?: boolean }) {
           primary: true,
         })
       : action('windowed', t('output.windowedAction'), () => output.makeWindowed());
-  const close = closed ? null : action('close', t('output.closeAction'), () => output.close());
+  const close = closed
+    ? null
+    : action('close', t('output.closeAction'), () => output.close(), {
+        danger: true,
+      });
 
   if (props.compact) {
     return (

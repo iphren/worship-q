@@ -42,7 +42,7 @@ straight away and stays on the same slide.
 
 ## 5. When you finish
 
-Just close the app, or choose **End presentation** to clear the screen. The run sheet open
+Just close the app, or choose **Clear screen** to take the lyrics down. The run sheet open
 for planning is then always today's when today is a meeting day, otherwise the next
 meeting day's. Everything is saved as you go; if the laptop is closed or restarts
 mid-service, reopening Worship Q carries on where it was.
