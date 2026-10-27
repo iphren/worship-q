@@ -138,7 +138,7 @@ The generic product term is **Workspace**, replacing the church-specific term â€
 | --- | --- |
 | Administrator | Sign in through the church's configured OIDC provider, in the admin web app only; manage workspace access, permanent and temporary devices, all songs and backgrounds in the instance, and central promotions |
 | Workspace operator | Admin-managed permanent authorization for one or more workspaces; manage run sheets, permitted songs and backgrounds, meeting days and presentation settings; present and approve remote controllers; in privileged mode, content management writes directly to the central pool |
-| Remote controller | Approved connection to a workspace; control its active presentation, including jumping between songs/pieces and blank/unblank; no editing, changing the live or edited date, settings changes, or device enrollment |
+| Remote controller | Approved connection to a workspace; control its active presentation, including jumping between songs/pieces and blank/unblank; add, remove, and reorder items on the live run sheet; no song or background editing, changing the live or edited date, settings changes, or device enrollment |
 
 **Agreed:** administrators sign in through a generic OpenID Connect (OIDC) provider that the church configures at deployment, such as Microsoft Entra ID (Microsoft 365) or Google Workspace. No provider-specific integration is required. OIDC sign-in establishes identity; Worship Q separately checks administrator authorization. Holding an account with the configured provider alone must not grant administration. **Open decisions:** how the first administrator of a new instance is designated, and whether one instance may configure several providers.
 
@@ -162,9 +162,11 @@ An **Approve on this device** route can support same-computer browser setup. Per
 2. A volunteer scans it using the phone's normal camera or Worship Q's scanner. The HTTPS link opens the supported installed-app route or browser fallback, retaining the invitation context, and requests remote-controller access.
 3. The volunteer sees **Waiting for approval**; authorized operators with the workspace open receive the request.
 4. An operator verifies the matching confirmation code and approves.
-5. The remote connection can control the workspace's active presentation.
+5. The remote connection can control the workspace's active presentation and edit its live run sheet.
 
 Scanning requests access; it does not grant control automatically. Several authorized devices may receive a request, but the first approval resolves it for all. An invite is not permanent enrollment; remote controllers cannot invite others or grant permanent permissions by default.
+
+**Agreed (amended after the first trial):** every approved remote controller can add, remove, and reorder items on the live run sheet. There is no separate, presentation-only grant: approval is where the operator decides whom to trust, so operators should approve only people they would let change the service order. This supersedes the earlier navigation-only remote role.
 
 **Latest agreed access lifetime:** remote access belongs to the workspace connection, not a particular date or run sheet. Changing the live run sheet does not require reapproval. This supersedes the earlier proposal to expire remote access at the end of a dated service. Explicit disconnect, operator removal, or revocation ends access. A short network-reconnection grace period is recommended; exact idle/max lifetime and host-restart behavior remain open. An invite expiring is distinct from an already approved connection expiring.
 
@@ -198,7 +200,7 @@ A delegated local coordinator may approve temporary controllers that use the des
 
 ### Agreed ownership and visibility
 
-Administrators can view and manage all songs within their church instance. Workspace operators see the instance's central songs plus their own private songs, including workspace versions of central songs. Other workspaces' private songs are not visible. Remote access exposes only the presentation content needed for control, not general editing or private-library download rights.
+Administrators can view and manage all songs within their church instance. Workspace operators see the instance's central songs plus their own private songs, including workspace versions of central songs. Other workspaces' private songs are not visible. Remote access exposes only the presentation content needed for control and run-sheet editing, not song editing or private-library download rights. To add an item, a remote controller can search the workspace's visible library by title; it receives song titles from the search and lyrics only for songs on the live run sheet.
 
 | Viewer | Visible library |
 | --- | --- |
@@ -220,7 +222,7 @@ A normal workspace can submit a private song for central review. An administrato
 
 ### Agreed privileged workspace mode
 
-A workspace can operate in **normal** or **privileged** content-management mode. In privileged mode, its song/background management maps directly to the church instance's central pool. The proposed administrator-facing setting is **Manage Church Library**; the administrator controls the mode. Workspace operators gain central-content authority through this setting without needing to become admin-app users. Remote controllers retain presentation-only permissions.
+A workspace can operate in **normal** or **privileged** content-management mode. In privileged mode, its song/background management maps directly to the church instance's central pool. The proposed administrator-facing setting is **Manage Church Library**; the administrator controls the mode. Workspace operators gain central-content authority through this setting without needing to become admin-app users. Remote controllers keep only presentation and live-run-sheet permissions.
 
 | Operation | Normal workspace | Privileged workspace |
 | --- | --- | --- |
@@ -352,7 +354,7 @@ Each workspace has at most one live state, shared by every connected client and 
 2. **Join:** any further operator device synchronizes with the current live state rather than replacing it.
 3. **Expiry:** when no operator device is connected, the live state expires after a period of time. Only operator devices count; a connected remote controller or a device in viewer mode does not keep it alive. The period is an open decision.
 4. **Go live:** any operator device can go live; the live run sheet then links to the run sheet that device is previewing. Edits made in live mode are edits to that dated run sheet, so they are kept when the live state ends or expires.
-5. **Presenting:** any operator device or remote controller can select a piece from the live run sheet to populate the presented content.
+5. **Presenting:** any operator device or remote controller can select a piece from the live run sheet to populate the presented content. A remote controller can also add, remove, and reorder live run-sheet items; these are edits to that dated run sheet, as in rule 4.
 6. **Resource updates:** changes to the resources in use, such as fixing a typo in lyrics or changing display settings (fonts, background, wrapping), update the live run sheet and the presented content.
 7. **Run-sheet changes:** the presented content does not update immediately when the live run sheet changes; it stays until another piece is selected or the output is cleared.
 8. **Ending:** the live state can have an ended status. The app has no manual end control, because **Clear screen** takes content down and a red end button was easily mistaken for closing the slideshow. When a live state has been kept for too long, operator devices show a notification offering to end it and move to the next planned date; nothing ends automatically while an operator device is connected.
@@ -394,7 +396,7 @@ Copying creates independent run-sheet items retaining song references, not dupli
 
 ### Proposed bounds and remaining details
 
-One run sheet per workspace per date and one authoritative live presentation per workspace are the proposed v1 defaults. Multiple same-day named plans or simultaneous presentations in one workspace are not yet specified. Remote controllers can jump around the active plan but cannot use **Go live** or **Edit run sheet**, or copy/edit content.
+One run sheet per workspace per date and one authoritative live presentation per workspace are the proposed v1 defaults. Multiple same-day named plans or simultaneous presentations in one workspace are not yet specified. Remote controllers can jump around the active plan and add, remove, or reorder its items, but cannot use **Go live** or **Edit run sheet**, copy items from other dates, or edit songs.
 
 Give each item its own identity, including repeated songs. Keep dated plans and live-state coordination separate internally. Historical lyric-version retention, copy behavior for unavailable songs, and append/replace handling of an already displayed item need implementation rules consistent with retaining output until an explicit presentation action.
 
@@ -412,6 +414,8 @@ Editing a later piece should not unexpectedly advance the current presentation. 
 
 Live command delivery and content synchronization should be distinct concerns. Reconnection must restore an authoritative snapshot; duplicate commands must not advance twice. Revision numbers, command IDs, conflict responses, and transport-switch handling are proposed protocol mechanisms, not a finalized schema.
 
+**Proposed remote run-sheet edits:** remote controllers express structural edits by intent against stable item identities, such as add a song after an item, remove an item, or move an item after another, rather than by position, so an edit made from a slightly stale view still lands where intended. The coordinator applies them in order with operator edits. Removing the presented item leaves it on screen, per Section 7 rule 7. Operator devices show a notice naming the controller and the change, with undo.
+
 Central-song edits follow the workspace override rule in normal mode and update central content directly in privileged mode. Remaining editing policies include concurrent edits, how revisions resolve in live references, exact structural-edit location matching, and conflict review after offline edits.
 
 ## 9. Client roles and capabilities
@@ -421,7 +425,7 @@ These runtime roles are separate from the Administrator, Workspace operator, and
 | Role | Responsibility |
 | --- | --- |
 | Coordinator (host) | The operator device that owns the live state and orders commands |
-| Controller | Navigate the workspace's active presentation |
+| Controller | Navigate the workspace's active presentation and, for remote controllers, add, remove, and reorder its live run-sheet items |
 | Display | Render the slideshow |
 | Overlay | Render the subtitle overlay for compatible consumers, including OBS |
 
@@ -737,7 +741,7 @@ The next design step is to define the domain model and realtime protocol before 
 | Live state | Per-workspace shared state for the one active presentation, held and ordered by the coordinator: link to the live dated run sheet, presented content, blank state, connected devices, live/ended status, revision; backed up to the instance; expires when no operator device stays connected; may retain previous-run-sheet content |
 | Command / event | Requested action and authoritative result |
 
-Candidate commands include next, previous, play item/piece, blank/unblank, and operator-only go-live and end. Calendar browsing and choosing a date to edit are not presentation commands. Authorization distinguishes permanent enrollment, remembered rejoin, temporary workspace connections, and runtime roles. Exact navigation boundaries and output-specific visibility remain open. Identifiers should distinguish songs, repeated run-sheet items, generated pieces, persistent outputs, devices, and live states.
+Candidate commands include next, previous, play item/piece, blank/unblank, add/remove/move live run-sheet item, and operator-only go-live and end. Calendar browsing and choosing a date to edit are not presentation commands. Authorization distinguishes permanent enrollment, remembered rejoin, temporary workspace connections, and runtime roles. Exact navigation boundaries and output-specific visibility remain open. Identifiers should distinguish songs, repeated run-sheet items, generated pieces, persistent outputs, devices, and live states.
 
 ## 19. Proposed acceptance criteria
 
@@ -758,7 +762,7 @@ These make the requirements concrete for later implementation and testing; they 
 13. **Remembered onboarding:** after the initial connection and pairing, restarting normal clients restores their church-instance connection and usual workspace setup.
 14. **Separate build and deployment:** website changes can be built and deployed independently of church-application releases, and a church can deploy the application without building or deploying the public website.
 
-15. **Role limits:** remote controllers navigate but cannot edit data, go live with another date, change settings, or enroll devices. Normal-workspace edits never alter central songs; privileged-workspace operators can create/edit/delete central content, without granting those rights to remote controllers.
+15. **Role limits:** remote controllers navigate and add, remove, or reorder live run-sheet items, but cannot edit songs or backgrounds, edit other dates, go live with another date, change settings, or enroll devices. Normal-workspace edits never alter central songs; privileged-workspace operators can create/edit/delete central content, without granting those rights to remote controllers.
 16. **Passwordless repeat use:** permanent equipment retains authorization; returning temporary clients request fresh approval without rescanning. First approval resolves the request across operator devices.
 17. **Connection lifetime:** remote control persists through live-date changes while connected; explicit disconnect/revocation ends access. Reconnection rules are documented.
 18. **Calendar safety:** alternate-date browsing is read-only; **Edit run sheet** changes another date's plan without altering the live run sheet or output; **Go live** retains the presented snapshot until play/clear. Opening another client does not reset live state.
