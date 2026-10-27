@@ -28,7 +28,8 @@ import type {
   OutputKind,
   OutputProfile,
   PresentationSettings,
-  RemoteCommand,
+  RemoteEditCommand,
+  RemoteNavigationCommand,
   RunSheet,
   RunSheetItem,
   Song,
@@ -119,6 +120,15 @@ export type CopyResult =
   | { status: 'choose' }
   | { status: 'nothing-to-copy' };
 
+/** A run-sheet edit made by a remote controller, with what is needed to undo it. */
+export type RunSheetChange =
+  | { kind: 'added'; item: RunSheetItem; title: string }
+  | { kind: 'removed'; item: RunSheetItem; title: string }
+  | { kind: 'moved'; item: RunSheetItem; title: string; fromIndex: number; toIndex: number };
+
+/** How many remote edit identifiers are remembered, so a repeated one is applied once. */
+const REMOTE_EDIT_MEMORY = 100;
+
 export class ReadOnlyDateError extends Error {
   constructor(readonly date: IsoDate) {
     super(`The run sheet for ${date} is not open for editing.`);
@@ -138,6 +148,7 @@ export class Session {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly listeners = new Set<() => void>();
   private readonly expiryMs: number;
+  private readonly remoteEditIds: string[] = [];
 
   private constructor(
     readonly store: Store,
@@ -493,11 +504,91 @@ export class Session {
   }
 
   /**
-   * A command from a remote controller. Its identifier comes with it, so a command sent
-   * again after a reconnection is applied once. Remote controllers can only navigate.
+   * A navigation command from a remote controller. Its identifier comes with it, so a
+   * command sent again after a reconnection is applied once. Edits go to `remoteEdit`.
    */
-  remoteCommand(id: string, command: RemoteCommand): Promise<boolean> {
+  remoteCommand(id: string, command: RemoteNavigationCommand): Promise<boolean> {
     return this.mutate(() => this.apply(command, id));
+  }
+
+  /**
+   * A run-sheet edit from a remote controller, made to the live run sheet only. Null when it
+   * cannot be applied, or when the same identifier was applied before. Like the operator's
+   * edits, it never changes what is on screen.
+   */
+  remoteEdit(id: string, command: RemoteEditCommand): Promise<RunSheetChange | null> {
+    return this.mutate(async () => {
+      if (!this.isLive || !this.live_ || this.remoteEditIds.includes(id)) return null;
+      const runSheetId = this.live_.runSheetId;
+      const items = await this.store.listItems(runSheetId);
+      const index = (itemId: string) => items.findIndex((item) => item.id === itemId);
+      const titleOf = async (songId: string) => (await this.store.getSong(songId))?.title ?? '';
+      let change: RunSheetChange;
+
+      if (command.type === 'addItem') {
+        const song = await this.store.getSong(command.songId);
+        if (!song || song.workspaceId !== this.workspace_.id || song.removedAt) return null;
+        const after = command.afterItemId;
+        const at =
+          after === undefined || (after !== null && index(after) < 0)
+            ? items.length
+            : after === null
+              ? 0
+              : index(after) + 1;
+        const item = await this.store.addItem(runSheetId, song.id, at);
+        change = { kind: 'added', item, title: song.title };
+      } else if (command.type === 'removeItem') {
+        const item = items[index(command.itemId)];
+        if (!item) return null;
+        await this.store.removeItem(item.id);
+        change = { kind: 'removed', item, title: await titleOf(item.songId) };
+      } else {
+        const from = index(command.itemId);
+        const item = items[from];
+        if (!item || command.afterItemId === item.id) return null;
+        // Positions counted without the moved item, as the store's move counts them.
+        const others = items.filter((other) => other.id !== item.id);
+        const after = command.afterItemId;
+        const afterIndex = after === null ? -1 : others.findIndex((other) => other.id === after);
+        if (after !== null && afterIndex < 0) return null;
+        if (afterIndex + 1 === from) return null;
+        const to = afterIndex + 1;
+        await this.store.moveItem(item.id, to);
+        change = {
+          kind: 'moved',
+          item,
+          title: await titleOf(item.songId),
+          fromIndex: from,
+          toIndex: to,
+        };
+      }
+
+      this.remoteEditIds.push(id);
+      if (this.remoteEditIds.length > REMOTE_EDIT_MEMORY) this.remoteEditIds.shift();
+      return change;
+    });
+  }
+
+  /** Undoes a remote controller's edit, while its run sheet is still the live one. */
+  undoRemoteEdit(change: RunSheetChange): Promise<boolean> {
+    return this.mutate(async () => {
+      const { item } = change;
+      if (!this.isLive || this.live_?.runSheetId !== item.runSheetId) return false;
+      const items = await this.store.listItems(item.runSheetId);
+      const present = items.some((other) => other.id === item.id);
+      switch (change.kind) {
+        case 'added':
+          if (!present) return false;
+          await this.store.removeItem(item.id);
+          return true;
+        case 'removed':
+          return this.store.restoreItem(item);
+        case 'moved':
+          if (!present) return false;
+          await this.store.moveItem(item.id, change.fromIndex);
+          return true;
+      }
+    });
   }
 
   setBlank(blank: boolean): Promise<boolean> {

@@ -352,7 +352,11 @@ export const en = {
   'remote.disconnectAll': 'Disconnect all',
   'remote.banner': '“{name}” wants to control the presentation · code {code}',
   'remote.limits':
-    'Phones can move between slides and blank or clear the screen. They cannot edit or change settings.',
+    'Phones can move between slides, blank or clear the screen, and add, remove or reorder songs on the live run sheet. They cannot edit songs or change settings. Approve only people you trust with the service order.',
+  'remote.added': '“{name}” added “{title}” to the run sheet',
+  'remote.removed': '“{name}” removed “{title}” from the run sheet',
+  'remote.moved': '“{name}” moved “{title}” to position {position}',
+  'remote.undo': 'Undo',
 
   'settings.sampleLine1': 'Amazing grace, how sweet the sound',
   'settings.sampleLine2': '奇异恩典，何等甘甜',

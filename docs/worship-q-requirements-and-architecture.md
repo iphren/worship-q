@@ -200,7 +200,7 @@ A delegated local coordinator may approve temporary controllers that use the des
 
 ### Agreed ownership and visibility
 
-Administrators can view and manage all songs within their church instance. Workspace operators see the instance's central songs plus their own private songs, including workspace versions of central songs. Other workspaces' private songs are not visible. Remote access exposes only the presentation content needed for control and run-sheet editing, not song editing or private-library download rights. To add an item, a remote controller can search the workspace's visible library by title; it receives song titles from the search and lyrics only for songs on the live run sheet.
+Administrators can view and manage all songs within their church instance. Workspace operators see the instance's central songs plus their own private songs, including workspace versions of central songs. Other workspaces' private songs are not visible. **Agreed (amended after the first trial):** remote access exposes the workspace's visible library, so a remote controller can find songs to add with the same search as an operator device, including its results. It grants no song editing. This supersedes the earlier rule that remote access exposes only the presented content.
 
 | Viewer | Visible library |
 | --- | --- |

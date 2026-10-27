@@ -64,6 +64,40 @@ export function RemoteRequestsBanner() {
   );
 }
 
+/** Run-sheet edits made from phones, each with a way to undo it. */
+export function RemoteEditsBanner() {
+  const host = useRemoteHost();
+  const notices = host.notices;
+  if (notices.length === 0) return null;
+  return (
+    <div className="space-y-1 border-b border-slate-700 bg-slate-900 px-4 py-2">
+      {notices.map((notice) => {
+        const { change } = notice;
+        const params = { name: notice.name, title: change.title || t('songs.untitled') };
+        return (
+          <div key={notice.id} className="flex items-center gap-3 text-sm text-slate-200">
+            <span className="flex-1">
+              {change.kind === 'moved'
+                ? t('remote.moved', { ...params, position: change.toIndex + 1 })
+                : t(change.kind === 'added' ? 'remote.added' : 'remote.removed', params)}
+            </span>
+            <button className="btn btn-sm" onClick={() => void host.undo(notice.id)}>
+              {t('remote.undo')}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              title={t('common.close')}
+              onClick={() => host.dismiss(notice.id)}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function RemoteControlDialog(props: { onClose(): void }) {
   const { cloud, navigate } = useApp();
   const status = useCloud();

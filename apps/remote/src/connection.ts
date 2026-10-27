@@ -9,6 +9,7 @@ import {
   type HostToRemote,
   type RelayToRemote,
   type RemoteCommand,
+  type RemoteSongResult,
   type RemoteView,
 } from '@worship-q/protocol';
 
@@ -45,6 +46,7 @@ export class RemoteConnection {
   private state_: RemoteState;
   private readonly listeners = new Set<() => void>();
   private counter = 0;
+  private readonly searches = new Map<string, (songs: RemoteSongResult[]) => void>();
   readonly workspace: string;
   private invite: string | null;
 
@@ -139,6 +141,8 @@ export class RemoteConnection {
       clearInterval(heartbeat);
       if (this.socket !== socket) return;
       this.socket = null;
+      for (const resolve of this.searches.values()) resolve([]);
+      this.searches.clear();
       // Closing a dead connection can take long to finish, so this does not wait for it.
       socket.close();
       if (this.stopped) return;
@@ -177,6 +181,10 @@ export class RemoteConnection {
       case 'view':
         this.attempt = 0;
         return this.set({ kind: 'live', view: message.view });
+      case 'searchResults':
+        this.searches.get(message.id)?.(message.songs);
+        this.searches.delete(message.id);
+        return;
       case 'ack':
       case 'pong':
         return;
@@ -187,10 +195,28 @@ export class RemoteConnection {
     return this.socket?.readyState === WebSocket.OPEN && this.state_.kind === 'live';
   }
 
+  private newId(): string {
+    return `${Date.now().toString(36)}-${++this.counter}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
   send(command: RemoteCommand): void {
     if (!this.connected) return;
-    const id = `${Date.now().toString(36)}-${++this.counter}-${Math.random().toString(36).slice(2, 8)}`;
-    this.socket!.send(JSON.stringify({ type: 'command', id, command }));
+    this.socket!.send(JSON.stringify({ type: 'command', id: this.newId(), command }));
+  }
+
+  /**
+   * Searches the library for songs to add. Resolves with nothing when the connection is lost
+   * before the answer comes, or when a later search replaces this one.
+   */
+  search(query: string): Promise<RemoteSongResult[]> {
+    for (const resolve of this.searches.values()) resolve([]);
+    this.searches.clear();
+    if (!this.connected || !query.trim()) return Promise.resolve([]);
+    const id = this.newId();
+    return new Promise((resolve) => {
+      this.searches.set(id, resolve);
+      this.socket!.send(JSON.stringify({ type: 'search', id, query }));
+    });
   }
 
   /** Forget the approval on this phone, for example before handing it on. */

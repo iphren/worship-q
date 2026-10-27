@@ -517,6 +517,128 @@ describe('run-sheet edits in live mode', () => {
   });
 });
 
+describe('run-sheet edits from a remote controller', () => {
+  let a: Awaited<ReturnType<typeof song>>;
+  let b: Awaited<ReturnType<typeof song>>;
+  let c: Awaited<ReturnType<typeof song>>;
+  beforeEach(async () => {
+    a = await song('A', 'a1');
+    b = await song('B', 'b1');
+    c = await song('C', 'c1');
+    await plan(SUNDAY, [a.id, b.id]);
+    await reopen();
+  });
+
+  async function titles() {
+    return (await session.viewLive())!.entries.map((entry) => entry.song.title);
+  }
+  async function itemIds() {
+    return (await session.viewLive())!.entries.map((entry) => entry.item.id);
+  }
+
+  it('add a song at the end, at the top, or after an item', async () => {
+    const [first] = await itemIds();
+    await session.remoteEdit('1', { type: 'addItem', songId: c.id });
+    await session.remoteEdit('2', { type: 'addItem', songId: c.id, afterItemId: null });
+    await session.remoteEdit('3', { type: 'addItem', songId: c.id, afterItemId: first! });
+    expect(await titles()).toEqual(['C', 'A', 'C', 'B', 'C']);
+  });
+
+  it('add at the end after an item that is gone', async () => {
+    await session.remoteEdit('1', { type: 'addItem', songId: c.id, afterItemId: 'gone' });
+    expect(await titles()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('cannot add a song removed from the library', async () => {
+    await session.removeSong(c.id);
+    expect(await session.remoteEdit('1', { type: 'addItem', songId: c.id })).toBeNull();
+    expect(await titles()).toEqual(['A', 'B']);
+  });
+
+  it('move an item after another or to the top', async () => {
+    await session.addSong(SUNDAY, c.id);
+    const [ia, ib, ic] = await itemIds();
+    const moved = await session.remoteEdit('1', {
+      type: 'moveItem',
+      itemId: ia!,
+      afterItemId: ib!,
+    });
+    expect(moved).toMatchObject({ kind: 'moved', title: 'A', fromIndex: 0, toIndex: 1 });
+    expect(await titles()).toEqual(['B', 'A', 'C']);
+    await session.remoteEdit('2', { type: 'moveItem', itemId: ic!, afterItemId: null });
+    expect(await titles()).toEqual(['C', 'B', 'A']);
+  });
+
+  it('do not report a move that leaves the order as it was', async () => {
+    const [ia] = await itemIds();
+    expect(
+      await session.remoteEdit('1', { type: 'moveItem', itemId: ia!, afterItemId: null }),
+    ).toBeNull();
+  });
+
+  it('remove an item and leave the screen as it is', async () => {
+    await playAt(1, 0);
+    const [, ib] = await itemIds();
+    const removed = await session.remoteEdit('1', { type: 'removeItem', itemId: ib! });
+    expect(removed).toMatchObject({ kind: 'removed', title: 'B' });
+    expect(await titles()).toEqual(['A']);
+    expect(await shown()).toEqual(['b1']);
+  });
+
+  it('apply a repeated edit once', async () => {
+    await session.remoteEdit('same', { type: 'addItem', songId: c.id });
+    expect(await session.remoteEdit('same', { type: 'addItem', songId: c.id })).toBeNull();
+    expect(await titles()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('only reach the live run sheet', async () => {
+    const future = await plan(NEXT_SUNDAY, [a.id]);
+    const [other] = await store.listItems(future.id);
+    expect(await session.remoteEdit('1', { type: 'removeItem', itemId: other!.id })).toBeNull();
+    expect(await store.listItems(future.id)).toHaveLength(1);
+  });
+
+  it('do nothing once the presentation has ended', async () => {
+    await session.endPresentation();
+    expect(await session.remoteEdit('1', { type: 'addItem', songId: c.id })).toBeNull();
+  });
+
+  it('can be undone', async () => {
+    const added = (await session.remoteEdit('1', { type: 'addItem', songId: c.id }))!;
+    expect(await session.undoRemoteEdit(added)).toBe(true);
+    expect(await titles()).toEqual(['A', 'B']);
+
+    const [ia, ib] = await itemIds();
+    const moved = (await session.remoteEdit('2', {
+      type: 'moveItem',
+      itemId: ia!,
+      afterItemId: ib!,
+    }))!;
+    await session.undoRemoteEdit(moved);
+    expect(await titles()).toEqual(['A', 'B']);
+
+    const removed = (await session.remoteEdit('3', { type: 'removeItem', itemId: ia! }))!;
+    await session.undoRemoteEdit(removed);
+    expect(await itemIds()).toEqual([ia, ib]);
+  });
+
+  it('restore a removed presented item, so next continues from it', async () => {
+    const [ia] = await itemIds();
+    await playAt(0, 0);
+    const removed = (await session.remoteEdit('1', { type: 'removeItem', itemId: ia! }))!;
+    await session.undoRemoteEdit(removed);
+    await session.next();
+    expect(await shown()).toEqual(['b1']);
+  });
+
+  it('cannot be undone once another run sheet is live', async () => {
+    const added = (await session.remoteEdit('1', { type: 'addItem', songId: c.id }))!;
+    await session.goLive(NEXT_SUNDAY);
+    expect(await session.undoRemoteEdit(added)).toBe(false);
+    expect((await session.viewDate(SUNDAY)).entries).toHaveLength(3);
+  });
+});
+
 describe('ending', () => {
   beforeEach(async () => {
     const a = await song('A', 'a1');

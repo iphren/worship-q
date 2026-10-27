@@ -1,4 +1,4 @@
-import type { RemoteView } from '@worship-q/protocol';
+import type { RemoteSongResult, RemoteView } from '@worship-q/protocol';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { RemoteConnection } from './connection';
 
@@ -107,6 +107,7 @@ function Live({ view }: { view: RemoteView | null }) {
   // away from what this phone is about to tap.
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
+  const [editing, setEditing] = useState(false);
   const connected = connection.connected;
   const presentedItem = view?.presented?.itemId;
   const presentedPiece = view?.presented?.pieceId;
@@ -137,6 +138,7 @@ function Live({ view }: { view: RemoteView | null }) {
   }
 
   if (!view) return <Message title="Connecting…" />;
+  const canEdit = view.editable === true;
   const control = 'rounded-xl py-4 text-lg font-semibold active:scale-[0.98] disabled:opacity-40';
 
   return (
@@ -148,13 +150,25 @@ function Live({ view }: { view: RemoteView | null }) {
             {view.status === 'live' && view.date ? view.date : 'Presentation ended'}
           </p>
         </div>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs ${
-            connected ? 'bg-emerald-800 text-emerald-100' : 'bg-amber-800 text-amber-100'
-          }`}
-        >
-          {connected ? 'Connected' : 'Reconnecting…'}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs ${
+              connected ? 'bg-emerald-800 text-emerald-100' : 'bg-amber-800 text-amber-100'
+            }`}
+          >
+            {connected ? 'Connected' : 'Reconnecting…'}
+          </span>
+          {(canEdit || editing) && (
+            <button
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+                editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
+              }`}
+              onClick={() => setEditing(!editing)}
+            >
+              {editing ? 'Done' : 'Edit'}
+            </button>
+          )}
+        </div>
       </header>
 
       {view.previousContent && (
@@ -163,92 +177,98 @@ function Live({ view }: { view: RemoteView | null }) {
         </p>
       )}
 
-      <div className="relative min-h-0 flex-1">
-        <main ref={mainRef} className="h-full space-y-5 overflow-y-auto px-3 py-4">
-          {view.items.length === 0 && (
-            <p className="p-6 text-center text-sm text-slate-400">
-              The run sheet has no songs yet.
-            </p>
-          )}
-          {view.items.map((item) => (
-            <section key={item.itemId}>
-              <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
-                {item.title || 'Untitled song'}
-              </h2>
-              <div
-                className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
-              >
-                {item.pieces.map((piece) => {
-                  const active =
-                    view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
-                  return (
-                    <button
-                      key={piece.id}
-                      ref={active ? activeRef : undefined}
-                      disabled={!connected}
-                      onClick={() =>
-                        connection.send({
-                          type: 'playPiece',
-                          itemId: item.itemId,
-                          pieceId: piece.id,
-                        })
-                      }
-                      className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
-                        active
-                          ? view.blank
-                            ? 'border-amber-400 bg-amber-900/50'
-                            : 'border-emerald-500 bg-emerald-900/50 text-white'
-                          : // Alternate styles by block, as on the desktop.
-                            (piece.block ?? 0) % 2 === 0
-                            ? 'border-slate-700 bg-slate-900'
-                            : 'border-sky-700 bg-sky-900/60'
-                      }`}
-                    >
-                      {piece.thumbnail ? (
-                        <img
-                          src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
-                          alt={piece.lines.join(' ')}
-                          loading="lazy"
-                          className="block w-full rounded"
-                        />
-                      ) : (
-                        piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
-                      )}
-                    </button>
-                  );
-                })}
-                {item.pieces.length === 0 && (
-                  <p className="px-1 text-xs text-slate-500">This song has no lyrics.</p>
-                )}
-              </div>
-            </section>
-          ))}
-        </main>
-        {view.presented && !activeInView && (
-          <button
-            aria-label="Go to current slide"
-            onClick={() =>
-              activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-            }
-            className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
-              view.blank ? 'border-amber-400 text-amber-300' : 'border-emerald-500 text-emerald-300'
-            }`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
+      {editing ? (
+        <EditRunSheet view={view} connected={connected && canEdit} />
+      ) : (
+        <div className="relative min-h-0 flex-1">
+          <main ref={mainRef} className="h-full space-y-5 overflow-y-auto px-3 py-4">
+            {view.items.length === 0 && (
+              <p className="p-6 text-center text-sm text-slate-400">
+                The run sheet has no songs yet.
+              </p>
+            )}
+            {view.items.map((item) => (
+              <section key={item.itemId}>
+                <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
+                  {item.title || 'Untitled song'}
+                </h2>
+                <div
+                  className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+                >
+                  {item.pieces.map((piece) => {
+                    const active =
+                      view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
+                    return (
+                      <button
+                        key={piece.id}
+                        ref={active ? activeRef : undefined}
+                        disabled={!connected}
+                        onClick={() =>
+                          connection.send({
+                            type: 'playPiece',
+                            itemId: item.itemId,
+                            pieceId: piece.id,
+                          })
+                        }
+                        className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                          active
+                            ? view.blank
+                              ? 'border-amber-400 bg-amber-900/50'
+                              : 'border-emerald-500 bg-emerald-900/50 text-white'
+                            : // Alternate styles by block, as on the desktop.
+                              (piece.block ?? 0) % 2 === 0
+                              ? 'border-slate-700 bg-slate-900'
+                              : 'border-sky-700 bg-sky-900/60'
+                        }`}
+                      >
+                        {piece.thumbnail ? (
+                          <img
+                            src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                            alt={piece.lines.join(' ')}
+                            loading="lazy"
+                            className="block w-full rounded"
+                          />
+                        ) : (
+                          piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
+                        )}
+                      </button>
+                    );
+                  })}
+                  {item.pieces.length === 0 && (
+                    <p className="px-1 text-xs text-slate-500">This song has no lyrics.</p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </main>
+          {view.presented && !activeInView && (
+            <button
+              aria-label="Go to current slide"
+              onClick={() =>
+                activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }
+              className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                view.blank
+                  ? 'border-amber-400 text-amber-300'
+                  : 'border-emerald-500 text-emerald-300'
+              }`}
             >
-              <circle cx="12" cy="12" r="7" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-            </svg>
-          </button>
-        )}
-      </div>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <circle cx="12" cy="12" r="7" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
 
       <footer className="grid grid-cols-4 gap-2 border-t border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
@@ -280,6 +300,215 @@ function Live({ view }: { view: RemoteView | null }) {
           Next ›
         </button>
       </footer>
+    </div>
+  );
+}
+
+/** Adding, removing and reordering the live run sheet's songs. */
+function EditRunSheet({ view, connected }: { view: RemoteView; connected: boolean }) {
+  const [adding, setAdding] = useState(false);
+  // A remove waits for a second tap, so a slip of the finger does not take a song out.
+  const [removing, setRemoving] = useState<string | null>(null);
+  useEffect(() => {
+    if (!removing) return;
+    const timer = setTimeout(() => setRemoving(null), 4000);
+    return () => clearTimeout(timer);
+  }, [removing]);
+
+  if (adding) return <AddSongs view={view} connected={connected} onDone={() => setAdding(false)} />;
+  const { items } = view;
+  const button =
+    'h-10 w-10 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
+
+  return (
+    <main className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-4">
+      {items.length === 0 && (
+        <p className="p-6 text-center text-sm text-slate-400">The run sheet has no songs yet.</p>
+      )}
+      <ol className="space-y-2">
+        {items.map((item, index) => (
+          <li
+            key={item.itemId}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+              view.presented?.itemId === item.itemId
+                ? 'border-emerald-500 bg-emerald-900/40'
+                : 'border-slate-700 bg-slate-900'
+            }`}
+          >
+            <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-[15px] text-white">
+              {item.title || 'Untitled song'}
+            </span>
+            <button
+              aria-label="Move up"
+              className={button}
+              disabled={!connected || index === 0}
+              onClick={() =>
+                connection.send({
+                  type: 'moveItem',
+                  itemId: item.itemId,
+                  afterItemId: index >= 2 ? items[index - 2]!.itemId : null,
+                })
+              }
+            >
+              ↑
+            </button>
+            <button
+              aria-label="Move down"
+              className={button}
+              disabled={!connected || index === items.length - 1}
+              onClick={() =>
+                connection.send({
+                  type: 'moveItem',
+                  itemId: item.itemId,
+                  afterItemId: items[index + 1]!.itemId,
+                })
+              }
+            >
+              ↓
+            </button>
+            {removing === item.itemId ? (
+              <button
+                className="h-10 shrink-0 rounded-lg bg-red-700 px-3 text-sm font-semibold text-white active:scale-95"
+                disabled={!connected}
+                onClick={() => {
+                  setRemoving(null);
+                  connection.send({ type: 'removeItem', itemId: item.itemId });
+                }}
+              >
+                Remove
+              </button>
+            ) : (
+              <button
+                aria-label="Remove"
+                className={button}
+                disabled={!connected}
+                onClick={() => setRemoving(item.itemId)}
+              >
+                ✕
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+      <button
+        className="w-full rounded-lg border border-dashed border-slate-600 py-3 text-[15px] font-semibold text-sky-300 active:scale-[0.98] disabled:opacity-40"
+        disabled={!connected}
+        onClick={() => setAdding(true)}
+      >
+        + Add a song
+      </button>
+    </main>
+  );
+}
+
+const KIND_LABEL: Record<RemoteSongResult['kind'], string | null> = {
+  lyrics: null,
+  deck: 'Slides',
+  website: 'Website',
+};
+
+/** The library search, as on the presenting computer, adding songs to the live run sheet. */
+function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void }) {
+  const { view, connected } = props;
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<{ query: string; songs: RemoteSongResult[] } | null>(null);
+  // Songs added from this search, so each button shows it worked.
+  const [added, setAdded] = useState<string[]>([]);
+  useEffect(() => {
+    const search = query.trim();
+    if (!search) return setResults(null);
+    let current = true;
+    const timer = setTimeout(() => {
+      void connection.search(search).then((songs) => {
+        if (current) setResults({ query: search, songs });
+      });
+    }, 200);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [query, connected]);
+
+  const presented = view.presented?.itemId;
+  function add(songId: string, next: boolean) {
+    connection.send(
+      next && presented
+        ? { type: 'addItem', songId, afterItemId: presented }
+        : { type: 'addItem', songId },
+    );
+    setAdded((list) => [...list, songId]);
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex gap-2 border-b border-slate-800 p-3">
+        <input
+          autoFocus
+          type="search"
+          autoCorrect="off"
+          autoCapitalize="off"
+          autoComplete="off"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
+          placeholder="Search library to add"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <button
+          className="rounded-lg bg-slate-800 px-3 text-sm font-semibold"
+          onClick={props.onDone}
+        >
+          Back
+        </button>
+      </div>
+      <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
+        {results?.songs.length === 0 && results.query === query.trim() && (
+          <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
+        )}
+        {results?.songs.map((song) => {
+          const label = KIND_LABEL[song.kind];
+          const count = added.filter((id) => id === song.id).length;
+          return (
+            <li key={song.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+              <div className="mb-1 flex items-baseline gap-2">
+                {label && (
+                  <span className="shrink-0 rounded bg-slate-700 px-1.5 text-[11px] text-slate-200">
+                    {label}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+                  {song.title || 'Untitled song'}
+                </span>
+                {count > 0 && <span className="shrink-0 text-xs text-emerald-400">Added</span>}
+              </div>
+              {song.preview.length > 0 && (
+                <p className="mb-2 line-clamp-2 text-xs text-slate-400">
+                  {song.preview.join(' / ')}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
+                  disabled={!connected}
+                  onClick={() => add(song.id, false)}
+                >
+                  Add to end
+                </button>
+                {presented && (
+                  <button
+                    className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
+                    disabled={!connected}
+                    onClick={() => add(song.id, true)}
+                  >
+                    Add after current
+                  </button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

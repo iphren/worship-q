@@ -5,16 +5,21 @@
  * Scanning an invitation requests access; it never grants control by itself. An operator
  * approves each request after checking that the code on the phone matches the one shown
  * here. An approval gives the phone a grant it uses to reconnect, until an operator
- * disconnects it. Remote controllers can only navigate the live run sheet: they cannot
- * edit, go live with another date, or change settings.
+ * disconnects it. Remote controllers navigate the live run sheet and add, remove and
+ * reorder its items, finding songs with the operator's search. They cannot edit songs, go
+ * live with another date, or change settings. Each edit is shown to the operator here, with
+ * a way to undo it.
  */
 import {
   isCompatibleProtocol,
+  isRemoteEdit,
   RemoteToHostSchema,
   type HostToRemote,
+  type RemoteSongResult,
   type RemoteView,
+  type Song,
 } from '@worship-q/protocol';
-import type { Session } from '@worship-q/session';
+import type { RunSheetChange, Session } from '@worship-q/session';
 
 /** How the host reaches remote connections: through the instance relay. */
 export interface RemoteLink {
@@ -37,12 +42,26 @@ export interface RemoteController {
   name: string;
 }
 
+/** A remote controller's run-sheet edit, shown to the operator until dismissed or expired. */
+export interface RemoteNotice {
+  id: string;
+  /** The controller's name. */
+  name: string;
+  change: RunSheetChange;
+  at: number;
+}
+
 /** How long an invitation in a QR code or link stays valid. */
 export const INVITE_MS = 15 * 60 * 1000;
 /** A request not answered in this time is dropped. */
 const REQUEST_MS = 5 * 60 * 1000;
 /** Bursts of changes are sent to phones together. */
 const VIEW_DELAY_MS = 80;
+/** How long the operator is shown a remote edit, and can undo it from the notice. */
+export const NOTICE_MS = 20_000;
+/** Songs sent for one search; the phone asks for more by typing more. */
+const SEARCH_LIMIT = 50;
+const PREVIEW_LINES = 4;
 
 function randomToken(bytes = 18): string {
   const data = crypto.getRandomValues(new Uint8Array(bytes));
@@ -97,6 +116,22 @@ export async function buildRemoteView(
         : null,
     previousContent: previous,
     blank: session.isLive && (live?.blank ?? false),
+    editable: session.isLive,
+  };
+}
+
+/** A song as a remote controller's search shows it. */
+export function remoteSongResult(song: Song): RemoteSongResult {
+  const preview = song.website
+    ? [song.website.url]
+    : song.deck
+      ? (song.deck.pages.find((page) => page.text.length > 0)?.text ?? [])
+      : song.lyrics.split('\n').filter((line) => line.trim() !== '');
+  return {
+    id: song.id,
+    title: song.title,
+    kind: song.website ? 'website' : song.deck ? 'deck' : 'lyrics',
+    preview: preview.slice(0, PREVIEW_LINES),
   };
 }
 
@@ -105,6 +140,8 @@ export class RemoteHost {
   private invites: { secret: string; at: number }[] = [];
   private readonly requests = new Map<string, RemoteRequest>();
   private readonly controllers = new Map<string, RemoteController>();
+  private notices_: RemoteNotice[] = [];
+  private readonly noticeTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly listeners = new Set<() => void>();
   private viewTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -128,6 +165,37 @@ export class RemoteHost {
 
   get connected(): RemoteController[] {
     return [...this.controllers.values()];
+  }
+
+  /** Remote edits to show the operator, oldest first. */
+  get notices(): RemoteNotice[] {
+    return this.notices_;
+  }
+
+  private notify(name: string, change: RunSheetChange): void {
+    const notice: RemoteNotice = { id: randomToken(9), name, change, at: this.clock() };
+    this.notices_ = [...this.notices_, notice];
+    this.noticeTimers.set(
+      notice.id,
+      setTimeout(() => this.dismiss(notice.id), NOTICE_MS),
+    );
+    this.changed();
+  }
+
+  dismiss(id: string): void {
+    clearTimeout(this.noticeTimers.get(id));
+    this.noticeTimers.delete(id);
+    const before = this.notices_.length;
+    this.notices_ = this.notices_.filter((notice) => notice.id !== id);
+    if (this.notices_.length !== before) this.changed();
+  }
+
+  /** Undoes the edit a notice reports. False when it can no longer be undone. */
+  async undo(id: string): Promise<boolean> {
+    const notice = this.notices_.find((candidate) => candidate.id === id);
+    if (!notice) return false;
+    this.dismiss(id);
+    return this.session.undoRemoteEdit(notice.change);
   }
 
   /** True while the instance relay is connected and this device receives phones. */
@@ -162,6 +230,9 @@ export class RemoteHost {
 
   dispose(): void {
     this.detach();
+    for (const timer of this.noticeTimers.values()) clearTimeout(timer);
+    this.noticeTimers.clear();
+    this.notices_ = [];
     this.unsubscribe?.();
     this.unsubscribe = null;
     if (this.viewTimer) clearTimeout(this.viewTimer);
@@ -234,8 +305,32 @@ export class RemoteHost {
     }
 
     // Pings are answered by the relay and never reach the coordinator.
-    if (message.type !== 'command' || !this.controllers.has(from)) return;
-    const applied = await this.session.remoteCommand(message.id, message.command);
+    const controller = this.controllers.get(from);
+    if (!controller) return;
+    if (message.type === 'search') {
+      const query = message.query.trim();
+      const songs = query
+        ? (await this.session.store.listSongs(this.session.workspace.id, query)).slice(
+            0,
+            SEARCH_LIMIT,
+          )
+        : [];
+      return link.send(from, {
+        type: 'searchResults',
+        id: message.id,
+        songs: songs.map(remoteSongResult),
+      });
+    }
+    if (message.type !== 'command') return;
+    const { command } = message;
+    let applied: boolean;
+    if (isRemoteEdit(command)) {
+      const change = await this.session.remoteEdit(message.id, command);
+      if (change) this.notify(controller.name, change);
+      applied = change !== null;
+    } else {
+      applied = await this.session.remoteCommand(message.id, command);
+    }
     link.send(from, { type: 'ack', id: message.id, applied });
   }
 

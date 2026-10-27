@@ -214,7 +214,10 @@ code. The operator sees the same code in a banner and approves it. The phone the
 approved until someone chooses **Disconnect** or **Disconnect all**.
 
 Phones can move between slides, jump to any slide of the live run sheet, and blank the
-screen. They cannot edit, go live with another date, or change settings. Remote control
+screen. With **Edit** they can also search the library and add, remove, or reorder songs on
+the live run sheet; the operator sees each change in a banner, with **Undo**. Approve only
+people you trust with the service order. Phones cannot edit songs, go live with another date,
+or change settings. Remote control
 needs internet at the venue: phones connect through the server, not over the local network.
 
 ## Known limits of this version

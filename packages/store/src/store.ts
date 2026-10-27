@@ -614,13 +614,45 @@ export class Store {
     };
   }
 
-  /** Adds a song to the end of a run sheet. The same song may be added more than once. */
-  async addItem(runSheetId: string, songId: string): Promise<RunSheetItem> {
+  /**
+   * Adds a song to a run sheet, at `index` or else at the end. The same song may be added
+   * more than once.
+   */
+  async addItem(runSheetId: string, songId: string, index?: number): Promise<RunSheetItem> {
     const now = this.env.now();
     const items = await this.listItems(runSheetId);
-    const item = this.newItem(runSheetId, songId, items.length, now);
-    await this.db.batch([this.itemInsert(item), this.touchRunSheet(runSheetId, now)]);
+    const at = Math.max(0, Math.min(items.length, index ?? items.length));
+    const item = this.newItem(runSheetId, songId, at, now);
+    items.splice(at, 0, item);
+    await this.db.batch([
+      ...this.reposition(items, now),
+      this.itemInsert(item),
+      this.touchRunSheet(runSheetId, now),
+    ]);
     return item;
+  }
+
+  /**
+   * Puts a removed item back at its old position, under its own identifier, so a live state
+   * presenting it follows it again. Nothing happens if the item or its run sheet is gone.
+   */
+  async restoreItem(item: RunSheetItem): Promise<boolean> {
+    if (!(await this.getRunSheet(item.runSheetId))) return false;
+    const existing = await this.db.select<Row>('SELECT 1 FROM run_sheet_item WHERE id = ?', [
+      item.id,
+    ]);
+    if (existing.length > 0) return false;
+    const now = this.env.now();
+    const items = await this.listItems(item.runSheetId);
+    const at = Math.max(0, Math.min(items.length, item.position));
+    const restored = { ...item, position: at, revision: item.revision + 1, updatedAt: now };
+    items.splice(at, 0, restored);
+    await this.db.batch([
+      ...this.reposition(items, now),
+      this.itemInsert(restored),
+      this.touchRunSheet(item.runSheetId, now),
+    ]);
+    return true;
   }
 
   private reposition(ordered: RunSheetItem[], now: string): Statement[] {

@@ -125,7 +125,14 @@ export interface EnrollResponse {
 
 // ── Remote control ─────────────────────────────────────────────────────────
 
-/** Commands a remote controller may send: navigation only, never editing or Go live. */
+/**
+ * Commands a remote controller may send: navigation, and adding, removing and reordering
+ * items of the live run sheet. Never song editing, other dates or Go live.
+ *
+ * Edits name items rather than positions, so one made from a slightly old view still lands
+ * where it was meant to. `afterItemId` null means the top of the run sheet; an added song
+ * without it goes to the end.
+ */
 export const RemoteCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('playPiece'), itemId: z.string(), pieceId: z.string() }),
   z.object({ type: z.literal('next') }),
@@ -135,8 +142,24 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('blank') }),
   z.object({ type: z.literal('unblank') }),
   z.object({ type: z.literal('clear') }),
+  z.object({
+    type: z.literal('addItem'),
+    songId: z.string(),
+    afterItemId: z.string().nullable().optional(),
+  }),
+  z.object({ type: z.literal('removeItem'), itemId: z.string() }),
+  z.object({ type: z.literal('moveItem'), itemId: z.string(), afterItemId: z.string().nullable() }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
+export type RemoteEditCommand = Extract<
+  RemoteCommand,
+  { type: 'addItem' | 'removeItem' | 'moveItem' }
+>;
+export type RemoteNavigationCommand = Exclude<RemoteCommand, RemoteEditCommand>;
+
+export function isRemoteEdit(command: RemoteCommand): command is RemoteEditCommand {
+  return command.type === 'addItem' || command.type === 'removeItem' || command.type === 'moveItem';
+}
 
 /** From a remote controller to the coordinator. */
 export const RemoteToHostSchema = z.discriminatedUnion('type', [
@@ -155,6 +178,12 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
     id: z.string().min(1).max(100),
     command: RemoteCommandSchema,
   }),
+  /** Searches the library for songs to add, as the operator's search does. */
+  z.object({
+    type: z.literal('search'),
+    id: z.string().min(1).max(100),
+    query: z.string().max(200),
+  }),
   /** Answered by the relay, so a phone notices a connection lost while it slept. */
   z.object({ type: z.literal('ping') }),
 ]);
@@ -171,6 +200,16 @@ export interface RemoteItemView {
   pieces: { id: string; lines: string[]; block?: number; thumbnail?: string }[];
 }
 
+/** A song found by a remote controller's search. */
+export interface RemoteSongResult {
+  id: string;
+  title: string;
+  /** Imported slides and websites are marked as on the desktop. */
+  kind: 'lyrics' | 'deck' | 'website';
+  /** The first lines of the lyrics, a deck's first slide text, or a website's address. */
+  preview: string[];
+}
+
 /** What a remote controller is shown of the live presentation. */
 export interface RemoteView {
   workspaceName: string;
@@ -181,6 +220,8 @@ export interface RemoteView {
   /** The screen still shows a slide from the previous run sheet. */
   previousContent: boolean;
   blank: boolean;
+  /** True when the live run sheet can be edited; desktops before it was added leave it out. */
+  editable?: boolean;
 }
 
 /** From the coordinator to a remote controller. */
@@ -191,7 +232,8 @@ export type HostToRemote =
   | { type: 'approved'; grant: string }
   | { type: 'denied'; reason: 'denied' | 'invalid-invite' | 'revoked' }
   | { type: 'view'; view: RemoteView }
-  | { type: 'ack'; id: string; applied: boolean };
+  | { type: 'ack'; id: string; applied: boolean }
+  | { type: 'searchResults'; id: string; songs: RemoteSongResult[] };
 
 /** From the instance to a remote controller, about the connection itself. */
 export type RelayToRemote =

@@ -12,7 +12,11 @@ import {
   type Page,
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
-import { RemoteControlDialog, RemoteRequestsBanner } from './components/RemoteControl';
+import {
+  RemoteControlDialog,
+  RemoteEditsBanner,
+  RemoteRequestsBanner,
+} from './components/RemoteControl';
 import { UpdateBanner } from './components/UpdateBanner';
 import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
 import { formatDate, t, type MessageKey } from './i18n';
@@ -87,6 +91,7 @@ function Shell({ booted }: { booted: Booted }) {
         <Sidebar page={page} />
         <div className="flex min-w-0 flex-1 flex-col">
           <RemoteRequestsBanner />
+          <RemoteEditsBanner />
           <UpdateBanner />
           <div className="min-h-0 flex-1">
             {page === 'songs' && <SongsPage />}
