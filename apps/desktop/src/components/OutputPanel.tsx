@@ -131,17 +131,17 @@ export function OutputPanel(props: { compact?: boolean }) {
           primary: true,
         })
       : action('windowed', t('output.windowedAction'), () => output.makeWindowed());
-  const close = closed
-    ? null
-    : action('close', t('output.closeAction'), () => output.close(), {
-        danger: true,
-      });
+  const close = action('close', t('output.closeAction'), () => output.close(), {
+    danger: !closed,
+    disabled: closed,
+  });
 
+  // The toolbar keeps every button in place, so Close stays there, unavailable, while closed.
   if (props.compact) {
     return (
       <>
-        {mode}
         <ScreenMenu warn={warn}>{screens}</ScreenMenu>
+        {mode}
         {close}
       </>
     );
@@ -151,7 +151,7 @@ export function OutputPanel(props: { compact?: boolean }) {
       {screens}
       <div className="flex flex-wrap gap-2">
         {mode}
-        {close}
+        {!closed && close}
       </div>
     </div>
   );
