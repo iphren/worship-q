@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/iphren/worship-q/compare/v0.2.0...v0.3.0) (2026-10-27)
+
+
+### Features
+
+* add locate button and improve slide following functionality ([a899c23](https://github.com/iphren/worship-q/commit/a899c2386c61b0b825f404da9a95c4ff2604c84d))
+* enhance window restoration logic and state management ([2f2477f](https://github.com/iphren/worship-q/commit/2f2477f3695ba0537b875dd87fbcbdb11df6261b))
+* implement ping-pong mechanism for connection stability and timeout handling ([9b3e9f8](https://github.com/iphren/worship-q/commit/9b3e9f81983baea80ba13c8048f8abe51e126538))
+
 ## [0.2.0](https://github.com/iphren/worship-q/compare/v0.1.0...v0.2.0) (2026-10-25)
 
 
