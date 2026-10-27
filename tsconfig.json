@@ -21,6 +21,8 @@
     "apps/desktop/src",
     "apps/server/src",
     "apps/remote/src",
+    "apps/website/src",
+    "apps/website/vite.config.ts",
     "apps/desktop/vite.config.ts",
     "vitest.config.ts"
   ]

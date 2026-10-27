@@ -72,6 +72,7 @@ packages/sync/         Content synchronization with a church server
 packages/remote/       Remote control on the presenting computer: approvals, commands
 apps/server/           Church server: sync, backups, church defaults, remote-control relay
 apps/remote/           Phone remote-control page, served by the church server
+apps/website/          worship-q.com: the download page, on GitHub Pages
 ```
 
 The Rust core is limited to windows, files, fonts and the database. Everything else is
@@ -85,6 +86,19 @@ One SQLite database and a `backgrounds` folder in the app's data directory:
 - Windows: `%APPDATA%\com.worship-q.desktop`
 
 Settings → Backup saves and restores both as a single `.worshipq` file.
+
+## Website
+
+`apps/website` is the download page at [worship-q.com](https://worship-q.com). Its buttons
+link to `releases/latest/download/Worship-Q-universal.dmg` and `Worship-Q-setup.exe`, copies
+the Release workflow attaches to every release, and the build writes in the latest release's
+version and date. `.github/workflows/website.yml` deploys it to GitHub Pages whenever a
+release is published or the site changes; run it by hand after pointing "latest" at another
+release.
+
+```sh
+pnpm --filter @worship-q/website dev
+```
 
 ## Church server
 

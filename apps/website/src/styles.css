@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+body {
+  background: #020617;
+  color: #e2e8f0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
+
+.download {
+  @apply flex items-center gap-4 rounded-xl border border-slate-700 bg-slate-900 px-5 py-4 text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800;
+}
+
+.download[data-primary] {
+  @apply border-amber-300 bg-amber-300 text-slate-950 hover:border-amber-200 hover:bg-amber-200;
+}
+
+.download small {
+  @apply block text-sm text-slate-400;
+}
+
+.download[data-primary] small {
+  @apply text-slate-800;
+}
