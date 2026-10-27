@@ -89,18 +89,6 @@ jobs:
           jq -e --arg v "${TAG#v}" '.version == $v' latest.json > /dev/null \
             || { echo "latest.json is not version ${TAG#v}"; exit 1; }
           echo "latest.json covers every platform for $TAG. Test the installers, then publish the draft."
-      # The website links to releases/latest/download/<name>, so these names never change.
-      - name: Attach the installers under fixed names
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.release-please.outputs.tag }}
-        run: |
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir versioned \
-            --pattern '*_universal.dmg' --pattern '*_x64-setup.exe'
-          cp versioned/*_universal.dmg Worship-Q-universal.dmg
-          cp versioned/*_x64-setup.exe Worship-Q-setup.exe
-          gh release upload "$TAG" Worship-Q-universal.dmg Worship-Q-setup.exe \
-            --repo "$GITHUB_REPOSITORY" --clobber
       - name: Attach SHA256SUMS.txt
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
