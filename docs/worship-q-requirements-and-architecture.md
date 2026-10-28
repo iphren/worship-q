@@ -712,6 +712,15 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | Semantic verse/chorus structures | Deferred |
 | True mobile external-display presentation | Later/platform-dependent |
 | Automatic coordinator failover | Deferred; not promised for v1 |
+| Live audio broadcast to remote operators and controllers | Later; see below |
+| Voice recognition with automatic slide switching | Later; see below |
+
+### Future improvements noted
+
+These ideas are recorded for later consideration. They are not part of the proposed first release and have no agreed design.
+
+- **Live audio broadcast to remote operators and controllers.** One device at the venue captures the live service audio and broadcasts it with near-zero latency to other operator devices and approved remote controllers. An operator or controller at home could then follow the service by ear and switch slides in time, without being in the room. Transport (for example WebRTC), latency targets, audio source selection, bandwidth over the cloud relay, and permissions remain open.
+- **Voice recognition and automatic slide switching.** Recognize the sung or spoken lyrics from the live audio and advance to the matching slide automatically, with operators able to override at any time. Recognition approach (on-device or service-based), language coverage, matching against the live run sheet, confidence thresholds, and how it interacts with manual control remain open.
 
 
 ## 18. Candidate domain model and protocol
