@@ -7,6 +7,7 @@ desktop app that needs no church instance, account or network.
 
 - [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)
 - [Phase 1 task breakdown](docs/phase-1-task-breakdown.md)
+- [Phase 2 plan](docs/phase-2-plan.md)
 - [Volunteer guide](docs/volunteer-guide.md)
 - [Church server deployment](docs/server-deployment.md)
 
