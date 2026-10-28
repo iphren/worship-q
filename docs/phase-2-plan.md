@@ -49,6 +49,7 @@ Each gap is listed against the spec section or acceptance criterion it fails.
 | G19 | **Server uses SQLite, not PostgreSQL** | §15 |
 | G20 | **Cache readiness is not shown.** No view of which songs, backgrounds, and fonts are on this device for offline use | §14 |
 | G21 | **Moving a local workspace into a church** exists as Keep both / Use the church's copy at join time, but does not merge run sheets for the same date | §3 |
+| G22 | **Phones can only be invited and approved on the computer that receives them.** Another desktop shows **Use this computer** instead of the QR code; the spec lets any operator device show the invitation and approve | §4 |
 
 G19 is a deliberate simplification: one SQLite file is easier for a small church to run and back up. The spec should record it as a decision rather than treat it as work.
 
@@ -92,9 +93,10 @@ These continue the phase 1 numbering. Each one has a recommendation so work can 
 | D19 | LAN security protocol | TLS with a self-signed certificate per coordinator. Its fingerprint goes to devices through the church server (and in invitation QR codes), so they can recognize the right coordinator. Each device still proves itself with its device token or remote grant | M5 |
 | D20 | Discovery | mDNS on the LAN, advertising only the workspace's server identifier. The server also tells devices the coordinator's last known LAN addresses. If neither works, connect through the relay | M5 |
 | D21 | One authority across transports | A device connects to the coordinator over exactly one transport at a time; it prefers LAN and switches without losing commands, using the existing command identifiers | M6 |
-| D22 | Browser display access | A per-output link holding a revocable output token, created on an operator device, stable across dates and restarts so a browser or OBS keeps it | M7 |
+| D22 | Browser display access | A per-output link holding a revocable output token, created on an operator device under Settings → Outputs and shown there with Copy and a QR code. The link is self-contained: the token is in the link, and the page keeps nothing in browser storage, sets no cookies and asks for no sign-in, so a fresh browser or an OBS Browser Source shows the output the first time the link is opened. The link stays the same across dates, run-sheet changes, app restarts and coordinator handover, and stops working only when revoked from Settings → Outputs | M7 |
 | D23 | Keychain storage | Use the platform keychain through a Tauri plugin; move the existing token on first launch and remove it from the database | M8 |
 | D24 | Live run-sheet edits from other operators | Sent to the coordinator as the same intent-based commands phones use (`addItem`, `removeItem`, `moveItem`). Other operators see the same notice as for a phone edit, without Undo | M2 |
+| D25 | Inviting and approving phones from any operator device | Every operator device shows its own rotating invitation QR and approves the phones that scan it, as one desktop does today. On approval the device registers the grant with the coordinator, which keeps the workspace's grant list and mirrors it to the server with the live state. A phone's commands enter through the device it is connected to and are forwarded to the coordinator as that device's commands (D24). Because the grant belongs to the workspace, not the approving computer, the phone can later connect to any operator device, including the coordinator over the LAN, without a new scan. The relay routes a phone to the device whose invitation it holds, and the one-desktop-per-workspace rule and standby state go away | M2 |
 
 ## 5. Milestones
 
@@ -125,9 +127,11 @@ Throwaway code to confirm the riskiest parts:
 - Go live, Clear screen, blank and live run-sheet edits from any operator device go through the coordinator (D24).
 - Edit mode stays per device: preparing another date on a follower never touches the live state (spec §7).
 - **Use this computer** hands over coordination without changing what is on screen.
+- Every operator device shows its own invitation QR and approves its own phones per D25 (G22); grants are registered with the coordinator, and phone commands are forwarded to it. **Use this computer** moves out of the remote-control window and becomes only the coordination handover.
+- When an operator device disconnects, its phones reconnect to another operator device with their existing grant, preferring the coordinator, and show **Reconnecting** meanwhile.
 - The kept-too-long notification and expiry count only connected operator devices.
 
-**Done when:** spec criterion 18 holds with two operator devices, and the handover leaves every screen unchanged.
+**Done when:** spec criterion 18 holds with two operator devices, the handover leaves every screen unchanged, and a phone that scans the QR on the follower and is approved there controls the slides on both computers, and keeps control after that follower is closed.
 
 ### M3 — Viewer mode (S)
 
@@ -151,8 +155,8 @@ Throwaway code to confirm the riskiest parts:
 
 - The coordinator serves the M1 protocol over TLS on the LAN per D19, advertised by mDNS per D20.
 - Desktops connect over the LAN when they find the coordinator; certificate fingerprint and device token are both checked.
-- Phones on the venue Wi-Fi: the invitation QR also carries the coordinator's LAN address and fingerprint. If the phone browser will not accept the certificate, it uses the relay and says so. Native phone apps (later phase) are what make offline phone control dependable.
-- Offline approval: the coordinator approves phones itself, as it already does through the relay; record approvals and send them to the server when it is reachable.
+- Phones on the venue Wi-Fi: the invitation QR also carries the coordinator's LAN address and fingerprint, whichever operator device showed it. A phone approved on a follower therefore connects to the coordinator over the LAN with its workspace grant (D25). If the phone browser will not accept the certificate, it uses the relay and says so. Native phone apps (later phase) are what make offline phone control dependable.
+- Offline approval: the approving operator device grants as usual and registers the grant with the coordinator over the LAN; the coordinator sends the grant list to the server when it is reachable.
 
 **Done when:** with the venue router's internet unplugged, two desktops keep presenting together, and a device without credentials on the same network cannot connect or read traffic (criteria 5, 32).
 
@@ -167,16 +171,17 @@ Throwaway code to confirm the riskiest parts:
 ### M7 — Browser outputs (M)
 
 - Slideshow and subtitle overlay pages served by the church server, following the workspace's live state through the relay.
-- Output links per D22, created and revoked under Settings → Outputs.
+- Output links per D22, created and revoked under Settings → Outputs. The pages work with browser storage and cookies disabled; a standalone OBS laptop with only the overlay link configured shows subtitles as soon as OBS opens, with internet.
+- A localhost slideshow page served by the desktop app next to the existing subtitle overlay, at the same fixed port, so a browser or OBS on a computer running the app can show the full slideshow without internet (spec §10 localhost exception). The desktop app reaches the coordinator over the LAN or the relay; the localhost page only needs the app.
 - Fonts: the page uses the workspace's font when the browser has it, otherwise a documented fallback, and reports which (spec §11).
 - Backgrounds fetched from the server and cached by the browser.
 
-**Done when:** a computer without the desktop app shows the slideshow in a browser with only the link, and OBS on another computer keeps the same overlay link across weeks (criteria 3, 6).
+**Done when:** a computer without the desktop app shows the slideshow in a browser with only the link; a laptop with a fresh OBS profile and no desktop app shows the overlay after pasting the link and nothing else, and keeps it across weeks; and a browser on a computer running the desktop app shows the localhost slideshow with the venue's internet unplugged (criteria 3, 6).
 
 ### M8 — Connected devices and credentials (S)
 
 - A **Connected devices** list on operator devices: name, role (coordinator, operator, viewer, phone, browser output), connection type, last seen.
-- **Disconnect all** covers phones and browser outputs.
+- **Disconnect all** clears the coordinator's grant list, so it covers phones connected through any operator device, and browser outputs.
 - Device tokens in the keychain per D23.
 - Capabilities (fonts, screens, transparency, media) reported by each device and used to warn, for example when a follower lacks the workspace font.
 
