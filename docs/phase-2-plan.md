@@ -57,13 +57,13 @@ G19 is a deliberate simplification: one SQLite file is easier for a small church
 
 At a venue with a projector computer and a separate streaming computer, and with or without internet:
 
-1. both computers show the same live slide, the projector computer on the slideshow and the streaming computer through OBS;
+1. both computers show the same live slide, the projector computer on the slideshow and the streaming computer through OBS (without internet, the streaming computer runs the desktop app and uses its localhost pages);
 2. an operator at either computer, or a phone on the venue Wi-Fi, can move the slides, and every screen follows;
 3. a projector computer set up as a viewer opens as a viewer every week and never takes over;
 4. if the presenting computer crashes, another computer carries on from the same slide;
 5. a device on the venue network without credentials can neither read nor send anything.
 
-This covers G1–G7 and G10, which together are the spec's **Networked** scenario and the unfinished parts of criteria 5, 6, 8, 9, 31 and 32. The rest of the gaps are planned for later phases in section 6.
+This covers G1–G7, G10 and G22, which together are the spec's **Networked** scenario and the unfinished parts of criteria 5, 6, 8, 9, 31 and 32. The rest of the gaps are planned for later phases in section 7.
 
 ## 3. Scope
 
@@ -85,7 +85,7 @@ These continue the phase 1 numbering. Each one has a recommendation so work can 
 
 | # | Decision | Recommendation | Blocks |
 | --- | --- | --- | --- |
-| D14 | Who is coordinator | Kept from today: the first operator device of the workspace to connect. Another takes over only when an operator chooses **Use this computer**. No election | M1 |
+| D14 | Who is coordinator | Kept from today: the first operator device of the workspace to connect to the server. Another takes over only when an operator chooses **Use this computer**. No election. Without the server (M5), a desktop browses mDNS for a few seconds before coordinating, and follows a coordinator it finds. If two coordinators ever meet, over the LAN or when the server returns, the one whose live state has the older start keeps it and the other becomes a follower; its slideshow jumps to the kept state | M1, M5 |
 | D15 | Where the coordinator runs | Desktop app only in phase 2. A browser cannot accept LAN connections, and there is no phone app yet | M1 |
 | D16 | What a viewer can see (spec open decision) | The live run sheet and presented slide, read-only, with its own outputs following. No controls, no editing | M3 |
 | D17 | Live-state backup period | The coordinator sends a snapshot to the server on every change, throttled to one a second. The server keeps it until the live state expires | M4 |
@@ -96,11 +96,13 @@ These continue the phase 1 numbering. Each one has a recommendation so work can 
 | D22 | Browser display access | A per-output link holding a revocable output token, created on an operator device under Settings → Outputs and shown there with Copy and a QR code. The link is self-contained: the token is in the link, and the page keeps nothing in browser storage, sets no cookies and asks for no sign-in, so a fresh browser or an OBS Browser Source shows the output the first time the link is opened. The link stays the same across dates, run-sheet changes, app restarts and coordinator handover, and stops working only when revoked from Settings → Outputs | M7 |
 | D23 | Keychain storage | Use the platform keychain through a Tauri plugin; move the existing token on first launch and remove it from the database | M8 |
 | D24 | Live run-sheet edits from other operators | Sent to the coordinator as the same intent-based commands phones use (`addItem`, `removeItem`, `moveItem`). Other operators see the same notice as for a phone edit, without Undo | M2 |
-| D25 | Inviting and approving phones from any operator device | Every operator device shows its own rotating invitation QR and approves the phones that scan it, as one desktop does today. On approval the device registers the grant with the coordinator, which keeps the workspace's grant list and mirrors it to the server with the live state. A phone's commands enter through the device it is connected to and are forwarded to the coordinator as that device's commands (D24). Because the grant belongs to the workspace, not the approving computer, the phone can later connect to any operator device, including the coordinator over the LAN, without a new scan. The relay routes a phone to the device whose invitation it holds, and the one-desktop-per-workspace rule and standby state go away | M2 |
+| D25 | Inviting and approving phones from any operator device | Every operator device shows its own rotating invitation QR and approves the phones that scan it, as one desktop does today. On approval the device registers the grant with the coordinator, which keeps the workspace's grant list and mirrors it to the server with the live state. A phone's commands enter through the device it is connected to and are forwarded to the coordinator carrying the phone's grant identity, with the device as transport only, so Undo notices and the connected-devices list name the phone (D24). Because the grant belongs to the workspace, not the approving computer, the phone can later connect to any operator device, including the coordinator over the LAN, without a new scan. The relay routes a phone to the device whose invitation it holds, and the one-desktop-per-workspace rule and standby state go away | M2 |
 
 ## 5. Milestones
 
 Sizes are relative (S, M, L), not time estimates. Each milestone ends in something that can be demonstrated.
+
+There are no releases between milestones: phase 2 ships as one version after M9. Instead, every milestone adds unit tests for its business logic in the packages (`live-state`, `protocol`, `remote`, `sync`) and integration tests that run the server with simulated devices, so each stage is proven before the next builds on it. The desktop interface is covered by M9's walkthrough.
 
 ### M0 — Technical spike (S)
 
@@ -115,12 +117,16 @@ Throwaway code to confirm the riskiest parts:
 ### M1 — Shared live state over the relay (L)
 
 - Extend the relay from phones-only to every operator device of the workspace: desktops that are not coordinator connect to the coordinator the same way phones do, with their device token instead of a grant.
+- Protocol version 2. The server is updated first; an older desktop joining the workspace is told to update by the existing check, so a workspace never mixes old and new desktops in one live state.
 - `packages/live-state` gains a coordinator side (applies commands in order, publishes snapshots with a revision) and a follower side (sends commands, applies snapshots, never edits the live state itself).
+- A simulation harness in `packages/live-state` tests: one coordinator and several followers with messages reordered, duplicated, delayed and dropped, asserting that every follower converges on the coordinator's state and no command applies twice (criterion 8).
 - Follower desktops drive their own slideshow and overlay from the snapshots.
 - Reconnecting devices receive the full snapshot; command identifiers keep a retried command from applying twice.
-- The presented-content snapshot, including **Still presenting previous content**, travels with the live state, so a follower can render a song it has not yet synchronized.
+- The snapshot carries the live run sheet's item list (item identifiers, titles, and the song or content each points to) as well as the presented content, including **Still presenting previous content**, so a follower whose content sync is behind still shows the run sheet and renders the presented song. Lyrics and backgrounds themselves arrive by content sync; a follower missing one shows the presented text on the default background until it does.
 
 **Done when:** two desktops on the same server show the same slide on both slideshows within a second, with commands from either one, and unplugging the network of one and plugging it back leaves both on the authoritative slide (criterion 8).
+
+M1 can be worked as two halves: M1a, the coordinator and follower logic with the simulation harness in `packages/live-state` and `packages/protocol`, which needs no server or desktop; and M1b, the relay extension and desktop wiring. M3, M4, M7 and M8 can start against M1a.
 
 ### M2 — Operators together (M)
 
@@ -138,6 +144,7 @@ Throwaway code to confirm the riskiest parts:
 - A device setting, saved on the device and kept across restarts.
 - A viewer does not start, keep alive, or coordinate a live state.
 - With nothing live, a viewer shows **Waiting for presentation** on its outputs' background.
+- When the coordinator disappears mid-service, a viewer keeps showing its last snapshot until the live state expires (phase 1 D6, four hours) or a new coordinator appears; it never falls back to **Waiting for presentation** while a live state is unexpired.
 - What it shows otherwise per D16.
 
 **Done when:** the viewer part of criterion 31 passes: a projector computer set to viewer reopens as one after a restart, and with only it connected the live state expires.
@@ -146,7 +153,7 @@ Throwaway code to confirm the riskiest parts:
 
 - The coordinator mirrors its snapshot to the server per D17; the server holds it per workspace until expiry.
 - Recovery per D18, from a follower's synchronized copy first, then from the server.
-- When the old coordinator returns, it becomes a follower; it never resumes its own stale live state.
+- When the old coordinator returns, it becomes a follower; it never resumes its own stale live state. If it was only cut off rather than closed, its slideshow and overlay jump to the new coordinator's state, and phones that were connected to it are handed to the new coordinator with their workspace grants (D25). Its operator sees **Another computer carried on; this one now follows**.
 - The first operator device to connect after a restart uses the server's unexpired live state, as the start rules require.
 
 **Done when:** closing the coordinator's lid mid-song, then choosing **Carry on here** on another computer, continues from the same slide; and reopening the first computer makes it follow (criterion 31, recovery part).
@@ -178,7 +185,7 @@ Throwaway code to confirm the riskiest parts:
 
 **Done when:** a computer without the desktop app shows the slideshow in a browser with only the link; a laptop with a fresh OBS profile and no desktop app shows the overlay after pasting the link and nothing else, and keeps it across weeks; and a browser on a computer running the desktop app shows the localhost slideshow with the venue's internet unplugged (criteria 3, 6).
 
-### M8 — Connected devices and credentials (S)
+### M8 — Connected devices and credentials (M)
 
 - A **Connected devices** list on operator devices: name, role (coordinator, operator, viewer, phone, browser output), connection type, last seen.
 - **Disconnect all** clears the coordinator's grant list, so it covers phones connected through any operator device, and browser outputs.
@@ -192,6 +199,7 @@ Throwaway code to confirm the riskiest parts:
 - Walk through spec criteria 3, 5, 6, 8, 9, 18, 31 and 32 with a projector computer, a streaming computer with OBS, a phone, and a browser output, on macOS and Windows, with internet and without.
 - Run one real service with a projector computer and a separate streaming computer.
 - Update the volunteer guide and the server deployment guide; remove "Remote control needs internet at the venue" from known limits when M5 holds.
+- Confirm the package unit tests and server integration tests from M1–M8 all pass on the release build.
 
 **Done when:** every listed criterion passes or has a recorded, accepted exception.
 
@@ -211,7 +219,7 @@ Throwaway code to confirm the riskiest parts:
 | M9 | M2–M8 |
 
 - M1 does not wait for M0: the relay already exists, so shared live state can be built over it first and moved to the LAN in M5.
-- M3, M4, M7 and M8 are independent once M1 is in, and can run in any order.
+- M3, M4, M7 and M8 are independent once M1 is in, and can run in any order; their logic can start against M1a before the relay and desktop wiring of M1b are done.
 - M5 is the riskiest milestone; M0 exists to find out early whether phone browsers can use the LAN at all.
 
 ## 7. Later phases
