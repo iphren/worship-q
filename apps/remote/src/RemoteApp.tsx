@@ -107,7 +107,9 @@ function Live({ view }: { view: RemoteView | null }) {
   // away from what this phone is about to tap.
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [mode, setMode] = useState<'present' | 'edit' | 'add'>('present');
+  // The run sheet's items when the search opened; those added since are marked afterwards.
+  const [before, setBefore] = useState<ReadonlySet<string> | null>(null);
   const connected = connection.connected;
   const presentedItem = view?.presented?.itemId;
   const presentedPiece = view?.presented?.pieceId;
@@ -139,7 +141,15 @@ function Live({ view }: { view: RemoteView | null }) {
 
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
-  const control = 'rounded-xl py-4 text-lg font-semibold active:scale-[0.98] disabled:opacity-40';
+  const editing = mode !== 'present';
+  const control = `rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40 ${
+    canEdit ? 'text-base' : 'text-lg'
+  }`;
+
+  function openSearch() {
+    if (mode !== 'add') setBefore(new Set(view!.items.map((item) => item.itemId)));
+    setMode('add');
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -163,7 +173,10 @@ function Live({ view }: { view: RemoteView | null }) {
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
                 editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
               }`}
-              onClick={() => setEditing(!editing)}
+              onClick={() => {
+                setMode(editing ? 'present' : 'edit');
+                setBefore(null);
+              }}
             >
               {editing ? 'Done' : 'Edit'}
             </button>
@@ -177,11 +190,18 @@ function Live({ view }: { view: RemoteView | null }) {
         </p>
       )}
 
-      {editing ? (
-        <EditRunSheet view={view} connected={connected && canEdit} />
+      {mode === 'add' ? (
+        <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
+      ) : mode === 'edit' ? (
+        <EditRunSheet
+          view={view}
+          connected={connected && canEdit}
+          before={before}
+          onAdd={openSearch}
+        />
       ) : (
         <div className="relative min-h-0 flex-1">
-          <main ref={mainRef} className="h-full space-y-5 overflow-y-auto px-3 py-4">
+          <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
             {view.items.length === 0 && (
               <p className="p-6 text-center text-sm text-slate-400">
                 The run sheet has no songs yet.
@@ -189,7 +209,7 @@ function Live({ view }: { view: RemoteView | null }) {
             )}
             {view.items.map((item) => (
               <section key={item.itemId}>
-                <h2 className="mb-2 px-1 text-sm font-semibold text-slate-300">
+                <h2 className="mb-3 px-1 text-xl font-semibold text-white">
                   {item.title || 'Untitled song'}
                 </h2>
                 <div
@@ -270,7 +290,9 @@ function Live({ view }: { view: RemoteView | null }) {
         </div>
       )}
 
-      <footer className="grid grid-cols-4 gap-2 border-t border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer
+        className={`grid gap-2 border-t ${canEdit ? 'grid-cols-5' : 'grid-cols-4'} border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
+      >
         <button
           className={`${control} bg-slate-800`}
           disabled={!connected}
@@ -292,6 +314,15 @@ function Live({ view }: { view: RemoteView | null }) {
         >
           Clear
         </button>
+        {canEdit && (
+          <button
+            className={`${control} ${mode === 'add' ? 'bg-sky-800 text-white' : 'bg-slate-800'}`}
+            disabled={!connected}
+            onClick={openSearch}
+          >
+            + Add
+          </button>
+        )}
         <button
           className={`${control} bg-sky-600 text-white`}
           disabled={!connected}
@@ -304,9 +335,18 @@ function Live({ view }: { view: RemoteView | null }) {
   );
 }
 
-/** Adding, removing and reordering the live run sheet's songs. */
-function EditRunSheet({ view, connected }: { view: RemoteView; connected: boolean }) {
-  const [adding, setAdding] = useState(false);
+/**
+ * Adding, removing and reordering the live run sheet's songs. Items missing from `before`
+ * were added from the search just left, and are marked so the phone shows they arrived.
+ */
+function EditRunSheet(props: {
+  view: RemoteView;
+  connected: boolean;
+  before: ReadonlySet<string> | null;
+  onAdd(): void;
+}) {
+  const { view, connected, before } = props;
+  const firstNewRef = useRef<HTMLLIElement>(null);
   // A remove waits for a second tap, so a slip of the finger does not take a song out.
   const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => {
@@ -315,8 +355,13 @@ function EditRunSheet({ view, connected }: { view: RemoteView; connected: boolea
     return () => clearTimeout(timer);
   }, [removing]);
 
-  if (adding) return <AddSongs view={view} connected={connected} onDone={() => setAdding(false)} />;
   const { items } = view;
+  const isNew = (itemId: string) => before !== null && !before.has(itemId);
+  const firstNew = items.find((item) => isNew(item.itemId))?.itemId;
+  // Shows the added songs, also when the phone hears of them just after the search closed.
+  useEffect(() => {
+    if (firstNew) firstNewRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [firstNew]);
   const button =
     'h-10 w-10 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
 
@@ -329,16 +374,24 @@ function EditRunSheet({ view, connected }: { view: RemoteView; connected: boolea
         {items.map((item, index) => (
           <li
             key={item.itemId}
+            ref={item.itemId === firstNew ? firstNewRef : undefined}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
               view.presented?.itemId === item.itemId
                 ? 'border-emerald-500 bg-emerald-900/40'
-                : 'border-slate-700 bg-slate-900'
+                : isNew(item.itemId)
+                  ? 'border-sky-500 bg-sky-900/40'
+                  : 'border-slate-700 bg-slate-900'
             }`}
           >
             <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
             <span className="min-w-0 flex-1 truncate text-[15px] text-white">
               {item.title || 'Untitled song'}
             </span>
+            {isNew(item.itemId) && (
+              <span className="shrink-0 rounded bg-sky-700 px-1.5 text-[11px] font-semibold text-white">
+                New
+              </span>
+            )}
             <button
               aria-label="Move up"
               className={button}
@@ -394,7 +447,7 @@ function EditRunSheet({ view, connected }: { view: RemoteView; connected: boolea
       <button
         className="w-full rounded-lg border border-dashed border-slate-600 py-3 text-[15px] font-semibold text-sky-300 active:scale-[0.98] disabled:opacity-40"
         disabled={!connected}
-        onClick={() => setAdding(true)}
+        onClick={props.onAdd}
       >
         + Add a song
       </button>
@@ -430,6 +483,8 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
     };
   }, [query, connected]);
 
+  // Results for an earlier query stay shown, dimmed, until the answer for this one comes.
+  const searching = query.trim() !== '' && results?.query !== query.trim();
   const presented = view.presented?.itemId;
   function add(songId: string, next: boolean) {
     connection.send(
@@ -462,8 +517,36 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
           Back
         </button>
       </div>
-      <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
-        {results?.songs.length === 0 && results.query === query.trim() && (
+      {searching && (
+        <p
+          role="status"
+          className="flex items-center gap-2 border-b border-slate-800 px-4 py-2 text-sm text-slate-300"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin text-sky-400" fill="none">
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              stroke="currentColor"
+              strokeOpacity="0.25"
+              strokeWidth="3"
+            />
+            <path
+              d="M21 12a9 9 0 0 0-9-9"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </svg>
+          Searching the library…
+        </p>
+      )}
+      <ul
+        className={`min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 transition-opacity ${
+          searching ? 'opacity-50' : ''
+        }`}
+      >
+        {results?.songs.length === 0 && !searching && (
           <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
         )}
         {results?.songs.map((song) => {
