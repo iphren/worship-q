@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/iphren/worship-q/compare/v0.3.0...v0.4.0) (2026-10-29)
+
+
+### Features
+
+* **remote:** implement song search functionality and run-sheet editing from remote controllers ([80bdbd7](https://github.com/iphren/worship-q/commit/80bdbd7d72553e84cdbf93246e98c25368da37ce))
+* update icon options and improve output panel button styles; remove end presentation references ([70fa4ad](https://github.com/iphren/worship-q/commit/70fa4ad73c72bdac0c9c4fbc0d3001148c688202))
+
+
+### Bug Fixes
+
+* update close action logic in OutputPanel to handle disabled state correctly ([ff67e56](https://github.com/iphren/worship-q/commit/ff67e56cd0499406674e35b4cc57dfcf377a319e))
+
 ## [0.3.0](https://github.com/iphren/worship-q/compare/v0.2.0...v0.3.0) (2026-10-27)
 
 
