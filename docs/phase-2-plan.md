@@ -2,7 +2,7 @@
 
 **Drafted:** 28 October 2026  
 **Status:** Draft for review. Scope and decisions below are proposals until confirmed.  
-**Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec", and the code at version 0.3.0.
+**Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec", and the code at version 0.4.0.
 
 ## 1. Where the implementation stands
 
@@ -251,3 +251,23 @@ A suggested grouping for the remaining gaps:
 - Video playback controls: while a video item is live, the main window and the phone remote show a video control bar. A video item starts paused. While it is live, the keyboard shortcuts change: Space plays or pauses (instead of unblank-or-next), Left and Right jump backwards and forwards through the video (instead of previous and next item), and Up and Down move to the previous and next run sheet item (instead of previous and next slide).
 - Drag and drop files: drag a compatible file (a slide deck, PDF, image or video) onto the run sheet column, in the editor or in Live, and drop it at a chosen position. The app uploads it, waits for processing (such as slide conversion on the server), and adds the item at that position. On the library tab, a dropped file is added to the library only, not to the current run sheet.
 - Record SQLite as the server database in the spec (G19).
+
+## 8. Rollout
+
+Phase 2 raises the protocol version, so the day the church server is updated is the only day that affects the branches. Nothing changes for them while phase 2 is being built.
+
+**Before the server update**
+
+- Every church computer must run a release with the automatic updater, which is 0.2.0 or later. Computers installed from a build of `main` before 25 October 2026 report version 0.1.0 and have no updater; they never update themselves. Replace them by installing the current release over the existing app. The bundle identifier and data folder are unchanged, so workspaces, songs, run sheets, phone approvals and the church enrollment are all kept, and the database needs no migration. Do this on a weekday, not on a Sunday morning.
+- Releases with fixes can go out meanwhile. They keep protocol version 1 and work with the current server.
+
+**The server update**
+
+- Run `scripts/update-server.sh` early in a week, several days before the next service. The server migrates its own database on start.
+- From that moment an older desktop shows **The server runs a different version** and stops synchronizing and receiving phones; presenting from local data keeps working. The desktop downloads the new version within six hours and installs it when the operator restarts the app, never while the slideshow is open. Tell the branches to restart once the update banner appears.
+
+**What the update keeps and what it asks**
+
+- Desktop enrollment is kept; the device token stays valid and moves into the keychain per D23. Phone approvals are kept per the M2 migration. The OBS subtitle overlay keeps its address.
+- First launch asks once to allow the app on the local network (macOS) or through the firewall on private networks (Windows). Both are needed for the venue computers to find each other without internet.
+- Viewer mode and browser output links are new and off until an operator turns them on.
