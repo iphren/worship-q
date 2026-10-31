@@ -120,7 +120,9 @@ function Live({ view }: { view: RemoteView | null }) {
     followUntilRef.current = 0;
   }, [presentedItem, presentedPiece]);
 
-  // Offer the locate button while the presented slide is scrolled out of view.
+  // Offer the locate button while the presented slide is scrolled out of view. The slide list
+  // is only there in present mode, so watch again on coming back to it: the slide may have
+  // moved while the run sheet was open.
   useEffect(() => {
     const active = activeRef.current;
     const main = mainRef.current;
@@ -132,7 +134,7 @@ function Live({ view }: { view: RemoteView | null }) {
     );
     observer.observe(active);
     return () => observer.disconnect();
-  }, [presentedItem, presentedPiece, loaded]);
+  }, [presentedItem, presentedPiece, loaded, mode]);
 
   function step(type: 'previous' | 'next') {
     followUntilRef.current = performance.now() + 3000;
