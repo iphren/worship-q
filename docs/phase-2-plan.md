@@ -264,7 +264,7 @@ Phase 2 raises the protocol version, so the day the church server is updated is 
 **The server update**
 
 - Run `scripts/update-server.sh` early in a week, several days before the next service. The server migrates its own database on start.
-- From that moment an older desktop shows **The server runs a different version** and stops synchronizing and receiving phones; presenting from local data keeps working. The desktop downloads the new version within six hours and installs it when the operator restarts the app, never while the slideshow is open. Tell the branches to restart once the update banner appears.
+- From that moment an older desktop shows **The server runs a newer version** and stops synchronizing and receiving phones; presenting from local data keeps working. The desktop downloads the new version within six hours and installs it when the operator restarts the app, never while the slideshow is open. Tell the branches to restart once the update banner appears.
 
 **What the update keeps and what it asks**
 

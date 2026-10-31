@@ -48,7 +48,7 @@ function ConnectForm() {
         e instanceof InvalidCodeError
           ? t('church.invalidCode')
           : e instanceof UpdateNeededError
-            ? t('church.updateNeeded')
+            ? t(e.by === 'server' ? 'church.updateNeededServer' : 'church.updateNeeded')
             : t('church.unreachable', { error: String(e) }),
       );
     } finally {
@@ -204,7 +204,7 @@ function Connected() {
       : sync.kind === 'error'
         ? t('church.syncError', { error: sync.message })
         : sync.kind === 'update-needed'
-          ? t('church.syncUpdateNeeded')
+          ? t(sync.by === 'server' ? 'church.syncUpdateNeededServer' : 'church.syncUpdateNeeded')
           : sync.kind === 'revoked'
             ? t('church.revoked')
             : state.lastSyncAt

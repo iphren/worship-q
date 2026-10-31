@@ -24,6 +24,17 @@ export function isCompatibleProtocol(version: unknown): boolean {
   );
 }
 
+/**
+ * Which side is behind when the server refused this version: the server, when the version
+ * it reported is older than this app accepts; otherwise the app. A server that reported
+ * nothing is taken to be newer, as a server before this field was always the newer side.
+ */
+export function updateNeededBy(serverProtocolVersion: unknown): 'app' | 'server' {
+  return typeof serverProtocolVersion === 'number' && serverProtocolVersion < MIN_PROTOCOL_VERSION
+    ? 'server'
+    : 'app';
+}
+
 /** What a client can do, reported rather than inferred from its operating system. */
 export const CapabilitiesSchema = z.object({
   roles: z.array(z.enum(['coordinator', 'controller', 'display', 'overlay'])),

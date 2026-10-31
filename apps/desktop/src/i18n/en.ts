@@ -295,6 +295,8 @@ export const en = {
   'church.unreachable': 'The server could not be reached: {error}',
   'church.updateNeeded':
     'The server needs a newer version of Worship Q. Update the app, then try again.',
+  'church.updateNeededServer':
+    'The server runs an older version of Worship Q than this app. Ask whoever runs the server to update it, then try again.',
   'church.joinTitle': 'Join “{name}”',
   'church.joinUploadBody':
     '“{name}” has no songs yet. This computer’s songs, run sheets and settings will become its content, and other computers that connect will receive them.',
@@ -315,7 +317,9 @@ export const en = {
   'church.syncError':
     'Could not synchronize: {error}. Worship Q keeps trying; everything still works here.',
   'church.syncUpdateNeeded':
-    'The server runs a different version. Update Worship Q to keep synchronizing.',
+    'The server runs a newer version. Update Worship Q to keep synchronizing.',
+  'church.syncUpdateNeededServer':
+    'The server runs an older version than this app. Synchronizing resumes once whoever runs the server updates it.',
   'church.revoked': 'This computer was disconnected by the server’s administrator.',
   'church.syncNow': 'Synchronize now',
   'church.backupNow': 'Back up now',

@@ -283,7 +283,7 @@ existing app, on a weekday. Workspaces, songs, run sheets, phone approvals and t
 enrollment are all kept.
 
 Run `scripts/update-server.sh` early in a week. The server migrates its own database on
-start. From then on an older desktop shows **The server runs a different version** and stops
+start. From then on an older desktop shows **The server runs a newer version** and stops
 synchronizing and receiving phones; presenting from local data keeps working. The desktop
 downloads the new version within six hours and installs it when the operator restarts the
 app. Tell the branches to restart once the update banner appears.
