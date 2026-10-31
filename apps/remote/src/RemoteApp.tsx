@@ -367,18 +367,21 @@ function liveText(view: RemoteView): string | null {
 
 function LiveLine({ view }: { view: RemoteView }) {
   const text = liveText(view);
+  // Coloured like the presented slide in the list, so it stands out on every page.
+  const tone =
+    text === null
+      ? 'border-slate-600 bg-slate-800 text-slate-300'
+      : view.blank
+        ? 'border-amber-500 bg-amber-900 text-amber-100'
+        : 'border-emerald-500 bg-emerald-800 text-white';
   return (
-    <div className="flex items-center gap-2 border-t border-slate-800 bg-slate-900 px-4 py-2 text-sm">
+    <div className={`flex items-center gap-2 border-t px-4 py-2.5 text-[15px] font-medium ${tone}`}>
       {view.blank && (
-        <span className="shrink-0 rounded bg-amber-700 px-1.5 text-[11px] font-semibold text-white">
+        <span className="shrink-0 rounded bg-amber-500 px-1.5 text-[11px] font-semibold text-amber-950">
           Blank
         </span>
       )}
-      <p
-        className={`min-w-0 flex-1 truncate ${
-          text === null ? 'text-slate-500' : view.blank ? 'text-slate-400' : 'text-white'
-        }`}
-      >
+      <p className="min-w-0 flex-1 truncate">
         {text ??
           (view.previousContent ? 'A slide from the previous run sheet' : 'Nothing on screen')}
       </p>
