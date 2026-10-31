@@ -210,7 +210,7 @@ function Live({ view }: { view: RemoteView | null }) {
             {view.items.map((item) => (
               <section key={item.itemId}>
                 <h2 className="mb-3 px-1 text-xl font-semibold text-white">
-                  {item.title || 'Untitled song'}
+                  {item.title || 'Untitled'}
                 </h2>
                 <div
                   className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
@@ -385,7 +385,7 @@ function EditRunSheet(props: {
           >
             <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
             <span className="min-w-0 flex-1 truncate text-[15px] text-white">
-              {item.title || 'Untitled song'}
+              {item.title || 'Untitled'}
             </span>
             {isNew(item.itemId) && (
               <span className="shrink-0 rounded bg-sky-700 px-1.5 text-[11px] font-semibold text-white">
@@ -493,7 +493,7 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
         ? { type: 'addItem', songId: song.id, afterItemId: presented }
         : { type: 'addItem', songId: song.id },
     );
-    setAdded((list) => [...list, song.title || 'Untitled song']);
+    setAdded((list) => [...list, song.title || 'Untitled']);
     // Ready for the next song. Focusing while handling the tap keeps the phone's keyboard up.
     setQuery('');
     inputRef.current?.focus();
@@ -556,7 +556,7 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
             Added “{added[added.length - 1]}” to the run sheet.
             {added.length > 1 && (
               <span className="mt-1 block text-xs text-slate-400">
-                {added.length} songs added. Search for another, or tap Back to see the run sheet.
+                {added.length} items added. Search for another, or tap Back to see the run sheet.
               </span>
             )}
           </li>
@@ -575,7 +575,7 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
-                  {song.title || 'Untitled song'}
+                  {song.title || 'Untitled'}
                 </span>
               </div>
               {song.preview.length > 0 && (
