@@ -36,7 +36,10 @@ they differ.
 
 Releases come from [release-please](https://github.com/googleapis/release-please): it keeps
 a Release PR open with the next version and `apps/desktop/CHANGELOG.md`, worked out from the
-Conventional Commit messages (`fix:` patch, `feat:` minor, `feat!:` major). Merging that PR
+Conventional Commit messages (`fix:` patch, `feat:` minor, `feat!:` major). Every commit
+counts, since the desktop app is built from `packages/` as well, except those that only touch
+`docs/`, `apps/server/`, `apps/remote/` or `apps/website/`, which do not ship in the app (the
+remote page ships with the server). Merging that PR
 tags `vX.Y.Z` and creates a draft GitHub Release, and `.github/workflows/release.yml` builds
 the macOS (universal) and Windows installers into it, with the signed updater feed
 `latest.json`. Nothing reaches users until the draft is published:
