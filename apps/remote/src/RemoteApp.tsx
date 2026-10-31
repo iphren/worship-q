@@ -255,7 +255,7 @@ function Live({ view }: { view: RemoteView | null }) {
                     );
                   })}
                   {item.pieces.length === 0 && (
-                    <p className="px-1 text-xs text-slate-500">This song has no lyrics.</p>
+                    <p className="px-1 text-xs text-slate-500">This item has no content.</p>
                   )}
                 </div>
               </section>
