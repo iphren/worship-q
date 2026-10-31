@@ -466,8 +466,9 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
   const { view, connected } = props;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ query: string; songs: RemoteSongResult[] } | null>(null);
-  // Songs added from this search, so each button shows it worked.
+  // Titles of the songs added from this search, so the phone shows each one worked.
   const [added, setAdded] = useState<string[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const search = query.trim();
     if (!search) return setResults(null);
@@ -486,19 +487,23 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
   // Results for an earlier query stay shown, dimmed, until the answer for this one comes.
   const searching = query.trim() !== '' && results?.query !== query.trim();
   const presented = view.presented?.itemId;
-  function add(songId: string, next: boolean) {
+  function add(song: RemoteSongResult, next: boolean) {
     connection.send(
       next && presented
-        ? { type: 'addItem', songId, afterItemId: presented }
-        : { type: 'addItem', songId },
+        ? { type: 'addItem', songId: song.id, afterItemId: presented }
+        : { type: 'addItem', songId: song.id },
     );
-    setAdded((list) => [...list, songId]);
+    setAdded((list) => [...list, song.title || 'Untitled song']);
+    // Ready for the next song. Focusing while handling the tap keeps the phone's keyboard up.
+    setQuery('');
+    inputRef.current?.focus();
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex gap-2 border-b border-slate-800 p-3">
         <input
+          ref={inputRef}
           autoFocus
           type="search"
           autoCorrect="off"
@@ -546,12 +551,21 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
           searching ? 'opacity-50' : ''
         }`}
       >
+        {!query.trim() && added.length > 0 && (
+          <li role="status" className="p-6 text-center text-sm text-emerald-300">
+            Added “{added[added.length - 1]}” to the run sheet.
+            {added.length > 1 && (
+              <span className="mt-1 block text-xs text-slate-400">
+                {added.length} songs added. Search for another, or tap Back to see the run sheet.
+              </span>
+            )}
+          </li>
+        )}
         {results?.songs.length === 0 && !searching && (
           <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
         )}
         {results?.songs.map((song) => {
           const label = KIND_LABEL[song.kind];
-          const count = added.filter((id) => id === song.id).length;
           return (
             <li key={song.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
               <div className="mb-1 flex items-baseline gap-2">
@@ -563,7 +577,6 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
                   {song.title || 'Untitled song'}
                 </span>
-                {count > 0 && <span className="shrink-0 text-xs text-emerald-400">Added</span>}
               </div>
               {song.preview.length > 0 && (
                 <p className="mb-2 line-clamp-2 text-xs text-slate-400">
@@ -574,7 +587,7 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
                 <button
                   className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
                   disabled={!connected}
-                  onClick={() => add(song.id, false)}
+                  onClick={() => add(song, false)}
                 >
                   Add to end
                 </button>
@@ -582,7 +595,7 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
                   <button
                     className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
                     disabled={!connected}
-                    onClick={() => add(song.id, true)}
+                    onClick={() => add(song, true)}
                   >
                     Add after current
                   </button>
