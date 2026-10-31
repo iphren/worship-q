@@ -38,8 +38,10 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | --- | --- | --- |
 | `WORSHIP_Q_NAME` | `Worship Q` | Shown by `/api/v1/info` and `/`; only a label |
 | `WORSHIP_Q_PORT` | `8080` | Port on `127.0.0.1` the reverse proxy forwards to |
-| `WORSHIP_Q_DATA` | `/data` | Database, background files and backups |
+| `WORSHIP_Q_DATA` | `/data` | Database, background files, backups and live-state snapshots |
 | `PORT` | `8080` | Port inside the container |
+| `WORSHIP_Q_REMOTE_DIR` | `/app/remote` | The built phone page, served at `/remote/` |
+| `WORSHIP_Q_OUTPUT_DIR` | `/app/output` | The built browser output pages, served at `/output/` |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -49,7 +51,7 @@ per workspace.
 
 The server needs, end to end:
 
-- WebSockets on `/api/v1/coordinator` and `/api/v1/remote`.
+- WebSockets on `/api/v1/coordinator`, `/api/v1/remote` and `/api/v1/output`.
 - The `Authorization` and `x-worship-q-protocol` request headers passed through.
 - No caching of `/api/*`.
 - Uploads of large files (videos) with `PUT`.
@@ -69,7 +71,7 @@ Check the whole path from outside once deployed (replace the address):
 
 ```sh
 curl https://worship.example.org/api/v1/info
-# {"name":"Our Church","protocolVersion":1,"minProtocolVersion":1}
+# {"name":"Our Church","protocolVersion":2,"minProtocolVersion":2,"decks":true,"outputs":true}
 ```
 
 A device token is passed through correctly if, after connecting a desktop, its Settings →
@@ -204,26 +206,100 @@ After that, content synchronizes every minute, a few seconds after each edit, an
 straight away when another computer changes something. Off-site backups are sent every 12
 hours while the app is open, or with **Back up now**.
 
+## One live state across the venue
+
+Every desktop of a workspace shares one presentation (phase 2). The first operator computer
+to connect holds it, as the **coordinator**; the others follow it, showing the same slide on
+their own slideshow screens and subtitle overlays, and their Go live, slide changes, blank
+and clear, and live run-sheet edits go through it. **Use this computer** under **Settings →
+Church connection** moves the role to another computer without changing any screen.
+
+The coordinator mirrors the live state to the server, which keeps it until the live state
+expires (four hours after the last operator computer leaves). If the presenting computer
+fails, the other computers show **The presenting computer is not responding** with **Carry
+on here**, which continues from the same slide. When the failed computer returns it follows.
+
+Computers on the same network also reach the coordinator directly, over TLS with a
+certificate the coordinator makes for itself; its fingerprint reaches the other computers
+through the server, so a device without a workspace credential can neither read nor send
+anything. Found by mDNS on port 47311. With the venue's internet down, the desktops keep
+presenting together over the network; a desktop that finds neither the server nor a
+coordinator presents on its own and the others follow it. The first launch after the update
+asks once to allow the app on the local network (macOS) or through the firewall on private
+networks (Windows). Settings shows each computer's way in: **On this network** or **Through
+the church server**.
+
+A computer set to **Viewer mode** (Settings) shows the presentation on its screens and
+never starts, holds or keeps one alive; it reopens as a viewer. Use it for a projector
+computer that should only follow.
+
 ## Remote control
 
-The first desktop of a workspace to connect receives remote control. Another can take over
-with **Use this computer** in Settings or in the remote-control window. In the app, open the
-phone icon at the bottom of the sidebar. It shows a QR code and a link, both of which change
-every few minutes. A phone that scans or opens it asks for control and shows a four-digit
-code. The operator sees the same code in a banner and approves it. The phone then stays
-approved until someone chooses **Disconnect** or **Disconnect all**.
+Every operator computer shows its own QR code and link under the phone icon at the bottom of
+the sidebar; both change every few minutes. A phone that scans or opens it asks for control
+and shows a four-digit code. The operator sees the same code in a banner and approves it.
+The approval belongs to the workspace: the phone then stays approved on every computer of the
+workspace, also when the computer that approved it closes, until someone chooses
+**Disconnect** or **Disconnect all** (which also ends every browser output link). Phones
+approved before phase 2 keep working without a new scan.
 
 Phones can move between slides, jump to any slide of the live run sheet, and blank the
 screen. With **Edit** they can also search the library and add, remove, or reorder songs on
-the live run sheet; the operator sees each change in a banner, with **Undo**. Approve only
-people you trust with the service order. Phones cannot edit songs, go live with another date,
-or change settings. Remote control
-needs internet at the venue: phones connect through the server, not over the local network.
+the live run sheet; every operator sees each change in a banner, the coordinator with
+**Undo**. Approve only people you trust with the service order. Phones cannot edit songs, go
+live with another date, or change settings. Phones connect through the server; the
+invitation also names the coordinator's address on the venue network, which a phone browser
+can use only once it accepts the coordinator's certificate.
+
+## Browser outputs
+
+**Settings → Browser outputs** makes links that show the slideshow or the subtitle overlay in
+any browser through the server, for example an OBS Browser Source on a streaming laptop
+without Worship Q. Each link holds its own key: the page keeps nothing in browser storage,
+sets no cookies and asks for no sign-in, so a fresh browser shows the output the first time
+the link opens, and it keeps working across dates, restarts and handovers until the link is
+revoked. The page uses the workspace's font when the browser has it, else the system's, and
+the connected-devices list says which. Anyone with the link sees what is on the projector.
+
+On a computer running Worship Q, OBS and browsers can also show the slideshow without
+internet at `http://127.0.0.1:47310/slideshow`, next to the subtitle overlay at
+`http://127.0.0.1:47310/overlay/subtitle`.
+
+## Connected devices
+
+**Settings → Connected devices** lists every computer, phone and browser output following the
+presentation, its role and how it is connected, with **Disconnect** for phones and outputs
+and **Disconnect all**.
+
+## Updating to phase 2 (protocol version 2)
+
+Phase 2 raises the protocol version, so the day the server is updated is the only day that
+affects the branches.
+
+Before the server update, every church computer must run a release with the automatic
+updater (0.2.0 or later). Computers installed from a build of `main` before 25 October 2026
+report version 0.1.0 and never update themselves: install the current release over the
+existing app, on a weekday. Workspaces, songs, run sheets, phone approvals and the church
+enrollment are all kept.
+
+Run `scripts/update-server.sh` early in a week. The server migrates its own database on
+start. From then on an older desktop shows **The server runs a different version** and stops
+synchronizing and receiving phones; presenting from local data keeps working. The desktop
+downloads the new version within six hours and installs it when the operator restarts the
+app. Tell the branches to restart once the update banner appears.
+
+The update keeps the enrollment; the device token moves into the system keychain (Keychain
+on macOS, Credential Manager on Windows), and Settings says so when the keychain refused.
+Phone approvals are kept. The OBS subtitle overlay keeps its address. Viewer mode and
+browser output links are new and off until an operator turns them on.
 
 ## Known limits of this version
 
-- Device tokens are stored in the app's database, not the operating system's keychain.
 - When two computers edit the same song or the same date's run sheet before synchronizing,
   the later edit wins. Earlier song versions are kept in the song's history.
 - Deleting a background on one computer hides it everywhere. Its file stays on the server.
 - Administration is the command above, with no admin web app and no OIDC sign-in yet.
+- A phone browser usually refuses the coordinator's self-signed certificate, so phones use
+  the server and need internet at the venue; the desktops do not.
+- The venue network's part of phase 2 has not yet been tried on real hardware; see
+  `docs/spikes/lan.md`.

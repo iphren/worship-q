@@ -21,8 +21,10 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "@worship-q/live-state": "workspace:*",
     "@worship-q/lyrics": "workspace:*",
     "@worship-q/protocol": "workspace:*",
+    "@worship-q/relay": "workspace:*",
     "@worship-q/remote": "workspace:*",
     "@worship-q/session": "workspace:*",
     "@worship-q/store": "workspace:*",

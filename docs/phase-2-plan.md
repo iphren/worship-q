@@ -1,7 +1,7 @@
 # Worship Q — Phase 2 Plan: One Live State Across the Venue
 
 **Drafted:** 28 October 2026  
-**Status:** Draft for review. Scope and decisions below are proposals until confirmed.  
+**Status:** Implemented on branch `phase-2` (31 October 2026) for M1–M8; see the [acceptance record](acceptance/phase-2.md) for what is proven by tests, what awaits the hardware spike (M0) and what awaits the walkthrough (M9).  
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec", and the code at version 0.4.0.
 
 ## 1. Where the implementation stands

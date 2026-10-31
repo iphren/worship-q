@@ -18,20 +18,25 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import {
   isCompatibleProtocol,
+  LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
+  OutputKindSchema,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   PushRequestSchema,
   UPDATE_NEEDED,
+  WorkspaceGrantSchema,
   type Deck,
   type EnrollResponse,
+  type OutputLink,
   type PullResponse,
   type PushResponse,
 } from '@worship-q/protocol';
+import { z } from 'zod';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
 import type { DeviceRow, Instance } from './instance';
-import { Relay } from './relay';
+import { Relay } from '@worship-q/relay';
 
 export interface ServerConfig {
   instance: Instance;
@@ -39,6 +44,8 @@ export interface ServerConfig {
   dataDir: string;
   /** Built remote-control page, served at /remote/; optional in tests. */
   remoteDir?: string;
+  /** Built browser output pages, served at /output/; optional in tests. */
+  outputDir?: string;
   name: string;
   /** Backups kept per workspace; older ones are removed. */
   keepBackups?: number;
@@ -119,7 +126,43 @@ export async function buildServer(config: ServerConfig) {
     minProtocolVersion: MIN_PROTOCOL_VERSION,
     /** Slide decks can be imported. */
     decks: config.convertDeck !== undefined,
+    /** Browser output pages are served. */
+    outputs: config.outputDir !== undefined,
   }));
+
+  // What a browser output page is to look like, before it connects (M7.2, M7.4).
+  app.get<{ Querystring: { t?: string } }>('/api/v1/output/look', async (request, reply) => {
+    const link = instance.authenticateOutputLink(String(request.query.t ?? ''));
+    if (!link) return reply.code(401).send({ error: 'unauthorized' });
+    reply.header('cache-control', 'no-store');
+    return { kind: link.kind, look: instance.outputLook(link.workspaceId, link.kind) };
+  });
+
+  // Background files for browser output pages, which hold an output token rather than a
+  // device token. File names carry a random identifier, and the files never change, so the
+  // browser may keep them.
+  app.get<{ Params: { name: string }; Querystring: { t?: string } }>(
+    '/api/v1/output/files/:name',
+    async (request, reply) => {
+      const { name } = request.params;
+      const link = instance.authenticateOutputLink(String(request.query.t ?? ''));
+      if (!link) return reply.code(401).send({ error: 'unauthorized' });
+      if (!BACKGROUND_NAME.test(name) && !DECK_IMAGE.test(name)) {
+        return reply.code(404).send({ error: 'not-found' });
+      }
+      const path = findFile(config.dataDir, link.workspaceId, name);
+      if (!path) return reply.code(404).send({ error: 'not-found' });
+      const etag = `"${name}"`;
+      reply.header('cache-control', 'private, max-age=31536000, immutable');
+      reply.header('etag', etag);
+      if (request.headers['if-none-match'] === etag) return reply.code(304).send();
+      reply.header('content-length', statSync(path).size);
+      reply.type(
+        name.endsWith('.mp4') ? 'video/mp4' : name.endsWith('.png') ? 'image/png' : 'image/jpeg',
+      );
+      return reply.send(createReadStream(path));
+    },
+  );
 
   // Slide images for phones, which have no device token. A deck image's name holds a random
   // identifier, so only someone shown the slides can name one.
@@ -173,6 +216,81 @@ export async function buildServer(config: ServerConfig) {
         deviceName: request.device!.name,
         manageLibrary: workspace.manageLibrary,
       };
+    });
+
+    /** The workspace's devices by token hash, for accepting them on the LAN (plan M5.3). */
+    api.get('/api/v1/workspace/lan-credentials', async (request) => ({
+      devices: instance.lanCredentials(request.device!.workspaceId),
+    }));
+
+    /** Every desktop and output of the workspace connected to the relay (D20). */
+    api.get('/api/v1/workspace/peers', async (request) => ({
+      peers: relay.peers(request.device!.workspaceId),
+      coordinatorName: relay.coordinatorName(request.device!.workspaceId),
+    }));
+
+    // ── Live state backup (D17, D18) ───────────────────────────────────────
+
+    api.put('/api/v1/live', async (request, reply) => {
+      const parsed = z
+        .object({ snapshot: LiveSnapshotSchema, grants: z.array(WorkspaceGrantSchema).default([]) })
+        .safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-snapshot' });
+      const device = request.device!;
+      const stored = instance.putLive(
+        device.workspaceId,
+        device.id,
+        parsed.data.snapshot,
+        parsed.data.grants,
+      );
+      return { stored };
+    });
+
+    api.get('/api/v1/live', async (request) => {
+      const live = instance.getLive(request.device!.workspaceId);
+      return live ?? { snapshot: null, grants: [], deviceId: null, updatedAt: null };
+    });
+
+    // ── Browser output links (D22) ─────────────────────────────────────────
+
+    const outputUrl = (request: FastifyRequest, kind: string, token: string) =>
+      `${request.protocol}://${request.host}/output/${kind}?t=${encodeURIComponent(token)}`;
+
+    api.get('/api/v1/outputs', async (request) => ({
+      links: instance
+        .listOutputLinks(request.device!.workspaceId)
+        .map(
+          ({ id, kind, name, createdAt }) => ({ id, kind, name, createdAt }) satisfies OutputLink,
+        ),
+    }));
+
+    api.post<{ Body: { kind?: string; name?: string } }>(
+      '/api/v1/outputs',
+      async (request, reply) => {
+        const kind = OutputKindSchema.safeParse(request.body?.kind);
+        if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
+        const { link, token } = instance.createOutputLink(
+          request.device!.workspaceId,
+          kind.data,
+          String(request.body?.name ?? ''),
+        );
+        return {
+          id: link.id,
+          kind: link.kind,
+          name: link.name,
+          createdAt: link.createdAt,
+          url: outputUrl(request, link.kind, token),
+        } satisfies OutputLink;
+      },
+    );
+
+    api.delete<{ Params: { id: string } }>('/api/v1/outputs/:id', async (request) => {
+      const revoked = instance.revokeOutputLinks(
+        request.device!.workspaceId,
+        request.params.id === 'all' ? undefined : request.params.id,
+      );
+      for (const id of revoked) relay.outputRevoked(id);
+      return { revoked };
     });
 
     api.post<{ Body: { contentId?: string } }>('/api/v1/claim', async (request, reply) => {
@@ -336,6 +454,13 @@ export async function buildServer(config: ServerConfig) {
     socket.on('close', () => handlers.close());
   });
 
+  app.get('/api/v1/output', { websocket: true }, (socket) => {
+    keepAlive(socket);
+    const handlers = relay.output(socket);
+    socket.on('message', (raw) => handlers.message(raw));
+    socket.on('close', () => handlers.close());
+  });
+
   // ── Remote-control page ──────────────────────────────────────────────────
 
   if (config.remoteDir && existsSync(config.remoteDir)) {
@@ -350,6 +475,29 @@ export async function buildServer(config: ServerConfig) {
         ),
     });
     app.get('/remote', (_request, reply) => reply.redirect('/remote/'));
+  }
+  // ── Browser output pages ─────────────────────────────────────────────────
+
+  if (config.outputDir && existsSync(config.outputDir)) {
+    await app.register(fastifyStatic, {
+      root: resolve(config.outputDir),
+      prefix: '/output/',
+      decorateReply: false,
+      setHeaders: (reply, path) =>
+        reply.header(
+          'cache-control',
+          path.endsWith('.html') ? 'no-cache' : 'public, max-age=31536000, immutable',
+        ),
+    });
+    // One page for both outputs; the path says which (D22).
+    const page = join(resolve(config.outputDir), 'index.html');
+    for (const kind of ['slideshow', 'subtitle']) {
+      app.get(`/output/${kind}`, (_request, reply) => {
+        reply.header('cache-control', 'no-cache');
+        reply.type('text/html');
+        return reply.send(createReadStream(page));
+      });
+    }
   }
   app.get('/', async () => ({ name: config.name, app: 'worship-q' }));
   app.addHook('onClose', async () => clearInterval(sweeper));

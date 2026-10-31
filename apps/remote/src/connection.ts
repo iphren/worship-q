@@ -1,8 +1,15 @@
 /**
- * The phone's connection to the coordinator, through the church instance's relay.
+ * The phone's connection to an operator device, through the church instance's relay.
  *
- * The invitation from the QR code requests access; after an operator approves, the grant
- * it returns is kept on this phone and used to reconnect, also after the page is reloaded.
+ * The invitation from the QR code requests access from the computer that showed it; after
+ * an operator approves, the grant it returns is kept on this phone and used to reconnect,
+ * also after the page is reloaded. The grant belongs to the workspace (decision D25): when
+ * the computer this phone was connected to goes away, the relay says so and the phone comes
+ * back with its grant to whichever computer holds the presentation.
+ *
+ * On the venue Wi-Fi the invitation may also carry the coordinator's own address (plan
+ * M5.6). A phone browser usually refuses a self-signed certificate, so that address is only
+ * tried when the browser has accepted it; otherwise the relay is used and the page says so.
  */
 import {
   PROTOCOL_VERSION,
@@ -17,7 +24,8 @@ export type RemoteState =
   | { kind: 'name' }
   | { kind: 'connecting' }
   | { kind: 'pending'; code: string }
-  | { kind: 'live'; view: RemoteView | null }
+  /** `reconnecting`: the computer this phone used went away; another is being reached. */
+  | { kind: 'live'; view: RemoteView | null; reconnecting?: boolean }
   | { kind: 'offline' }
   | { kind: 'denied'; reason: 'denied' | 'invalid-invite' | 'revoked' | 'no-invite' }
   | { kind: 'no-workspace' }
@@ -49,12 +57,21 @@ export class RemoteConnection {
   private readonly searches = new Map<string, (songs: RemoteSongResult[]) => void>();
   readonly workspace: string;
   private invite: string | null;
+  /** The coordinator's address on the venue network, from the invitation, if any (M5.6). */
+  readonly lan: { addresses: string[]; port: number; fingerprint: string } | null;
+  /** How the phone is connected: on the venue network, or through the church server. */
+  via: 'lan' | 'relay' = 'relay';
 
   constructor(location: Location) {
     const query = new URLSearchParams(location.search);
     const hash = new URLSearchParams(location.hash.slice(1));
     this.workspace = query.get('w') ?? '';
     this.invite = hash.get('i');
+    const fingerprint = hash.get('f');
+    const addresses = (hash.get('a') ?? '').split(',').filter(Boolean);
+    const port = Number(hash.get('p') ?? 0);
+    this.lan =
+      fingerprint && addresses.length > 0 && port > 0 ? { addresses, port, fingerprint } : null;
     this.state_ = this.name ? { kind: 'connecting' } : { kind: 'name' };
   }
 
@@ -160,6 +177,14 @@ export class RemoteConnection {
       case 'update-needed':
         return this.set({ kind: 'update-needed' });
       case 'unavailable':
+        if (message.reason === 'reconnect') {
+          // The computer this phone used went away; the grant is accepted elsewhere (M2.8).
+          if (this.state_.kind === 'live') {
+            this.set({ kind: 'live', view: this.state_.view, reconnecting: true });
+          }
+          this.attempt = 0;
+          return;
+        }
         return this.set(
           message.reason === 'no-workspace' ? { kind: 'no-workspace' } : { kind: 'offline' },
         );
@@ -192,7 +217,11 @@ export class RemoteConnection {
   }
 
   get connected(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN && this.state_.kind === 'live';
+    return (
+      this.socket?.readyState === WebSocket.OPEN &&
+      this.state_.kind === 'live' &&
+      !this.state_.reconnecting
+    );
   }
 
   private newId(): string {

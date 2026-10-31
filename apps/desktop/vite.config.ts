@@ -28,8 +28,9 @@ export default defineConfig({
   build: {
     target: 'es2022',
     rollupOptions: {
-      // The subtitle overlay is a second page, served on localhost for OBS.
-      input: { main: 'index.html', overlay: 'overlay.html' },
+      // The subtitle overlay and the slideshow are further pages, served on localhost for OBS
+      // and browsers on this computer.
+      input: { main: 'index.html', overlay: 'overlay.html', slideshow: 'slideshow.html' },
     },
   },
 });

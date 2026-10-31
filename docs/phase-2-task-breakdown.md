@@ -1,7 +1,7 @@
 # Worship Q — Phase 2 Task Breakdown: One Live State Across the Venue
 
 **Drafted:** 30 October 2026  
-**Status:** Draft for review.  
+**Status:** Implemented on branch `phase-2`; task-by-task status is in the [acceptance record](acceptance/phase-2.md).  
 **Source:** [Phase 2 Plan](phase-2-plan.md), referred to here as "the plan", and the code at version 0.4.0. Milestone names, decisions (D14–D25) and gaps (G1–G22) are the plan's.
 
 ## 1. How to read this

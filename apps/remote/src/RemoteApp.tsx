@@ -167,6 +167,9 @@ function Live({ view }: { view: RemoteView | null }) {
             className={`rounded-full px-2 py-0.5 text-xs ${
               connected ? 'bg-emerald-800 text-emerald-100' : 'bg-amber-800 text-amber-100'
             }`}
+            title={
+              connection.via === 'lan' ? 'On this network' : 'Connected through the church server'
+            }
           >
             {connected ? 'Connected' : 'Reconnecting…'}
           </span>

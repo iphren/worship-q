@@ -182,7 +182,21 @@ function Connected() {
   const status = useCloud();
   const [confirm, setConfirm] = useState(false);
   const state = status.state!;
-  const { sync, relay, backup } = status;
+  const { sync, relay, backup, live } = status;
+  const connection = live?.transport === 'lan' ? t('church.viaLan') : t('church.viaRelay');
+  const liveText =
+    relay.kind === 'connecting'
+      ? t('church.remoteConnecting')
+      : relay.kind !== 'connected' || !live
+        ? ''
+        : live.role === 'coordinator'
+          ? t('church.liveCoordinator')
+          : live.role === 'viewer'
+            ? t('church.liveViewer')
+            : live.coordinatorName
+              ? t('church.liveFollowing', { name: live.coordinatorName })
+              : t('church.liveNobody');
+  const canTakeOver = relay.kind === 'connected' && live?.role === 'follower';
 
   const syncText =
     sync.kind === 'syncing'
@@ -211,21 +225,23 @@ function Connected() {
       </p>
       <p className={syncTone}>{syncText}</p>
       <p className="text-slate-300">
-        {relay.kind === 'coordinator'
-          ? t('church.remoteHere')
-          : relay.kind === 'standby'
-            ? relay.coordinatorName
-              ? t('church.remoteElsewhere', { name: relay.coordinatorName })
-              : t('church.remoteNobody')
-            : relay.kind === 'connecting'
-              ? t('church.remoteConnecting')
-              : ''}
-        {relay.kind === 'standby' && (
-          <button className="btn btn-sm ml-2" onClick={() => cloud.takeOver()}>
-            {t('church.takeOver')}
+        {liveText}
+        {relay.kind === 'connected' && live && (
+          <span className="text-slate-500"> · {connection}</span>
+        )}
+        {canTakeOver && (
+          <button
+            className="btn btn-sm ml-2"
+            title={t('church.takeOverHint')}
+            onClick={() => cloud.takeOver()}
+          >
+            {live?.coordinatorLost ? t('live.carryOn') : t('church.takeOver')}
           </button>
         )}
       </p>
+      {state.tokenStorage === 'database' && (
+        <p className="text-xs text-amber-300">{t('church.tokenUnprotected')}</p>
+      )}
       <p className="text-xs text-slate-400">
         {backup.kind === 'failed'
           ? t('church.backupFailed', { error: backup.message })

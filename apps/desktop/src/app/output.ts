@@ -7,6 +7,7 @@ import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api
 import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/protocol';
 import type { Session } from '@worship-q/session';
 import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
+import { t } from '../i18n';
 import { type PresentAction, runPresentAction } from '../lib/shortcuts';
 import { native } from '../platform/native';
 
@@ -62,6 +63,8 @@ export class OutputController {
   private readonly urls = new Map<string, string | null>();
   private frameRequest = 0;
   private stopped = false;
+  /** Where the localhost pages fetch files, once the page server has said its address. */
+  private overlayBase: string | null = null;
   private syncing: Promise<void> = Promise.resolve();
   private cleanup: (() => void)[] = [];
 
@@ -92,6 +95,12 @@ export class OutputController {
     );
     const timer = window.setInterval(() => void this.syncWindow(), MONITOR_POLL_MS);
     this.cleanup.push(() => window.clearInterval(timer));
+    await native
+      .overlayStatus()
+      .then(([url, error]) => {
+        if (!error) this.overlayBase = url.replace(/\/overlay\/subtitle$/, '');
+      })
+      .catch(() => undefined);
     await this.refresh();
   }
 
@@ -138,12 +147,23 @@ export class OutputController {
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;
     // A slide whose image has not arrived yet shows nothing rather than a broken image.
     if (frame.picture && !frame.picture.url) frame.picture = null;
+    // A viewer with nothing to follow says so on its outputs' background (D16).
+    if (this.session.isViewer && !this.session.isLive) frame.message = t('viewer.waiting');
     const subtitle = await this.session.frame(() => '', 'subtitle');
     // A later refresh started meanwhile has the newer frame; this one must not replace it.
     if (this.stopped || request !== this.frameRequest) return;
     this.update({ frame, subtitle });
     await this.send();
     await native.publishOverlay(subtitle).catch(console.error);
+    // The localhost slideshow page is an ordinary browser: it fetches files from the app's
+    // page server rather than reading them where they are (plan M7.7).
+    if (this.overlayBase) {
+      const base = this.overlayBase;
+      const page = await this.session.frame((fileName) => `${base}/files/${fileName}`);
+      if (this.stopped || request !== this.frameRequest) return;
+      page.message = frame.message;
+      await native.publishOverlay(page, 'slideshow').catch(console.error);
+    }
   }
 
   private async send(): Promise<void> {

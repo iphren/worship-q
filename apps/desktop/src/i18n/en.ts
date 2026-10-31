@@ -327,18 +327,79 @@ export const en = {
   'church.disconnectTitle': 'Disconnect from the church server?',
   'church.disconnectBody':
     'Songs and run sheets stay on this computer, but stop synchronizing. Phones lose remote control. You can connect again with a connection code.',
-  'church.remoteHere': 'Phones control the presentation on this computer.',
-  'church.remoteElsewhere': 'Phones control the presentation on “{name}”.',
-  'church.remoteNobody': 'No computer is receiving remote control right now.',
-  'church.remoteConnecting': 'Connecting to the remote-control relay…',
+  'church.remoteConnecting': 'Connecting to the church server…',
   'church.takeOver': 'Use this computer',
+  'church.takeOverHint':
+    'Makes this computer hold the presentation. What is on every screen stays as it is.',
+  'church.liveCoordinator': 'This computer holds the presentation; the others follow it.',
+  'church.liveFollowing': 'Following the presentation on “{name}”.',
+  'church.liveViewer': 'This computer is a viewer: it shows the presentation and never holds it.',
+  'church.liveNobody': 'No computer holds the presentation right now.',
+  'church.viaRelay': 'Through the church server',
+  'church.viaLan': 'On this network',
+  'church.tokenUnprotected':
+    'This computer’s church credential is not yet protected by the system keychain.',
+
+  'live.lost': 'The presenting computer is not responding.',
+  'live.carryOn': 'Carry on here',
+  'live.carryOnHint': 'Continues from the last slide, on this computer.',
+  'live.demoted': 'Another computer carried on; this one now follows.',
+  'live.fontWarning': '“{name}” does not have the font {fonts}. Its slides use another font.',
+
+  'viewer.title': 'Viewer mode',
+  'viewer.hint':
+    'A viewer shows the presentation on its screens and never starts, holds or keeps one alive. Use it on a projector computer that should only follow. Worship Q reopens when this changes.',
+  'viewer.toggle': 'This computer is a viewer',
+  'viewer.waiting': 'Waiting for presentation',
+  'viewer.notConnected': 'A viewer needs a church connection to follow a presentation.',
+  'viewer.following': 'Showing the presentation from “{name}”.',
+
+  'devices.title': 'Connected devices',
+  'devices.hint': 'Everything following this workspace’s presentation right now.',
+  'devices.none': 'No other devices are connected.',
+  'devices.role.coordinator': 'Holds the presentation',
+  'devices.role.operator': 'Operator',
+  'devices.role.viewer': 'Viewer',
+  'devices.role.phone': 'Phone',
+  'devices.role.output': 'Browser output',
+  'devices.via': 'through “{name}”',
+  'devices.disconnect': 'Disconnect',
+  'devices.disconnectAll': 'Disconnect all…',
+  'devices.disconnectAllTitle': 'Disconnect every phone and browser output?',
+  'devices.disconnectAllBody':
+    'Every approved phone, also those connected through other computers, loses control and must be approved again. Every browser output link stops working.',
+  'devices.disconnectAllConfirm': 'Disconnect all',
+
+  'outputs.title': 'Browser outputs',
+  'outputs.hint':
+    'Links that show the slideshow or the subtitle overlay in any browser, or in OBS on a computer without Worship Q, through the church server. Each link holds its own key; anyone with the link can see the presentation.',
+  'outputs.none': 'No links yet.',
+  'outputs.new': 'New link',
+  'outputs.name': 'Name',
+  'outputs.namePlaceholder': 'Foyer screen',
+  'outputs.kind': 'Shows',
+  'outputs.kind.slideshow': 'Slideshow',
+  'outputs.kind.subtitle': 'Subtitle overlay',
+  'outputs.create': 'Create link',
+  'outputs.created':
+    'Copy the link now, or scan it: it is shown only this once. Paste it into a browser, or into an OBS Browser Source.',
+  'outputs.copy': 'Copy link',
+  'outputs.copied': 'Copied',
+  'outputs.done': 'Done',
+  'outputs.revoke': 'Revoke',
+  'outputs.revokeTitle': 'Revoke “{name}”?',
+  'outputs.revokeBody': 'Pages using this link stop showing the presentation at once.',
+  'outputs.needsConnection': 'Connect to your church’s server to make output links.',
+  'outputs.failed': 'That did not work: {error}',
+  'outputs.localSlideshow':
+    'On this computer, OBS and browsers can also show the slideshow without internet at this address:',
 
   'remote.title': 'Remote control',
   'remote.notConnected':
     'Remote control works through your church’s Worship Q server. Connect to it in Settings → Church connection.',
   'remote.openSettings': 'Open Settings',
-  'remote.elsewhere':
-    'Phones currently control “{name}”. Choose Use this computer to receive them here instead.',
+  'remote.viewer':
+    'A viewer does not receive phones. Leave viewer mode in Settings to approve them here.',
   'remote.offline': 'Connecting to the server… Phones can join once it is reachable.',
   'remote.scan':
     'Scan with a phone’s camera, or send the link. Each phone must be approved here. The code changes every few minutes.',
@@ -354,7 +415,7 @@ export const en = {
   'remote.disconnectAll': 'Disconnect all',
   'remote.banner': '“{name}” wants to control the presentation · code {code}',
   'remote.limits':
-    'Phones can move between slides, blank or clear the screen, and add, remove or reorder songs on the live run sheet. They cannot edit songs or change settings. Approve only people you trust with the service order.',
+    'Phones can move between slides, blank or clear the screen, and add, remove or reorder songs on the live run sheet. They cannot edit songs or change settings. Approve only people you trust with the service order. A phone approved here can later connect to any computer of this workspace.',
   'remote.added': '“{name}” added “{title}” to the run sheet',
   'remote.removed': '“{name}” removed “{title}” from the run sheet',
   'remote.moved': '“{name}” moved “{title}” to position {position}',

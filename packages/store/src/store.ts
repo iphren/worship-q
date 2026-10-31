@@ -942,16 +942,34 @@ export class Store {
 
   async addRemoteGrant(
     workspaceId: string,
-    grant: { id: string; secretHash: string; name: string },
+    grant: { id: string; secretHash: string; name: string; createdAt?: string },
   ): Promise<void> {
     const now = this.env.now();
     await this.db.batch([
       {
+        // A grant already known, for example from the coordinator's list, is kept as it is.
         sql: `INSERT INTO remote_grant (id, workspace_id, secret_hash, name, created_at, last_seen_at)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        params: [grant.id, workspaceId, grant.secretHash, grant.name, now, now],
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT (id) DO UPDATE SET revoked_at = NULL`,
+        params: [grant.id, workspaceId, grant.secretHash, grant.name, grant.createdAt ?? now, now],
       },
     ]);
+  }
+
+  /** The workspace's unrevoked grants, as shared between its operator devices (D25). */
+  async listRemoteGrants(
+    workspaceId: string,
+  ): Promise<{ id: string; secretHash: string; name: string; createdAt: string }[]> {
+    const rows = await this.db.select<Row>(
+      'SELECT * FROM remote_grant WHERE workspace_id = ? AND revoked_at IS NULL ORDER BY created_at',
+      [workspaceId],
+    );
+    return rows.map((row) => ({
+      id: text(row.id),
+      secretHash: text(row.secret_hash),
+      name: text(row.name),
+      createdAt: text(row.created_at),
+    }));
   }
 
   /** An unrevoked grant of the workspace, recording that it was used. */

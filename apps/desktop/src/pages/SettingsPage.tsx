@@ -19,8 +19,11 @@ import {
   SongBackgroundFields,
   songKind,
 } from '../components/BackgroundPicker';
+import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
+import { ConnectedDevices } from '../components/ConnectedDevices';
 import { ConfirmDialog } from '../components/Dialog';
+import { OutputLinks } from '../components/OutputLinks';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { UpdateStatusLine } from '../components/UpdateBanner';
@@ -96,6 +99,8 @@ export function SettingsPage() {
     [],
   );
   const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
+  const [viewerMode, setViewerMode] = useState(() => deviceSettings.get().viewerMode);
+  const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
   const onScreen = useQuery(
@@ -500,6 +505,35 @@ export function SettingsPage() {
           <ChurchConnection />
         </Section>
 
+        <Section title={t('viewer.title')} hint={t('viewer.hint')}>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={viewerMode}
+              onChange={(e) => setViewerChange(e.target.checked)}
+            />
+            <span>{t('viewer.toggle')}</span>
+          </label>
+          {viewerMode && !session.following && (
+            <p className="text-xs text-slate-400">{t('viewer.notConnected')}</p>
+          )}
+        </Section>
+
+        <Section title={t('devices.title')} hint={t('devices.hint')}>
+          <ConnectedDevices />
+        </Section>
+
+        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
+          <OutputLinks
+            localSlideshowUrl={
+              overlay && !overlay.error
+                ? overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow')
+                : null
+            }
+          />
+        </Section>
+
         <Section title={t('settings.backup')} hint={t('settings.backupHint')}>
           <div className="flex gap-2">
             <button className="btn" onClick={() => void exportBackup()}>
@@ -559,6 +593,21 @@ export function SettingsPage() {
         </section>
       </aside>
 
+      {viewerChange !== null && (
+        <ConfirmDialog
+          title={t('viewer.title')}
+          body={t('viewer.hint')}
+          confirmLabel={t('workspaces.leaveLiveConfirm')}
+          onCancel={() => setViewerChange(null)}
+          onConfirm={() => {
+            deviceSettings.set({ viewerMode: viewerChange });
+            setViewerMode(viewerChange);
+            setViewerChange(null);
+            // The session's role is fixed when it opens, so the app starts again.
+            window.location.reload();
+          }}
+        />
+      )}
       {restoreFrom && (
         <ConfirmDialog
           title={t('settings.restoreTitle')}

@@ -2,6 +2,7 @@ import { Session, type StartKind } from '@worship-q/session';
 import { migrate, Store } from '@worship-q/store';
 import { tauriDriver } from '../platform/native';
 import { CloudController } from './cloud';
+import { deviceSettings } from './deviceSettings';
 import { OutputController } from './output';
 import { UpdateController } from './update';
 
@@ -25,7 +26,11 @@ export async function boot(): Promise<Booted> {
   });
   await store.refreshSearchIndex();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const { session, start } = await Session.open(store, { now: () => new Date() }, timezone);
+  // Viewer mode belongs to this computer, not to the workspace (plan M3.1).
+  const role = deviceSettings.get().viewerMode ? 'viewer' : 'operator';
+  const { session, start } = await Session.open(store, { now: () => new Date() }, timezone, {
+    role,
+  });
   window.setInterval(() => void session.heartbeat(), HEARTBEAT_MS);
   const output = new OutputController(session);
   await output.start();

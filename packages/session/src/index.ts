@@ -10,20 +10,28 @@ import {
   applyCommand,
   createLiveState,
   DEFAULT_EXPIRY_MS,
+  isExpired,
   isKeptTooLong,
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
   touch,
   type CommandInput,
+  type CommandResult,
   type PlayablePiece,
+  type SnapshotBody,
 } from '@worship-q/live-state';
 import { buildPieces, type Piece } from '@worship-q/lyrics';
 import type {
   BackgroundAsset,
   Command,
+  CommandOrigin,
+  ConnectedDevice,
+  DeviceRole,
   IsoDate,
+  LiveSnapshot,
   LiveState,
+  OperatorCommand,
   OutputFrame,
   OutputKind,
   OutputProfile,
@@ -32,6 +40,9 @@ import type {
   RemoteNavigationCommand,
   RunSheet,
   RunSheetItem,
+  SnapshotItem,
+  SnapshotPiece,
+  SnapshotPresented,
   Song,
   SongFields,
   Workspace,
@@ -45,6 +56,25 @@ export interface SessionClock {
 export interface SessionOptions {
   /** How long a live state survives with the app closed. */
   expiryMs?: number;
+  /**
+   * A viewer (spec §7, decision D16) never starts, keeps alive or coordinates a live state:
+   * it only shows the one it is sent. Defaults to an operator device.
+   */
+  role?: DeviceRole;
+}
+
+/**
+ * Where a follower's live commands go: to the coordinator, which applies them and sends a
+ * snapshot back (plan M1). The session never edits the live state itself while following.
+ */
+export interface LiveRelay {
+  send(command: OperatorCommand): void;
+}
+
+/** What applying another device's command came to, with the run-sheet change for notices. */
+export interface OperatorCommandOutcome {
+  result: CommandResult;
+  change?: RunSheetChange;
 }
 
 /** How the session began, following the start rules. */
@@ -100,6 +130,100 @@ export function songPieces(
   });
 }
 
+/** How a song is presented: as lyrics, as imported slides or as a web page. */
+export function songKind(song: Pick<Song, 'deck' | 'website'>): SnapshotItem['kind'] {
+  return song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
+}
+
+/** A song's pieces as the snapshot and the phones' view carry them (plan M1.6). */
+export function snapshotPieces(song: Song, pieces: readonly Piece[]): SnapshotPiece[] {
+  return pieces.map((piece) => ({
+    id: piece.id,
+    lines:
+      piece.lines.length > 0 || !piece.image
+        ? piece.lines.map((line) => line.text)
+        : // An imported slide without text, such as a photo, is named by its place.
+          [
+            `Slide ${piece.blockIndex + 1}` +
+              (piece.indexInBlock > 0 ? ` · ${piece.indexInBlock + 1}` : ''),
+          ],
+    block: piece.blockIndex,
+    ...(piece.image ? { image: piece.image } : {}),
+    ...(piece.image && piece.lines.length === 0 ? { textless: true } : {}),
+    ...(song.deck?.pages.find((page) => page.image === piece.image)?.thumbnail
+      ? { thumbnail: song.deck.pages.find((page) => page.image === piece.image)!.thumbnail }
+      : {}),
+  }));
+}
+
+/** A run-sheet entry made from a snapshot, for a follower whose content is behind. */
+function entryFromSnapshot(
+  item: SnapshotItem,
+  runSheetId: string,
+  position: number,
+  now: string,
+): RunSheetEntry {
+  const lines = item.pieces.flatMap((piece) => piece.lines);
+  const song: Song = {
+    id: item.songId,
+    workspaceId: '',
+    title: item.title,
+    lyrics: lines.join('\n'),
+    author: '',
+    copyright: '',
+    ccli: null,
+    year: null,
+    background: null,
+    deck:
+      item.kind === 'deck'
+        ? {
+            source: '',
+            width: 16,
+            height: 9,
+            pages: item.pieces.map((piece, index) => ({
+              image: piece.image ?? piece.id,
+              ...(piece.thumbnail ? { thumbnail: piece.thumbnail } : {}),
+              slide: (piece.block ?? index) + 1,
+              step: 0,
+              text: piece.lines,
+            })),
+          }
+        : null,
+    website: item.kind === 'website' ? { url: item.pieces[0]?.lines[0] ?? 'https://' } : null,
+    lineIds: [],
+    revision: 1,
+    createdAt: now,
+    updatedAt: now,
+    removedAt: item.removed ? now : null,
+  };
+  const counts = new Map<number, number>();
+  const pieces: Piece[] = item.pieces.map((piece) => {
+    const blockIndex = piece.block ?? 0;
+    const indexInBlock = counts.get(blockIndex) ?? 0;
+    counts.set(blockIndex, indexInBlock + 1);
+    return {
+      id: piece.id,
+      blockIndex,
+      indexInBlock,
+      lines: piece.lines.map((text, i) => ({ id: `${piece.id}:${i}`, text })),
+      ...(piece.image ? { image: piece.image } : {}),
+    };
+  });
+  return {
+    item: {
+      id: item.itemId,
+      runSheetId,
+      songId: item.songId,
+      position,
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+    },
+    song,
+    pieces,
+  };
+}
+
 export interface RunSheetEntry {
   item: RunSheetItem;
   /** The song, also when it has since been removed from the library. */
@@ -149,6 +273,13 @@ export class Session {
   private readonly listeners = new Set<() => void>();
   private readonly expiryMs: number;
   private readonly remoteEditIds: string[] = [];
+  readonly role: DeviceRole;
+  /** How this session began; null until the start rules have run. */
+  private startKind_: StartKind | null = null;
+  /** Set while another device coordinates the live state; commands go through it. */
+  private relay_: LiveRelay | null = null;
+  /** The coordinator's last snapshot while following, for rendering content not here yet. */
+  private snapshot_: LiveSnapshot | null = null;
 
   private constructor(
     readonly store: Store,
@@ -157,6 +288,7 @@ export class Session {
     options: SessionOptions,
   ) {
     this.expiryMs = options.expiryMs ?? DEFAULT_EXPIRY_MS;
+    this.role = options.role ?? 'operator';
     this.day_ = this.today();
   }
 
@@ -173,6 +305,7 @@ export class Session {
     const workspace = await store.ensureWorkspace(timezone);
     const session = new Session(store, clock, workspace, options);
     const start = await session.start();
+    session.startKind_ = start;
     return { session, start };
   }
 
@@ -189,6 +322,26 @@ export class Session {
 
   get isLive(): boolean {
     return this.live_?.status === 'live';
+  }
+
+  /** Whether an earlier live state was resumed when the app opened, or a new one started. */
+  get startKind(): StartKind | null {
+    return this.startKind_;
+  }
+
+  /** True while another device holds the live state and this one follows it. */
+  get following(): boolean {
+    return this.relay_ !== null;
+  }
+
+  /** A viewer only shows the presentation (decision D16). */
+  get isViewer(): boolean {
+    return this.role === 'viewer';
+  }
+
+  /** The coordinator's last snapshot while following, else null. */
+  get snapshot(): LiveSnapshot | null {
+    return this.snapshot_;
   }
 
   /** Date of the live run sheet while live. */
@@ -282,7 +435,8 @@ export class Session {
     this.live_ = state;
     if (state) {
       await this.store.saveLiveState(this.workspace_.id, state);
-      this.liveDate_ = (await this.store.getRunSheet(state.runSheetId))?.date ?? null;
+      this.liveDate_ =
+        (await this.store.getRunSheet(state.runSheetId))?.date ?? this.snapshot_?.date ?? null;
     } else {
       await this.store.clearLiveState(this.workspace_.id);
       this.liveDate_ = null;
@@ -294,6 +448,16 @@ export class Session {
   private async start(): Promise<StartKind> {
     const today = this.today();
     let saved = await this.store.loadLiveState(this.workspace_.id);
+    if (this.isViewer) {
+      // A viewer shows what it last followed until that expires, and starts nothing itself.
+      if (saved && !isExpired(saved, this.nowIso(), this.expiryMs)) {
+        this.live_ = saved;
+        this.liveDate_ = (await this.store.getRunSheet(saved.runSheetId))?.date ?? null;
+        return 'resumed';
+      }
+      if (saved) await this.store.clearLiveState(this.workspace_.id);
+      return 'started';
+    }
     if (saved && !(await this.store.getRunSheet(saved.runSheetId))) saved = null;
     const planned = await this.store.getPlannedRunSheet(this.workspace_.id, today);
     const decision = resolveStart({
@@ -327,7 +491,20 @@ export class Session {
    */
   heartbeat(): Promise<void> {
     return this.enqueue(async () => {
-      if (this.live_) await this.setLive(touch(this.live_, this.nowIso()));
+      if (this.live_ && this.isViewer) {
+        // A viewer never keeps a live state alive (spec §7 rule 3); it lets go once expired.
+        if (isExpired(this.live_, this.nowIso(), this.expiryMs)) {
+          this.live_ = null;
+          this.liveDate_ = null;
+          this.snapshot_ = null;
+          await this.store.clearLiveState(this.workspace_.id);
+          this.changed();
+        }
+      } else if (this.live_) {
+        // Every operator device keeps the live state alive, also a follower whose
+        // coordinator has gone; the coordinator's snapshots carry its own stamp meanwhile.
+        await this.setLive(touch(this.live_, this.nowIso()));
+      }
       const today = this.today();
       if (today !== this.day_) {
         this.day_ = today;
@@ -353,10 +530,50 @@ export class Session {
 
   /** The plan for a date, with each song's pieces. */
   async viewDate(date: IsoDate): Promise<RunSheetView> {
+    const snapshot = this.snapshot_;
+    if (snapshot && this.live_ && date === this.liveDate_ && this.isLive) {
+      // A coordinator that took the snapshot over keeps its items only until its own copy of
+      // the run sheet has arrived by content synchronization.
+      if (this.relay_ || !(await this.hasLocalItems(this.live_.runSheetId))) {
+        return this.viewSnapshot(snapshot, date);
+      }
+      this.snapshot_ = null;
+    }
     const runSheet = await this.store.getRunSheetByDate(this.workspace_.id, date);
     if (!runSheet) return { date, runSheet: null, entries: [] };
     const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
     return { date, runSheet, entries: await this.entries(runSheet.id, linesPerPiece) };
+  }
+
+  private async hasLocalItems(runSheetId: string): Promise<boolean> {
+    return (await this.store.listItems(runSheetId)).length > 0;
+  }
+
+  /**
+   * The live run sheet as the coordinator's snapshot has it, which is authoritative for what
+   * is live. Songs this device already holds are read from here, so their edits show; the
+   * rest are made from the snapshot until content synchronization brings them.
+   */
+  private async viewSnapshot(snapshot: LiveSnapshot, date: IsoDate): Promise<RunSheetView> {
+    const runSheet =
+      (await this.store.getRunSheet(snapshot.state.runSheetId)) ??
+      (await this.store.getRunSheetByDate(this.workspace_.id, date));
+    const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
+    const now = this.nowIso();
+    const entries: RunSheetEntry[] = [];
+    for (const [position, item] of snapshot.items.entries()) {
+      const entry = entryFromSnapshot(item, snapshot.state.runSheetId, position, now);
+      const song = await this.store.getSong(item.songId);
+      if (song && song.removedAt === null) {
+        entry.song = song;
+        const pieces = songPieces(song, linesPerPiece);
+        // The local copy is used only while it has the same pieces as the live one.
+        if (pieces.map((p) => p.id).join(' ') === entry.pieces.map((p) => p.id).join(' '))
+          entry.pieces = pieces;
+      }
+      entries.push(entry);
+    }
+    return { date, runSheet, entries };
   }
 
   /** The live run sheet, or null when nothing is live. */
@@ -368,7 +585,10 @@ export class Session {
   private async sequence(): Promise<PlayablePiece[]> {
     if (!this.live_) return [];
     const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
-    const entries = await this.entries(this.live_.runSheetId, linesPerPiece);
+    const entries =
+      this.snapshot_ && this.liveDate_ && this.isLive
+        ? (await this.viewDate(this.liveDate_)).entries
+        : await this.entries(this.live_.runSheetId, linesPerPiece);
     return entries.flatMap((entry) =>
       entry.pieces.map((piece) => ({
         itemId: entry.item.id,
@@ -381,14 +601,24 @@ export class Session {
   // ── Live commands ────────────────────────────────────────────────────────
 
   private async apply(command: CommandInput, id = this.store.newId()): Promise<boolean> {
-    if (!this.live_) return false;
+    return (await this.applyWithResult(command, id)) === 'applied';
+  }
+
+  private async applyWithResult(command: CommandInput, id: string): Promise<CommandResult> {
+    if (this.relay_) {
+      // The coordinator applies it and sends the result back as a snapshot.
+      if (command.type === 'goLive') return 'rejected';
+      this.relay_.send(command as OperatorCommand);
+      return 'applied';
+    }
+    if (!this.live_ || this.isViewer) return 'rejected';
     const outcome = applyCommand(this.live_, { ...command, id } as Command, {
       now: this.nowIso(),
       sequence: await this.sequence(),
     });
-    if (outcome.result !== 'applied') return false;
+    if (outcome.result !== 'applied') return outcome.result;
     await this.setLive(outcome.state);
-    return true;
+    return 'applied';
   }
 
   /** Presents any piece of the live run sheet. */
@@ -606,12 +836,20 @@ export class Session {
    */
   goLive(date: IsoDate): Promise<void> {
     return this.mutate(async () => {
+      if (this.relay_) {
+        // The coordinator finds or makes the run sheet for the date on its side.
+        this.relay_.send({ type: 'goLive', date });
+        this.chosenDate_ = null;
+        return;
+      }
       await this.makeLive(await this.store.ensureRunSheet(this.workspace_.id, date));
     });
   }
 
   private async makeLive(sheet: RunSheet): Promise<void> {
-    if (this.live_) await this.apply({ type: 'goLive', runSheetId: sheet.id });
+    if (this.relay_) this.relay_.send({ type: 'goLive', date: sheet.date });
+    else if (this.isViewer) return;
+    else if (this.live_) await this.apply({ type: 'goLive', runSheetId: sheet.id });
     else await this.setLive(createLiveState(sheet.id, this.nowIso()));
     this.chosenDate_ = null;
   }
@@ -667,6 +905,20 @@ export class Session {
   addSong(date: IsoDate, songId: string): Promise<RunSheetItem> {
     return this.mutate(async () => {
       const sheet = await this.editable(date);
+      if (this.relay_ && date === this.liveDate) {
+        // A live run-sheet edit from a follower goes to the coordinator (decision D24).
+        this.relay_.send({ type: 'addItem', songId });
+        const now = this.nowIso();
+        return {
+          id: this.store.newId(),
+          runSheetId: sheet.id,
+          songId,
+          position: this.snapshot_?.items.length ?? 0,
+          revision: 1,
+          createdAt: now,
+          updatedAt: now,
+        };
+      }
       await this.liveWhenEdited(sheet);
       return this.store.addItem(sheet.id, songId);
     });
@@ -674,6 +926,13 @@ export class Session {
 
   moveItem(itemId: string, toIndex: number): Promise<void> {
     return this.mutate(async () => {
+      const liveItems = this.liveSnapshotItems(itemId);
+      if (this.relay_ && liveItems) {
+        const others = liveItems.filter((item) => item.itemId !== itemId);
+        const after = toIndex <= 0 ? null : (others[toIndex - 1]?.itemId ?? null);
+        this.relay_.send({ type: 'moveItem', itemId, afterItemId: after });
+        return;
+      }
       await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.moveItem(itemId, toIndex);
     });
@@ -681,9 +940,19 @@ export class Session {
 
   removeItem(itemId: string): Promise<void> {
     return this.mutate(async () => {
+      if (this.relay_ && this.liveSnapshotItems(itemId)) {
+        this.relay_.send({ type: 'removeItem', itemId });
+        return;
+      }
       await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.removeItem(itemId);
     });
+  }
+
+  /** The live run sheet's items when `itemId` is one of them and this device follows. */
+  private liveSnapshotItems(itemId: string): SnapshotItem[] | null {
+    const items = this.snapshot_?.items ?? null;
+    return items?.some((item) => item.itemId === itemId) ? items : null;
   }
 
   /**
@@ -698,6 +967,17 @@ export class Session {
       if ((await this.store.listItems(source.id)).length === 0)
         return { status: 'nothing-to-copy' };
       const target = await this.store.ensureRunSheet(this.workspace_.id, this.openDate);
+      if (this.relay_ && this.openDate === this.liveDate) {
+        // Into the live run sheet from a follower: as single edits through the coordinator.
+        const items = this.snapshot_?.items ?? [];
+        if (items.length > 0 && !mode) return { status: 'choose' };
+        if (mode === 'replace') {
+          for (const item of items) this.relay_.send({ type: 'removeItem', itemId: item.itemId });
+        }
+        const copied = await this.store.listItems(source.id);
+        for (const item of copied) this.relay_.send({ type: 'addItem', songId: item.songId });
+        return { status: 'copied', count: copied.length };
+      }
       const occupied = (await this.store.listItems(target.id)).length > 0;
       if (occupied && !mode) return { status: 'choose' };
       await this.liveWhenEdited(target);
@@ -794,6 +1074,161 @@ export class Session {
     return (kind === 'slideshow' ? church.slideshowFontFamily : church.subtitleFontFamily) ?? null;
   }
 
+  // ── Shared live state (plan M1, M2) ──────────────────────────────────────
+
+  /**
+   * Follows another device's live state: commands go to it through `relay`, and snapshots
+   * come back through `applySnapshot`. Null makes this device hold the live state itself
+   * again; what it last followed stays as its starting point.
+   */
+  follow(relay: LiveRelay | null): void {
+    if (relay === this.relay_) return;
+    this.relay_ = relay;
+    if (!relay) this.snapshot_ = null;
+    this.changed();
+  }
+
+  /** Takes the coordinator's snapshot as the live state. */
+  applySnapshot(snapshot: LiveSnapshot): Promise<void> {
+    return this.mutate(async () => {
+      const before = this.live_;
+      this.snapshot_ = snapshot;
+      if (before?.presented !== snapshot.state.presented) {
+        const same =
+          before?.presented &&
+          before.presented.itemId === snapshot.state.presented?.itemId &&
+          before.presented.pieceId === snapshot.state.presented.pieceId;
+        if (!same) this.browsedItemId_ = null;
+      }
+      this.live_ = snapshot.state;
+      this.liveDate_ = snapshot.date;
+      // The synchronized copy, from which this device can carry on (decision D18).
+      await this.store.saveLiveState(this.workspace_.id, snapshot.state);
+    });
+  }
+
+  /**
+   * Takes a snapshot as this device's own live state, to carry on from it as coordinator
+   * (decisions D14, D18): after a handover, a recovery, or the start rules across devices.
+   * The run sheet is matched by date when the snapshot's identifier is not known here yet.
+   */
+  adoptSnapshot(snapshot: LiveSnapshot): Promise<void> {
+    return this.mutate(async () => {
+      let state = snapshot.state;
+      if (!(await this.store.getRunSheet(state.runSheetId))) {
+        const local = await this.store.ensureRunSheet(this.workspace_.id, snapshot.date);
+        const presented =
+          state.presented && state.presented.runSheetId === state.runSheetId
+            ? { ...state.presented, runSheetId: local.id }
+            : state.presented;
+        state = { ...state, runSheetId: local.id, presented };
+      }
+      // Its items and presented content stand in until this device's own copy arrives.
+      this.snapshot_ = { ...snapshot, state };
+      this.relay_ = null;
+      this.browsedItemId_ = null;
+      this.live_ = state;
+      this.liveDate_ = snapshot.date;
+      await this.store.saveLiveState(this.workspace_.id, state);
+    });
+  }
+
+  /** The live run sheet's items as the snapshot and the phones' view carry them. */
+  async snapshotItems(): Promise<SnapshotItem[]> {
+    const view = await this.viewLive();
+    return (view?.entries ?? []).map((entry) => ({
+      itemId: entry.item.id,
+      songId: entry.song.id,
+      title: entry.song.title,
+      removed: entry.song.removedAt !== null,
+      kind: songKind(entry.song),
+      pieces: snapshotPieces(entry.song, entry.pieces),
+    }));
+  }
+
+  /** What is on screen, carried for followers whose content is behind. */
+  private async snapshotPresented(): Promise<SnapshotPresented | null> {
+    const presented = this.isLive ? this.live_?.presented : null;
+    if (!presented) return null;
+    const song = await this.store.getSong(presented.songId);
+    if (!song) {
+      // Following, with a song this device does not have yet: pass on what the coordinator sent.
+      const kept = this.snapshot_?.presented;
+      return kept && kept.itemId === presented.itemId && kept.pieceId === presented.pieceId
+        ? kept
+        : null;
+    }
+    const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
+    const pieces = songPieces(song, linesPerPiece);
+    return {
+      itemId: presented.itemId,
+      pieceId: presented.pieceId,
+      songId: song.id,
+      title: song.title,
+      kind: songKind(song),
+      pieces: snapshotPieces(song, pieces),
+      background: song.background,
+      websiteUrl: song.website?.url ?? null,
+      previous: this.presentingPreviousContent,
+    };
+  }
+
+  /**
+   * The live state for followers, without a revision (plan M1.6). Null when nothing is live
+   * here, which only a viewer or a follower can have.
+   */
+  async buildSnapshot(
+    coordinatorId: string,
+    devices: ConnectedDevice[] = [],
+  ): Promise<SnapshotBody | null> {
+    const live = this.live_;
+    const date = this.liveDate_;
+    if (!live || !date) return null;
+    return {
+      coordinatorId,
+      state: live,
+      date,
+      items: live.status === 'live' ? await this.snapshotItems() : [],
+      presented: await this.snapshotPresented(),
+      devices,
+    };
+  }
+
+  /**
+   * A command from another operator device or a phone, applied here as the coordinator
+   * (decisions D24, D25). Its identifier comes with it, so one sent again after a
+   * reconnection is applied once. Run-sheet edits report the change for the notice.
+   */
+  applyOperatorCommand(
+    id: string,
+    command: OperatorCommand,
+    _origin: CommandOrigin,
+  ): Promise<OperatorCommandOutcome> {
+    if (this.relay_ || this.isViewer) return Promise.resolve({ result: 'rejected' });
+    switch (command.type) {
+      case 'addItem':
+      case 'removeItem':
+      case 'moveItem':
+        return this.remoteEdit(id, command).then((change) =>
+          change ? { result: 'applied', change } : { result: 'rejected' },
+        );
+      case 'goLive':
+        return this.mutate(async () => {
+          if (this.live_?.appliedCommandIds.includes(id)) return { result: 'duplicate' };
+          const sheet = await this.store.ensureRunSheet(this.workspace_.id, command.date);
+          if (!this.live_) {
+            await this.setLive(createLiveState(sheet.id, this.nowIso()));
+            return { result: 'applied' };
+          }
+          return {
+            result: await this.applyWithResult({ type: 'goLive', runSheetId: sheet.id }, id),
+          };
+        });
+      default:
+        return this.mutate(async () => ({ result: await this.applyWithResult(command, id) }));
+    }
+  }
+
   // ── Changes from other devices ───────────────────────────────────────────
 
   /**
@@ -824,6 +1259,14 @@ export class Session {
           songPieces(after, linesAfter),
           this.nowIso(),
         );
+      }
+      if (this.snapshot_) {
+        // The coordinator's state stands while following; only lyrics edits are followed.
+        if (live && live !== this.live_) {
+          this.live_ = live;
+          await this.store.saveLiveState(this.workspace_.id, live);
+        }
+        return result;
       }
       if (live && !(await this.store.getRunSheet(live.runSheetId))) live = null;
       if (live !== this.live_ || live) await this.setLive(live);
@@ -859,7 +1302,28 @@ export class Session {
     const profile = await this.store.getOutputProfile(workspaceId, kind);
     const fontFamily = await this.fontFamily(kind);
     const presented = this.isLive ? this.live_!.presented : null;
-    const song = presented ? await this.store.getSong(presented.songId) : null;
+    let song = presented ? await this.store.getSong(presented.songId) : null;
+    // While following, a presented song not synchronized here yet is drawn from the snapshot:
+    // its text on the default background, until content synchronization brings the rest.
+    const carried = this.snapshot_?.presented;
+    let carriedPieces: SnapshotPiece[] | null = null;
+    if (presented && !song && carried && carried.itemId === presented.itemId) {
+      song = entryFromSnapshot(
+        {
+          itemId: carried.itemId,
+          songId: carried.songId,
+          title: carried.title,
+          removed: false,
+          kind: carried.kind,
+          pieces: carried.pieces,
+        },
+        presented.runSheetId,
+        0,
+        this.nowIso(),
+      ).song;
+      song.background = carried.background;
+      carriedPieces = carried.pieces;
+    }
     // The presented song's own background, if it has one, replaces the slideshow's. Slides
     // are shown whole, on black where their shape differs from the screen's, and a website
     // is on black while it loads.
@@ -905,11 +1369,13 @@ export class Session {
         frame.picture = { url: mediaUrl(page.image) };
       frame.pieceId = page ? page.image : null;
     } else if (presented && song) {
-      const pieces = songPieces(song, settings.linesPerPiece);
-      frame.song = {
-        id: song.id,
-        pieces: pieces.map((piece) => ({ id: piece.id, lines: piece.lines.map((l) => l.text) })),
-      };
+      const pieces = carriedPieces
+        ? carriedPieces.map((piece) => ({ id: piece.id, lines: piece.lines }))
+        : songPieces(song, settings.linesPerPiece).map((piece) => ({
+            id: piece.id,
+            lines: piece.lines.map((l) => l.text),
+          }));
+      frame.song = { id: song.id, pieces };
       frame.pieceId = pieces.some((piece) => piece.id === presented.pieceId)
         ? presented.pieceId
         : null;

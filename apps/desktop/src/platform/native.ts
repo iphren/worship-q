@@ -1,6 +1,7 @@
 /** Everything the interface asks of the native core. */
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { wellFormed, type MonitorIdentity } from '@worship-q/protocol';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { wellFormed, type MonitorIdentity, type OutputKind } from '@worship-q/protocol';
 import type { SqlDriver, SqlValue, Statement } from '@worship-q/store';
 
 // Commands reach Rust as JSON, which rejects text holding half of a surrogate pair.
@@ -51,9 +52,9 @@ export const native = {
   uploadBackup: (server: string, token: string) => invoke<void>('upload_backup', { server, token }),
   /** Saves a backup in the app's data folder; returns its path. */
   backupBeforeJoin: () => invoke<string>('backup_before_join'),
-  /** Makes `frame` what the subtitle overlay page shows. */
-  publishOverlay: (frame: unknown) =>
-    invoke<void>('overlay_publish', { frame: JSON.stringify(frame) }),
+  /** Makes `frame` what the subtitle overlay page, or the localhost slideshow page, shows. */
+  publishOverlay: (frame: unknown, kind: OutputKind = 'subtitle') =>
+    invoke<void>('overlay_publish', { frame: JSON.stringify(frame), kind }),
   /** The overlay page's address, and why it is unavailable if it is. */
   overlayStatus: () => invoke<[string, string | null]>('overlay_status'),
   restoreBackup: (source: string, maxSchemaVersion: number) =>
@@ -66,7 +67,72 @@ export const native = {
   switchWorkspace: (id: string) => invoke<void>('switch_workspace', { id }),
   /** Removes a workspace other than the open one; returns where its backup was saved. */
   removeWorkspace: (id: string) => invoke<string>('remove_workspace', { id }),
+
+  // ── System keychain (decision D23) ─────────────────────────────────────
+  keychainSet: (account: string, secret: string) =>
+    invoke<void>('keychain_set', { account, secret }),
+  keychainGet: (account: string) => invoke<string | null>('keychain_get', { account }),
+  keychainDelete: (account: string) => invoke<void>('keychain_delete', { account }),
+
+  // ── The venue network (plan M5) ────────────────────────────────────────
+  /** This computer's certificate fingerprint, addresses and port; makes the certificate once. */
+  lanStatus: () => invoke<LanStatus>('lan_status'),
+  /** Starts accepting connections from the workspace's devices on the LAN port. */
+  lanServe: () => invoke<void>('lan_serve'),
+  lanStopServing: () => invoke<void>('lan_stop_serving'),
+  /** The desktops accepted on the LAN, by the hash of their device token. */
+  lanSetCredentials: (credentials: LanCredential[]) =>
+    invoke<void>('lan_set_credentials', { credentials }),
+  lanSend: (id: string, data: string) => invoke<void>('lan_send', { id, data }),
+  lanDrop: (id: string) => invoke<void>('lan_drop', { id }),
+  /** Announces this computer as the workspace's coordinator on the LAN, or stops. */
+  lanAdvertise: (workspace: string, deviceId: string, name: string, on: boolean) =>
+    invoke<void>('lan_advertise', { workspace, deviceId, name, on }),
+  /** Looks for the workspace's coordinator on the LAN for a few seconds. */
+  lanBrowse: (workspace: string, seconds: number) =>
+    invoke<LanFound[]>('lan_browse', { workspace, seconds }),
+  /** Connects to a coordinator, checking its certificate fingerprint first. */
+  lanConnect: (address: string, port: number, fingerprint: string, token: string, hello: unknown) =>
+    invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
+  lanDisconnect: (id: string) => invoke<void>('lan_disconnect', { id }),
+  /** Events from LAN connections, accepted or made. */
+  onLan: (handlers: {
+    open(event: LanOpened): void;
+    message(event: { id: string; data: string }): void;
+    close(event: { id: string; reason: string | null }): void;
+  }): Promise<UnlistenFn> =>
+    Promise.all([
+      listen<LanOpened>('lan-open', (e) => handlers.open(e.payload)),
+      listen<{ id: string; data: string }>('lan-message', (e) => handlers.message(e.payload)),
+      listen<{ id: string; reason: string | null }>('lan-close', (e) => handlers.close(e.payload)),
+    ]).then((stops) => () => stops.forEach((stop) => stop())),
 };
+
+export interface LanStatus {
+  fingerprint: string;
+  port: number;
+  addresses: string[];
+  serving: boolean;
+  error: string | null;
+}
+
+export interface LanCredential {
+  tokenHash: string;
+  deviceId: string;
+  name: string;
+}
+
+export interface LanFound {
+  deviceId: string;
+  name: string;
+  fingerprint: string;
+  addresses: string[];
+  port: number;
+}
+
+export type LanOpened =
+  | { kind: 'desktop'; id: string; deviceId: string; name: string; hello: unknown }
+  | { kind: 'remote'; id: string; hello: unknown };
 
 export interface WorkspaceEntry {
   id: string;

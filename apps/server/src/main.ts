@@ -25,6 +25,7 @@ const { app } = await buildServer({
         })
     : undefined,
   remoteDir: process.env.WORSHIP_Q_REMOTE_DIR ?? new URL('../remote', import.meta.url).pathname,
+  outputDir: process.env.WORSHIP_Q_OUTPUT_DIR ?? new URL('../output', import.meta.url).pathname,
   name: process.env.WORSHIP_Q_NAME ?? 'Worship Q',
   logger: true,
 });

@@ -8,6 +8,8 @@ mod cloud;
 mod db;
 mod files;
 mod fonts;
+mod keychain;
+mod lan;
 mod output;
 mod overlay;
 mod workspaces;
@@ -49,6 +51,7 @@ pub fn run() {
             app.manage(db::AppData::open(dir)?);
             app.manage(overlay::Overlay::new());
             overlay::start(app.handle());
+            app.manage(lan::Lan::new(app.handle().clone()));
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -92,6 +95,19 @@ pub fn run() {
             cloud::backup_before_join,
             overlay::overlay_publish,
             overlay::overlay_status,
+            keychain::keychain_set,
+            keychain::keychain_get,
+            keychain::keychain_delete,
+            lan::lan_status,
+            lan::lan_serve,
+            lan::lan_stop_serving,
+            lan::lan_set_credentials,
+            lan::lan_send,
+            lan::lan_drop,
+            lan::lan_advertise,
+            lan::lan_browse,
+            lan::lan_connect,
+            lan::lan_disconnect,
             workspaces::list_workspaces,
             workspaces::add_workspace,
             workspaces::switch_workspace,

@@ -274,6 +274,7 @@ export class SyncClient {
       deviceId: enrolled.deviceId,
       deviceToken: enrolled.deviceToken,
       workspaceServerId: enrolled.workspace.id,
+      deviceName,
       workspaceName: enrolled.workspace.name,
       joinedAt: null,
       cursor: 0,

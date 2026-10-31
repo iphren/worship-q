@@ -4,13 +4,23 @@
  * here.
  */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { DEFAULT_EXPIRY_MS, isExpired } from '@worship-q/live-state';
 import {
   ChurchSettingsSchema,
+  LiveSnapshotSchema,
+  OutputKindSchema,
   syncWins,
   wellFormed,
+  WorkspaceGrantSchema,
   type ChurchSettings,
+  type LiveSnapshot,
+  type OutputKind,
+  type OutputLink,
+  type OutputView,
   type SyncRecord,
+  type WorkspaceGrant,
 } from '@worship-q/protocol';
+import { z } from 'zod';
 import { transaction, type Database, type SqlValue } from './db';
 
 export interface WorkspaceRow {
@@ -43,6 +53,19 @@ export interface DeviceRow {
   createdAt: string;
   lastSeenAt: string;
   revokedAt: string | null;
+}
+
+export interface OutputLinkRow extends OutputLink {
+  workspaceId: string;
+  revokedAt: string | null;
+}
+
+/** The instance's copy of a workspace's live state (decision D17). */
+export interface LiveBackup {
+  snapshot: LiveSnapshot;
+  grants: WorkspaceGrant[];
+  deviceId: string | null;
+  updatedAt: string;
 }
 
 export function hashSecret(secret: string): string {
@@ -163,6 +186,24 @@ export class Instance {
           .all(workspaceId)
       : this.db.prepare('SELECT * FROM device ORDER BY created_at').all();
     return rows.map(toDevice);
+  }
+
+  /**
+   * The workspace's active devices with the hash of their token, so a coordinator can accept
+   * them on the venue network without the server (plan M5.3). Hashes only: a token itself
+   * never leaves the device that holds it.
+   */
+  lanCredentials(workspaceId: string): { deviceId: string; name: string; tokenHash: string }[] {
+    return this.db
+      .prepare(
+        'SELECT id, name, token_hash FROM device WHERE workspace_id = ? AND revoked_at IS NULL ORDER BY created_at',
+      )
+      .all(workspaceId)
+      .map((row) => ({
+        deviceId: text(row.id),
+        name: text(row.name),
+        tokenHash: text(row.token_hash),
+      }));
   }
 
   isActiveDevice(deviceId: string): boolean {
@@ -444,6 +485,174 @@ export class Instance {
     this.db.prepare('DELETE FROM church_setting WHERE key = ?').run(key);
   }
 
+  // ── Live state backup (M4.1) ─────────────────────────────────────────────
+
+  /**
+   * Keeps the coordinator's latest snapshot and the workspace's grant list. An older
+   * revision from the same coordinator never replaces a newer one; another coordinator's
+   * snapshot always does, since the relay made it the coordinator.
+   */
+  putLive(
+    workspaceId: string,
+    deviceId: string,
+    snapshot: LiveSnapshot,
+    grants: readonly WorkspaceGrant[],
+  ): boolean {
+    const current = this.getLive(workspaceId);
+    if (
+      current &&
+      current.snapshot.coordinatorId === snapshot.coordinatorId &&
+      current.snapshot.revision > snapshot.revision
+    ) {
+      return false;
+    }
+    this.db
+      .prepare(
+        `INSERT INTO live_snapshot (workspace_id, revision, snapshot, grants, device_id, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (workspace_id) DO UPDATE SET revision = excluded.revision,
+           snapshot = excluded.snapshot, grants = excluded.grants, device_id = excluded.device_id,
+           updated_at = excluded.updated_at`,
+      )
+      .run(
+        workspaceId,
+        snapshot.revision,
+        JSON.stringify(wellFormed(snapshot)),
+        JSON.stringify(grants),
+        deviceId,
+        this.now(),
+      );
+    return true;
+  }
+
+  /** The kept snapshot, or null when there is none or it has expired (D6, four hours). */
+  getLive(workspaceId: string, expiryMs = DEFAULT_EXPIRY_MS): LiveBackup | null {
+    const row = this.db
+      .prepare('SELECT * FROM live_snapshot WHERE workspace_id = ?')
+      .get(workspaceId);
+    if (!row) return null;
+    const snapshot = LiveSnapshotSchema.safeParse(JSON.parse(text(row.snapshot)));
+    if (!snapshot.success || isExpired(snapshot.data.state, this.now(), expiryMs)) {
+      this.db.prepare('DELETE FROM live_snapshot WHERE workspace_id = ?').run(workspaceId);
+      return null;
+    }
+    const grants = z.array(WorkspaceGrantSchema).safeParse(JSON.parse(text(row.grants)));
+    return {
+      snapshot: snapshot.data,
+      grants: grants.success ? grants.data : [],
+      deviceId: optional(row.device_id),
+      updatedAt: text(row.updated_at),
+    };
+  }
+
+  // ── Browser output links (M7.1) ──────────────────────────────────────────
+
+  /** Makes an output link. The token is returned once and only its hash is kept. */
+  createOutputLink(
+    workspaceId: string,
+    kind: OutputKind,
+    name: string,
+  ): { link: OutputLinkRow; token: string } {
+    if (!this.getWorkspace(workspaceId)) throw new Error(`No workspace ${workspaceId}`);
+    const token = randomBytes(24).toString('base64url');
+    const link: OutputLinkRow = {
+      id: randomUUID(),
+      workspaceId,
+      kind: OutputKindSchema.parse(kind),
+      name: name.trim().slice(0, 60) || (kind === 'subtitle' ? 'Subtitle overlay' : 'Slideshow'),
+      createdAt: this.now(),
+      revokedAt: null,
+    };
+    this.db
+      .prepare(
+        `INSERT INTO output_link (id, workspace_id, kind, token_hash, name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(link.id, workspaceId, link.kind, hashSecret(token), link.name, link.createdAt);
+    return { link, token };
+  }
+
+  listOutputLinks(workspaceId: string): OutputLinkRow[] {
+    return this.db
+      .prepare(
+        'SELECT * FROM output_link WHERE workspace_id = ? AND revoked_at IS NULL ORDER BY created_at',
+      )
+      .all(workspaceId)
+      .map(toOutputLink);
+  }
+
+  /** Revokes one link of a workspace, or every link when `id` is omitted. Returns what was revoked. */
+  revokeOutputLinks(workspaceId: string, id?: string): string[] {
+    const rows = this.listOutputLinks(workspaceId).filter((link) => !id || link.id === id);
+    const revoke = this.db.prepare('UPDATE output_link SET revoked_at = ? WHERE id = ?');
+    for (const link of rows) revoke.run(this.now(), link.id);
+    return rows.map((link) => link.id);
+  }
+
+  /** The link a token belongs to, unless it was revoked. */
+  authenticateOutputLink(token: string): OutputLinkRow | null {
+    const row = this.db
+      .prepare('SELECT * FROM output_link WHERE token_hash = ? AND revoked_at IS NULL')
+      .get(hashSecret(token));
+    return row ? toOutputLink(row) : null;
+  }
+
+  isActiveOutputLink(id: string): boolean {
+    return (
+      this.db.prepare('SELECT 1 FROM output_link WHERE id = ? AND revoked_at IS NULL').get(id) !==
+      undefined
+    );
+  }
+
+  /**
+   * How a workspace's output looks, from its synchronized settings and the church defaults,
+   * for browser output pages that have no database of their own (M7.2).
+   */
+  outputLook(workspaceId: string, kind: OutputKind): OutputView['look'] {
+    const settings = new Map<string, unknown>();
+    for (const { record } of this.records(workspaceId, 'setting')) {
+      settings.set(record.key, record.data.value);
+    }
+    const church = this.churchSettings();
+    const look = (settings.get(`outputLook.${kind}`) ?? {}) as Record<string, unknown>;
+    const churchFont =
+      kind === 'slideshow' ? church.slideshowFontFamily : church.subtitleFontFamily;
+    const number = (value: unknown, fallback: number) =>
+      typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    const assetId = typeof look.backgroundAssetId === 'string' ? look.backgroundAssetId : null;
+    let backgroundFile: NonNullable<OutputView['look']>['backgroundFile'] = null;
+    if (assetId) {
+      const asset = [
+        ...this.records(workspaceId, 'background'),
+        ...this.churchRecords('background'),
+      ].find(({ record }) => record.id === assetId && !record.data.removedAt);
+      if (asset) {
+        backgroundFile = {
+          kind: asset.record.data.kind === 'video' ? 'video' : 'image',
+          fileName: String(asset.record.data.fileName),
+        };
+      }
+    }
+    return {
+      fontFamily: typeof look.fontFamily === 'string' ? look.fontFamily : (churchFont ?? null),
+      scale: number(look.scale, 1),
+      backgroundColor: typeof look.backgroundColor === 'string' ? look.backgroundColor : '#000000',
+      backgroundFile,
+      linesPerPiece: number(settings.get('linesPerPiece'), church.linesPerPiece ?? 2),
+      wrapLongLines:
+        typeof settings.get('wrapLongLines') === 'boolean'
+          ? (settings.get('wrapLongLines') as boolean)
+          : (church.wrapLongLines ?? true),
+    };
+  }
+
+  private churchRecords(kind: SyncRecord['kind']): { record: SyncRecord; deviceId: string }[] {
+    return this.db
+      .prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY seq')
+      .all(kind)
+      .map((row) => ({ record: toRecord(row), deviceId: text(row.device_id) }));
+  }
+
   // ── Backups ──────────────────────────────────────────────────────────────
 
   addBackup(workspaceId: string, deviceId: string, file: string, size: number): string {
@@ -503,6 +712,17 @@ const titleOf = (data: SqlValue | undefined) => {
   const parsed = JSON.parse(text(data)) as { title?: unknown; originalName?: unknown };
   return String(parsed.title ?? parsed.originalName ?? '');
 };
+
+function toOutputLink(row: Record<string, SqlValue>): OutputLinkRow {
+  return {
+    id: text(row.id),
+    workspaceId: text(row.workspace_id),
+    kind: text(row.kind) as OutputKind,
+    name: text(row.name),
+    createdAt: text(row.created_at),
+    revokedAt: optional(row.revoked_at),
+  };
+}
 
 function toDevice(row: Record<string, SqlValue>): DeviceRow {
   return {
