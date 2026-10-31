@@ -204,7 +204,7 @@ function Live({ view }: { view: RemoteView | null }) {
           <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
             {view.items.length === 0 && (
               <p className="p-6 text-center text-sm text-slate-400">
-                The run sheet has no songs yet.
+                The run sheet has no items yet.
               </p>
             )}
             {view.items.map((item) => (
@@ -316,7 +316,7 @@ function Live({ view }: { view: RemoteView | null }) {
         </button>
         {canEdit && (
           <button
-            className={`${control} ${mode === 'add' ? 'bg-sky-800 text-white' : 'bg-slate-800'}`}
+            className={`${control} ${mode === 'add' ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
             disabled={!connected}
             onClick={openSearch}
           >
@@ -366,9 +366,9 @@ function EditRunSheet(props: {
     'h-10 w-10 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
 
   return (
-    <main className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-4">
+    <main className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-indigo-950 px-3 py-4">
       {items.length === 0 && (
-        <p className="p-6 text-center text-sm text-slate-400">The run sheet has no songs yet.</p>
+        <p className="p-6 text-center text-sm text-slate-400">The run sheet has no items yet.</p>
       )}
       <ol className="space-y-2">
         {items.map((item, index) => (
@@ -445,11 +445,11 @@ function EditRunSheet(props: {
         ))}
       </ol>
       <button
-        className="w-full rounded-lg border border-dashed border-slate-600 py-3 text-[15px] font-semibold text-sky-300 active:scale-[0.98] disabled:opacity-40"
+        className="w-full rounded-lg border border-dashed border-violet-700 py-3 text-[15px] font-semibold text-violet-300 active:scale-[0.98] disabled:opacity-40"
         disabled={!connected}
         onClick={props.onAdd}
       >
-        + Add a song
+        + Add an item
       </button>
     </main>
   );
