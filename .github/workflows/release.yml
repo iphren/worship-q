@@ -18,8 +18,9 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      created: ${{ steps.release.outputs['apps/desktop--release_created'] }}
-      tag: ${{ steps.release.outputs['apps/desktop--tag_name'] }}
+      # The package is the repository root, whose outputs carry no path prefix.
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v5
         id: release

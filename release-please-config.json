@@ -4,22 +4,23 @@
   "draft": true,
   "force-tag-creation": true,
   "packages": {
-    "apps/desktop": {
+    ".": {
       "release-type": "node",
       "package-name": "worship-q",
-      "changelog-path": "CHANGELOG.md",
+      "changelog-path": "apps/desktop/CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": false,
+      "exclude-paths": ["docs", "apps/server", "apps/remote", "apps/website"],
       "extra-files": [
-        { "type": "json", "path": "/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "apps/desktop/package.json", "jsonpath": "$.version" },
         {
           "type": "toml",
-          "path": "src-tauri/Cargo.toml",
+          "path": "apps/desktop/src-tauri/Cargo.toml",
           "jsonpath": "$.package.version"
         },
         {
           "type": "toml",
-          "path": "src-tauri/Cargo.lock",
+          "path": "apps/desktop/src-tauri/Cargo.lock",
           "jsonpath": "$.package[?(@.name.value == 'worship-q')].version"
         }
       ]
