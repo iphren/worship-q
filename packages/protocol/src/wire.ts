@@ -193,11 +193,20 @@ export interface RemoteItemView {
   itemId: string;
   title: string;
   removed: boolean;
+  /** Lyrics, imported slides or a website; desktops before it was added leave it out. */
+  kind?: 'lyrics' | 'deck' | 'website';
   /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
   /**
    * `thumbnail` names a small image of an imported slide, served to phones by the instance.
+   * `textless` marks an imported slide without text, whose lines only name its place.
    */
-  pieces: { id: string; lines: string[]; block?: number; thumbnail?: string }[];
+  pieces: {
+    id: string;
+    lines: string[];
+    block?: number;
+    thumbnail?: string;
+    textless?: boolean;
+  }[];
 }
 
 /** A song found by a remote controller's search. */

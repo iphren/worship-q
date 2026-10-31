@@ -96,9 +96,11 @@ export async function buildRemoteView(
       itemId: entry.item.id,
       title: entry.song.title,
       removed: entry.song.removedAt !== null,
+      kind: entry.song.website ? 'website' : entry.song.deck ? 'deck' : 'lyrics',
       pieces: entry.pieces.map((piece) => ({
         id: piece.id,
         thumbnail: entry.song.deck?.pages.find((page) => page.image === piece.image)?.thumbnail,
+        ...(piece.image && piece.lines.length === 0 ? { textless: true } : {}),
         lines:
           piece.lines.length > 0 || !piece.image
             ? piece.lines.map((line) => line.text)

@@ -290,6 +290,8 @@ function Live({ view }: { view: RemoteView | null }) {
         </div>
       )}
 
+      <LiveLine view={view} />
+
       <footer
         className={`grid gap-2 border-t ${canEdit ? 'grid-cols-5' : 'grid-cols-4'} border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
       >
@@ -339,6 +341,49 @@ function Live({ view }: { view: RemoteView | null }) {
  * Adding, removing and reordering the live run sheet's songs. Items missing from `before`
  * were added from the search just left, and are marked so the phone shows they arrived.
  */
+/**
+ * What is on screen, in one line: the lyrics or a slide's text, a slide's place and its
+ * item's title when the slide has no text, and the title of anything else.
+ */
+function liveText(view: RemoteView): string | null {
+  if (!view.presented) return null;
+  const item = view.items.find((i) => i.itemId === view.presented!.itemId);
+  const piece = item?.pieces.find((p) => p.id === view.presented!.pieceId);
+  if (!item || !piece) return null;
+  const title = item.title || 'Untitled';
+  // Desktops that do not send the kind: a thumbnail marks a slide, and anything else is
+  // read as lyrics.
+  const kind = item.kind ?? (piece.thumbnail ? 'deck' : 'lyrics');
+  const lines = piece.lines.join(' ').replace(/\s+/g, ' ').trim();
+  if (kind === 'lyrics') return lines || title;
+  if (kind === 'deck') {
+    if (piece.textless || !lines) return `Slide ${(piece.block ?? 0) + 1} · ${title}`;
+    return lines;
+  }
+  return title;
+}
+
+function LiveLine({ view }: { view: RemoteView }) {
+  const text = liveText(view);
+  return (
+    <div className="flex items-center gap-2 border-t border-slate-800 bg-slate-900 px-4 py-2 text-sm">
+      {view.blank && (
+        <span className="shrink-0 rounded bg-amber-700 px-1.5 text-[11px] font-semibold text-white">
+          Blank
+        </span>
+      )}
+      <p
+        className={`min-w-0 flex-1 truncate ${
+          text === null ? 'text-slate-500' : view.blank ? 'text-slate-400' : 'text-white'
+        }`}
+      >
+        {text ??
+          (view.previousContent ? 'A slide from the previous run sheet' : 'Nothing on screen')}
+      </p>
+    </div>
+  );
+}
+
 function EditRunSheet(props: {
   view: RemoteView;
   connected: boolean;
