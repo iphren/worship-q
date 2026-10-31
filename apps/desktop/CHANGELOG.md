@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/iphren/worship-q/compare/v0.4.0...v0.5.0) (2026-10-31)
+
+
+### Features
+
+* enhance Live component with live text display and update RemoteItemView structure ([9eaa82f](https://github.com/iphren/worship-q/commit/9eaa82ff1f8294a111d878b5e63ba56367adb73b))
+
 ## [0.4.0](https://github.com/iphren/worship-q/compare/v0.3.0...v0.4.0) (2026-10-29)
 
 
