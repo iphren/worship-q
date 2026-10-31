@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/iphren/worship-q/compare/v0.5.0...v0.5.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* improve update process messaging and restart confirmation ([6e3c48e](https://github.com/iphren/worship-q/commit/6e3c48e65be9e0547d41e408668cbf0de3450d2a))
+
 ## [0.5.0](https://github.com/iphren/worship-q/compare/v0.4.0...v0.5.0) (2026-10-31)
 
 
