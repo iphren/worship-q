@@ -1,6 +1,7 @@
 /**
  * Keeps the app up to date: looks for a newer release in the background, downloads it, and
- * installs it when the operator restarts, which is never offered while the slideshow is open.
+ * installs it when the operator restarts. Restarting is always allowed; the interface asks first, and
+ * warns when the slideshow is open because restarting closes it.
  */
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type Update } from '@tauri-apps/plugin-updater';
@@ -69,15 +70,15 @@ export class UpdateController {
     }
   }
 
-  /** False while the slideshow is open, so an update never interrupts the screen. */
-  get canRestart(): boolean {
-    return this.downloaded !== null && this.output.status.decision.kind !== 'open';
+  /** True while the slideshow is open, so the interface can warn that restarting closes it. */
+  get slideshowOpen(): boolean {
+    return this.output.status.decision.kind === 'open';
   }
 
   /** Installs the downloaded version and opens it. On Windows the installer reopens the app. */
   async restart(): Promise<void> {
     const update = this.downloaded;
-    if (!update || !this.canRestart) return;
+    if (!update) return;
     this.update({ kind: 'installing', version: update.version });
     try {
       await update.install();

@@ -229,9 +229,11 @@ export const en = {
   'settings.about': 'About',
   'settings.version': 'Version {version}',
   'update.ready': 'Worship Q {version} is ready. Restart the app to start using it.',
-  'update.closeSlideshowFirst': 'Close the slideshow first.',
   'update.restart': 'Restart now',
-  'update.later': 'Later',
+  'update.confirmTitle': 'Restart to update?',
+  'update.confirmBody': 'Worship Q will close and reopen with version {version}.',
+  'update.confirmBodySlideshow':
+    'The slideshow is open. Restarting closes it, and the screen stays empty until you open it again. Worship Q will reopen with version {version}.',
   'update.check': 'Check for updates',
   'update.checking': 'Checking for updates…',
   'update.current': 'This is the latest version.',
