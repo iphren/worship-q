@@ -246,4 +246,7 @@ A suggested grouping for the remaining gaps:
 - Conflict review for concurrent and offline edits, and merging run sheets for the same date on join (G14, G21).
 - Linux desktop build (G18).
 - Live audio broadcast to remote operators and controllers, and voice recognition with automatic slide switching (spec §17).
+- Image and video run sheet items: upload an image or video and add it to a run sheet as an item of its own, not only as a song background. Today a run sheet item can only refer to a song, and images reach the screen only through imported slide decks or backgrounds. A video item's sound plays only from the slideshow (see audio device settings).
+- Audio device settings: choose the audio input device (the source for live audio broadcast) and the audio output device. When the slideshow is open and a video item is playing, its sound plays through the chosen output device. Previews never play sound, and background videos stay muted.
+- Drag and drop files: drag a compatible file (a slide deck, PDF, image or video) onto the run sheet column, in the editor or in Live, and drop it at a chosen position. The app uploads it, waits for processing (such as slide conversion on the server), and adds the item at that position. On the library tab, a dropped file is added to the library only, not to the current run sheet.
 - Record SQLite as the server database in the spec (G19).
