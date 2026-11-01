@@ -22,26 +22,14 @@
 
 | # | Topic | Decision |
 | --- | --- | --- |
-| U1 | Size limits per type | Images **25 MB**, slide decks and PDFs **200 MB**, videos **200 MB**. Each limit can be changed by the server administrator (for example `WORSHIP_Q_MAX_VIDEO_MB`). |
+| U1 | Size limits per type | Images **25 MB**, slide decks and PDFs **200 MB**, videos **200 MB** by default. Each limit can be changed by the server administrator (for example `WORSHIP_Q_MAX_VIDEO_MB`). |
 | U2 | Where limits are checked | The server reports its limits in `/api/v1/info`. The desktop app checks a file's size before sending it, so a file that is too big fails at once with a clear message. The server still enforces the limit while receiving. |
 | U3 | Reverse proxy | The deployment guide states that the proxy's request body limit (nginx `client_max_body_size`, default 1 MB) must be at least the largest upload limit; otherwise uploads fail with a 413 error. |
 | U4 | Slide deck originals | The original file is kept on the server next to its converted images. Presenting uses only the images. The original allows **Reconvert** (after installing a missing font, or when the output size or the converter changes) and **Download original**. |
 | U5 | Pruning originals | Optional, if disk becomes a concern: originals of decks not used in a run sheet for 6 months are removed, and their images are kept. Reconvert and Download original are then unavailable for that deck. |
-| U6 | Videos over the limit | The video is still added to the library, but the file stays on the computer that added it and is not uploaded. The item is marked **Plays from this computer only**. |
-| U7 | What syncs for a local-only video | The item's name, size, duration, a fingerprint and a poster frame sync like any other item. Where the file is on disk is kept per computer and never synced, because paths mean nothing on another machine. |
-| U8 | Fingerprint | File size plus a hash of the first and last 2 MB, fast even for large files. Used to check that a located file is the same video and to find a renamed or moved file again. |
-| U9 | Missing file | On a computer where the file is not found (deleted, moved, or another desktop), the item is greyed out with **Locate this video**. If the chosen file's fingerprint differs, the app warns and offers **Use this file anyway**. |
-| U10 | Readiness before the service | Opening a run sheet shows a notice when items cannot play on this computer ("2 items aren't on this computer"), so the problem is found before the service, not when the item goes live. |
-| U11 | Missing items in Live | Moving through the run sheet stops on a greyed-out item and shows Locate this video. It is not skipped without notice. |
-| U12 | Outputs that are not the desktop app | Browser outputs served by the church server and the phone remote cannot get a local-only video, because the file exists only on one computer's disk and was never sent to the server. They show "Plays on the presenting computer only" instead of a black screen. The localhost slideshow page served by the desktop app can play it when that computer has the file. |
-| U13 | Message when too big | "This video is 640 MB; this server accepts up to 200 MB. It will play from this computer only. To share it with other computers, export a smaller version." |
-
-## 4. Notes
-
-- At 1080p H.264 around 8 Mbps, 200 MB is about 3–4 minutes of video. Short clips, countdowns and announcements upload; longer videos commonly take the local-only path, so U7–U12 matter for everyday use, not only for edge cases.
-- A storage limit per workspace may matter more than per-file limits later; it is not part of this plan.
-
-## 5. Open questions
-
-- Whether an administrator can choose **Upload anyway** for a single file over the limit.
-- Whether the server should ever shrink videos itself; this needs ffmpeg and a lot of processing time, so it is left out for now.
+| U6 | Videos are uploaded like everything else | Every video is uploaded to the server. There is no local-only video: a file over the limit is refused and not added to the library. |
+| U7 | Message when too big | "This video is 640 MB; this server accepts up to 200 MB. Export a smaller version and try again." The limit shown is the server's current setting. |
+| U8 | Caching videos for the run sheet | A computer downloads and keeps a copy of every video in today's and upcoming run sheets, so playback never streams from the server during a service. The download starts as soon as the video is in such a run sheet, and items show their download progress until the copy is ready. Past run sheets do not keep copies. |
+| U9 | Removing cached videos | A copy is deleted once no current or upcoming run sheet uses the video. If the video is needed again, it is downloaded again. |
+| U10 | No server-side video processing | The server stores videos as uploaded and never shrinks or converts them. A video over the limit must be exported smaller before uploading (U7). |
+| U11 | Storage monitor in the admin web app | The admin web app (phase 3) shows how much space the server uses, broken down by type of resource: slide deck images, slide deck originals, images, videos, backgrounds, desktop backups, and the database. Each type shows its total size and file count, overall and per workspace, next to the free space left on the data volume. Slide deck originals show how much pruning (U5) would free. The page is for viewing only; removing content still happens through the normal delete actions. |
