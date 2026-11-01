@@ -249,6 +249,9 @@ export async function buildServer(config: ServerConfig) {
           await rename(join(out, page.thumbnail), join(dir, thumbnail));
           pages.push({ image, thumbnail, slide: page.slide, step: page.step, text: page.text });
         }
+        // Kept so the deck can be converted again later. Its name holds the same identifier
+        // as the deck's images, and no route serves it.
+        await rename(upload, join(dir, `deck-${id}-original${extension}`));
         return {
           source,
           width: converted.width,

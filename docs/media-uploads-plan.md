@@ -7,7 +7,7 @@
 ## 1. Where the implementation stands
 
 - The server accepts any single file up to 2 GB (`MAX_FILE_BYTES` in `apps/server/src/app.ts`), whatever its type.
-- Slide decks are converted on the server into slide images, small copies and text. The uploaded original is deleted once conversion ends, so a deck cannot be converted again without uploading it again.
+- Slide decks are converted on the server into slide images, small copies and text. In releases after 0.5.1, the uploaded original is kept next to the images as `deck-<id>-original.<ext>` (part of U4), but nothing uses it yet and no route serves it. Decks imported earlier have no original.
 - A run sheet item can only refer to a song. Images reach the screen only through imported slide decks or backgrounds.
 - Videos reach the screen only as song backgrounds, and background videos are always muted.
 
