@@ -18,6 +18,7 @@
     "@worship-q/live-state": "workspace:*",
     "@worship-q/lyrics": "workspace:*",
     "@worship-q/protocol": "workspace:*",
+    "@worship-q/relay": "workspace:*",
     "@worship-q/remote": "workspace:*",
     "@worship-q/renderer": "workspace:*",
     "@worship-q/session": "workspace:*",

@@ -10,6 +10,7 @@ import {
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   UPDATE_NEEDED,
+  updateNeededBy,
   type EnrollResponse,
   type PullResponse,
   type PushResponse,
@@ -45,8 +46,12 @@ export interface FileTransfer {
 }
 
 export class UpdateNeededError extends Error {
-  constructor() {
+  /** Which side needs updating: this app, or the server when it is the older one. */
+  readonly by: 'app' | 'server';
+
+  constructor(serverProtocolVersion?: unknown) {
     super(UPDATE_NEEDED);
+    this.by = updateNeededBy(serverProtocolVersion);
   }
 }
 
@@ -84,7 +89,12 @@ export function httpApi(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (response.status === 426) throw new UpdateNeededError();
+    if (response.status === 426) {
+      const body = (await response.json().catch(() => null)) as {
+        protocolVersion?: unknown;
+      } | null;
+      throw new UpdateNeededError(body?.protocolVersion);
+    }
     if (response.status === 401) throw new UnauthorizedError();
     if (response.status === 403) throw new InvalidCodeError();
     if (!response.ok) throw new Error(`${method} ${path}: ${response.status}`);
@@ -109,7 +119,8 @@ export type SyncStatus =
   | { kind: 'idle'; lastSyncAt: string | null }
   | { kind: 'syncing' }
   | { kind: 'error'; message: string; lastSyncAt: string | null }
-  | { kind: 'update-needed' }
+  /** The server refused this protocol version; `by` says which side is behind. */
+  | { kind: 'update-needed'; by: 'app' | 'server' }
   | { kind: 'revoked' };
 
 /** How a device's existing content meets the church workspace when it joins. */
@@ -202,7 +213,8 @@ export class SyncClient {
       await this.sync.setState({ lastSyncAt, lastError: null });
       this.setStatus({ kind: 'idle', lastSyncAt });
     } catch (error) {
-      if (error instanceof UpdateNeededError) return this.setStatus({ kind: 'update-needed' });
+      if (error instanceof UpdateNeededError)
+        return this.setStatus({ kind: 'update-needed', by: error.by });
       if (error instanceof UnauthorizedError) return this.setStatus({ kind: 'revoked' });
       const message = error instanceof Error ? error.message : String(error);
       await this.sync.setState({ lastError: message }).catch(() => undefined);
@@ -274,6 +286,7 @@ export class SyncClient {
       deviceId: enrolled.deviceId,
       deviceToken: enrolled.deviceToken,
       workspaceServerId: enrolled.workspace.id,
+      deviceName,
       workspaceName: enrolled.workspace.name,
       joinedAt: null,
       cursor: 0,

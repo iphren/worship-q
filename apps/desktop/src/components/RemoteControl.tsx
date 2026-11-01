@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
-import { useApp, useCloud, useRemoteHost } from '../app/context';
+import { useApp, useCloud, useRemoteHost, useSession } from '../app/context';
 import { t } from '../i18n';
 import { Dialog } from './Dialog';
 
@@ -81,9 +81,11 @@ export function RemoteEditsBanner() {
                 ? t('remote.moved', { ...params, position: change.toIndex + 1 })
                 : t(change.kind === 'added' ? 'remote.added' : 'remote.removed', params)}
             </span>
-            <button className="btn btn-sm" onClick={() => void host.undo(notice.id)}>
-              {t('remote.undo')}
-            </button>
+            {notice.undoable && (
+              <button className="btn btn-sm" onClick={() => void host.undo(notice.id)}>
+                {t('remote.undo')}
+              </button>
+            )}
             <button
               className="btn btn-ghost btn-sm"
               title={t('common.close')}
@@ -100,6 +102,7 @@ export function RemoteEditsBanner() {
 
 export function RemoteControlDialog(props: { onClose(): void }) {
   const { cloud, navigate } = useApp();
+  const session = useSession();
   const status = useCloud();
   const host = useRemoteHost();
   const link = useInviteLink();
@@ -107,7 +110,9 @@ export function RemoteControlDialog(props: { onClose(): void }) {
   const { relay } = status;
 
   let body: React.ReactNode;
-  if (!cloud.connected) {
+  if (session.isViewer) {
+    body = <p>{t('remote.viewer')}</p>;
+  } else if (!cloud.connected) {
     body = (
       <div className="space-y-3">
         <p>{t('remote.notConnected')}</p>
@@ -122,16 +127,7 @@ export function RemoteControlDialog(props: { onClose(): void }) {
         </button>
       </div>
     );
-  } else if (relay.kind === 'standby') {
-    body = (
-      <div className="space-y-3">
-        <p>{t('remote.elsewhere', { name: relay.coordinatorName ?? '' })}</p>
-        <button className="btn btn-primary" onClick={() => cloud.takeOver()}>
-          {t('church.takeOver')}
-        </button>
-      </div>
-    );
-  } else if (relay.kind !== 'coordinator' || !link) {
+  } else if (relay.kind !== 'connected' || !link) {
     body = <p>{t('remote.offline')}</p>;
   } else {
     body = (
@@ -206,7 +202,7 @@ export function RemoteControlDialog(props: { onClose(): void }) {
       onClose={props.onClose}
       actions={
         <>
-          {cloud.connected && (
+          {cloud.connected && !session.isViewer && (
             <button className="btn btn-danger" onClick={() => void host.disconnectAll()}>
               {t('remote.disconnectAll')}
             </button>

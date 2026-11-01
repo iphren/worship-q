@@ -1,23 +1,29 @@
 /**
- * Remote control, on the coordinator: approves phones and other browsers, gives them the
- * live presentation to navigate, and applies their commands.
+ * Remote control, on every operator device: approves phones and other browsers, gives them
+ * the live presentation to navigate, and applies their commands or forwards them to the
+ * coordinator (decision D25).
  *
  * Scanning an invitation requests access; it never grants control by itself. An operator
  * approves each request after checking that the code on the phone matches the one shown
  * here. An approval gives the phone a grant it uses to reconnect, until an operator
- * disconnects it. Remote controllers navigate the live run sheet and add, remove and
- * reorder its items, finding songs with the operator's search. They cannot edit songs, go
- * live with another date, or change settings. Each edit is shown to the operator here, with
- * a way to undo it.
+ * disconnects it. The grant belongs to the workspace: it is registered with the coordinator,
+ * which shares the list with every operator device, so the phone can later connect to any
+ * of them. Remote controllers navigate the live run sheet and add, remove and reorder its
+ * items, finding songs with the operator's search. They cannot edit songs, go live with
+ * another date, or change settings. Each edit is shown to the operators, with a way to undo
+ * it on the coordinator.
  */
 import {
   isCompatibleProtocol,
   isRemoteEdit,
   RemoteToHostSchema,
+  type CommandOrigin,
   type HostToRemote,
+  type RemoteCommand,
   type RemoteSongResult,
   type RemoteView,
   type Song,
+  type WorkspaceGrant,
 } from '@worship-q/protocol';
 import type { RunSheetChange, Session } from '@worship-q/session';
 
@@ -42,13 +48,32 @@ export interface RemoteController {
   name: string;
 }
 
-/** A remote controller's run-sheet edit, shown to the operator until dismissed or expired. */
+/** A run-sheet edit made from a phone or another computer, shown until dismissed or expired. */
 export interface RemoteNotice {
   id: string;
-  /** The controller's name. */
+  /** The controller's or the computer's name. */
   name: string;
   change: RunSheetChange;
   at: number;
+  /** False for an edit applied elsewhere, which only the coordinator can undo (D24). */
+  undoable: boolean;
+}
+
+/**
+ * How this device takes part in the workspace's shared live state (plan M2). Absent when
+ * it presents alone.
+ */
+export interface RemoteCoordination {
+  /** True while this device holds the live state and applies phone commands itself. */
+  readonly coordinating: boolean;
+  /** Sends a phone's command to the coordinator; resolves with whether it was applied. */
+  forward(id: string, origin: CommandOrigin, command: RemoteCommand): Promise<boolean>;
+  /** Tells the coordinator about a new approval, so every operator device accepts it. */
+  registerGrant(grant: WorkspaceGrant): void;
+  /** Tells the coordinator a grant, or every grant when null, was revoked. */
+  revokeGrant(id: string | null): void;
+  /** Tells the coordinator which phones are connected through this device. */
+  phones(phones: { grantId: string; name: string }[]): void;
 }
 
 /** How long an invitation in a QR code or link stays valid. */
@@ -86,30 +111,24 @@ export async function buildRemoteView(
   workspaceName: string,
 ): Promise<RemoteView> {
   const live = session.live;
-  const view = await session.viewLive();
   const previous = session.presentingPreviousContent;
+  // The same items the coordinator's snapshot carries to other computers (plan M1.6).
+  const items = session.isLive ? await session.snapshotItems() : [];
   return {
     workspaceName,
     status: session.isLive ? 'live' : 'ended',
     date: session.liveDate,
-    items: (view?.entries ?? []).map((entry) => ({
-      itemId: entry.item.id,
-      title: entry.song.title,
-      removed: entry.song.removedAt !== null,
-      kind: entry.song.website ? 'website' : entry.song.deck ? 'deck' : 'lyrics',
-      pieces: entry.pieces.map((piece) => ({
+    items: items.map((item) => ({
+      itemId: item.itemId,
+      title: item.title,
+      removed: item.removed,
+      kind: item.kind,
+      pieces: item.pieces.map((piece) => ({
         id: piece.id,
-        thumbnail: entry.song.deck?.pages.find((page) => page.image === piece.image)?.thumbnail,
-        ...(piece.image && piece.lines.length === 0 ? { textless: true } : {}),
-        lines:
-          piece.lines.length > 0 || !piece.image
-            ? piece.lines.map((line) => line.text)
-            : // An imported slide without text, such as a photo, is named by its place.
-              [
-                `Slide ${piece.blockIndex + 1}` +
-                  (piece.indexInBlock > 0 ? ` · ${piece.indexInBlock + 1}` : ''),
-              ],
-        block: piece.blockIndex,
+        lines: piece.lines,
+        block: piece.block,
+        ...(piece.thumbnail ? { thumbnail: piece.thumbnail } : {}),
+        ...(piece.textless ? { textless: true } : {}),
       })),
     })),
     presented:
@@ -148,12 +167,27 @@ export class RemoteHost {
   private viewTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
   private version_ = 0;
+  private coordination: RemoteCoordination | null = null;
 
   constructor(
     private readonly session: Session,
     private readonly workspaceName: () => string,
     private readonly clock: () => number = () => Date.now(),
+    /** This device's identifier at the instance, put in invitations so the relay routes scans here. */
+    private readonly deviceId: () => string | null = () => null,
   ) {}
+
+  /** Joins or leaves the shared live state. */
+  setCoordination(coordination: RemoteCoordination | null): void {
+    this.coordination = coordination;
+    this.reportPhones();
+  }
+
+  private reportPhones(): void {
+    this.coordination?.phones(
+      [...this.controllers.values()].map(({ grantId, name }) => ({ grantId, name })),
+    );
+  }
 
   /** Increases whenever requests or controllers change. */
   get version(): number {
@@ -174,8 +208,15 @@ export class RemoteHost {
     return this.notices_;
   }
 
-  private notify(name: string, change: RunSheetChange): void {
-    const notice: RemoteNotice = { id: randomToken(9), name, change, at: this.clock() };
+  /** Shows an edit to the operator; one made on another computer cannot be undone here. */
+  notify(name: string, change: RunSheetChange, undoable = true): void {
+    const notice: RemoteNotice = {
+      id: randomToken(9),
+      name,
+      change,
+      at: this.clock(),
+      undoable,
+    };
     this.notices_ = [...this.notices_, notice];
     this.noticeTimers.set(
       notice.id,
@@ -195,7 +236,7 @@ export class RemoteHost {
   /** Undoes the edit a notice reports. False when it can no longer be undone. */
   async undo(id: string): Promise<boolean> {
     const notice = this.notices_.find((candidate) => candidate.id === id);
-    if (!notice) return false;
+    if (!notice || !notice.undoable) return false;
     this.dismiss(id);
     return this.session.undoRemoteEdit(notice.change);
   }
@@ -227,6 +268,7 @@ export class RemoteHost {
     this.link = null;
     this.requests.clear();
     this.controllers.clear();
+    this.reportPhones();
     this.changed();
   }
 
@@ -240,7 +282,10 @@ export class RemoteHost {
     if (this.viewTimer) clearTimeout(this.viewTimer);
   }
 
-  /** The invitation to put in a QR code or link; a new one is made as each expires. */
+  /**
+   * The invitation to put in a QR code or link; a new one is made as each expires. It
+   * starts with this device's identifier, so the relay brings the phone that scans it here.
+   */
   invite(): string {
     const now = this.clock();
     this.invites = this.invites.filter((invite) => now - invite.at < INVITE_MS);
@@ -249,12 +294,15 @@ export class RemoteHost {
     if (!latest || now - latest.at > INVITE_MS / 2) {
       this.invites.push({ secret: randomToken(), at: now });
     }
-    return this.invites[this.invites.length - 1]!.secret;
+    const secret = this.invites[this.invites.length - 1]!.secret;
+    const device = this.deviceId();
+    return device ? `${device}.${secret}` : secret;
   }
 
-  private validInvite(secret: string): boolean {
+  private validInvite(invite: string): boolean {
     const now = this.clock();
-    return this.invites.some((invite) => invite.secret === secret && now - invite.at < INVITE_MS);
+    const secret = invite.includes('.') ? invite.slice(invite.indexOf('.') + 1) : invite;
+    return this.invites.some((each) => each.secret === secret && now - each.at < INVITE_MS);
   }
 
   private expireRequests(): void {
@@ -285,6 +333,7 @@ export class RemoteHost {
         const grant = await this.session.store.useRemoteGrant(this.session.workspace.id, grantId);
         if (grant && grant.secretHash === (await sha256(secret))) {
           this.controllers.set(from, { connection: from, grantId, name: grant.name });
+          this.reportPhones();
           this.changed();
           link.send(from, { type: 'approved', grant: message.grant });
           link.send(from, { type: 'view', view: await this.view() });
@@ -326,7 +375,16 @@ export class RemoteHost {
     if (message.type !== 'command') return;
     const { command } = message;
     let applied: boolean;
-    if (isRemoteEdit(command)) {
+    const coordination = this.coordination;
+    if (coordination && !coordination.coordinating) {
+      // Another computer holds the live state: the command goes there, in the phone's name,
+      // and the coordinator tells every operator about any edit (D25).
+      applied = await coordination.forward(
+        message.id,
+        { kind: 'phone', grantId: controller.grantId, name: controller.name },
+        command,
+      );
+    } else if (isRemoteEdit(command)) {
       const change = await this.session.remoteEdit(message.id, command);
       if (change) this.notify(controller.name, change);
       applied = change !== null;
@@ -338,7 +396,48 @@ export class RemoteHost {
 
   left(from: string): void {
     const had = this.requests.delete(from) || this.controllers.delete(from);
-    if (had) this.changed();
+    if (had) {
+      this.reportPhones();
+      this.changed();
+    }
+  }
+
+  /** Accepts a grant approved on another computer, as the coordinator keeping the list. */
+  acceptGrant(grant: WorkspaceGrant): Promise<void> {
+    return this.session.store.addRemoteGrant(this.session.workspace.id, grant);
+  }
+
+  /** The workspace's grants held here, for registering them with the coordinator (M2.9). */
+  localGrants(): Promise<WorkspaceGrant[]> {
+    return this.session.store.listRemoteGrants(this.session.workspace.id);
+  }
+
+  /**
+   * Takes the coordinator's grant list (D25): grants approved elsewhere are accepted here,
+   * and phones whose grant is gone from the list are disconnected.
+   */
+  async applyGrantList(grants: readonly WorkspaceGrant[]): Promise<void> {
+    const store = this.session.store;
+    const workspaceId = this.session.workspace.id;
+    const known = new Map((await store.listRemoteGrants(workspaceId)).map((g) => [g.id, g]));
+    const listed = new Set(grants.map((grant) => grant.id));
+    for (const grant of grants)
+      if (!known.has(grant.id)) await store.addRemoteGrant(workspaceId, grant);
+    for (const id of known.keys()) {
+      if (!listed.has(id)) await store.revokeRemoteGrants(workspaceId, id);
+    }
+    let changed = false;
+    for (const [connection, controller] of this.controllers) {
+      if (listed.has(controller.grantId)) continue;
+      this.controllers.delete(connection);
+      this.link?.send(connection, { type: 'denied', reason: 'revoked' });
+      this.link?.drop(connection);
+      changed = true;
+    }
+    if (changed) {
+      this.reportPhones();
+      this.changed();
+    }
   }
 
   // ── Operator decisions ───────────────────────────────────────────────────
@@ -349,12 +448,16 @@ export class RemoteHost {
     this.requests.delete(connection);
     const grantId = randomToken(9);
     const secret = randomToken();
-    await this.session.store.addRemoteGrant(this.session.workspace.id, {
+    const grant: WorkspaceGrant = {
       id: grantId,
       secretHash: await sha256(secret),
       name: request.name,
-    });
+      createdAt: new Date(this.clock()).toISOString(),
+    };
+    await this.session.store.addRemoteGrant(this.session.workspace.id, grant);
+    this.coordination?.registerGrant(grant);
     this.controllers.set(connection, { connection, grantId, name: request.name });
+    this.reportPhones();
     this.changed();
     this.link.send(connection, { type: 'approved', grant: `${grantId}.${secret}` });
     this.link.send(connection, { type: 'view', view: await this.view() });
@@ -371,21 +474,36 @@ export class RemoteHost {
   async disconnect(connection: string): Promise<void> {
     const controller = this.controllers.get(connection);
     if (!controller) return;
-    await this.session.store.revokeRemoteGrants(this.session.workspace.id, controller.grantId);
-    this.controllers.delete(connection);
-    this.link?.send(connection, { type: 'denied', reason: 'revoked' });
-    this.link?.drop(connection);
+    await this.revokeGrant(controller.grantId);
+  }
+
+  /** Ends a grant's access wherever the phone is connected (D25). */
+  async revokeGrant(grantId: string): Promise<void> {
+    await this.session.store.revokeRemoteGrants(this.session.workspace.id, grantId);
+    this.coordination?.revokeGrant(grantId);
+    for (const [connection, controller] of this.controllers) {
+      if (controller.grantId !== grantId) continue;
+      this.controllers.delete(connection);
+      this.link?.send(connection, { type: 'denied', reason: 'revoked' });
+      this.link?.drop(connection);
+    }
+    this.reportPhones();
     this.changed();
   }
 
-  /** Ends every remote controller's access, also of phones not connected right now. */
+  /**
+   * Ends every remote controller's access, also of phones not connected right now and of
+   * phones connected through other computers of the workspace.
+   */
   async disconnectAll(): Promise<void> {
     await this.session.store.revokeRemoteGrants(this.session.workspace.id);
+    this.coordination?.revokeGrant(null);
     for (const connection of this.controllers.keys()) {
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
     }
     this.controllers.clear();
+    this.reportPhones();
     this.changed();
   }
 

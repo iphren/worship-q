@@ -12,6 +12,7 @@ import {
   type Page,
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
+import { LiveBanners } from './components/LiveBanners';
 import {
   RemoteControlDialog,
   RemoteEditsBanner,
@@ -90,6 +91,7 @@ function Shell({ booted }: { booted: Booted }) {
       <div className="flex h-full">
         <Sidebar page={page} />
         <div className="flex min-w-0 flex-1 flex-col">
+          <LiveBanners />
           <RemoteRequestsBanner />
           <RemoteEditsBanner />
           <UpdateBanner />
@@ -122,14 +124,19 @@ function WindowTitle() {
 }
 
 function Sidebar({ page }: { page: Page }) {
-  const { liveDate } = useSession();
+  const session = useSession();
+  const { liveDate } = session;
   const cloud = useCloud();
   const host = useRemoteHost();
   const [remoteOpen, setRemoteOpen] = useState(false);
-  const remoteActive = cloud.relay.kind === 'coordinator' && host.connected.length > 0;
+  const remoteActive = cloud.relay.kind === 'connected' && host.connected.length > 0;
+  // A viewer only shows the presentation (D16): no library, no calendar, no phones.
+  const pages = session.isViewer
+    ? PAGES.filter((entry) => entry.page === 'present' || entry.page === 'settings')
+    : PAGES;
   return (
     <nav className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-slate-700 bg-slate-950/60 py-3">
-      {PAGES.map((entry) => (
+      {pages.map((entry) => (
         <NavButton
           key={entry.page}
           target={entry.page}
@@ -144,24 +151,26 @@ function Sidebar({ page }: { page: Page }) {
       ))}
       <span className="flex-1" />
       <WorkspaceButton />
-      <button
-        className={`relative rounded-md p-2 ${
-          remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'
-        }`}
-        title={t('remote.title')}
-        aria-label={t('remote.title')}
-        onClick={(event) => {
-          event.currentTarget.blur();
-          setRemoteOpen(true);
-        }}
-      >
-        <Icon name="phone" />
-        {host.connected.length > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 rounded-full bg-sky-600 px-1 text-[10px] leading-4 font-semibold text-white">
-            {host.connected.length}
-          </span>
-        )}
-      </button>
+      {!session.isViewer && (
+        <button
+          className={`relative rounded-md p-2 ${
+            remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'
+          }`}
+          title={t('remote.title')}
+          aria-label={t('remote.title')}
+          onClick={(event) => {
+            event.currentTarget.blur();
+            setRemoteOpen(true);
+          }}
+        >
+          <Icon name="phone" />
+          {host.connected.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 rounded-full bg-sky-600 px-1 text-[10px] leading-4 font-semibold text-white">
+              {host.connected.length}
+            </span>
+          )}
+        </button>
+      )}
       {remoteOpen && <RemoteControlDialog onClose={() => setRemoteOpen(false)} />}
       {liveDate && (
         <NavButton

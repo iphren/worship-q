@@ -2,12 +2,14 @@
 
 _Every screen. In harmony._
 
-Church lyrics and presentation software. This repository currently holds phase 1: a local
-desktop app that needs no church instance, account or network.
+Church lyrics and presentation software: a local desktop app that needs no church instance,
+account or network, and a church server through which several computers, phones and
+browsers share one presentation.
 
 - [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)
 - [Phase 1 task breakdown](docs/phase-1-task-breakdown.md)
-- [Phase 2 plan](docs/phase-2-plan.md)
+- [Phase 2 plan](docs/phase-2-plan.md) and [task breakdown](docs/phase-2-task-breakdown.md)
+- [Phase 2 acceptance record](docs/acceptance/phase-2.md)
 - [Volunteer guide](docs/volunteer-guide.md)
 - [Church server deployment](docs/server-deployment.md)
 
@@ -73,14 +75,17 @@ packages/store/        SQLite schema, migrations and data access
 packages/session/      One operator device's session, tying the above together
 packages/renderer/     Slideshow and subtitle fitting, wrapping and drawing
 packages/sync/         Content synchronization with a church server
-packages/remote/       Remote control on the presenting computer: approvals, commands
-apps/server/           Church server: sync, backups, church defaults, remote-control relay
+packages/remote/       Remote control on every operator computer: approvals, commands
+packages/relay/        The relay between a workspace's devices, run by the server and on the LAN
+apps/server/           Church server: sync, backups, church defaults, relay, live-state backup
 apps/remote/           Phone remote-control page, served by the church server
+apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
 apps/website/          worship-q.com: the download page, on GitHub Pages
 ```
 
-The Rust core is limited to windows, files, fonts and the database. Everything else is
-TypeScript and is unit-tested without the app running.
+The Rust core is limited to windows, files, fonts, the database, the localhost pages, the
+system keychain and the venue-network connections. Everything else is TypeScript and is
+unit-tested without the app running.
 
 ## Where data lives
 
@@ -107,6 +112,7 @@ pnpm --filter @worship-q/website dev
 
 ```sh
 pnpm --filter @worship-q/remote-web build
+pnpm --filter @worship-q/output-web build
 pnpm --filter @worship-q/server dev       # http://localhost:8080, data in apps/server/data
 pnpm --filter @worship-q/server cli workspace create "Test"
 ```

@@ -72,6 +72,22 @@ export function OutputApp() {
       }}
     >
       <Slide frame={frame} width={size.width} height={size.height} transition />
+      {frame.message && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: Math.round(size.height / 24),
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        >
+          {frame.message}
+        </div>
+      )}
     </div>
   );
 }

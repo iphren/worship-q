@@ -1,9 +1,14 @@
-//! The subtitle overlay page for OBS and similar software on this computer.
+//! The subtitle overlay and slideshow pages for OBS and browsers on this computer.
 //!
 //! Served on localhost only, at a fixed address, so OBS keeps the same Browser Source URL
-//! across restarts. The page receives each new subtitle frame over a WebSocket; the frames
-//! themselves are made by the interface, which owns the presentation.
+//! across restarts. Each page receives its frames over a WebSocket; the frames themselves
+//! are made by the interface, which owns the presentation. The slideshow page (plan M7.7,
+//! spec §10 localhost exception) works without internet: the app holds the connection to the
+//! coordinator, and the page only needs the app. Background and slide files are served
+//! alongside, since an ordinary browser cannot read the app's own files.
 
+use crate::db::AppData;
+use crate::files::{backgrounds_dir, checked_name};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State as AxumState};
 use axum::http::{header, StatusCode};
@@ -20,6 +25,7 @@ const DEV_URL: &str = "http://localhost:1420";
 
 pub struct Overlay {
     frames: watch::Sender<String>,
+    slideshow_frames: watch::Sender<String>,
     /// Why the server could not start, if it could not.
     pub error: Mutex<Option<String>>,
 }
@@ -27,8 +33,10 @@ pub struct Overlay {
 impl Overlay {
     pub fn new() -> Self {
         let (frames, _) = watch::channel(String::from("null"));
+        let (slideshow_frames, _) = watch::channel(String::from("null"));
         Self {
             frames,
+            slideshow_frames,
             error: Mutex::new(None),
         }
     }
@@ -38,6 +46,7 @@ impl Overlay {
 struct ServerState {
     app: AppHandle<Wry>,
     frames: watch::Receiver<String>,
+    slideshow_frames: watch::Receiver<String>,
 }
 
 pub fn start(app: &AppHandle<Wry>) {
@@ -45,6 +54,7 @@ pub fn start(app: &AppHandle<Wry>) {
     let state = ServerState {
         app: app.clone(),
         frames: overlay.frames.subscribe(),
+        slideshow_frames: overlay.slideshow_frames.subscribe(),
     };
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -54,8 +64,11 @@ pub fn start(app: &AppHandle<Wry>) {
                 get(|| async { Redirect::temporary("/overlay/subtitle") }),
             )
             .route("/overlay/subtitle", get(page))
+            .route("/slideshow", get(slideshow_page))
             .route("/assets/{*file}", get(asset))
+            .route("/files/{name}", get(file))
             .route("/ws", get(socket))
+            .route("/ws/slideshow", get(slideshow_socket))
             .with_state(state);
         match tokio::net::TcpListener::bind(("127.0.0.1", OVERLAY_PORT)).await {
             Ok(listener) => {
@@ -83,15 +96,51 @@ fn bundled(app: &AppHandle<Wry>, path: &str) -> Option<Response> {
 }
 
 async fn page(AxumState(state): AxumState<ServerState>) -> Response {
-    if let Some(response) = bundled(&state.app, "overlay.html") {
+    serve_page(&state.app, "overlay.html")
+}
+
+async fn slideshow_page(AxumState(state): AxumState<ServerState>) -> Response {
+    serve_page(&state.app, "slideshow.html")
+}
+
+fn serve_page(app: &AppHandle<Wry>, name: &str) -> Response {
+    if let Some(response) = bundled(app, name) {
         return response;
     }
     if cfg!(dev) {
         // In development the page comes from the Vite server and connects back here.
-        let url = format!("{DEV_URL}/overlay.html?port={OVERLAY_PORT}");
+        let url = format!("{DEV_URL}/{name}?port={OVERLAY_PORT}");
         return Redirect::temporary(&url).into_response();
     }
     StatusCode::NOT_FOUND.into_response()
+}
+
+/// A stored background or slide image, for the slideshow page in an ordinary browser.
+async fn file(AxumState(state): AxumState<ServerState>, Path(name): Path<String>) -> Response {
+    let Ok(name) = checked_name(&name) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let path = backgrounds_dir(&state.app.state::<AppData>()).join(name);
+    let Ok(bytes) = tokio::fs::read(&path).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let mime = match path.extension().and_then(|e| e.to_str()) {
+        Some("png") => "image/png",
+        Some("mp4") => "video/mp4",
+        _ => "image/jpeg",
+    };
+    (
+        [
+            (header::CONTENT_TYPE, mime.to_string()),
+            // File names carry an identifier and never change their content.
+            (
+                header::CACHE_CONTROL,
+                "private, max-age=31536000, immutable".to_string(),
+            ),
+        ],
+        bytes,
+    )
+        .into_response()
 }
 
 async fn asset(AxumState(state): AxumState<ServerState>, Path(file): Path<String>) -> Response {
@@ -104,6 +153,13 @@ async fn asset(AxumState(state): AxumState<ServerState>, Path(file): Path<String
 
 async fn socket(AxumState(state): AxumState<ServerState>, upgrade: WebSocketUpgrade) -> Response {
     upgrade.on_upgrade(move |ws| follow(ws, state.frames))
+}
+
+async fn slideshow_socket(
+    AxumState(state): AxumState<ServerState>,
+    upgrade: WebSocketUpgrade,
+) -> Response {
+    upgrade.on_upgrade(move |ws| follow(ws, state.slideshow_frames))
 }
 
 /// Sends the current frame, then every new one, until the page goes away.
@@ -124,10 +180,14 @@ async fn follow(mut ws: WebSocket, mut frames: watch::Receiver<String>) {
     }
 }
 
-/// Makes `frame` (JSON) what every overlay page shows.
+/// Makes `frame` (JSON) what every overlay page shows, or every slideshow page when `kind`
+/// is `slideshow`.
 #[tauri::command]
-pub fn overlay_publish(overlay: State<'_, Overlay>, frame: String) {
-    overlay.frames.send_replace(frame);
+pub fn overlay_publish(overlay: State<'_, Overlay>, frame: String, kind: Option<String>) {
+    match kind.as_deref() {
+        Some("slideshow") => overlay.slideshow_frames.send_replace(frame),
+        _ => overlay.frames.send_replace(frame),
+    };
 }
 
 /// The overlay page's address, and why it is unavailable if it is.

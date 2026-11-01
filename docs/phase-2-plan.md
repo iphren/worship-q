@@ -1,8 +1,8 @@
 # Worship Q — Phase 2 Plan: One Live State Across the Venue
 
 **Drafted:** 28 October 2026  
-**Status:** Draft for review. Scope and decisions below are proposals until confirmed.  
-**Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec", and the code at version 0.3.0.
+**Status:** Implemented on branch `phase-2` (31 October 2026) for M1–M8; see the [acceptance record](acceptance/phase-2.md) for what is proven by tests, what awaits the hardware spike (M0) and what awaits the walkthrough (M9).  
+**Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec", and the code at version 0.4.0.
 
 ## 1. Where the implementation stands
 
@@ -247,3 +247,23 @@ A suggested grouping for the remaining gaps:
 - Linux desktop build (G18).
 - Live audio broadcast to remote operators and controllers, and voice recognition with automatic slide switching (spec §17).
 - Record SQLite as the server database in the spec (G19).
+
+## 8. Rollout
+
+Phase 2 raises the protocol version, so the day the church server is updated is the only day that affects the branches. Nothing changes for them while phase 2 is being built.
+
+**Before the server update**
+
+- Every church computer must run a release with the automatic updater, which is 0.2.0 or later. Computers installed from a build of `main` before 25 October 2026 report version 0.1.0 and have no updater; they never update themselves. Replace them by installing the current release over the existing app. The bundle identifier and data folder are unchanged, so workspaces, songs, run sheets, phone approvals and the church enrollment are all kept, and the database needs no migration. Do this on a weekday, not on a Sunday morning.
+- Releases with fixes can go out meanwhile. They keep protocol version 1 and work with the current server.
+
+**The server update**
+
+- Run `scripts/update-server.sh` early in a week, several days before the next service. The server migrates its own database on start.
+- From that moment an older desktop shows **The server runs a newer version** and stops synchronizing and receiving phones; presenting from local data keeps working. The desktop downloads the new version within six hours and installs it when the operator restarts the app, never while the slideshow is open. Tell the branches to restart once the update banner appears.
+
+**What the update keeps and what it asks**
+
+- Desktop enrollment is kept; the device token stays valid and moves into the keychain per D23. Phone approvals are kept per the M2 migration. The OBS subtitle overlay keeps its address.
+- First launch asks once to allow the app on the local network (macOS) or through the firewall on private networks (Windows). Both are needed for the venue computers to find each other without internet.
+- Viewer mode and browser output links are new and off until an operator turns them on.

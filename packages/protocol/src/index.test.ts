@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { cleanSongFields, invalidSongFields, maxSongYear, websiteUrl } from './index';
+import {
+  cleanSongFields,
+  invalidSongFields,
+  maxSongYear,
+  MIN_PROTOCOL_VERSION,
+  PROTOCOL_VERSION,
+  updateNeededBy,
+  websiteUrl,
+} from './index';
 
 const now = new Date('2026-10-17T09:00:00.000Z');
 
@@ -71,5 +79,21 @@ describe('website addresses', () => {
     expect(websiteUrl('javascript:alert(1)')).toBeNull();
     expect(websiteUrl('file:///etc/passwd')).toBeNull();
     expect(websiteUrl('http://')).toBeNull();
+  });
+});
+
+describe('a refused protocol version', () => {
+  it('blames the server when it reported an older version than this app accepts', () => {
+    expect(updateNeededBy(MIN_PROTOCOL_VERSION - 1)).toBe('server');
+  });
+
+  it('blames the app when the server is newer', () => {
+    expect(updateNeededBy(PROTOCOL_VERSION + 1)).toBe('app');
+  });
+
+  it('blames the app when the server said nothing, as servers before this field were newer', () => {
+    expect(updateNeededBy(undefined)).toBe('app');
+    expect(updateNeededBy(null)).toBe('app');
+    expect(updateNeededBy('1')).toBe('app');
   });
 });

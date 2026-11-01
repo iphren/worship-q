@@ -81,6 +81,29 @@ const MIGRATIONS: string[][] = [
     )`,
     `CREATE INDEX church_record_feed ON church_record(seq)`,
   ],
+  [
+    // Phase 2. The coordinator's latest live snapshot per workspace, kept until the live
+    // state expires, so another device can carry on from it (decisions D17, D18). `grants`
+    // is the workspace's remote-control grant list (D25), mirrored with it.
+    `CREATE TABLE live_snapshot (
+      workspace_id TEXT PRIMARY KEY REFERENCES workspace(id),
+      revision INTEGER NOT NULL,
+      snapshot TEXT NOT NULL,
+      grants TEXT NOT NULL DEFAULT '[]',
+      device_id TEXT,
+      updated_at TEXT NOT NULL
+    )`,
+    // Browser output links (decision D22): the token is in the link and only its hash here.
+    `CREATE TABLE output_link (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspace(id),
+      kind TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    )`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

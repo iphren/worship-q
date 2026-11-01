@@ -352,7 +352,7 @@ Each workspace has at most one live state, shared by every connected client and 
 
 1. **Start:** when the first operator device connects, it uses the previous live state if that has not expired. Otherwise, if today has a run sheet, a new live state starts with that run sheet and nothing presented. If there is no live state and no run sheet for today, a new live state starts with the run sheet of the next configured meeting date, today included, and nothing presented. An ended live state counts as no live state here. The app opens on the presenting view.
 2. **Join:** any further operator device synchronizes with the current live state rather than replacing it.
-3. **Expiry:** when no operator device is connected, the live state expires after a period of time. Only operator devices count; a connected remote controller or a device in viewer mode does not keep it alive. The period is an open decision.
+3. **Expiry:** when no operator device is connected, the live state expires after a period of time. Only operator devices count; a connected remote controller or a device in viewer mode does not keep it alive. **Decided:** four hours (phase 1 D6).
 4. **Go live:** any operator device can go live; the live run sheet then links to the run sheet that device is previewing. Edits made in live mode are edits to that dated run sheet, so they are kept when the live state ends or expires.
 5. **Presenting:** any operator device or remote controller can select a piece from the live run sheet to populate the presented content. A remote controller can also add, remove, and reorder live run-sheet items; these are edits to that dated run sheet, as in rule 4.
 6. **Resource updates:** changes to the resources in use, such as fixing a typo in lyrics or changing display settings (fonts, background, wrapping), update the live run sheet and the presented content.
@@ -362,7 +362,7 @@ Each workspace has at most one live state, shared by every connected client and 
 
 **Terminology:** “operator device” means a connected client with workspace-operator rights that is not in viewer mode. Several can be connected at once. The **coordinator** (also called the host) is the one operator device that currently holds and orders the live state; this is the technical role in Sections 9 and 10.
 
-**Agreed viewer mode:** a device with workspace-operator rights can be in viewer mode. While in viewer mode it does not count as an operator device: it does not start a live state, keep one alive, or become the coordinator. Entering and leaving viewer mode is a manual choice, never automatic. The choice is saved on the device and survives closing and reopening the app, so a projector PC configured as a viewer always opens as a viewer until someone exits the mode. **Proposed:** viewer mode is read-only. **Open decision:** what a viewer can see.
+**Agreed viewer mode:** a device with workspace-operator rights can be in viewer mode. While in viewer mode it does not count as an operator device: it does not start a live state, keep one alive, or become the coordinator. Entering and leaving viewer mode is a manual choice, never automatic. The choice is saved on the device and survives closing and reopening the app, so a projector PC configured as a viewer always opens as a viewer until someone exits the mode. **Decided (D16):** viewer mode is read-only; a viewer sees the live run sheet and the presented slide, with its own outputs following, and has no controls and no editing.
 
 **Agreed remote hosting:** an operator device at another location may start and host the live state, for example when nobody on site can operate. Venue outputs then follow it through the church instance and need internet.
 
@@ -596,7 +596,7 @@ Live state should not be replayed as ordinary content edits when the cloud retur
 | Frontend build | Vite |
 | Native desktop core | Rust |
 | Church instance backend | TypeScript + Fastify preferred; Java/Spring Boot remains a valid alternative |
-| Instance database | Self-hosted PostgreSQL |
+| Instance database | SQLite, one file in the data directory (decided; see below) |
 | Native local database | SQLite |
 | Browser local storage | IndexedDB/cache mechanisms; detailed strategy open |
 | Live transport | WebSocket locally and through cloud relay |
@@ -606,7 +606,7 @@ Live state should not be replayed as ordinary content edits when the cloud retur
 | OBS integration | Browser Source |
 | Assets | Local cache plus remote media/object storage |
 
-PostgreSQL matches the relational domain of workspaces, users, songs, revisions, plans, and permissions. A church may connect its instance to an existing PostgreSQL deployment or provision a new one. Supabase was not considered necessary for the proposed baseline. DynamoDB was discussed but not recommended for the core model.
+**Decided (phase 2 plan, G19):** the instance uses one SQLite file, which a small church can run and back up as one piece. PostgreSQL was the earlier proposal; it matches the relational domain and remains possible later, but it is not a planned change. Supabase was not considered necessary; DynamoDB was discussed but not recommended for the core model.
 
 Self-hosted installation documentation should cover backend configuration, database and asset storage, initial administration, reachable URLs/TLS, upgrades, and backup/restore. Container packaging, a reference deployment configuration, minimum server resources, and hosting support boundaries remain open implementation decisions. Routine server administration is distinct from the volunteer's weekly presentation workflow.
 
@@ -803,8 +803,8 @@ Resolve:
 2. Promotion and workspace-mode conversion identity/reference migration, duplicate/conflict handling, and offline privilege-change enforcement.
 3. Parser edge cases and live structural-edit behavior.
 4. Concurrent/offline edit conflicts and synchronization rules.
-5. Live-state hosting and mirroring details, its expiry period, what a viewer can see, the kept-too-long notification threshold, the label for ending, host-loss recovery, and the proposed one-presentation-per-workspace limit.
-6. Pairing/security, including the LAN authentication and encryption protocol, and the localhost output address/port scheme. Browser-only clients requiring internet, with the localhost exception, is agreed.
+5. **Decided in phase 2 (D14–D18, D21, D24, D25):** the coordinator is the first operator device of the workspace to connect to the instance, and the role moves only when an operator chooses **Use this computer**; there is no election. Without the instance, a desktop browses the LAN for a few seconds before coordinating, and follows a coordinator it finds; when two coordinators meet, the one whose live state started earlier keeps it. The coordinator runs on the desktop app only. It mirrors a snapshot to the instance on every change, throttled to one a second, kept until the live state expires (four hours, D6). Recovery after the coordinator is lost is not automatic: other operator devices show **The presenting computer is not responding** and offer **Carry on here**, which takes the newest of the synchronized copy and the instance's snapshot. A device connects to the coordinator over exactly one transport at a time, preferring the LAN, and keeps its unanswered commands across a switch. Operator devices send live run-sheet edits to the coordinator as the same intent-based commands phones use, and every operator device shows its own invitation and approves its own phones; grants belong to the workspace and are kept by the coordinator and mirrored to the instance. Still open: the kept-too-long notification threshold, the label for ending, and the one-presentation-per-workspace limit.
+6. **Decided in phase 2 (D19, D20, D22, D23):** LAN connections use TLS with a self-signed certificate per coordinator, whose fingerprint reaches devices through the instance and in invitation QR codes; each device proves itself with its device token or remote grant. Discovery is mDNS advertising only the workspace's instance identifier, with the instance also telling devices the coordinator's last known addresses; failing both, the relay is used. Browser displays are reached by a per-output link holding a revocable output token, created and revoked under Settings → Outputs, that keeps nothing in browser storage. The localhost pages are on port 47310 (`/overlay/subtitle`, `/slideshow`) and the LAN server on port 47311. Device tokens live in the platform keychain, moved there on first launch and removed from the database only once read back. Browser-only clients requiring internet, with the localhost exception, is agreed. Still open: administrator-approved pairing (phase 3).
 7. Monitor persistence and cross-platform typography/media behavior.
 8. Cache selection, readiness reporting, and offline authorization.
 9. Native-mobile timing, distribution, and publishing costs.

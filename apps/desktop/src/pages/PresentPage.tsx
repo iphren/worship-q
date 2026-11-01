@@ -1,7 +1,7 @@
 import { nextMeetingDate } from '@worship-q/calendar';
 import type { Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { useQuery, useSession } from '../app/context';
+import { useCloud, useQuery, useSession } from '../app/context';
 import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
@@ -45,8 +45,87 @@ export function PresentPage() {
     </section>
   );
 
+  if (session.isViewer) return <Viewer outputPanel={outputPanel} />;
   if (!session.isLive) return <NotLive outputPanel={outputPanel} />;
   return <Live outputPanel={outputPanel} attention={outputNeedsAttention(status)} />;
+}
+
+/**
+ * Viewer mode (decision D16): the live run sheet and the presented slide, read-only, with
+ * this computer's outputs following. No controls, no editing.
+ */
+function Viewer(props: { outputPanel: React.ReactNode }) {
+  const session = useSession();
+  const { live: link } = useCloud();
+  const liveDate = session.liveDate;
+  const view = useQuery(() => session.viewLive(), [liveDate]);
+  const presented = session.presentingPreviousContent ? null : session.live?.presented;
+  const entries = view && view.date === liveDate ? view.entries : [];
+  return (
+    <div className="flex h-full min-h-0 gap-3 overflow-hidden p-4">
+      <aside className="flex w-80 shrink-0 flex-col gap-3">
+        <section className="panel space-y-2 p-3">
+          <h2 className="label">{t('viewer.title')}</h2>
+          <p className="text-sm text-slate-300">
+            {session.isLive && link?.coordinatorName
+              ? t('viewer.following', { name: link.coordinatorName })
+              : t('viewer.waiting')}
+          </p>
+          {liveDate && <p className="text-xs text-slate-400">{formatDate(liveDate, 'long')}</p>}
+          <SlidePreview />
+        </section>
+        {props.outputPanel}
+      </aside>
+      <main className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
+        {!session.isLive && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
+        {entries.map((entry, index) => (
+          <section key={entry.item.id} className="relative">
+            <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
+              <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
+                <span className="mr-2 text-slate-400">{index + 1}</span>
+                <DeckBadge song={entry.song} />
+                {entry.song.title || t('songs.untitled')}
+              </h3>
+            </header>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
+              {entry.pieces.map((piece) => {
+                const active =
+                  presented?.itemId === entry.item.id && presented.pieceId === piece.id;
+                return (
+                  <div
+                    key={piece.id}
+                    className={`rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
+                      active
+                        ? session.live?.blank
+                          ? 'border-amber-400 bg-amber-900/30'
+                          : 'border-emerald-500 bg-emerald-900/40'
+                        : 'border-slate-700 bg-slate-800'
+                    }`}
+                  >
+                    {piece.image && entry.song.deck ? (
+                      <SlideImage
+                        image={piece.image}
+                        className="w-full rounded-sm"
+                        style={{
+                          aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
+                        }}
+                      />
+                    ) : (
+                      piece.lines.map((line) => (
+                        <span key={line.id} className="block truncate whitespace-pre">
+                          {line.text}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </main>
+    </div>
+  );
 }
 
 function NotLive(props: { outputPanel: React.ReactNode }) {

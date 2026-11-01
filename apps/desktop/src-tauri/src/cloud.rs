@@ -11,7 +11,7 @@ use tauri::State;
 
 /// Must match `PROTOCOL_HEADER` and `PROTOCOL_VERSION` in the protocol package.
 const PROTOCOL_HEADER: &str = "x-worship-q-protocol";
-const PROTOCOL_VERSION: &str = "1";
+const PROTOCOL_VERSION: &str = "2";
 
 fn err(e: impl ToString) -> String {
     e.to_string()

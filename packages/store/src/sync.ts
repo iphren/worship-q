@@ -38,6 +38,8 @@ export interface SyncState {
   deviceToken: string | null;
   /** The instance's own identifier for the workspace. */
   workspaceServerId: string | null;
+  /** This computer's name at the instance, as other devices see it. */
+  deviceName: string | null;
   workspaceName: string | null;
   /** When the local workspace became part of the church workspace; null until then. */
   joinedAt: string | null;
@@ -48,6 +50,22 @@ export interface SyncState {
   lastSyncAt: string | null;
   lastBackupAt: string | null;
   lastError: string | null;
+  /**
+   * When this device registered its earlier phone approvals with the coordinator (plan
+   * M2.9), so that runs once; null until then.
+   */
+  grantsRegisteredAt: string | null;
+  /**
+   * Where the device token is kept: in the system keychain, or still in this database when
+   * the keychain refused (decision D23). Null before the move was tried.
+   */
+  tokenStorage: 'keychain' | 'database' | null;
+  /** The workspace's devices by token hash, for the venue network without the server (M5.3). */
+  lanCredentials: { deviceId: string; name: string; tokenHash: string }[] | null;
+  /** Where the workspace's devices were last reachable on the venue network (D19, D20). */
+  lanPeers:
+    | { deviceId: string; name: string; fingerprint: string; addresses: string[]; port: number }[]
+    | null;
 }
 
 export const EMPTY_SYNC_STATE: SyncState = {
@@ -55,6 +73,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   deviceId: null,
   deviceToken: null,
   workspaceServerId: null,
+  deviceName: null,
   workspaceName: null,
   joinedAt: null,
   cursor: 0,
@@ -62,6 +81,10 @@ export const EMPTY_SYNC_STATE: SyncState = {
   lastSyncAt: null,
   lastBackupAt: null,
   lastError: null,
+  grantsRegisteredAt: null,
+  tokenStorage: null,
+  lanCredentials: null,
+  lanPeers: null,
 };
 
 export interface AppliedChanges {
@@ -91,6 +114,9 @@ const parse = (value: SqlValue | undefined): unknown => {
 };
 
 export class SyncStore {
+  /** The device token when it lives in the system keychain rather than here (D23). */
+  private memoryToken: string | null = null;
+
   constructor(private readonly store: Store) {}
 
   private get db() {
@@ -107,7 +133,13 @@ export class SyncStore {
     for (const row of rows) {
       if (row.key in EMPTY_SYNC_STATE) state[row.key] = parse(row.value);
     }
+    if (!state.deviceToken && this.memoryToken) state.deviceToken = this.memoryToken;
     return state as unknown as SyncState;
+  }
+
+  /** Supplies the token kept in the keychain, so the connection works without it in the database. */
+  setMemoryToken(token: string | null): void {
+    this.memoryToken = token;
   }
 
   async setState(patch: Partial<SyncState>): Promise<SyncState> {
@@ -124,6 +156,7 @@ export class SyncStore {
 
   /** Forgets the connection; the workspace's content stays on this device. */
   async forget(): Promise<void> {
+    this.memoryToken = null;
     await this.db.batch([{ sql: 'DELETE FROM sync_state' }]);
   }
 
