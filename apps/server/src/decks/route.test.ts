@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PROTOCOL_HEADER, PROTOCOL_VERSION, type Deck } from '@worship-q/protocol';
@@ -89,10 +96,21 @@ describe('importing a slide deck', () => {
       });
       expect(refused.statusCode).toBe(404);
     }
-    // Nothing of the upload is left behind.
+    // The original is kept next to the images, under the deck's identifier, and is not served.
+    const id = deck.pages[0]!.image.slice('deck-'.length, 'deck-'.length + 36);
+    const original = `deck-${id}-original.pptx`;
+    expect(readFileSync(join(dataDir, 'files', workspace.id, original), 'utf8')).toBe('pptx bytes');
+    for (const url of [
+      `/api/v1/files/${original}`,
+      `/api/v1/remote/files/${workspace.id}/${original}`,
+    ]) {
+      const refused = await app.inject({ method: 'GET', url, headers });
+      expect(refused.statusCode).not.toBe(200);
+    }
+    // Nothing else of the upload is left behind.
     expect(existsSync(join(dataDir, 'work'))).toBe(true);
     expect(readdirSync(join(dataDir, 'work'))).toEqual([]);
-    expect(readdirSync(join(dataDir, 'files', workspace.id))).toHaveLength(5);
+    expect(readdirSync(join(dataDir, 'files', workspace.id))).toHaveLength(6);
     await app.close();
   });
 
@@ -115,6 +133,9 @@ describe('importing a slide deck', () => {
     });
     expect(failed.statusCode).toBe(422);
     expect(failed.json().message).toContain('could not convert');
+    // A deck that could not be converted keeps no original.
+    expect(existsSync(join(failing.dataDir, 'files', failing.workspace.id))).toBe(false);
+    expect(readdirSync(join(failing.dataDir, 'work'))).toEqual([]);
     await failing.app.close();
 
     const without = await setup();
