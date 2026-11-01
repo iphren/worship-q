@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/iphren/worship-q/compare/v0.5.1...v1.0.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* protocol version 2. Desktops on 0.5.0 or earlier show an update banner and stop synchronizing until updated; follow the rollout order in docs/server-deployment.md.
+
+### Features
+
+* implement phase 2 ([99ed819](https://github.com/iphren/worship-q/commit/99ed819569e1902393bf3b5541ad755bcda896b5))
+
+
+### Bug Fixes
+
+* version mismatch message ([191bcea](https://github.com/iphren/worship-q/commit/191bceac5a8f8a7fe5010f1e64e647319c20229b))
+
 ## [0.5.1](https://github.com/iphren/worship-q/compare/v0.5.0...v0.5.1) (2026-10-31)
 
 
