@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/iphren/worship-q/compare/v1.1.0...v1.1.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* implement claim handling in Relay to restrict coordinator role assignment based on server decisions ([665312d](https://github.com/iphren/worship-q/commit/665312d8cccf21eb91427238d974f4fe767a3fd0))
+
 ## [1.1.0](https://github.com/iphren/worship-q/compare/v1.0.1...v1.1.0) (2026-11-02)
 
 
