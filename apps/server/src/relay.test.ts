@@ -12,7 +12,7 @@ import { createLiveState } from '@worship-q/live-state';
 import { RemoteHost } from '@worship-q/remote';
 import { Session } from '@worship-q/session';
 import { createTestStore } from '@worship-q/store/testing';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { openDatabase } from './db';
 import { Instance } from './instance';
 import { Relay, type Socket } from '@worship-q/relay';
@@ -286,6 +286,27 @@ describe('one live state across desktops (M1.7)', () => {
     // Answers go to the one follower that asked.
     a.say({ type: 'toFollower', to: b.deviceId, data: { type: 'ack', id: 'c1', applied: true } });
     expect(b.socket.last()).toMatchObject({ type: 'peer', data: { type: 'ack', id: 'c1' } });
+  });
+
+  it('drops a malformed snapshot and says why, rather than passing it on', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const { desktop } = await setup();
+      const a = desktop('Projector', { withHost: false });
+      const b = desktop('Streaming', { withHost: false });
+      const before = b.socket.received.length;
+      // A device with no id, as LAN connections arrived before the native event was fixed.
+      const bad = snapshot(1, a.deviceId) as unknown as { devices: unknown[] };
+      bad.devices = [{ name: 'Ren Win', role: 'operator', connection: 'lan', lastSeenAt: 'now' }];
+      a.say({ type: 'toFollower', data: { type: 'snapshot', snapshot: bad } } as never);
+      expect(b.socket.received).toHaveLength(before);
+      expect(warn).toHaveBeenCalledWith(
+        'Refused a malformed message from the coordinator',
+        expect.objectContaining({ from: a.deviceId }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('only the coordinator may send snapshots, and only followers commands', async () => {

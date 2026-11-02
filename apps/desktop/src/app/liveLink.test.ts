@@ -16,7 +16,7 @@ import { RemoteHost } from '@worship-q/remote';
 import { Session } from '@worship-q/session';
 import { migrate, Store, SyncStore } from '@worship-q/store';
 import { openNodeDriver } from '@worship-q/store/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveLink, type LiveBackupApi } from './liveLink';
 
 const SUNDAY = '2026-10-11';
@@ -244,6 +244,45 @@ describe('two desktops, one live state (M1.9, M1.10)', () => {
       'Amazing Grace',
       'Only on A',
     ]);
+  });
+});
+
+describe('the connected-devices list (M8)', () => {
+  it('leaves a malformed device out, so followers still see the presentation', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const { a, b } = await venue();
+      const connectedAt = new Date().toISOString();
+      a.link.setLanPeers([
+        // No id, as LAN connections arrived before the fix to the native event.
+        { deviceId: undefined as unknown as string, name: 'Ghost', role: 'operator', connectedAt },
+        // A hello from another version of the app, passed on unchecked.
+        {
+          deviceId: 'other-version',
+          name: 'Newer',
+          role: 'operator',
+          connectedAt,
+          capabilities: { missingFonts: [{ family: 'Inter' }, 'Arial'] } as never,
+        },
+      ]);
+      await a.session.next();
+      await settle();
+      expect(slide(b.session)).toBe(slide(a.session));
+      expect(slide(b.session)).not.toBeNull();
+      const names = b.link.status.devices.map((d) => d.name);
+      expect(names).not.toContain('Ghost');
+      expect(b.link.status.devices.find((d) => d.name === 'Newer')).toMatchObject({
+        connection: 'lan',
+        missingFonts: ['Arial'],
+      });
+      expect(warn).toHaveBeenCalledWith(
+        'Left a malformed device out of the list',
+        expect.objectContaining({ name: 'Ghost' }),
+        expect.anything(),
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

@@ -18,6 +18,7 @@ import {
   type SnapshotBody,
 } from '@worship-q/live-state';
 import {
+  ConnectedDeviceSchema,
   CoordinatorToFollowerSchema,
   FollowerToCoordinatorSchema,
   type Capabilities,
@@ -221,6 +222,7 @@ export class LiveLink {
     if (this.coordinator) return;
     const parsed = FollowerToCoordinatorSchema.safeParse(data);
     if (parsed.success) this.deps.send({ type: 'toCoordinator', data: parsed.data });
+    else console.warn('Did not send a malformed message to the coordinator', parsed.error.issues);
   }
 
   // ── Roles ────────────────────────────────────────────────────────────────
@@ -478,6 +480,9 @@ export class LiveLink {
     const outbound = await coordinator.publish();
     if (this.coordinator !== coordinator || outbound.message.type !== 'snapshot') return;
     this.lastPublished = outbound.message.snapshot;
+    // Still sent: the relay and followers refuse it, but the warning here says why.
+    const checked = CoordinatorToFollowerSchema.safeParse(outbound.message);
+    if (!checked.success) console.warn('Published a malformed snapshot', checked.error.issues);
     this.deps.send({ type: 'toFollower', data: outbound.message });
     this.scheduleBackup();
   }
@@ -503,6 +508,14 @@ export class LiveLink {
     const me = this.deps.deviceId();
     const devices: ConnectedDevice[] = [];
     const warnings: LiveStatus['fontWarnings'] = [];
+    // The list travels in every snapshot, and a snapshot with one malformed entry is refused
+    // by the relay and every follower; so an entry that does not check out is left out.
+    const admit = (entry: ConnectedDevice): boolean => {
+      const checked = ConnectedDeviceSchema.safeParse(entry);
+      if (checked.success) devices.push(checked.data);
+      else console.warn('Left a malformed device out of the list', entry, checked.error.issues);
+      return checked.success;
+    };
     // A device reaching this coordinator both ways is one device, on the network (D21).
     const onLan = new Set(this.lanPeers.map((peer) => peer.deviceId));
     const seen = new Set<string>();
@@ -513,8 +526,12 @@ export class LiveLink {
         peer.deviceId === me
           ? this.deps.capabilities()
           : (this.followerCapabilities.get(peer.deviceId) ?? peer.capabilities);
-      const missing = capabilities?.missingFonts ?? [];
-      devices.push({
+      // A follower's hello is passed on unchecked, perhaps from another version of the app.
+      const reported: unknown = capabilities?.missingFonts;
+      const missing = Array.isArray(reported)
+        ? reported.filter((font): font is string => typeof font === 'string')
+        : [];
+      const admitted = admit({
         id: peer.deviceId,
         name: peer.name,
         role: peer.role === 'output' ? 'output' : peer.deviceId === me ? 'coordinator' : peer.role,
@@ -527,14 +544,14 @@ export class LiveLink {
         lastSeenAt: now,
         ...(missing.length > 0 ? { missingFonts: missing } : {}),
       });
-      if (missing.length > 0) warnings.push({ name: peer.name, fonts: missing });
+      if (admitted && missing.length > 0) warnings.push({ name: peer.name, fonts: missing });
     }
     const phones = [
       ...this.deps.host.connected.map((c) => ({ grantId: c.grantId, name: c.name, via: me })),
       ...[...this.followerPhones].flatMap(([via, list]) => list.map((p) => ({ ...p, via }))),
     ];
     for (const phone of phones) {
-      devices.push({
+      admit({
         id: phone.grantId,
         name: phone.name,
         role: 'phone',
@@ -565,7 +582,11 @@ export class LiveLink {
       return;
     }
     const message = CoordinatorToFollowerSchema.safeParse(data);
-    if (!message.success) return;
+    if (!message.success) {
+      // Said out loud: a refused snapshot otherwise looks only like a screen that stopped.
+      console.warn('Refused a message from the coordinator', message.error.issues);
+      return;
+    }
     if (message.data.type === 'snapshot' || message.data.type === 'alive')
       this.watch.heard(this.now());
     for (const event of this.follower.receive(message.data)) {

@@ -71,7 +71,8 @@ declare module 'fastify' {
 
 export async function buildServer(config: ServerConfig) {
   const { instance } = config;
-  const relay = new Relay(instance);
+  // `app` is made below; the relay only warns once connections arrive, by when it exists.
+  const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message));
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   const app = Fastify({

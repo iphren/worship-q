@@ -119,6 +119,11 @@ export class Relay {
   constructor(
     private readonly instance: RelayDirectory,
     private readonly now: () => number = () => Date.now(),
+    /** Where refused messages are reported; they are dropped, so this is the only trace. */
+    private readonly warn: (message: string, detail: Record<string, unknown>) => void = (
+      message,
+      detail,
+    ) => console.warn(message, detail),
   ) {}
 
   private room(workspaceId: string): WorkspaceRoom {
@@ -337,7 +342,15 @@ export class Relay {
           case 'toCoordinator': {
             const data = FollowerToCoordinatorSchema.safeParse(message.data);
             const coordinator = room.coordinator;
-            if (!data.success || !coordinator || coordinator === desktop) return;
+            if (!data.success) {
+              this.warn('Refused a malformed message to the coordinator', {
+                workspaceId,
+                from: desktop.deviceId,
+                issues: data.error.issues,
+              });
+              return;
+            }
+            if (!coordinator || coordinator === desktop) return;
             send(coordinator.socket, {
               type: 'peer',
               from: desktop.deviceId,
@@ -348,7 +361,14 @@ export class Relay {
           case 'toFollower': {
             if (room.coordinator !== desktop) return;
             const data = CoordinatorToFollowerSchema.safeParse(message.data);
-            if (!data.success) return;
+            if (!data.success) {
+              this.warn('Refused a malformed message from the coordinator', {
+                workspaceId,
+                from: desktop.deviceId,
+                issues: data.error.issues,
+              });
+              return;
+            }
             if (message.to?.startsWith(OUTPUT_PREFIX)) {
               if (data.data.type === 'snapshot') toOutput(room, message.to, data.data);
               return;
