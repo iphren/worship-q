@@ -101,7 +101,7 @@ export function SettingsPage() {
   const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
   const [viewerMode, setViewerMode] = useState(() => deviceSettings.get().viewerMode);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
   const onScreen = useQuery(
     async () => (onScreenId ? session.store.getSong(onScreenId) : null),
@@ -378,32 +378,11 @@ export function SettingsPage() {
           </label>
         </Section>
 
-        <Section title={t('subtitle.title')} hint={t('subtitle.hint')}>
-          {overlay?.error ? (
-            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
-              {t('subtitle.unavailable', { error: overlay.error })}
-            </p>
-          ) : (
-            overlay && (
-              <div className="space-y-1 text-sm">
-                <p className="text-slate-300">{t('subtitle.url')}</p>
-                <div className="flex items-center gap-2">
-                  <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
-                    {overlay.url}
-                  </code>
-                  <button
-                    className="btn btn-sm shrink-0 whitespace-nowrap"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(overlay.url).then(() => setCopied(true));
-                      window.setTimeout(() => setCopied(false), 1500);
-                    }}
-                  >
-                    {copied ? t('subtitle.copied') : t('subtitle.copy')}
-                  </button>
-                </div>
-              </div>
-            )
-          )}
+        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
+          <div>
+            <h3 className="label">{t('subtitle.title')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('subtitle.hint')}</p>
+          </div>
           <label className="flex items-center gap-3 text-sm">
             <span className="w-40">{t('settings.font')}</span>
             <select
@@ -436,16 +415,52 @@ export function SettingsPage() {
               {Math.round(subtitleProfile.scale * 100)}%
             </span>
           </label>
-        </Section>
 
-        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
-          <OutputLinks
-            localSlideshowUrl={
-              overlay && !overlay.error
-                ? overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow')
-                : null
-            }
-          />
+          <div className="pt-2">
+            <h3 className="label">{t('outputs.local')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.localHint')}</p>
+          </div>
+          {overlay?.error ? (
+            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
+              {t('subtitle.unavailable', { error: overlay.error })}
+            </p>
+          ) : (
+            overlay && (
+              <div className="space-y-2 text-sm">
+                {[
+                  { label: t('outputs.kind.subtitle'), url: overlay.url },
+                  {
+                    label: t('outputs.kind.slideshow'),
+                    url: overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow'),
+                  },
+                ].map((page) => (
+                  <div key={page.url} className="flex items-center gap-2">
+                    <span className="w-32 shrink-0">{page.label}</span>
+                    <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
+                      {page.url}
+                    </code>
+                    <button
+                      className="btn btn-sm shrink-0 whitespace-nowrap"
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(page.url)
+                          .then(() => setCopied(page.url));
+                        window.setTimeout(() => setCopied(null), 1500);
+                      }}
+                    >
+                      {copied === page.url ? t('subtitle.copied') : t('subtitle.copy')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          <div className="pt-2">
+            <h3 className="label">{t('outputs.links')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.linksHint')}</p>
+          </div>
+          <OutputLinks />
         </Section>
 
         <Section

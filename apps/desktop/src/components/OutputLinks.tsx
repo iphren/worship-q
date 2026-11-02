@@ -26,10 +26,10 @@ function QrCode(props: { value: string }) {
 }
 
 /**
- * Settings → Outputs (decision D22, plan M7.6): links that show the slideshow or the subtitle
+ * Settings → Browser outputs (decision D22, plan M7.6): links that show the slideshow or the subtitle
  * overlay in a browser through the church server. The token is in the link and shown once.
  */
-export function OutputLinks(props: { localSlideshowUrl: string | null }) {
+export function OutputLinks() {
   const { cloud } = useApp();
   const { outputs, relay } = useCloud();
   const [creating, setCreating] = useState(false);
@@ -150,14 +150,6 @@ export function OutputLinks(props: { localSlideshowUrl: string | null }) {
         </button>
       )}
       {error && <p className="notice border-rose-600 bg-rose-900/30 text-rose-100">{error}</p>}
-      {props.localSlideshowUrl && (
-        <div className="space-y-1 text-xs text-slate-400">
-          <p>{t('outputs.localSlideshow')}</p>
-          <code className="block truncate rounded bg-slate-900 px-2 py-1 text-slate-300 select-all">
-            {props.localSlideshowUrl}
-          </code>
-        </div>
-      )}
 
       {created?.url && (
         <Dialog

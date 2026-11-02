@@ -253,10 +253,7 @@ export const en = {
   'settings.no': 'off',
 
   'subtitle.title': 'Subtitle overlay',
-  'subtitle.hint':
-    'Lyrics over a transparent background, for OBS and other streaming software on this computer. Lines are never wrapped.',
-  'subtitle.url':
-    'In OBS, add a Browser Source with this address, sized like your stream (for example 1920 × 1080):',
+  'subtitle.hint': 'Lyrics over a transparent background, for streaming. Lines are never wrapped.',
   'subtitle.copy': 'Copy address',
   'subtitle.copied': 'Copied',
   'subtitle.unavailable': 'The overlay page could not be started: {error}',
@@ -382,8 +379,13 @@ export const en = {
   'devices.disconnectAllConfirm': 'Disconnect all',
 
   'outputs.title': 'Browser outputs',
-  'outputs.hint':
-    'Links that show the slideshow or the subtitle overlay in any browser, or in OBS on a computer without Worship Q, through the church server. Each link holds its own key; anyone with the link can see the presentation.',
+  'outputs.hint': 'Pages that show the presentation in OBS or any browser.',
+  'outputs.local': 'On this computer',
+  'outputs.localHint':
+    'Work without internet. In OBS, add a Browser Source with one of these addresses, sized like your stream (for example 1920 × 1080).',
+  'outputs.links': 'Links through the church server',
+  'outputs.linksHint':
+    'For other computers, screens and OBS without Worship Q. Each link holds its own key; anyone with the link can see the presentation.',
   'outputs.none': 'No links yet.',
   'outputs.new': 'New link',
   'outputs.name': 'Name',
@@ -402,8 +404,6 @@ export const en = {
   'outputs.revokeBody': 'Pages using this link stop showing the presentation at once.',
   'outputs.needsConnection': 'Connect to your church’s server to make output links.',
   'outputs.failed': 'That did not work: {error}',
-  'outputs.localSlideshow':
-    'On this computer, OBS and browsers can also show the slideshow without internet at this address:',
 
   'remote.title': 'Remote control',
   'remote.notConnected':
