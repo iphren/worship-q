@@ -252,7 +252,7 @@ function Live({ view }: { view: RemoteView | null }) {
                         }`}
                       >
                         {lastShown && (
-                          <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-violet-600 px-2 text-[11px] leading-5 font-semibold text-white">
+                          <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
                             Last shown
                           </span>
                         )}

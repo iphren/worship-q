@@ -47,7 +47,7 @@ function isLastShown(
 
 function LastShownChip() {
   return (
-    <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 rounded-tr-md rounded-bl-md bg-violet-600 px-1.5 font-sans text-[10px] leading-4 font-semibold text-white">
+    <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 rounded-tr-md rounded-bl-md bg-slate-600 px-1.5 font-sans text-[10px] leading-4 font-semibold text-slate-100">
       {t('present.lastShown')}
     </span>
   );
