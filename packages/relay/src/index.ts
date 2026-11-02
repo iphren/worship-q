@@ -5,10 +5,11 @@
  * The relay holds no presentation state and makes no approval decisions. One desktop per
  * workspace is the coordinator and holds the live state (plan M1, decision D14); the relay
  * carries the other desktops' commands to it and its snapshots back, keeps the role with
- * the first operator device until another claims it, and tells everyone who has it. After
- * an outage, desktops say as they return whether they were presenting or following someone
- * on the LAN, so the role goes back to who was presenting rather than to whoever connected
- * first, and two that presented apart are settled by D14. Each
+ * the first operator device until another claims it, and tells everyone who has it. Desktops
+ * say, as they connect and as it changes, whether they are presenting or following someone
+ * on the LAN; so when the coordinator drops from the server, or after an outage, the role
+ * stays with or goes back to who is presenting rather than to whoever connected first, and
+ * two that presented apart are settled by D14. Each
  * phone reaches the desktop whose invitation it scanned, or the coordinator when it comes
  * back with a grant (decision D25). Output pages receive snapshots and may send nothing.
  */
@@ -103,7 +104,7 @@ interface Desktop {
   role: DeviceRole;
   capabilities: Capabilities | undefined;
   lan: RelayPeer['lan'];
-  /** What it said it was doing with the live state as it connected. */
+  /** What it last said it was doing with the live state: in its hello, then as it changed. */
   live: LivePresence | null;
   connectedAt: number;
   lastSeenAt: number;
@@ -136,8 +137,8 @@ interface WorkspaceRoom {
   /** The coordinator's live state, from its hello and then its snapshots; null until known. */
   standing: LiveStanding | null;
   /**
-   * With no coordinator connected: the one desktops reported following on the LAN, which
-   * is still presenting and gets the role back when it returns (after an outage).
+   * With no coordinator connected: the one that connected desktops report following on the
+   * LAN, which is therefore still presenting and gets the role back when it returns.
    */
   awaiting: ({ deviceId: string; name: string } & LiveStanding) | null;
   remotes: Map<string, Remote>;
@@ -317,19 +318,9 @@ export class Relay {
       room.awaiting = null;
       return { take: false, standing: null, dropped: null };
     }
-    if (
-      live?.kind === 'following' &&
-      !room.coordinator &&
-      !awaited &&
-      // A device connected here has been seated, or not, already; it is not awaited.
-      ![...room.desktops].some((each) => each.deviceId === live.deviceId)
-    ) {
-      room.awaiting = {
-        deviceId: live.deviceId,
-        name: live.name,
-        startedAt: live.startedAt,
-        updatedAt: live.updatedAt,
-      };
+    if (live?.kind === 'following' && !room.coordinator) {
+      // It follows someone on the LAN, who may be the one to await; it does not seat itself.
+      this.settleAwaiting(room);
       return { take: false, standing: null, dropped: null };
     }
     if (!operator) return { take: false, standing: null, dropped: null };
@@ -358,14 +349,33 @@ export class Relay {
     }
   }
 
-  /** Stops awaiting a presenter once no connected desktop reports following it any more. */
-  private pruneAwaiting(room: WorkspaceRoom): void {
-    const awaited = room.awaiting;
-    if (!awaited) return;
-    const vouched = [...room.desktops].some(
-      (each) => each.live?.kind === 'following' && each.live.deviceId === awaited.deviceId,
+  /**
+   * With no coordinator connected, the presenter the connected desktops vouch for: the one
+   * awaited while some desktop still reports following it, else another one reported. A
+   * device connected here is not awaited: it has been seated, or not, already. Returns
+   * whether the answer changed.
+   */
+  private settleAwaiting(room: WorkspaceRoom): boolean {
+    const before = room.awaiting;
+    if (room.coordinator) {
+      room.awaiting = null;
+      return before !== null;
+    }
+    const connected = new Set([...room.desktops].map((each) => each.deviceId));
+    const vouched = [...room.desktops].flatMap((each) =>
+      each.live?.kind === 'following' && !connected.has(each.live.deviceId) ? [each.live] : [],
     );
-    if (!vouched) room.awaiting = null;
+    if (before && vouched.some((live) => live.deviceId === before.deviceId)) return false;
+    const next = vouched[0];
+    room.awaiting = next
+      ? {
+          deviceId: next.deviceId,
+          name: next.name,
+          startedAt: next.startedAt,
+          updatedAt: next.updatedAt,
+        }
+      : null;
+    return (room.awaiting?.deviceId ?? null) !== (before?.deviceId ?? null);
   }
 
   /** Where a phone's hello goes: its invitation's desktop, else the coordinator. */
@@ -468,7 +478,7 @@ export class Relay {
             }
           }
           // What the old connection said it was following no longer counts.
-          this.pruneAwaiting(room);
+          this.settleAwaiting(room);
           room.desktops.add(desktop);
           if (room.coordinator === desktop) {
             return becomeCoordinator(room, workspaceId, room.standing);
@@ -480,6 +490,12 @@ export class Relay {
         }
         const room = this.room(workspaceId!);
         switch (message.type) {
+          case 'presence':
+            // Never seats anyone: roles are settled on connecting and by claims. It keeps
+            // the room's idea of who is still presenting on the LAN fresh.
+            desktop.live = readPresence(message.live);
+            if (this.settleAwaiting(room)) this.announce(room, workspaceId!);
+            return;
           case 'claim':
             if (this.options.claims === false) {
               this.warn('Refused a claim to the coordinator role', {
@@ -572,8 +588,9 @@ export class Relay {
           send(remote.socket, { type: 'unavailable', reason: 'reconnect' } satisfies RelayToRemote);
           remote.socket.close(4005, 'reconnect');
         }
-        this.pruneAwaiting(room);
         if (room.coordinator === desktop) this.unseat(room);
+        // Followers still reaching it on the LAN keep the role for it until it is back.
+        this.settleAwaiting(room);
         this.announce(room, workspaceId);
       },
     };

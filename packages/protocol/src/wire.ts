@@ -504,6 +504,12 @@ export type DesktopToRelay =
       /** Omitted by desktops before it existed, and by one with no live state to report. */
       live?: LivePresence | null;
     }
+  /**
+   * What this desktop does with the live state changed since its hello: it started or
+   * stopped following a coordinator over the LAN, or presenting. Omitted by desktops
+   * before it existed; a relay before it existed ignores it.
+   */
+  | { type: 'presence'; live: LivePresence | null }
   /** `to` is a remote connection, or every remote connection of this desktop when omitted. */
   | { type: 'send'; to?: string; data: HostToRemote }
   | { type: 'drop'; to: string }

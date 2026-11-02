@@ -12,7 +12,9 @@ function fake(kind: TransportKind): Transport {
   };
 }
 
-function ready(coordinatorId: string): RelayToDesktop {
+type Ready = Extract<RelayToDesktop, { type: 'ready' }>;
+
+function ready(coordinatorId: string): Ready {
   return {
     type: 'ready',
     workspaceId: 'w',
@@ -25,7 +27,7 @@ function ready(coordinatorId: string): RelayToDesktop {
 }
 
 /** The server's word that nobody coordinates. */
-function nobody(): RelayToDesktop {
+function nobody(): Ready {
   return { ...ready('x'), coordinatorId: null, coordinatorName: null };
 }
 

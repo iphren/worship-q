@@ -593,6 +593,9 @@ export class CloudController {
           // state: a claim sent over the LAN would reach the coordinator's own room, not the
           // server. Nothing to claim from while offline.
           if (!this.offlineCoordinator) this.transports?.sendOn('relay', message);
+        } else if (message.type === 'presence') {
+          // For the server's decisions too; the hello says it again on the next connection.
+          this.transports?.sendOn('relay', message);
         } else {
           this.transports?.send(message);
         }

@@ -94,6 +94,8 @@ async function desktop(
     () => deviceId,
   );
   let registered = false;
+  /** Everything the desktop sent to the relay. */
+  const sent: DesktopToRelay[] = [];
 
   let handlers: ReturnType<Relay['desktop']> | null = null;
   const socket: Socket = {
@@ -121,7 +123,10 @@ async function desktop(
       media: true,
       transparency: true,
     }),
-    send: (message: DesktopToRelay) => handlers?.message(JSON.stringify(message)),
+    send: (message: DesktopToRelay) => {
+      sent.push(message);
+      handlers?.message(JSON.stringify(message));
+    },
     backup,
     grantsRegistered: {
       get: async () => registered,
@@ -134,9 +139,10 @@ async function desktop(
     send: (to, data) => handlers?.message(JSON.stringify({ type: 'send', to, data })),
     drop: (to) => handlers?.message(JSON.stringify({ type: 'drop', to })),
   });
-  const connect = () => {
+  /** As the app does, over the relay; or as over the LAN, with the relay standing in for the room. */
+  const connect = (transport: 'relay' | 'lan' = 'relay') => {
     handlers = relay.desktop(socket);
-    link.connected('relay');
+    link.connected(transport);
     handlers.message(
       JSON.stringify({
         type: 'hello',
@@ -166,7 +172,7 @@ async function desktop(
     host.dispose();
     driver.close();
   });
-  return { session, host, link, store, driver, connect, disconnect, deviceId, token };
+  return { session, host, link, store, driver, connect, disconnect, deviceId, token, sent };
 }
 
 async function venue(options: { backup?: boolean } = {}) {
@@ -473,6 +479,44 @@ describe('recovery (M4)', () => {
     });
     expect(slide(a.session)).toBe(slide(b.session));
     expect(a.session.live?.presented?.index).toBe(0);
+  });
+
+  it('tells the relay what it follows on the LAN, so the role is kept for a coordinator the server loses (D14)', async () => {
+    const { a, b } = await venue();
+    const presences = () => b.sent.filter((m) => m.type === 'presence').map((m) => m.live);
+    // Following over the relay is not worth telling: the server sees the coordinator itself.
+    expect(presences()).toEqual([]);
+
+    // The streaming computer finds the projector on the venue network and switches to it.
+    b.disconnect();
+    b.connect('lan');
+    await settle();
+    expect(b.link.status).toMatchObject({ role: 'follower', transport: 'lan' });
+    expect(presences().at(-1)).toMatchObject({ kind: 'following', deviceId: a.deviceId });
+    const said = presences().length;
+    await a.session.next();
+    await settle();
+    // Not said again for every snapshot.
+    expect(presences().length).toBe(said);
+
+    // The projector's internet drops. The server names it still: Streaming reaches it.
+    a.disconnect();
+    await settle();
+    expect(b.link.status).toMatchObject({
+      role: 'follower',
+      coordinatorId: a.deviceId,
+      coordinatorName: 'Projector',
+      coordinatorLost: false,
+    });
+    // It comes back and carries on, nobody having taken over.
+    a.connect();
+    await settle();
+    expect(a.link.status).toMatchObject({ role: 'coordinator', demoted: false });
+    expect(b.link.status).toMatchObject({ role: 'follower', coordinatorId: a.deviceId });
+    await a.session.next();
+    await settle();
+    expect(slide(b.session)).toBe(slide(a.session));
+    expect(a.session.live?.presented?.index).toBe(1);
   });
 
   it('keeps saying the coordinator is lost while the relay names nobody, even as its snapshots still arrive (D14)', async () => {

@@ -369,15 +369,102 @@ describe('remote control through the relay', () => {
         coordinatorId: null,
       });
       // Streaming last followed the laptop over the LAN; the laptop is here and not coordinator,
-      // so it is not presenting. Awaiting it would name it coordinator to itself.
+      // so it is not presenting. Awaiting it would name it coordinator to itself. Nobody is
+      // seated by itself after a coordinator is lost (D18); an operator carries on by hand.
       const streaming = desktop('Streaming', {
         withHost: false,
         live: following(laptop.deviceId, 'Laptop'),
       });
-      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(streaming.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: null,
+      });
       expect(laptop.socket.last<Ready>()).toMatchObject({
         coordinator: false,
-        coordinatorId: streaming.deviceId,
+        coordinatorId: null,
+      });
+      laptop.say({ type: 'claim' });
+      expect(laptop.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinatorId: laptop.deviceId });
+    });
+
+    it('keeps the role for a coordinator that drops from the server while followers reach it on the LAN', async () => {
+      const { desktop, output, instance, workspace } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      const { token } = instance.createOutputLink(workspace.id, 'slideshow', 'Foyer');
+      const page = output(token);
+      const streaming = desktop('Streaming', { withHost: false });
+      // Streaming found the projector on the LAN after connecting here, and says so.
+      streaming.say({ type: 'presence', live: following(projector.deviceId) });
+      const before = streaming.socket.received.length;
+
+      // The projector's internet drops; the server loses it, but Streaming has not.
+      projector.handlers.close();
+      expect(streaming.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: projector.deviceId,
+        coordinatorName: 'Projector',
+      });
+      expect(streaming.socket.received.length).toBe(before + 1);
+      expect(page.socket.last()).toEqual({ type: 'waiting' });
+      // A computer opening now follows too, rather than starting a second presentation.
+      const office = desktop('Office', { withHost: false });
+      expect(office.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: projector.deviceId,
+      });
+      // Saying so again changes nothing; a presence never seats anyone, not even its own.
+      streaming.say({ type: 'presence', live: following(projector.deviceId) });
+      office.say({ type: 'presence', live: presenting(EARLY) });
+      expect(office.socket.last<Ready>()).toMatchObject({ coordinator: false });
+      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinatorId: projector.deviceId });
+
+      // The projector's internet is back: it takes its role back from those awaiting it.
+      const back = desktop('Projector', {
+        token: projector.token,
+        withHost: false,
+        live: presenting(EARLY, LATE),
+      });
+      expect(back.socket.received[0]).toMatchObject({ type: 'ready', coordinator: true });
+      expect(back.socket.last()).toMatchObject({ type: 'peer', data: { type: 'resync' } });
+      expect(office.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: projector.deviceId,
+      });
+    });
+
+    it('stops keeping the role once its followers lose the coordinator on the LAN too', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      const streaming = desktop('Streaming', { withHost: false });
+      streaming.say({ type: 'presence', live: following(projector.deviceId) });
+      projector.handlers.close();
+      const office = desktop('Office', { withHost: false });
+      expect(office.socket.last<Ready>()).toMatchObject({ coordinatorId: projector.deviceId });
+
+      // Streaming's LAN connection to the projector ends: it follows nobody now.
+      streaming.say({ type: 'presence', live: null });
+      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinatorId: null });
+      expect(office.socket.last<Ready>()).toMatchObject({ coordinatorId: null });
+      // Nobody is seated by itself (D18); Carry on here is on offer.
+      office.say({ type: 'claim' });
+      expect(office.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinatorId: office.deviceId });
+    });
+
+    it('awaits another presenter once the first one’s followers are gone', async () => {
+      const { desktop } = await setup();
+      const connect = (name: string, follows: string) =>
+        desktop(name, { withHost: false, live: following(follows, follows) });
+      // Two LAN islands presented apart during the outage; their followers return first.
+      const first = connect('Hall', 'projector-a');
+      const second = connect('Vestry', 'laptop-b');
+      expect(second.socket.last<Ready>()).toMatchObject({ coordinatorId: 'projector-a' });
+      first.handlers.close();
+      expect(second.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: 'laptop-b',
+        coordinatorName: 'laptop-b',
       });
     });
 

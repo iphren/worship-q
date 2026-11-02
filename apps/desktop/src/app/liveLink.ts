@@ -130,6 +130,8 @@ export class LiveLink {
   private roleChanges: Promise<void> = Promise.resolve();
   /** Counts the relay's role messages; only the latest one is acted on. */
   private readyCount = 0;
+  /** What the relay was last told this device does with the live state, in short. */
+  private presenceKey = '';
   private stopped = false;
   private readonly newId: () => string;
   private readonly now: () => number;
@@ -191,7 +193,23 @@ export class LiveLink {
 
   private update(patch: Partial<LiveStatus>): void {
     this.status_ = { ...this.status_, ...patch };
+    this.announcePresence();
     for (const listener of [...this.listeners]) listener();
+  }
+
+  /**
+   * Tells the relay when what this device does with the live state changes (D14): the hello
+   * said what it was at connecting, and the relay keeps the role for a presenter only while
+   * someone reports following it. Sent when who is followed, or whether this device presents,
+   * changes; not for every snapshot, so the standing it carries is as of that change.
+   */
+  private announcePresence(): void {
+    if (this.stopped) return;
+    const live = this.presence();
+    const key = !live ? '' : live.kind === 'following' ? `following:${live.deviceId}` : live.kind;
+    if (key === this.presenceKey) return;
+    this.presenceKey = key;
+    this.deps.send({ type: 'presence', live });
   }
 
   dismissDemoted(): void {
@@ -546,6 +564,7 @@ export class LiveLink {
     const checked = CoordinatorToFollowerSchema.safeParse(outbound.message);
     if (!checked.success) console.warn('Published a malformed snapshot', checked.error.issues);
     this.deps.send({ type: 'toFollower', data: outbound.message });
+    this.announcePresence();
     this.scheduleBackup();
   }
 
