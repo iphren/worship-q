@@ -478,7 +478,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                 <span className="flex-1" />
                 {!entry.song.removedAt && (
                   <button
-                    className="btn btn-ghost btn-sm"
+                    className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
                     onClick={() => setEditingSong(entry.song)}
                   >
                     ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
