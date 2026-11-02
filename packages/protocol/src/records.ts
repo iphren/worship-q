@@ -288,6 +288,12 @@ export const LiveStateSchema = z.object({
   /** Link to the dated run sheet, not a copy of it. */
   runSheetId: IdSchema,
   presented: PresentedSchema.nullable(),
+  /**
+   * The piece each item showed most recently, keyed by run sheet item, so operators can
+   * see where they left off. Lasts as long as this live state; states saved before it was
+   * added start empty.
+   */
+  lastShown: z.record(IdSchema, z.object({ songId: IdSchema, pieceId: IdSchema })).default({}),
   blank: z.boolean(),
   revision: z.number().int().min(0),
   /** Recently applied command identifiers, so a repeated command is applied once. */

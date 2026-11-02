@@ -46,6 +46,7 @@ export function createLiveState(runSheetId: string, now: string): LiveState {
     status: 'live',
     runSheetId,
     presented: null,
+    lastShown: {},
     blank: false,
     revision: 0,
     appliedCommandIds: [],
@@ -74,6 +75,10 @@ function play(
       songId: piece.songId,
       pieceId: piece.pieceId,
       index,
+    },
+    lastShown: {
+      ...state.lastShown,
+      [piece.itemId]: { songId: piece.songId, pieceId: piece.pieceId },
     },
     blank: false,
   };
@@ -177,7 +182,9 @@ function reduce(
   if (command.type === 'goLive') {
     if (state.status === 'live' && state.runSheetId === command.runSheetId) return {};
     // The presented piece is deliberately kept: Go live alone never changes the screen.
-    return { status: 'live', runSheetId: command.runSheetId };
+    // Where items left off belongs to the run sheet, so another run sheet starts afresh.
+    const lastShown = state.runSheetId === command.runSheetId ? state.lastShown : {};
+    return { status: 'live', runSheetId: command.runSheetId, lastShown };
   }
   if (state.status === 'ended') return 'ended';
 
@@ -210,7 +217,7 @@ function reduce(
     case 'clear':
       return { presented: null, blank: false };
     case 'end':
-      return { status: 'ended', presented: null, blank: false };
+      return { status: 'ended', presented: null, lastShown: {}, blank: false };
   }
 }
 
@@ -287,13 +294,26 @@ export function isKeptTooLong(state: LiveState, liveDate: string, today: string)
   return state.status === 'live' && liveDate < today;
 }
 
+/** Where a piece of a rebuilt song now is, or null when every line of it was deleted. */
+function relocatePiece(
+  pieceId: string,
+  before: readonly Piece[],
+  after: readonly Piece[],
+): string | null {
+  const old = before.find((piece) => piece.id === pieceId);
+  // A slide without text has no lines to follow, so it stays while it still exists.
+  return (
+    (old && locatePiece(old, [...after])) ?? after.find((piece) => piece.id === pieceId)?.id ?? null
+  );
+}
+
 /**
  * Keeps the presented position when a song's pieces are rebuilt, after a lyrics edit or a
- * change to the lines-per-piece setting.
+ * change to the lines-per-piece setting. Where items of that song left off follows too.
  *
  * The presentation follows the piece that now holds the first surviving line of the
  * presented piece. If every line of the presented piece was deleted, the output is cleared
- * rather than jumping to other lyrics.
+ * rather than jumping to other lyrics; a left-off mark is dropped instead.
  */
 export function relocatePresented(
   state: LiveState,
@@ -302,21 +322,34 @@ export function relocatePresented(
   after: readonly Piece[],
   now: string,
 ): LiveState {
-  const presented = state.presented;
-  if (!presented || presented.songId !== songId) return state;
-  const old = before.find((piece) => piece.id === presented.pieceId);
-  // A slide without text has no lines to follow, so it stays while it still exists.
-  const pieceId =
-    (old && locatePiece(old, [...after])) ??
-    after.find((piece) => piece.id === presented.pieceId)?.id ??
-    null;
-  if (pieceId === presented.pieceId) return state;
-  return {
-    ...state,
-    presented: pieceId ? { ...presented, pieceId } : null,
-    revision: state.revision + 1,
-    updatedAt: now,
-  };
+  let changed = false;
+
+  let presented = state.presented;
+  if (presented && presented.songId === songId) {
+    const pieceId = relocatePiece(presented.pieceId, before, after);
+    if (pieceId !== presented.pieceId) {
+      presented = pieceId ? { ...presented, pieceId } : null;
+      changed = true;
+    }
+  }
+
+  const lastShown: LiveState['lastShown'] = {};
+  for (const [itemId, shown] of Object.entries(state.lastShown)) {
+    const pieceId =
+      shown.songId === songId ? relocatePiece(shown.pieceId, before, after) : shown.pieceId;
+    if (pieceId !== shown.pieceId) changed = true;
+    if (pieceId) lastShown[itemId] = pieceId === shown.pieceId ? shown : { songId, pieceId };
+  }
+
+  if (!changed) return state;
+  return { ...state, presented, lastShown, revision: state.revision + 1, updatedAt: now };
+}
+
+/** Songs that the presentation or a left-off mark points into. */
+export function songsInLiveState(state: LiveState): Set<string> {
+  const songs = new Set(Object.values(state.lastShown).map((shown) => shown.songId));
+  if (state.presented) songs.add(state.presented.songId);
+  return songs;
 }
 
 export * from './coordination';

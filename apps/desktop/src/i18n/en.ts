@@ -151,6 +151,7 @@ export const en = {
   'present.locate': 'Go to current slide',
   'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
   'present.noLyrics': 'This song has no lyrics.',
+  'present.lastShown': 'Last shown',
 
   'output.title': 'Slideshow screen',
   'output.unset': 'Choose a screen, then open the slideshow.',

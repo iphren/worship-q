@@ -277,6 +277,8 @@ export interface RemoteView {
   date: string | null;
   items: RemoteItemView[];
   presented: { itemId: string; pieceId: string } | null;
+  /** The piece each item showed most recently, by item; desktops before it was added leave it out. */
+  lastShown?: Record<string, string>;
   /** The screen still shows a slide from the previous run sheet. */
   previousContent: boolean;
   blank: boolean;

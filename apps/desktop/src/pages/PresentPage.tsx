@@ -1,5 +1,5 @@
 import { nextMeetingDate } from '@worship-q/calendar';
-import type { Song } from '@worship-q/protocol';
+import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useCloud, useQuery, useSession } from '../app/context';
 import { Dialog } from '../components/Dialog';
@@ -28,6 +28,28 @@ function KeyHint(props: { children: string }) {
     <kbd className="ml-1 rounded bg-black/25 px-1.5 font-sans text-[11px] leading-4 font-semibold opacity-80">
       {props.children}
     </kbd>
+  );
+}
+
+/**
+ * True for the slide an item last showed, so operators see where they left off. Not on the
+ * item on screen, which has its own highlight, nor on an item with only one slide.
+ */
+function isLastShown(
+  live: LiveState | null,
+  presented: Presented | null | undefined,
+  entry: { item: { id: string }; pieces: readonly unknown[] },
+  pieceId: string,
+): boolean {
+  if (!live || entry.pieces.length < 2 || presented?.itemId === entry.item.id) return false;
+  return live.lastShown[entry.item.id]?.pieceId === pieceId;
+}
+
+function LastShownChip() {
+  return (
+    <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 rounded-tr-md rounded-bl-md bg-violet-600 px-1.5 font-sans text-[10px] leading-4 font-semibold text-white">
+      {t('present.lastShown')}
+    </span>
   );
 }
 
@@ -94,7 +116,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
                 return (
                   <div
                     key={piece.id}
-                    className={`rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
+                    className={`relative rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
                       active
                         ? session.live?.blank
                           ? 'border-amber-400 bg-amber-900/30'
@@ -102,6 +124,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
                         : 'border-slate-700 bg-slate-800'
                     }`}
                   >
+                    {isLastShown(session.live, presented, entry, piece.id) && <LastShownChip />}
                     {piece.image && entry.song.deck ? (
                       <SlideImage
                         image={piece.image}
@@ -490,6 +513,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           {keyLabel}
                         </kbd>
                       )}
+                      {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
                       {piece.image && entry.song.deck ? (
                         <SlideImage
                           image={piece.image}

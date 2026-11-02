@@ -11,6 +11,7 @@ import {
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
+  songsInLiveState,
   touch,
   type Command,
   type CommandInput,
@@ -51,6 +52,62 @@ describe('createLiveState', () => {
       blank: false,
     });
     expect(() => LiveStateSchema.parse(state)).not.toThrow();
+  });
+});
+
+describe('lastShown', () => {
+  it('starts empty and accepts states saved before it existed', () => {
+    const state = createLiveState('rs1', T0);
+    expect(state.lastShown).toEqual({});
+    const old: Partial<LiveState> = { ...state };
+    delete old.lastShown;
+    expect(LiveStateSchema.parse(old).lastShown).toEqual({});
+  });
+
+  it('remembers the last piece shown in each item', () => {
+    let state = createLiveState('rs1', T0);
+    state = apply(state, { type: 'playPiece', itemId: 'i1', pieceId: 'b' });
+    state = apply(state, { type: 'nextItem' });
+    state = apply(state, { type: 'next' });
+    expect(state.lastShown).toEqual({
+      i1: { songId: 's1', pieceId: 'b' },
+      i2: { songId: 's2', pieceId: 'c' },
+      i3: { songId: 's1', pieceId: 'a' },
+    });
+  });
+
+  it('is kept through blank and clear', () => {
+    let state = apply(createLiveState('rs1', T0), {
+      type: 'playPiece',
+      itemId: 'i1',
+      pieceId: 'b',
+    });
+    state = apply(state, { type: 'blank' });
+    state = apply(state, { type: 'clear' });
+    expect(state.lastShown).toEqual({ i1: { songId: 's1', pieceId: 'b' } });
+  });
+
+  it('is forgotten when the live state ends or another run sheet goes live', () => {
+    const played = apply(createLiveState('rs1', T0), {
+      type: 'playPiece',
+      itemId: 'i1',
+      pieceId: 'b',
+    });
+    expect(apply(played, { type: 'goLive', runSheetId: 'rs1' }).lastShown).toEqual(
+      played.lastShown,
+    );
+    expect(apply(played, { type: 'goLive', runSheetId: 'rs2' }).lastShown).toEqual({});
+    expect(apply(played, { type: 'end' }).lastShown).toEqual({});
+  });
+
+  it('lists the songs the live state points into', () => {
+    let state = apply(createLiveState('rs1', T0), {
+      type: 'playPiece',
+      itemId: 'i1',
+      pieceId: 'a',
+    });
+    state = apply(state, { type: 'playPiece', itemId: 'i2', pieceId: 'c' });
+    expect(songsInLiveState(state)).toEqual(new Set(['s1', 's2']));
   });
 });
 
@@ -515,6 +572,26 @@ describe('relocatePresented', () => {
     );
     expect(relocatePresented(state, 's1', pieces, pieces, T0)).toBe(state);
     expect(relocatePresented(state, 's1', pieces, [pieces[0]!], T0).presented).toBeNull();
+  });
+
+  it('moves where an item left off along with its lyrics', () => {
+    const before = presenting('a\nb\nc\nd', 1);
+    // Move on to another song, leaving item i1 on its second piece.
+    const moved = apply(before.state, { type: 'playPiece', itemId: 'i9', pieceId: 'x' }, [
+      { itemId: 'i9', songId: 's9', pieceId: 'x' },
+    ]);
+    // Regrouping splits the piece that was left off at.
+    const after = edited(before, 'a\nadded\nb\nc\nd');
+    const state = relocatePresented(moved, 's1', before.pieces, after, T0);
+    expect(state.lastShown.i1?.pieceId).not.toBe(moved.lastShown.i1?.pieceId);
+    const left = after.find((piece) => piece.id === state.lastShown.i1?.pieceId);
+    expect(left?.lines.map((line) => line.text)).toContain('c');
+    expect(state.lastShown.i9).toBe(moved.lastShown.i9);
+    expect(state.presented).toBe(moved.presented);
+
+    const deleted = relocatePresented(moved, 's1', before.pieces, edited(before, 'a\nb'), T0);
+    expect(deleted.lastShown).toEqual({ i9: moved.lastShown.i9 });
+    expect(deleted.revision).toBe(moved.revision + 1);
   });
 
   it('ignores edits to other songs', () => {

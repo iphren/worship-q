@@ -15,6 +15,7 @@ import {
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
+  songsInLiveState,
   touch,
   type CommandInput,
   type CommandResult,
@@ -1006,7 +1007,7 @@ export class Session {
     return this.mutate(async () => {
       const before = await this.store.getSong(id);
       const after = await this.store.updateSong(id, fields);
-      if (before && this.live_?.presented?.songId === id) {
+      if (before && this.live_ && songsInLiveState(this.live_).has(id)) {
         const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
         await this.setLive(
           relocatePresented(
@@ -1040,20 +1041,20 @@ export class Session {
     return this.mutate(async () => {
       const before = await this.store.getPresentationSettings(this.workspace_.id);
       const after = await this.store.updatePresentationSettings(this.workspace_.id, patch);
-      const presented = this.live_?.presented;
-      if (this.live_ && presented && before.linesPerPiece !== after.linesPerPiece) {
-        const song = await this.store.getSong(presented.songId);
-        if (song) {
-          await this.setLive(
-            relocatePresented(
-              this.live_,
-              song.id,
-              songPieces(song, before.linesPerPiece),
-              songPieces(song, after.linesPerPiece),
-              this.nowIso(),
-            ),
+      if (this.live_ && before.linesPerPiece !== after.linesPerPiece) {
+        let live = this.live_;
+        for (const songId of songsInLiveState(live)) {
+          const song = await this.store.getSong(songId);
+          if (!song) continue;
+          live = relocatePresented(
+            live,
+            song.id,
+            songPieces(song, before.linesPerPiece),
+            songPieces(song, after.linesPerPiece),
+            this.nowIso(),
           );
         }
+        if (live !== this.live_) await this.setLive(live);
       }
       return after;
     });
@@ -1234,13 +1235,16 @@ export class Session {
   /**
    * Runs a change made outside this session, such as content received from the church
    * instance, in turn with the session's own operations. Afterwards the workspace and the
-   * live state are read again; when the presented song's lyrics changed, the presentation
-   * follows them as it does for a local edit.
+   * live state are read again; when a song on screen or left off at changed, the live state
+   * follows it as it does for a local edit.
    */
   external<T>(change: () => Promise<T>): Promise<T> {
     return this.mutate(async () => {
-      const presentedId = this.live_?.presented?.songId;
-      const before = presentedId ? await this.store.getSong(presentedId) : null;
+      const befores: Song[] = [];
+      for (const songId of this.live_ ? songsInLiveState(this.live_) : []) {
+        const song = await this.store.getSong(songId);
+        if (song) befores.push(song);
+      }
       const linesBefore = (await this.store.getPresentationSettings(this.workspace_.id))
         .linesPerPiece;
       const result = await change();
@@ -1248,10 +1252,11 @@ export class Session {
       this.workspace_ = (await this.store.getWorkspace()) ?? this.workspace_;
       const saved = await this.store.loadLiveState(this.workspace_.id);
       let live = saved && this.live_ ? { ...this.live_, ...pickIds(saved) } : (saved ?? this.live_);
-      const after = before ? await this.store.getSong(before.id) : null;
       const linesAfter = (await this.store.getPresentationSettings(this.workspace_.id))
         .linesPerPiece;
-      if (live && before && after) {
+      for (const before of befores) {
+        const after = await this.store.getSong(before.id);
+        if (!live || !after) continue;
         live = relocatePresented(
           live,
           before.id,

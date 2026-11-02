@@ -135,6 +135,12 @@ export async function buildRemoteView(
       session.isLive && live?.presented && !previous
         ? { itemId: live.presented.itemId, pieceId: live.presented.pieceId }
         : null,
+    lastShown:
+      session.isLive && live
+        ? Object.fromEntries(
+            Object.entries(live.lastShown).map(([itemId, shown]) => [itemId, shown.pieceId]),
+          )
+        : {},
     previousContent: previous,
     blank: session.isLive && (live?.blank ?? false),
     editable: session.isLive,

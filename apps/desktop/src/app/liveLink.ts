@@ -452,6 +452,7 @@ export class LiveLink {
         status: 'ended',
         runSheetId: 'none',
         presented: null,
+        lastShown: {},
         blank: false,
         revision: 0,
         appliedCommandIds: [],

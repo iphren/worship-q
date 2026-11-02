@@ -223,6 +223,11 @@ function Live({ view }: { view: RemoteView | null }) {
                   {item.pieces.map((piece) => {
                     const active =
                       view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
+                    // Where the item left off; not on the item on screen or a one-slide item.
+                    const lastShown =
+                      item.pieces.length > 1 &&
+                      view.presented?.itemId !== item.itemId &&
+                      view.lastShown?.[item.itemId] === piece.id;
                     return (
                       <button
                         key={piece.id}
@@ -235,7 +240,7 @@ function Live({ view }: { view: RemoteView | null }) {
                             pieceId: piece.id,
                           })
                         }
-                        className={`rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                        className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
                           active
                             ? view.blank
                               ? 'border-amber-400 bg-amber-900/50'
@@ -246,6 +251,11 @@ function Live({ view }: { view: RemoteView | null }) {
                               : 'border-sky-700 bg-sky-900/60'
                         }`}
                       >
+                        {lastShown && (
+                          <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-violet-600 px-2 text-[11px] leading-5 font-semibold text-white">
+                            Last shown
+                          </span>
+                        )}
                         {piece.thumbnail ? (
                           <img
                             src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
