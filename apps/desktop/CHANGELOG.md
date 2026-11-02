@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/iphren/worship-q/compare/v1.0.0...v1.0.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* ensure device ID is present to avoid nameless device list entries ([b172274](https://github.com/iphren/worship-q/commit/b172274be045778a0a24d1a2d6d16e64c39ac02c))
+
 ## [1.0.0](https://github.com/iphren/worship-q/compare/v0.5.1...v1.0.0) (2026-11-01)
 
 
