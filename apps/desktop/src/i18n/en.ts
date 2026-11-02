@@ -143,6 +143,8 @@ export const en = {
   'present.preview': 'Slideshow',
   'present.editLyrics': 'Edit lyrics',
   'present.editLyricsTitle': 'Edit lyrics · {title}',
+  'present.editTitle': 'Edit title',
+  'present.editTitleTitle': 'Edit title · {title}',
   'present.previousContent': 'Previous content',
   'present.previousContentBody': 'Shown until you present from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',

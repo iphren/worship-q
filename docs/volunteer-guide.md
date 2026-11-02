@@ -42,6 +42,8 @@ Other dates are read-only until you choose **Edit run sheet** on them.
 Choose **Edit lyrics** above the song, correct the text and **Save**. The screen updates
 straight away and stays on the same slide.
 
+Slide decks and websites show **Edit title** instead, which renames the item.
+
 ## 5. When you finish
 
 Just close the app, or choose **Clear screen** to take the lyrics down. The run sheet open

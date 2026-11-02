@@ -8,7 +8,7 @@ import { Icon } from '../components/Icon';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
-import { SongForm } from '../components/SongForm';
+import { SongForm, TitleForm } from '../components/SongForm';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
@@ -51,6 +51,11 @@ function LastShownChip() {
       {t('present.lastShown')}
     </span>
   );
+}
+
+/** Songs have lyrics to fix; decks and websites only a title. */
+function isLyrics(song: Song): boolean {
+  return !song.deck && !song.website;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -471,12 +476,12 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                 )}
                 <span className="flex-1" />
-                {!entry.song.removedAt && !entry.song.deck && !entry.song.website && (
+                {!entry.song.removedAt && (
                   <button
                     className="btn btn-ghost btn-sm"
                     onClick={() => setEditingSong(entry.song)}
                   >
-                    ✎ {t('present.editLyrics')}
+                    ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
                   </button>
                 )}
               </header>
@@ -560,7 +565,25 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
         )}
       </div>
 
-      {editingSong && (
+      {editingSong && !isLyrics(editingSong) && (
+        <Dialog
+          title={t('present.editTitleTitle', { title: editingSong.title || t('songs.untitled') })}
+          onClose={() => setEditingSong(null)}
+          actions={null}
+        >
+          <TitleForm
+            key={editingSong.id}
+            song={editingSong}
+            onSaved={() => setEditingSong(null)}
+            actions={
+              <button type="button" className="btn" onClick={() => setEditingSong(null)}>
+                {t('common.cancel')}
+              </button>
+            }
+          />
+        </Dialog>
+      )}
+      {editingSong && isLyrics(editingSong) && (
         <Dialog
           wide
           title={t('present.editLyricsTitle', { title: editingSong.title || t('songs.untitled') })}

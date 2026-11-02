@@ -151,6 +151,51 @@ function WebsiteForm(props: SongFormProps) {
   );
 }
 
+/** Just the title of a deck or website, for renaming while live. */
+export function TitleForm(props: { song: Song; onSaved(song: Song): void; actions?: ReactNode }) {
+  const session = useSession();
+  const { song } = props;
+  const [title, setTitle] = useState(song.title);
+  const [saving, setSaving] = useState(false);
+  const canSave = title.trim() !== song.title && title.trim() !== '' && !saving;
+
+  async function save() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      props.onSaved(await session.saveSong(song.id, { title: title.trim() }));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <label>
+        <span className="label">{t('songs.title')}</span>
+        <input
+          className="field"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoFocus
+        />
+      </label>
+      <div className="flex items-center justify-end gap-2">
+        {props.actions}
+        <button type="submit" className="btn btn-primary" disabled={!canSave}>
+          {t('common.save')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /** An imported slide deck: its title can be changed, its slides only by importing again. */
 function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
   const session = useSession();
