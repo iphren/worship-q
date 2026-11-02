@@ -199,6 +199,9 @@ export class LanHost {
       close: () => void native.lanDrop(event.id).catch(() => undefined),
     };
     if (event.kind === 'desktop') {
+      // Without an id it would join the device list nameless, and a snapshot carrying it
+      // fails validation everywhere, so no follower would see the presentation change.
+      if (!event.deviceId) return void native.lanDrop(event.id).catch(() => undefined);
       const token = `lan:${event.id}`;
       this.directory.identities.set(token, { id: event.deviceId, name: event.name });
       const handlers = relay.desktop(socket);

@@ -265,8 +265,10 @@ pub fn lan_set_credentials(
     Ok(())
 }
 
+// `rename_all` on an enum renames only the variants; the fields need `rename_all_fields`,
+// or the interface gets `device_id` where it reads `deviceId`.
 #[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase", tag = "kind")]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "kind")]
 enum Opened {
     /// Another desktop of the workspace, proved by its device token.
     Desktop {
@@ -662,6 +664,20 @@ pub fn lan_disconnect(lan: State<'_, Lan>, id: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_the_opened_desktop_as_the_interface_reads_it() {
+        let opened = Opened::Desktop {
+            id: "c1".into(),
+            device_id: "d1".into(),
+            name: "Ren Win".into(),
+            hello: Value::Null,
+        };
+        let json = serde_json::to_value(&opened).unwrap();
+        assert_eq!(json["kind"], "desktop");
+        assert_eq!(json["deviceId"], "d1");
+        assert!(json.get("device_id").is_none());
+    }
 
     #[test]
     fn makes_the_certificate_once_and_keeps_it() {
