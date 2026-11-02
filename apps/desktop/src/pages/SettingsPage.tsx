@@ -13,12 +13,7 @@ import {
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
-import {
-  BackgroundPicker,
-  kindKey,
-  SongBackgroundFields,
-  songKind,
-} from '../components/BackgroundPicker';
+import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
 import { ConnectedDevices } from '../components/ConnectedDevices';
@@ -78,7 +73,7 @@ function OnScreenSongBackground(props: { song: Song }) {
     timer.current = window.setTimeout(() => pending.current?.(), 400);
   }
 
-  return <SongBackgroundFields value={value} onChange={change} kind={songKind(song)} />;
+  return <SongBackgroundFields value={value} onChange={change} />;
 }
 
 export function SettingsPage() {
@@ -103,10 +98,11 @@ export function SettingsPage() {
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
-  const onScreen = useQuery(
-    async () => (onScreenId ? session.store.getSong(onScreenId) : null),
-    [onScreenId],
-  );
+  // Only a song of lyrics has a background of its own: slides and websites are shown on black.
+  const onScreen = useQuery(async () => {
+    const song = onScreenId ? await session.store.getSong(onScreenId) : null;
+    return song && !song.deck && !song.website ? song : null;
+  }, [onScreenId]);
   const [fonts, setFonts] = useState<string[]>([]);
   const [version, setVersion] = useState('');
   const [missing, setMissing] = useState('');
@@ -115,7 +111,6 @@ export function SettingsPage() {
   const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'song'>('workspace');
   // The song tab only exists while a song is on screen.
   const backgroundTab = onScreen ? chosenBackgroundTab : 'workspace';
-  const kind = onScreen ? songKind(onScreen) : 'song';
 
   useEffect(() => {
     void native.listFontFamilies().then(setFonts);
@@ -467,9 +462,9 @@ export function SettingsPage() {
           title={t('settings.background')}
           hint={
             backgroundTab === 'song'
-              ? t(kindKey('settings.songBackgroundHint', kind))
+              ? t('settings.songBackgroundHint')
               : onScreen?.background
-                ? t(kindKey('settings.backgroundCovered', kind))
+                ? t('settings.backgroundCovered')
                 : t('settings.backgroundWorkspaceHint')
           }
         >
@@ -493,7 +488,7 @@ export function SettingsPage() {
                 >
                   {key === 'workspace'
                     ? t('settings.backgroundWorkspace')
-                    : t(kindKey('settings.songBackground', kind), {
+                    : t('settings.songBackground', {
                         title: onScreen.title || t('songs.untitled'),
                       })}
                 </button>
