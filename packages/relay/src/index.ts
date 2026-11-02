@@ -5,7 +5,10 @@
  * The relay holds no presentation state and makes no approval decisions. One desktop per
  * workspace is the coordinator and holds the live state (plan M1, decision D14); the relay
  * carries the other desktops' commands to it and its snapshots back, keeps the role with
- * the first operator device until another claims it, and tells everyone who has it. Each
+ * the first operator device until another claims it, and tells everyone who has it. After
+ * an outage, desktops say as they return whether they were presenting or following someone
+ * on the LAN, so the role goes back to who was presenting rather than to whoever connected
+ * first, and two that presented apart are settled by D14. Each
  * phone reaches the desktop whose invitation it scanned, or the coordinator when it comes
  * back with a grant (decision D25). Output pages receive snapshots and may send nothing.
  */
@@ -18,6 +21,8 @@ import {
   type Capabilities,
   type DesktopToRelay,
   type DeviceRole,
+  type LivePresence,
+  type LiveStanding,
   type OutputKind,
   type RelayPeer,
   type RelayToDesktop,
@@ -44,12 +49,40 @@ export interface RelayDirectory {
 
 export interface RelayOptions {
   /**
-   * Whether a desktop may claim the coordinator role. The church server's relay allows it;
-   * the room a coordinator serves on the LAN does not, since the server decides who
-   * coordinates and the room only serves while its own device does (D14, D20). A claim
-   * honoured there would leave two desktops presenting, each unaware of the other.
+   * Whether the coordinator role may move: by a claim, or to a desktop returning with an
+   * older live state (D14). The church server's relay allows it; the room a coordinator
+   * serves on the LAN does not, since the server decides who coordinates and the room only
+   * serves while its own device does (D14, D20). A move made there would leave two desktops
+   * presenting, each unaware of the other.
    */
   claims?: boolean;
+}
+
+/**
+ * Whether a returning live state takes the role from the one standing (D14): the older live
+ * state is kept, and between copies of one live state the more recently changed. A tie
+ * leaves the role where it is.
+ */
+export function outranks(returning: LiveStanding, standing: LiveStanding): boolean {
+  const a = Date.parse(returning.startedAt);
+  const b = Date.parse(standing.startedAt);
+  if (a !== b) return a < b;
+  return Date.parse(returning.updatedAt) > Date.parse(standing.updatedAt);
+}
+
+/** Reads a desktop's presence from its hello, which arrives unchecked. */
+function readPresence(value: unknown): LivePresence | null {
+  if (!value || typeof value !== 'object') return null;
+  const p = value as Record<string, unknown>;
+  const dated = (key: string) => typeof p[key] === 'string' && !Number.isNaN(Date.parse(p[key]));
+  if (!dated('startedAt') || !dated('updatedAt')) return null;
+  const standing = { startedAt: p.startedAt as string, updatedAt: p.updatedAt as string };
+  if (p.kind === 'coordinating') return { kind: 'coordinating', ...standing };
+  if (p.kind === 'following' && typeof p.deviceId === 'string' && p.deviceId) {
+    const name = typeof p.name === 'string' ? p.name : '';
+    return { kind: 'following', deviceId: p.deviceId, name, ...standing };
+  }
+  return null;
 }
 
 /** A random connection identifier; works in Node and in browsers. */
@@ -70,6 +103,8 @@ interface Desktop {
   role: DeviceRole;
   capabilities: Capabilities | undefined;
   lan: RelayPeer['lan'];
+  /** What it said it was doing with the live state as it connected. */
+  live: LivePresence | null;
   connectedAt: number;
   lastSeenAt: number;
 }
@@ -98,6 +133,13 @@ interface Output {
 interface WorkspaceRoom {
   desktops: Set<Desktop>;
   coordinator: Desktop | null;
+  /** The coordinator's live state, from its hello and then its snapshots; null until known. */
+  standing: LiveStanding | null;
+  /**
+   * With no coordinator connected: the one desktops reported following on the LAN, which
+   * is still presenting and gets the role back when it returns (after an outage).
+   */
+  awaiting: ({ deviceId: string; name: string } & LiveStanding) | null;
   remotes: Map<string, Remote>;
   outputs: Set<Output>;
 }
@@ -140,7 +182,14 @@ export class Relay {
   private room(workspaceId: string): WorkspaceRoom {
     let room = this.rooms.get(workspaceId);
     if (!room) {
-      room = { desktops: new Set(), coordinator: null, remotes: new Map(), outputs: new Set() };
+      room = {
+        desktops: new Set(),
+        coordinator: null,
+        standing: null,
+        awaiting: null,
+        remotes: new Map(),
+        outputs: new Set(),
+      };
       this.rooms.set(workspaceId, room);
     }
     return room;
@@ -219,19 +268,73 @@ export class Relay {
     ];
   }
 
-  private announce(room: WorkspaceRoom, workspaceId: string): void {
+  /**
+   * Tells every desktop who coordinates: the connected coordinator, else the one being
+   * awaited, which followers on the LAN still reach. `dropped` lost the role, or a claim to
+   * it, to another live state (D14) and is told not to hand its own over.
+   */
+  private announce(room: WorkspaceRoom, workspaceId: string, dropped?: Desktop | null): void {
     const peers = this.peers(workspaceId);
+    const named = room.coordinator ?? room.awaiting;
     for (const each of room.desktops) {
       send(each.socket, {
         type: 'ready',
         workspaceId,
         deviceId: each.deviceId,
         coordinator: room.coordinator === each,
-        coordinatorName: room.coordinator?.name ?? null,
-        coordinatorId: room.coordinator?.deviceId ?? null,
+        coordinatorName: named?.name ?? null,
+        coordinatorId: named?.deviceId ?? null,
         peers,
+        ...(each === dropped ? { handover: false } : {}),
       } satisfies RelayToDesktop);
     }
+  }
+
+  /**
+   * Where the role goes when a desktop connects. Without a coordinator the first operator
+   * device takes it, unless desktops follow one on the LAN that has not come back yet. A
+   * desktop that was presenting takes it back when it is the one awaited, or when its live
+   * state outranks the one standing (D14). Returns whether the newcomer takes the role, and
+   * which desktop, if any, is told to drop its own live state.
+   */
+  private seat(
+    room: WorkspaceRoom,
+    desktop: Desktop,
+  ): { take: boolean; standing: LiveStanding | null; dropped: Desktop | null } {
+    const live = desktop.live;
+    const standing =
+      live?.kind === 'coordinating'
+        ? { startedAt: live.startedAt, updatedAt: live.updatedAt }
+        : null;
+    const operator = desktop.role === 'operator';
+    if (this.options.claims === false) {
+      return { take: operator && !room.coordinator, standing, dropped: null };
+    }
+    const awaited = room.awaiting;
+    if (operator && awaited?.deviceId === desktop.deviceId) {
+      return { take: true, standing: standing ?? awaited, dropped: null };
+    }
+    if (live?.kind === 'following' && !room.coordinator && !awaited) {
+      room.awaiting = {
+        deviceId: live.deviceId,
+        name: live.name,
+        startedAt: live.startedAt,
+        updatedAt: live.updatedAt,
+      };
+      return { take: false, standing: null, dropped: null };
+    }
+    if (!operator) return { take: false, standing: null, dropped: null };
+    if (standing) {
+      const incumbent = room.coordinator ? room.standing : awaited;
+      if (!room.coordinator && !awaited) return { take: true, standing, dropped: null };
+      // A coordinator whose live state is not known yet has not presented anything here.
+      if (!incumbent || outranks(standing, incumbent)) {
+        return { take: true, standing, dropped: room.coordinator };
+      }
+      // It presented a live state that is not kept: it follows, and drops its own.
+      return { take: false, standing: null, dropped: desktop };
+    }
+    return { take: !room.coordinator && !awaited, standing: null, dropped: null };
   }
 
   /** Where a phone's hello goes: its invitation's desktop, else the coordinator. */
@@ -261,9 +364,16 @@ export class Relay {
     let desktop: Desktop | null = null;
     let workspaceId: string | null = null;
 
-    const becomeCoordinator = (room: WorkspaceRoom, id: string) => {
+    const becomeCoordinator = (
+      room: WorkspaceRoom,
+      id: string,
+      standing: LiveStanding | null = null,
+      dropped: Desktop | null = null,
+    ) => {
       room.coordinator = desktop;
-      this.announce(room, id);
+      room.standing = standing;
+      room.awaiting = null;
+      this.announce(room, id, dropped);
       // Phones waiting for a desktop introduce themselves to the coordinator.
       for (const remote of room.remotes.values()) {
         if (!remote.desktop) {
@@ -304,6 +414,7 @@ export class Relay {
             role: message.role === 'viewer' ? 'viewer' : 'operator',
             capabilities: message.capabilities,
             lan: message.lan ?? null,
+            live: readPresence(message.live),
             connectedAt: now,
             lastSeenAt: now,
           };
@@ -322,12 +433,13 @@ export class Relay {
             }
           }
           room.desktops.add(desktop);
-          if (room.coordinator === desktop) return becomeCoordinator(room, workspaceId);
-          // The first operator device becomes coordinator; a viewer never does (M3.2).
-          if (!room.coordinator && desktop.role === 'operator') {
-            return becomeCoordinator(room, workspaceId);
+          if (room.coordinator === desktop) {
+            return becomeCoordinator(room, workspaceId, room.standing);
           }
-          return this.announce(room, workspaceId);
+          // A viewer never becomes coordinator (M3.2).
+          const seat = this.seat(room, desktop);
+          if (seat.take) return becomeCoordinator(room, workspaceId, seat.standing, seat.dropped);
+          return this.announce(room, workspaceId, seat.dropped);
         }
         const room = this.room(workspaceId!);
         switch (message.type) {
@@ -340,6 +452,7 @@ export class Relay {
               return;
             }
             if (room.coordinator !== desktop && desktop.role === 'operator') {
+              // Its live state is known from its first snapshot.
               becomeCoordinator(room, workspaceId!);
             }
             return;
@@ -387,6 +500,10 @@ export class Relay {
               });
               return;
             }
+            if (data.data.type === 'snapshot') {
+              const { startedAt, updatedAt } = data.data.snapshot.state;
+              room.standing = { startedAt, updatedAt };
+            }
             if (message.to?.startsWith(OUTPUT_PREFIX)) {
               if (data.data.type === 'snapshot') toOutput(room, message.to, data.data);
               return;
@@ -418,9 +535,20 @@ export class Relay {
           send(remote.socket, { type: 'unavailable', reason: 'reconnect' } satisfies RelayToRemote);
           remote.socket.close(4005, 'reconnect');
         }
+        const awaited = room.awaiting;
+        if (
+          awaited &&
+          ![...room.desktops].some(
+            (each) => each.live?.kind === 'following' && each.live.deviceId === awaited.deviceId,
+          )
+        ) {
+          // Nobody connected vouches for it any more.
+          room.awaiting = null;
+        }
         if (room.coordinator === desktop) {
           // No other desktop takes over by itself; one does when an operator asks (D18).
           room.coordinator = null;
+          room.standing = null;
           for (const output of room.outputs) {
             send(output.socket, { type: 'waiting' } satisfies RelayToOutput);
           }

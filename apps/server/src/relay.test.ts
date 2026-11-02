@@ -4,6 +4,7 @@ import {
   type DesktopToRelay,
   type FollowerToCoordinator,
   type HostToRemote,
+  type LivePresence,
   type LiveSnapshot,
   type RelayToDesktop,
   type RelayToOutput,
@@ -59,7 +60,12 @@ async function setup(relayOptions?: RelayOptions) {
   /** Connects a desktop the way the app does, wiring relay messages into the host. */
   function desktop(
     name: string,
-    options: { token?: string; role?: 'operator' | 'viewer'; withHost?: boolean } = {},
+    options: {
+      token?: string;
+      role?: 'operator' | 'viewer';
+      withHost?: boolean;
+      live?: LivePresence;
+    } = {},
   ) {
     const token = options.token ?? instance.enroll(code, name)!.token;
     const socket = new FakeSocket();
@@ -91,6 +97,7 @@ async function setup(relayOptions?: RelayOptions) {
         media: true,
         transparency: true,
       },
+      live: options.live,
     });
     const ready = socket.last<Extract<RelayToDesktop, { type: 'ready' }>>();
     return { socket, handlers, token, say, deviceId: ready.deviceId };
@@ -210,6 +217,139 @@ describe('remote control through the relay', () => {
       type: 'ready',
       coordinator: true,
       coordinatorId: first.deviceId,
+    });
+  });
+
+  describe('after an outage (D14)', () => {
+    type Ready = Extract<RelayToDesktop, { type: 'ready' }>;
+    const EARLY = '2026-10-11T08:00:00.000Z';
+    const LATE = '2026-10-11T09:00:00.000Z';
+    const presenting = (startedAt: string, updatedAt = startedAt): LivePresence => ({
+      kind: 'coordinating',
+      startedAt,
+      updatedAt,
+    });
+
+    it('keeps the role for the presenter its followers still reach on the LAN', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      const projectorToken = projector.token;
+      projector.handlers.close();
+
+      // The follower comes back first, still following the projector over the LAN.
+      const follower = desktop('Streaming', {
+        withHost: false,
+        live: {
+          kind: 'following',
+          deviceId: projector.deviceId,
+          name: 'Projector',
+          startedAt: EARLY,
+          updatedAt: EARLY,
+        },
+      });
+      expect(follower.socket.last()).toMatchObject({
+        type: 'ready',
+        coordinator: false,
+        coordinatorId: projector.deviceId,
+        coordinatorName: 'Projector',
+      });
+      // Another computer opening now does not take the role either.
+      const office = desktop('Office', { withHost: false });
+      expect(office.socket.last()).toMatchObject({
+        coordinator: false,
+        coordinatorName: 'Projector',
+      });
+
+      const back = desktop('Projector', {
+        token: projectorToken,
+        withHost: false,
+        live: presenting(EARLY),
+      });
+      expect(back.socket.last()).toMatchObject({ type: 'ready', coordinator: true });
+      expect(follower.socket.last()).toMatchObject({
+        coordinator: false,
+        coordinatorName: 'Projector',
+      });
+
+      // An operator can still take over by hand while waiting.
+      back.handlers.close();
+      office.say({ type: 'claim' });
+      expect(office.socket.last()).toMatchObject({ coordinator: true });
+    });
+
+    it('lets the first operator take the role once nobody follows the awaited presenter', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      projector.handlers.close();
+      const follower = desktop('Streaming', {
+        withHost: false,
+        live: {
+          kind: 'following',
+          deviceId: projector.deviceId,
+          name: 'Projector',
+          startedAt: EARLY,
+          updatedAt: EARLY,
+        },
+      });
+      follower.handlers.close();
+      const office = desktop('Office', { withHost: false });
+      expect(office.socket.last()).toMatchObject({ coordinator: true });
+    });
+
+    it('keeps the older of two live states presented apart, whichever returns first', async () => {
+      for (const olderFirst of [true, false]) {
+        const { desktop } = await setup();
+        const connect = (name: string, startedAt: string) =>
+          desktop(name, { withHost: false, live: presenting(startedAt) });
+        const first = olderFirst ? connect('Older', EARLY) : connect('Newer', LATE);
+        const second = olderFirst ? connect('Newer', LATE) : connect('Older', EARLY);
+        const older = olderFirst ? first : second;
+        const newer = olderFirst ? second : first;
+        expect(older.socket.last<Ready>()).toMatchObject({ coordinator: true });
+        expect(newer.socket.last<Ready>()).toMatchObject({
+          coordinator: false,
+          coordinatorName: 'Older',
+          // The newer live state is dropped, not handed over to be merged in.
+          handover: false,
+        });
+      }
+    });
+
+    it('keeps the more recently changed copy of one live state, and the standing one on a tie', async () => {
+      const { desktop } = await setup();
+      const church = desktop('Church', { withHost: false, live: presenting(EARLY, LATE) });
+      // A laptop that dropped off and presented alone for a moment, with nothing newer.
+      const laptop = desktop('Laptop', { withHost: false, live: presenting(EARLY, EARLY) });
+      expect(laptop.socket.last<Ready>()).toMatchObject({ coordinator: false, handover: false });
+      const twin = desktop('Twin', { withHost: false, live: presenting(EARLY, LATE) });
+      expect(twin.socket.last<Ready>()).toMatchObject({ coordinator: false, handover: false });
+      expect(church.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(church.socket.last<Ready>().handover).toBeUndefined();
+
+      const later = '2026-10-11T10:00:00.000Z';
+      const fresh = desktop('Fresh', { withHost: false, live: presenting(EARLY, later) });
+      expect(fresh.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(church.socket.last<Ready>()).toMatchObject({ coordinator: false, handover: false });
+    });
+
+    it('judges the coordinator by its latest snapshot', async () => {
+      const { desktop } = await setup();
+      const church = desktop('Church', { withHost: false });
+      const latest = snapshot(5, church.deviceId);
+      latest.state = { ...latest.state, startedAt: EARLY, updatedAt: LATE };
+      church.say({ type: 'toFollower', data: { type: 'snapshot', snapshot: latest } });
+      const stale = desktop('Laptop', { withHost: false, live: presenting(EARLY, EARLY) });
+      expect(stale.socket.last<Ready>()).toMatchObject({ coordinator: false, handover: false });
+      expect(church.socket.last<Ready>()).toMatchObject({ coordinator: true });
+    });
+
+    it('moves no role in the room a coordinator serves on the LAN', async () => {
+      const { desktop } = await setup({ claims: false });
+      const host = desktop('Projector', { withHost: false, live: presenting(LATE) });
+      const older = desktop('Laptop', { withHost: false, live: presenting(EARLY) });
+      expect(host.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(older.socket.last<Ready>()).toMatchObject({ coordinator: false });
+      expect(older.socket.last<Ready>().handover).toBeUndefined();
     });
   });
 

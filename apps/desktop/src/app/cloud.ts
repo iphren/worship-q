@@ -575,6 +575,7 @@ export class CloudController {
       lan: this.lan
         ? { fingerprint: this.lan.fingerprint, addresses: this.lan.addresses, port: this.lan.port }
         : null,
+      live: this.link?.presence() ?? null,
     });
     const link = new LiveLink({
       session: this.session,
@@ -667,11 +668,9 @@ export class CloudController {
             send: (to, data) => this.sendToPhone(to, data),
             drop: (to) => this.dropPhone(to),
           });
-          if (this.offlineCoordinator) {
-            // Back online after presenting alone: the server is asked to agree (D14).
-            this.offlineCoordinator = false;
-            this.transports?.sendOn('relay', { type: 'claim' });
-          }
+          // Back online after presenting alone. The hello said so, and the server has
+          // settled the role already: back to this device, or to an older live state (D14).
+          this.offlineCoordinator = false;
           this.transports?.opened(kind);
         },
         close: (kind) => {

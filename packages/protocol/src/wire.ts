@@ -465,10 +465,29 @@ export interface OutputView {
 
 // ── Desktops and the relay ─────────────────────────────────────────────────
 
+/** A live state's place in time, for settling which of two copies is kept (D14). */
+export interface LiveStanding {
+  /** When the live state started; the older one is kept. */
+  startedAt: string;
+  /** When it last changed; between copies of one live state, the more recent is kept. */
+  updatedAt: string;
+}
+
+/**
+ * What a desktop is doing with the live state as it connects, so the relay can tell, after
+ * an outage, who was presenting all along (D14).
+ */
+export type LivePresence =
+  /** Presenting: as coordinator before the connection dropped, or alone while offline. */
+  | ({ kind: 'coordinating' } & LiveStanding)
+  /** Following a coordinator over the LAN, which is therefore still presenting. */
+  | ({ kind: 'following'; deviceId: string; name: string } & LiveStanding);
+
 /**
  * From a desktop to the instance relay. Every desktop of a workspace connects; one of them,
  * the coordinator, holds the live state. The first operator device to connect becomes the
- * coordinator, and another takes over only when an operator asks it to (D14). Each desktop
+ * coordinator, and another takes over only when an operator asks it to, or when a desktop
+ * returning from an outage was presenting an older live state (D14). Each desktop
  * receives the phones that scanned its own invitation, and forwards their commands to the
  * coordinator (D25).
  */
@@ -482,6 +501,8 @@ export type DesktopToRelay =
       role?: DeviceRole;
       /** For the LAN (D19, D20): this device's certificate fingerprint and addresses. */
       lan?: { fingerprint: string; addresses: string[]; port: number } | null;
+      /** Omitted by desktops before it existed, and by one with no live state to report. */
+      live?: LivePresence | null;
     }
   /** `to` is a remote connection, or every remote connection of this desktop when omitted. */
   | { type: 'send'; to?: string; data: HostToRemote }
@@ -522,6 +543,12 @@ export type RelayToDesktop =
       coordinatorId: string | null;
       /** Every desktop and output of the workspace connected right now, this one included. */
       peers: RelayPeer[];
+      /**
+       * False when this device lost the role to another live state on reconnecting (D14):
+       * its own is dropped rather than handed over, so the role and the content kept stay
+       * together. Omitted, a coordinator that loses the role hands its last snapshot over.
+       */
+      handover?: boolean;
     }
   | { type: 'update-needed' }
   | { type: 'rejected'; reason: 'unauthorized' }

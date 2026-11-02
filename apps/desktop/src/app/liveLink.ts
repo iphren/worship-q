@@ -25,6 +25,7 @@ import {
   type CommandOrigin,
   type ConnectedDevice,
   type DesktopToRelay,
+  type LivePresence,
   type LiveSnapshot,
   type OperatorCommand,
   type RelayPeer,
@@ -154,6 +155,30 @@ export class LiveLink {
     return this.status_;
   }
 
+  /**
+   * What this device is doing with the live state, told to the relay as it connects so the
+   * role goes back to who was presenting after an outage (D14). Following counts only over
+   * the LAN: that is what shows the coordinator is still presenting while the server is out
+   * of reach.
+   */
+  presence(): LivePresence | null {
+    if (this.coordinator) {
+      const state = this.lastPublished?.state;
+      return state
+        ? { kind: 'coordinating', startedAt: state.startedAt, updatedAt: state.updatedAt }
+        : null;
+    }
+    const state = this.follower.snapshot?.state;
+    if (!state || !this.followingId || this.status_.transport !== 'lan') return null;
+    return {
+      kind: 'following',
+      deviceId: this.followingId,
+      name: this.status_.coordinatorName ?? '',
+      startedAt: state.startedAt,
+      updatedAt: state.updatedAt,
+    };
+  }
+
   /** The snapshot this device last published or applied, for handover and recovery. */
   get snapshot(): LiveSnapshot | null {
     return this.coordinator ? this.lastPublished : this.follower.snapshot;
@@ -265,8 +290,9 @@ export class LiveLink {
       return;
     }
     if (wasCoordinator) {
-      // Another computer took over (M2.3 handover, or M4.5 after being cut off).
-      const final = this.lastPublished;
+      // Another computer took over (M2.3 handover, or M4.5 after being cut off). When the
+      // relay kept another live state over this one (D14), this one is not handed over.
+      const final = message.handover === false ? null : this.lastPublished;
       this.stopCoordinating();
       if (final && message.coordinatorId) {
         this.deps.send({ type: 'toCoordinator', data: { type: 'handover', snapshot: final } });

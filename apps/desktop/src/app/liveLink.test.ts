@@ -151,6 +151,7 @@ async function desktop(
           media: true,
           transparency: true,
         },
+        live: link.presence(),
       } satisfies DesktopToRelay),
     );
   };
@@ -511,6 +512,47 @@ describe('recovery (M4)', () => {
     await settle();
     expect(c.link.snapshot!.revision).toBeGreaterThan(revision);
     expect(b.link.snapshot!.revision).toBe(c.link.snapshot!.revision);
+  });
+
+  it('after presenting apart offline, keeps the more recent copy and drops the other (D14)', async () => {
+    const { time, a, b } = await venue();
+    await a.session.next();
+    await settle();
+    a.disconnect();
+    await settle();
+    b.disconnect();
+    // The venue loses the internet; B presents on its own, as it does with nobody to follow.
+    b.link.connected('lan');
+    b.link.receive({
+      type: 'ready',
+      workspaceId: 'ws',
+      deviceId: b.deviceId,
+      coordinator: true,
+      coordinatorName: 'Streaming',
+      coordinatorId: b.deviceId,
+      peers: [],
+    });
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    time.advance(1000);
+    await a.session.next();
+    time.advance(1000);
+    await b.session.setBlank(true);
+    await settle();
+    expect(a.session.live).toMatchObject({ blank: false, presented: { index: 1 } });
+    expect(b.session.live).toMatchObject({ blank: true, presented: { index: 0 } });
+
+    // The internet is back. A reconnects first, but B changed more recently.
+    a.connect();
+    await settle();
+    b.link.disconnected();
+    b.connect();
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    expect(a.link.status).toMatchObject({ role: 'follower', coordinatorName: 'Streaming' });
+    // A's copy was dropped, not merged in: both show B's.
+    expect(b.session.live).toMatchObject({ blank: true, presented: { index: 0 } });
+    expect(a.session.live).toMatchObject({ blank: true, presented: { index: 0 } });
   });
 
   it('the first operator device after a restart takes the server’s unexpired live state (M4.6)', async () => {
