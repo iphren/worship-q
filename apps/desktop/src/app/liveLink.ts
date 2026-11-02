@@ -121,6 +121,14 @@ export class LiveLink {
   private followingId: string | null = null;
   /** Devices connected to this coordinator over the venue network (plan M6.3). */
   private lanPeers: RelayPeer[] = [];
+  /**
+   * Role changes run one at a time, in the order the relay sent them. Taking over waits on
+   * the server, and the relay may name someone else meanwhile; acting on that older word
+   * afterwards would make this device present on its own, unseen by everyone else.
+   */
+  private roleChanges: Promise<void> = Promise.resolve();
+  /** Counts the relay's role messages; only the latest one is acted on. */
+  private readyCount = 0;
   private stopped = false;
   private readonly newId: () => string;
   private readonly now: () => number;
@@ -208,8 +216,12 @@ export class LiveLink {
 
   /** A message from the relay about roles, or from another desktop. */
   receive(message: RelayToDesktop): void {
-    if (message.type === 'ready') void this.ready(message);
-    else if (message.type === 'peer') void this.peer(message.from, message.data);
+    if (message.type === 'ready') {
+      const count = ++this.readyCount;
+      this.roleChanges = this.roleChanges
+        .then(() => this.ready(message, count))
+        .catch((error: unknown) => console.warn('Could not settle this computer’s role', error));
+    } else if (message.type === 'peer') void this.peer(message.from, message.data);
   }
 
   /** Asks to become coordinator: Use this computer, or Carry on here (D18). */
@@ -227,8 +239,17 @@ export class LiveLink {
 
   // ── Roles ────────────────────────────────────────────────────────────────
 
-  private async ready(message: Extract<RelayToDesktop, { type: 'ready' }>): Promise<void> {
-    if (this.stopped) return;
+  /** True while no newer role message has arrived since `count`. */
+  private isLatest(count: number): boolean {
+    return !this.stopped && count === this.readyCount;
+  }
+
+  private async ready(
+    message: Extract<RelayToDesktop, { type: 'ready' }>,
+    count: number,
+  ): Promise<void> {
+    // A newer message is queued behind this one and says everything this one does.
+    if (!this.isLatest(count)) return;
     this.watch.announce(message.coordinatorId, this.now());
     const wasCoordinator = this.coordinator !== null;
     const lost = this.status_.coordinatorLost;
@@ -239,7 +260,7 @@ export class LiveLink {
       coordinatorLost: message.coordinatorId === null && !message.coordinator,
     });
     if (message.coordinator) {
-      if (!wasCoordinator) await this.becomeCoordinator(lost);
+      if (!wasCoordinator) await this.becomeCoordinator(lost, count);
       else this.refreshDevices();
       return;
     }
@@ -313,7 +334,12 @@ export class LiveLink {
     await grantsRegistered.set();
   }
 
-  private async becomeCoordinator(afterLoss: boolean): Promise<void> {
+  /**
+   * Takes the role the relay just gave this device. Every wait below can let a newer role
+   * message in; when one has, this stops before anything is published, and that message
+   * settles the role instead.
+   */
+  private async becomeCoordinator(afterLoss: boolean, count: number): Promise<void> {
     const { session, host, backup } = this.deps;
     session.follow(null);
     this.followingId = null;
@@ -325,10 +351,12 @@ export class LiveLink {
     if (!local && session.startKind === 'resumed' && session.live) {
       const body = await session.buildSnapshot(deviceId);
       if (body) local = { ...body, revision: 0 };
+      if (!this.isLatest(count)) return;
     }
     let server: { snapshot: LiveSnapshot | null; grants: WorkspaceGrant[] } | null = null;
     if (backup && (afterLoss || !this.follower.snapshot)) {
       server = await backup.get().catch(() => null);
+      if (!this.isLatest(count)) return;
     }
     const choice = chooseRecovery({
       local,
@@ -336,6 +364,12 @@ export class LiveLink {
       now: new Date(this.now()).toISOString(),
     });
     let startRevision = 0;
+    const adopting = choice === 'server' || (choice === 'local' && !!local && local.revision > 0);
+    if (adopting) {
+      // From here the session holds the adopted copy. If this device ends up following after
+      // all, it must take the coordinator's next snapshot even at a revision it already has.
+      this.follower.reset();
+    }
     if (choice === 'server' && server?.snapshot) {
       await session.adoptSnapshot(server.snapshot);
       startRevision = server.snapshot.revision;
@@ -346,6 +380,7 @@ export class LiveLink {
     }
     this.grants = await host.localGrants();
     if (this.deps.grantsRegistered) await this.deps.grantsRegistered.set();
+    if (!this.isLatest(count)) return;
 
     this.coordinator = new Coordinator(
       {

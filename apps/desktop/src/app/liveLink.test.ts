@@ -474,6 +474,45 @@ describe('recovery (M4)', () => {
     expect(a.session.live?.presented?.index).toBe(0);
   });
 
+  it('follows the relay’s latest word when the role moves on while taking over', async () => {
+    const { time, dir, relay, backup, a, b } = await venue();
+    const c = await desktop('Vestry', time, relay, dir, backup);
+    await a.session.next();
+    await settle();
+    a.disconnect();
+    await settle();
+
+    // Streaming sorts before Vestry, so a tie between the two copies would keep B (D14).
+    // The server is slow to answer, so B is still taking over when C claims the role.
+    let release = () => {};
+    const gate = new Promise<void>((done) => (release = done));
+    const get = backup!.get;
+    backup!.get = async () => {
+      await gate;
+      return get();
+    };
+    b.link.claim();
+    await settle(2);
+    c.link.claim();
+    await settle(2);
+    release();
+    await settle();
+
+    expect(c.link.status.role).toBe('coordinator');
+    expect(b.link.status).toMatchObject({
+      role: 'follower',
+      coordinatorId: c.deviceId,
+      coordinatorName: 'Vestry',
+    });
+    expect(b.session.following).toBe(true);
+    // B's commands go to C.
+    const revision = c.link.snapshot!.revision;
+    await b.session.next();
+    await settle();
+    expect(c.link.snapshot!.revision).toBeGreaterThan(revision);
+    expect(b.link.snapshot!.revision).toBe(c.link.snapshot!.revision);
+  });
+
   it('the first operator device after a restart takes the server’s unexpired live state (M4.6)', async () => {
     const time = clock();
     const dir = directory();
