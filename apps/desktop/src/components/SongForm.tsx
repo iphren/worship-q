@@ -9,9 +9,10 @@ import {
   type SongBackground,
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useQuery, useSession } from '../app/context';
+import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { SongBackgroundFields } from './BackgroundPicker';
+import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
 import { useScrollMemory } from '../lib/scrollMemory';
 
@@ -64,11 +65,142 @@ type SongFormProps = {
 };
 
 export function SongForm(props: SongFormProps) {
-  if (props.song?.website || (!props.song && props.website)) return <WebsiteForm {...props} />;
-  return props.song?.deck ? (
-    <DeckForm {...props} song={props.song} deck={props.song.deck} />
-  ) : (
-    <LyricsForm {...props} />
+  const [dirty, setDirty] = useState(false);
+  const onDirtyChange = (value: boolean) => {
+    setDirty(value);
+    props.onDirtyChange?.(value);
+  };
+  const inner = { ...props, onDirtyChange };
+  const form =
+    props.song?.website || (!props.song && props.website) ? (
+      <WebsiteForm {...inner} />
+    ) : props.song?.deck ? (
+      <DeckForm {...inner} song={props.song} deck={props.song.deck} />
+    ) : (
+      <LyricsForm {...inner} />
+    );
+  if (!props.song?.versions || props.quick) return form;
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <VersionsBar song={props.song} dirty={dirty} onChanged={props.onSaved} />
+      <div className="min-h-0 flex-1">{form}</div>
+    </div>
+  );
+}
+
+const changedText = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+/**
+ * A song with two versions (D32): which one this workspace presents, with the other one a
+ * click away to read, and the way to drop the workspace's own.
+ */
+function VersionsBar(props: { song: Song; dirty: boolean; onChanged(song: Song): void }) {
+  const session = useSession();
+  const { cloud } = useApp();
+  const status = useCloud();
+  const { song } = props;
+  const versions = song.versions!;
+  const [showOther, setShowOther] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
+  const other = useQuery(
+    () =>
+      song.useChurchVersion
+        ? session.store.getOwnVersion(song.id)
+        : session.store.getChurchVersion(song.id),
+    [song.id, song.useChurchVersion, song.revision],
+  );
+
+  async function choose(useChurch: boolean) {
+    if (props.dirty || useChurch === song.useChurchVersion) return;
+    props.onChanged(await session.setUseChurchVersion(song.id, useChurch));
+  }
+
+  async function deleteOwn() {
+    setDeleting(false);
+    setError(null);
+    try {
+      await cloud.deleteOwnVersion(song.id);
+      const after = await session.store.getSong(song.id);
+      if (after) props.onChanged(after);
+    } catch (e) {
+      setError(t('songs.deleteOwnVersionFailed', { error: String(e) }));
+    }
+  }
+
+  const option = (useChurch: boolean, label: string, stamp: { updatedAt: string }) => {
+    const selected = song.useChurchVersion === useChurch;
+    return (
+      <button
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        className={`rounded-md border px-3 py-1.5 text-left text-sm ${
+          selected
+            ? 'border-sky-500 bg-sky-900/60 text-slate-100'
+            : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'
+        } disabled:cursor-not-allowed disabled:opacity-60`}
+        disabled={props.dirty && !selected}
+        title={props.dirty && !selected ? t('songs.versionsSaveFirst') : undefined}
+        onClick={() => void choose(useChurch)}
+      >
+        <span className="font-medium">{label}</span>
+        <span className="ml-2 text-xs text-slate-400">
+          {t('songs.versionChanged', { time: changedText(stamp.updatedAt) })}
+        </span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3">
+      <div className="flex flex-wrap items-center gap-2" role="radiogroup">
+        {option(true, t('songs.versionChurch'), versions.church)}
+        {option(false, t('songs.versionOwn'), versions.own)}
+        <span className="flex-1" />
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => setShowOther((v) => !v)}
+        >
+          {showOther ? t('songs.hideOtherVersion') : t('songs.showOtherVersion')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm text-rose-300"
+          disabled={!connected}
+          title={connected ? undefined : t('songs.deleteOwnVersionNeedsServer')}
+          onClick={() => setDeleting(true)}
+        >
+          {t('songs.deleteOwnVersion')}
+        </button>
+      </div>
+      <p className="text-xs text-slate-400">{t('songs.versionsHint')}</p>
+      {error && <p className="text-xs text-rose-300">{error}</p>}
+      {showOther && other && (
+        <div className="max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2 text-sm">
+          <p className="mb-1 font-semibold text-slate-200">
+            {other.title || t('songs.untitled')}
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              {song.useChurchVersion ? t('songs.versionOwn') : t('songs.versionChurch')}
+            </span>
+          </p>
+          <pre className="font-sans whitespace-pre-wrap text-slate-300">{other.lyrics}</pre>
+        </div>
+      )}
+      {deleting && (
+        <ConfirmDialog
+          title={t('songs.deleteOwnVersionTitle', { title: song.title || t('songs.untitled') })}
+          body={t('songs.deleteOwnVersionBody')}
+          confirmLabel={t('songs.deleteOwnVersionConfirm')}
+          danger
+          onCancel={() => setDeleting(false)}
+          onConfirm={() => void deleteOwn()}
+        />
+      )}
+    </div>
   );
 }
 
@@ -342,6 +474,9 @@ function LyricsForm(props: SongFormProps) {
           autoFocus={!song}
         />
       </label>
+      {dirty && song?.origin === 'church' && !session.store.managesChurchLibrary && (
+        <p className="text-xs text-sky-200">{t('songs.churchEditHint')}</p>
+      )}
       <div className="flex min-h-0 flex-1 flex-col">
         <div role="tablist" className="mb-2 flex gap-1 border-b border-slate-700">
           {tabs.map((key) => (

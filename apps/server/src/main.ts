@@ -5,6 +5,8 @@ import { buildServer } from './app';
 import { openDatabase } from './db';
 import { convertDeck, deckTools, deckToolsAvailable } from './decks/convert';
 import { Instance } from './instance';
+import { OidcClient, oidcConfigFromEnv } from './oidc';
+import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
 
 const dataDir = process.env.WORSHIP_Q_DATA ?? '/data';
 mkdirSync(dataDir, { recursive: true });
@@ -13,9 +15,21 @@ const instance = new Instance(openDatabase(join(dataDir, 'instance.db')));
 const tools = deckTools();
 const decks = await deckToolsAvailable(tools);
 if (!decks) console.warn('LibreOffice or Ghostscript not found: slide decks cannot be imported.');
+const oidcConfig = oidcConfigFromEnv(process.env);
+if (!oidcConfig) {
+  console.warn(
+    'Administrator sign-in is not configured (WORSHIP_Q_OIDC_ISSUER, WORSHIP_Q_OIDC_CLIENT_ID, WORSHIP_Q_PUBLIC_URL): the admin app is unavailable.',
+  );
+}
+const retentionDays = retentionDaysFromEnv(process.env);
 const { app } = await buildServer({
   instance,
   dataDir,
+  oidc: oidcConfig ? new OidcClient(oidcConfig) : null,
+  publicUrl: process.env.WORSHIP_Q_PUBLIC_URL?.replace(/\/+$/, ''),
+  administrators: (process.env.WORSHIP_Q_ADMINS ?? '').split(',').filter((e) => e.trim()),
+  retentionDays,
+  adminDir: process.env.WORSHIP_Q_ADMIN_DIR ?? new URL('../admin', import.meta.url).pathname,
   convertDeck: decks
     ? (source, outDir, workDir) =>
         convertDeck(source, outDir, {
@@ -32,6 +46,15 @@ const { app } = await buildServer({
 
 const port = Number(process.env.PORT ?? 8080);
 await app.listen({ port, host: process.env.HOST ?? '0.0.0.0' });
+// The first sweep runs soon after start; later ones daily (D34).
+setTimeout(() => {
+  try {
+    const swept = sweepDeletedFiles(instance, dataDir, retentionDays);
+    if (swept.files > 0) console.log(`Retention sweep removed ${swept.files} files`);
+  } catch (error) {
+    console.error(error);
+  }
+}, 60_000).unref();
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {

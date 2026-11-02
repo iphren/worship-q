@@ -75,6 +75,26 @@ live run sheet from any of them; other operators see edits in a banner.
 - Without internet at the venue, computers on the same Wi-Fi keep presenting together.
   Settings says how each is connected: **On this network** or **Through the church server**.
 
+To connect a new computer, enter the server address and a name for the computer under
+**Settings → Church connection** and choose **Next**. The computer shows a code; one of your
+church's administrators approves it from their browser, and the computer connects. If your
+church gave you a connection code instead, choose **I have a connection code instead**.
+
+## Church songs
+
+When your church shares a library, songs that come from it carry a **Church** badge. You can
+present them as they are. If you edit one, your changes become your workspace's own version:
+the church's version stays as it is for everyone else, and the song now shows **2 versions**.
+
+Open a song with two versions and you see both at the top: **Church's version** and **Our
+version**, each with when it last changed. Choose the one your workspace presents; the other
+is a click away to read. The choice is for this song in this workspace only, and every
+computer of your workspace follows it. **Delete our version** drops your workspace's version
+for good and goes back to the church's song.
+
+Removing a church song hides it in your workspace only; the church and other workspaces keep
+it.
+
 ## Phones
 
 Open the phone icon at the bottom of the sidebar on any computer. A phone that scans the QR

@@ -9,7 +9,10 @@ use std::io;
 use std::time::Duration;
 use tauri::State;
 
-/// Must match `PROTOCOL_HEADER` and `PROTOCOL_VERSION` in the protocol package.
+/// Must match `PROTOCOL_HEADER` in the protocol package. The version stays at the oldest one
+/// the instance accepts (`MIN_PROTOCOL_VERSION`): the requests made from here, files, slide
+/// decks and backups, are the same in every version, and an instance not yet updated to
+/// phase 3 would refuse a newer number (decision D26). The interface negotiates its own.
 const PROTOCOL_HEADER: &str = "x-worship-q-protocol";
 const PROTOCOL_VERSION: &str = "2";
 

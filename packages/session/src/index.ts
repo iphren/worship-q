@@ -196,6 +196,9 @@ function entryFromSnapshot(
     createdAt: now,
     updatedAt: now,
     removedAt: item.removed ? now : null,
+    origin: null,
+    useChurchVersion: false,
+    versions: null,
   };
   const counts = new Map<number, number>();
   const pieces: Piece[] = item.pieces.map((piece) => {
@@ -1026,6 +1029,31 @@ export class Session {
   /** Removes a song from the library. Run sheets keep their items; see `Store.removeSong`. */
   removeSong(id: string): Promise<void> {
     return this.mutate(() => this.store.removeSong(id));
+  }
+
+  /**
+   * On a song with two versions, chooses which one this workspace presents (D32). If the
+   * song is on screen, the presented position follows into the chosen version's lyrics, as
+   * for an edit.
+   */
+  setUseChurchVersion(id: string, useChurchVersion: boolean): Promise<Song> {
+    return this.mutate(async () => {
+      const before = await this.store.getSong(id);
+      const after = await this.store.setUseChurchVersion(id, useChurchVersion);
+      if (before && this.live_ && songsInLiveState(this.live_).has(id)) {
+        const { linesPerPiece } = await this.store.getPresentationSettings(this.workspace_.id);
+        await this.setLive(
+          relocatePresented(
+            this.live_,
+            id,
+            songPieces(before, linesPerPiece),
+            songPieces(after, linesPerPiece),
+            this.nowIso(),
+          ),
+        );
+      }
+      return after;
+    });
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────

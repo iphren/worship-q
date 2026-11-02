@@ -1,6 +1,10 @@
 /**
- * Administration from the server's shell, until the admin web app exists:
+ * Administration from the server's shell. The admin web app at /admin/ does the same
+ * (phase 3); the commands stay as the way back in when sign-in is unavailable (D35).
  *
+ *   admin add <email>           make an e-mail address an administrator
+ *   admin list
+ *   admin remove <email>
  *   workspace create <name>     create a workspace and print its connection code
  *   workspace list
  *   workspace code <id>         replace a workspace's connection code
@@ -41,6 +45,35 @@ function table(rows: Record<string, unknown>[]) {
 }
 
 switch (`${area} ${action}`) {
+  case 'admin add': {
+    const [email] = rest;
+    if (!email) fail('Usage: admin add <email>');
+    const admin = instance.addAdministrator(email, null);
+    console.log(`${admin.email} is an administrator. Sign in at <server>/admin/.`);
+    if (!instance.listWorkspaces().some((w) => w.codesEnabled)) {
+      console.log('Connection codes are now off; new computers pair from the admin app.');
+    }
+    break;
+  }
+  case 'admin list':
+    table(
+      instance.listAdministrators().map((a) => ({
+        email: a.email,
+        name: a.name ?? '',
+        lastSignIn: a.lastSignInAt ?? 'never',
+        addedBy: a.addedBy ? (instance.getAdministrator(a.addedBy)?.email ?? a.addedBy) : '',
+      })),
+    );
+    break;
+  case 'admin remove': {
+    const [email] = rest;
+    if (!email) fail('Usage: admin remove <email>');
+    const admin = instance.findAdministrator(email);
+    if (!admin) fail(`${email} is not an administrator.`);
+    instance.removeAdministrator(admin.id);
+    console.log('Removed.');
+    break;
+  }
   case 'workspace create': {
     const name = rest.join(' ').trim();
     if (!name) fail('Usage: workspace create <name>');
@@ -93,7 +126,13 @@ switch (`${area} ${action}`) {
       list('Backgrounds that become the church’s', plan.backgrounds);
       list(
         'Church songs this workspace changed; its version replaces them church-wide, also in workspaces without their own',
-        plan.overrides,
+        plan.overrides
+          .filter((o) => !o.usesChurchVersion)
+          .map((o) => (o.churchChangedSince ? `${o.title} (the church’s changed since)` : o.title)),
+      );
+      list(
+        'Church songs this workspace made a version of but uses the church’s; the version is dropped',
+        plan.overrides.filter((o) => o.usesChurchVersion).map((o) => o.title),
       );
       list('Church songs and backgrounds this workspace removed, which reappear', plan.hidden);
       console.log('From then on, its additions, edits and removals change the Church Library.');
@@ -202,6 +241,7 @@ switch (`${area} ${action}`) {
   default:
     console.log(
       [
+        'admin add <email> | admin list | admin remove <email>',
         'workspace create <name> | workspace list | workspace code <id>',
         'workspace library <id> on|off [--yes]',
         'device list [workspace-id] | device revoke <device-id>',

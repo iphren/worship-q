@@ -25,19 +25,39 @@ function sharedClock(start = '2026-10-21T09:00:00.000Z') {
 
 type Clock = ReturnType<typeof sharedClock>;
 
-function directApi(instance: Instance, token: () => string | null): InstanceApi {
+/** The instance called in-process, speaking `protocol` (version 3 unless a test says 2). */
+function directApi(instance: Instance, token: () => string | null, protocol = 3): InstanceApi {
   const device = () => {
     const found = instance.authenticate(token() ?? '');
     if (!found) throw new Error('unauthorized');
     return found;
   };
   return {
+    info: async () => ({
+      name: 'Test',
+      protocolVersion: 3,
+      minProtocolVersion: 2,
+      decks: false,
+      outputs: false,
+      pairing: true,
+      admin: true,
+      codes: !instance.hasAdministrators(),
+    }),
     enroll: async (code, name) => {
       const enrolled = instance.enroll(code, name);
       if (!enrolled) throw new Error('invalid-code');
       const workspace = instance.getWorkspace(enrolled.device.workspaceId)!;
       return { deviceId: enrolled.device.id, deviceToken: enrolled.token, workspace };
     },
+    startPairing: async (name) => {
+      const started = instance.startPairing(name);
+      return {
+        ...started,
+        url: `https://example.org/admin/pair?code=${started.code}`,
+        intervalMs: 5000,
+      };
+    },
+    pollPairing: async (secret) => instance.pollPairing(secret),
     workspace: async () => {
       const d = device();
       return { ...instance.getWorkspace(d.workspaceId)!, deviceName: d.name };
@@ -47,10 +67,22 @@ function directApi(instance: Instance, token: () => string | null): InstanceApi 
       const d = device();
       return { remap: instance.push(d.workspaceId, d.id, records).remap };
     },
-    pull: async (since) => ({
-      ...instance.pull(device().workspaceId, since, 3),
-      church: instance.churchSettings(),
-    }),
+    pull: async (since) => {
+      const d = device();
+      return {
+        ...instance.pull(d.workspaceId, since, 3, protocol),
+        church: instance.churchSettings(),
+        ...(protocol >= 3
+          ? { manageLibrary: instance.getWorkspace(d.workspaceId)?.manageLibrary ?? false }
+          : {}),
+      };
+    },
+    restore: async (kind, key) => {
+      const d = device();
+      const record = instance.dropOwnVersion(d.workspaceId, kind, key);
+      if (!record) throw new Error('no-church-version');
+      return { record };
+    },
   };
 }
 
@@ -60,7 +92,7 @@ const noFiles: FileTransfer = {
   missing: async () => [],
 };
 
-async function device(name: string, clock: Clock, instance: Instance) {
+async function device(name: string, clock: Clock, instance: Instance, protocol = 3) {
   const driver = openNodeDriver();
   await migrate(driver);
   let counter = 0;
@@ -69,7 +101,7 @@ async function device(name: string, clock: Clock, instance: Instance) {
   const { session } = await Session.open(store, { now: clock.date }, 'Europe/London');
   const syncStore = new SyncStore(store);
   let token: string | null = null;
-  const api = directApi(instance, () => token);
+  const api = directApi(instance, () => token, protocol);
   const client = new SyncClient(session, syncStore, api, noFiles, clock.now);
   return {
     session,
@@ -623,7 +655,7 @@ describe('the Church Library', () => {
     expect(instance.libraryPlan(b.id)).toEqual({
       songs: ['South Only'],
       backgrounds: [],
-      overrides: ['Grace, South'],
+      overrides: [{ title: 'Grace, South', churchChangedSince: false, usesChurchVersion: false }],
       hidden: ['Sunrise.jpg', 'Holy Holy'],
     });
     clock.advance();
@@ -648,6 +680,192 @@ describe('the Church Library', () => {
     await north.client.run();
     await south.client.run();
     expect(await titles(south)).toEqual(['Grace, South', 'Holy Holy', 'South Only']);
+  });
+});
+
+describe('two versions of a song (D31, D32)', () => {
+  /** A managing workspace with one song, and a normal workspace with two computers. */
+  async function churchAndBranch() {
+    const { clock, instance, workspace: a, code: codeA } = await setup();
+    const { workspace: b, code: codeB } = instance.createWorkspace('South Branch');
+    const church = await device('church', clock, instance);
+    const grace = await church.session.createSong({ title: 'Amazing Grace', lyrics: 'a\nb' });
+    await church.connect(codeA, 'upload');
+    instance.setManageLibrary(a.id, true);
+    await church.client.run();
+    clock.advance();
+    const south1 = await device('south1', clock, instance);
+    await south1.connect(codeB, 'upload');
+    const south2 = await device('south2', clock, instance);
+    await south2.connect(codeB, 'replace');
+    clock.advance();
+    return { clock, instance, a, b, church, south1, south2, grace };
+  }
+
+  it('marks where songs come from, and whether the workspace manages the Church Library', async () => {
+    const { church, south1, grace } = await churchAndBranch();
+    expect((await church.store.getSong(grace.id))?.origin).toBe('church');
+    expect(church.store.managesChurchLibrary).toBe(true);
+    expect(await south1.store.getSong(grace.id)).toMatchObject({
+      origin: 'church',
+      useChurchVersion: false,
+      versions: null,
+    });
+    expect(south1.store.managesChurchLibrary).toBe(false);
+    expect((await south1.syncStore.getState()).manageLibrary).toBe(false);
+  });
+
+  it('makes a version of a church song on edit, and brings both versions to the other computer', async () => {
+    const { clock, church, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    const edited = (await south1.store.getSong(grace.id))!;
+    expect(edited).toMatchObject({
+      origin: 'workspace',
+      useChurchVersion: false,
+      title: 'Grace (South)',
+    });
+    expect(edited.versions).toMatchObject({ own: { revision: 2 }, church: { revision: 1 } });
+    expect((await south1.store.getChurchVersion(grace.id))?.title).toBe('Amazing Grace');
+
+    await south1.client.run();
+    await south2.client.run();
+    const other = (await south2.store.getSong(grace.id))!;
+    expect(other).toMatchObject({ origin: 'workspace', title: 'Grace (South)' });
+    expect(other.versions).not.toBeNull();
+    expect((await south2.store.getChurchVersion(grace.id))?.title).toBe('Amazing Grace');
+
+    // The church's later edit reaches both as the other version, leaving theirs alone.
+    clock.advance();
+    await church.session.saveSong(grace.id, { lyrics: 'a\nb\nc (church)' });
+    await church.client.run();
+    await south1.client.run();
+    expect((await south1.store.getSong(grace.id))?.lyrics).toBe('a\nb');
+    expect((await south1.store.getChurchVersion(grace.id))?.lyrics).toBe('a\nb\nc (church)');
+    expect((await south1.store.getSong(grace.id))?.versions?.church.revision).toBe(2);
+    // The church's computer sees one version, its own.
+    expect((await church.store.getSong(grace.id))?.versions).toBeNull();
+  });
+
+  it('lets the workspace choose the church’s version, on every computer and in search', async () => {
+    const { clock, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)', lyrics: 'south words' });
+    await south1.client.run();
+    await south2.client.run();
+    clock.advance();
+
+    await south2.session.setUseChurchVersion(grace.id, true);
+    expect(await south2.store.getSong(grace.id)).toMatchObject({
+      useChurchVersion: true,
+      title: 'Amazing Grace',
+      lyrics: 'a\nb',
+    });
+    const found = await south2.store.listSongs(south2.session.workspace.id, 'amazing');
+    expect(found.map((s) => s.title)).toEqual(['Amazing Grace']);
+    expect(await south2.store.listSongs(south2.session.workspace.id, 'south')).toEqual([]);
+
+    await south2.client.run();
+    await south1.client.run();
+    expect(await south1.store.getSong(grace.id)).toMatchObject({
+      useChurchVersion: true,
+      title: 'Amazing Grace',
+    });
+    // The workspace's own version is still there to go back to.
+    clock.advance();
+    await south1.session.setUseChurchVersion(grace.id, false);
+    expect((await south1.store.getSong(grace.id))?.title).toBe('Grace (South)');
+
+    // Editing while the church's version is in use edits the workspace's version, from
+    // what was on screen, and switches to it.
+    clock.advance();
+    await south1.session.setUseChurchVersion(grace.id, true);
+    await south1.session.saveSong(grace.id, { lyrics: 'a\nb\nsouth again' });
+    expect(await south1.store.getSong(grace.id)).toMatchObject({
+      useChurchVersion: false,
+      title: 'Amazing Grace',
+      lyrics: 'a\nb\nsouth again',
+    });
+    expect((await south1.store.getChurchVersion(grace.id))?.lyrics).toBe('a\nb');
+  });
+
+  it('deletes the workspace’s version, going back to the church’s everywhere', async () => {
+    const { clock, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.client.run();
+    await south2.client.run();
+    clock.advance();
+
+    await south1.client.deleteOwnVersion('song', grace.id);
+    expect(await south1.store.getSong(grace.id)).toMatchObject({
+      origin: 'church',
+      title: 'Amazing Grace',
+      useChurchVersion: false,
+      versions: null,
+    });
+    expect(await south1.store.getChurchVersion(grace.id)).toBeNull();
+    await south2.client.run();
+    expect(await south2.store.getSong(grace.id)).toMatchObject({
+      origin: 'church',
+      title: 'Amazing Grace',
+      versions: null,
+    });
+    await expect(south1.client.deleteOwnVersion('song', grace.id)).rejects.toThrow();
+  });
+
+  it('turns a two-version song into the workspace’s own when the church deletes it', async () => {
+    const { clock, church, south1, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.session.setUseChurchVersion(grace.id, true);
+    await south1.client.run();
+    clock.advance();
+    await church.session.removeSong(grace.id);
+    await church.client.run();
+    await south1.client.run();
+    expect(await south1.store.getSong(grace.id)).toMatchObject({
+      title: 'Grace (South)',
+      useChurchVersion: false,
+      versions: null,
+      removedAt: null,
+    });
+  });
+
+  it('hides a church song as the workspace’s own record, and the hidden song stays hidden', async () => {
+    const { clock, church, south1, south2, grace } = await churchAndBranch();
+    await south1.session.removeSong(grace.id);
+    expect(await south1.store.getSong(grace.id)).toMatchObject({ origin: 'workspace' });
+    await south1.client.run();
+    await south2.client.run();
+    expect(await south2.store.listSongs(south2.session.workspace.id)).toEqual([]);
+    clock.advance();
+    await church.session.saveSong(grace.id, { title: 'Still the church’s' });
+    await church.client.run();
+    await south2.client.run();
+    expect(await south2.store.listSongs(south2.session.workspace.id)).toEqual([]);
+  });
+
+  it('keeps a version 2 computer presenting the workspace’s version, with nothing new (D26)', async () => {
+    const { clock, instance, b, south1, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.client.run();
+    clock.advance();
+    const old = await device('old', clock, instance, 2);
+    const code = instance.rotateCode(b.id);
+    await old.connect(code, 'replace');
+    expect(await old.store.getSong(grace.id)).toMatchObject({
+      title: 'Grace (South)',
+      origin: null,
+      versions: null,
+    });
+    expect((await old.syncStore.getState()).manageLibrary).toBeNull();
+  });
+
+  it('edits the church’s song in place on a computer of the managing workspace', async () => {
+    const { church, grace } = await churchAndBranch();
+    await church.session.saveSong(grace.id, { title: 'Amazing Grace (church edit)' });
+    expect(await church.store.getSong(grace.id)).toMatchObject({
+      origin: 'church',
+      versions: null,
+      title: 'Amazing Grace (church edit)',
+    });
   });
 });
 

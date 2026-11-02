@@ -1,8 +1,8 @@
 # Worship Q — Church Server Deployment
 
 The church server (`apps/server`) gives a church's desktops content synchronization,
-off-site backups, church-wide default settings, and remote control from phones. Desktops
-work without it; connecting is optional.
+off-site backups, church-wide default settings, remote control from phones, and an admin web
+app for the church's administrators. Desktops work without it; connecting is optional.
 
 It is one Node process with one SQLite database and a folder of background files and
 backups, all under the data directory (`/data` in the container).
@@ -42,6 +42,13 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `PORT` | `8080` | Port inside the container |
 | `WORSHIP_Q_REMOTE_DIR` | `/app/remote` | The built phone page, served at `/remote/` |
 | `WORSHIP_Q_OUTPUT_DIR` | `/app/output` | The built browser output pages, served at `/output/` |
+| `WORSHIP_Q_ADMIN_DIR` | `/app/admin` | The built admin app, served at `/admin/` |
+| `WORSHIP_Q_PUBLIC_URL` | — | This server's public address, `https://worship.example.org`; needed for sign-in and used in pairing links |
+| `WORSHIP_Q_OIDC_ISSUER` | — | The church's OpenID Connect provider; see **Administrator sign-in** |
+| `WORSHIP_Q_OIDC_CLIENT_ID` | — | The application registered with the provider |
+| `WORSHIP_Q_OIDC_CLIENT_SECRET` | — | Its secret, when the provider requires one (both Microsoft and Google do) |
+| `WORSHIP_Q_ADMINS` | — | E-mail addresses made administrators at start, comma-separated |
+| `WORSHIP_Q_RETENTION_DAYS` | `90` | How long a deleted song's or background's files are kept before the daily sweep removes them |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -52,8 +59,9 @@ per workspace.
 The server needs, end to end:
 
 - WebSockets on `/api/v1/coordinator`, `/api/v1/remote` and `/api/v1/output`.
-- The `Authorization` and `x-worship-q-protocol` request headers passed through.
-- No caching of `/api/*`.
+- The `Authorization`, `x-worship-q-protocol` and `x-worship-q-admin` request headers passed
+  through, and cookies both ways for `/auth/*` and `/api/v1/admin/*`.
+- No caching of `/api/*` or `/auth/*`.
 - Uploads of large files (videos) with `PUT`.
 
 For CloudFront in front of the proxy, use one behavior for everything:
@@ -78,9 +86,66 @@ A device token is passed through correctly if, after connecting a desktop, its S
 Church connection shows "Up to date". "Could not synchronize: … 401" means the
 `Authorization` header is being stripped on the way.
 
+## Administrator sign-in
+
+Administrators use the admin app at `https://<server>/admin/` after signing in with the
+church's Microsoft 365 or Google Workspace account. Signing in only proves who someone is:
+they get in only if their e-mail address is on the server's list of administrators.
+
+> These steps follow the providers' documentation and have not yet been run against a real
+> tenant; see `docs/spikes/oidc.md` for what to confirm.
+
+**Microsoft Entra ID:** in the tenant, **App registrations → New registration**; platform
+**Web**; redirect URI `https://<server>/auth/callback`. Make a client secret. Under **Token
+configuration**, add the optional claim `email` to the ID token. Then, in `apps/server/.env`:
+
+```sh
+WORSHIP_Q_PUBLIC_URL=https://worship.example.org
+WORSHIP_Q_OIDC_ISSUER=https://login.microsoftonline.com/<tenant id>/v2.0
+WORSHIP_Q_OIDC_CLIENT_ID=<application (client) id>
+WORSHIP_Q_OIDC_CLIENT_SECRET=<secret value>
+WORSHIP_Q_ADMINS=pat@example.org
+```
+
+**Google Workspace:** in Google Cloud, **APIs & Services → Credentials → Create OAuth client
+ID**; type **Web application**; authorised redirect URI `https://<server>/auth/callback`. Set
+the consent screen to **Internal** so only the Workspace's users can sign in. Then:
+
+```sh
+WORSHIP_Q_PUBLIC_URL=https://worship.example.org
+WORSHIP_Q_OIDC_ISSUER=https://accounts.google.com
+WORSHIP_Q_OIDC_CLIENT_ID=<client id>.apps.googleusercontent.com
+WORSHIP_Q_OIDC_CLIENT_SECRET=<client secret>
+WORSHIP_Q_ADMINS=pat@example.org
+```
+
+`WORSHIP_Q_ADMINS` names the first administrator; the server adds the address at every start
+and never removes one. Administrators add and remove each other in the app, and the last one
+cannot be removed there. Without the sign-in variables the server runs as before, the admin
+app says that sign-in is not configured, and administration is the command line below.
+
+Sessions last eight hours without a request. Sign out ends one at once.
+
 ## Administration
 
-Until the admin web app exists, administration is a command run inside the container:
+Administrators do the following in the admin app:
+
+- **Workspaces:** create and rename them; see which manage the Church Library and which are
+  presenting right now; turn **Manage Church Library** on, after a page that lists what the
+  conversion changes; turn a workspace's connection code on or off, or replace it.
+- **Devices:** approve computers that ask to join (see **Connecting a desktop**), name them,
+  see when each was last seen and whether it is connected, and revoke one, which disconnects
+  it at once.
+- **Church Library:** see the church's songs and backgrounds, which workspaces' run sheets
+  use one, delete one, and bring a deleted one back.
+- **Administrators**, **Church defaults** and **Storage** (how much space the server uses,
+  by kind of file and by workspace, with the free space left).
+- **Live:** a workspace's page shows what the server last heard of its presentation: who
+  holds it, the run sheet, what is on screen and which devices follow. It is a view only;
+  presenting stays with the operator computers.
+
+The same can be done as a command inside the container, which stays as the way back in when
+sign-in is unavailable or the last administrator is gone:
 
 ```sh
 docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <command>
@@ -88,6 +153,9 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 
 | Command | Does |
 | --- | --- |
+| `admin add <email>` | Makes an e-mail address an administrator |
+| `admin list` | Lists administrators |
+| `admin remove <email>` | Removes one; the last cannot be removed |
 | `workspace create <name>` | Creates a workspace and prints its connection code |
 | `workspace list` | Lists workspaces |
 | `workspace code <id>` | Replaces a workspace's connection code; enrolled devices keep working |
@@ -105,8 +173,11 @@ default" goes back to the church's.
 
 | `import legacy <workspace-id> <file\|-> [--dry-run]` | Imports songs from the legacy lyrics service |
 
-The connection code lets any computer join the workspace. Give it only to people who may
-prepare that workspace's content, and replace it with `workspace code` if it leaks.
+The connection code lets any computer join the workspace. It works for every workspace until
+the server has an administrator; from then on it works only for a workspace whose code an
+administrator turned on, and new computers normally join by approval instead (see
+**Connecting a desktop**). Give a code only to people who may prepare that workspace's
+content, and replace it with `workspace code` if it leaks.
 
 ## The Church Library
 
@@ -121,6 +192,22 @@ other workspace:
 
 When the church removes a song, a workspace's own version of it stays as that workspace's
 song.
+
+A workspace that edited a church song has **two versions** of it, both kept up to date: the
+church's latest and its own. Its computers show both and a toggle for which one the
+workspace presents; the choice is per song and per workspace, and it synchronizes to the
+workspace's other computers like an edit. **Delete our version** goes back to the church's
+song for good. Computers show a **Church** badge on the church's songs and **2 versions** on
+songs with both; a workspace that manages the Church Library shows neither, since its songs
+are the church's.
+
+Deleting a song or background from the Church Library, by a managing workspace or in the
+admin app, is recoverable: the admin app lists deleted items and **Restore** brings one back
+to every workspace, except where a workspace made its own version meanwhile, which stays its
+own. After `WORSHIP_Q_RETENTION_DAYS` (90 by default) a daily sweep removes a deleted item's
+files; the item stays listed as deleted with its files gone and can no longer be restored. A
+workspace's own deleted backgrounds and slide decks are swept the same way; a church item a
+workspace merely hid is not a deletion and keeps its files.
 
 Turning it on first shows what will happen, and changes nothing without `--yes`:
 
@@ -194,13 +281,23 @@ building.
 
 ## Connecting a desktop
 
-1. `workspace create "North Branch"` prints a connection code.
-2. On the desktop: **Settings → Church connection**, enter the server address
-   (`worship.example.org`), the code, and a name for the computer, then **Connect**.
+1. On the desktop: **Settings → Church connection**, enter the server address
+   (`worship.example.org`) and a name for the computer, then **Next**.
+2. With an administrator on the server, the computer shows an eight-character code and a QR
+   code and waits. An administrator opens the admin app (or scans the QR code, which opens
+   the request there after sign-in), checks the code and the computer's name, chooses the
+   workspace, and approves. The request lasts fifteen minutes. Without an administrator yet,
+   or on a server before phase 3, the computer asks for a connection code instead: create
+   the workspace in the admin app or with `workspace create`, and enter the code it prints.
+   An administrator can also turn a workspace's code on for a while, and the computer offers
+   **I have a connection code instead**.
 3. The first computer of a workspace uploads its songs, run sheets and settings.
    A computer joining later chooses either **Keep both**, which merges its songs into the
    workspace, or **Use the church's copy**, which replaces its own. Either way a backup is
    saved first in the app's data folder, under `backups/`.
+
+Computers connected before phase 3 stay connected; the device list shows them as joined with
+a connection code.
 
 After that, content synchronizes every minute, a few seconds after each edit, and
 straight away when another computer changes something. Off-site backups are sent every 12
@@ -293,12 +390,40 @@ on macOS, Credential Manager on Windows), and Settings says so when the keychain
 Phone approvals are kept. The OBS subtitle overlay keeps its address. Viewer mode and
 browser output links are new and off until an operator turns them on.
 
+## Updating to phase 3 (protocol version 3)
+
+Phase 3 raises the protocol version to 3 but keeps accepting version 2, and a desktop speaks
+the server's version when the server is older. So the server and the desktops can update in
+either order, and nothing stops working on the day of either.
+
+Before the server update, register the application with the church's provider (see
+**Administrator sign-in**), choose the first administrator's e-mail address, and add the
+variables to `apps/server/.env`. Check that the reverse proxy passes cookies and the new
+paths (`/admin/`, `/auth/`, `/api/v1/admin/`). Without the variables the server starts as
+before and the admin app says that sign-in is not configured.
+
+Run `scripts/update-server.sh` early in a week. The server migrates its database on start,
+adds the first administrator, and starts the retention sweep, which removes nothing for 90
+days. Connection codes keep working until that administrator exists; from then on new
+computers ask for approval, so tell the branches who approves.
+
+Desktops update themselves within six hours of the release, whether or not the server has
+been updated. A desktop still on version 2 keeps presenting and synchronizing; it shows no
+**Church** or **2 versions** badges and no toggle until it restarts into version 3. The first
+pull after the desktop update is a full one, so every song learns where it came from; a
+workspace of a few thousand songs takes under a minute. Every enrollment, device token, phone
+approval, output link and viewer setting is kept; no computer re-pairs.
+
 ## Known limits of this version
 
 - When two computers edit the same song or the same date's run sheet before synchronizing,
   the later edit wins. Earlier song versions are kept in the song's history.
-- Deleting a background on one computer hides it everywhere. Its file stays on the server.
-- Administration is the command above, with no admin web app and no OIDC sign-in yet.
+- Deleting a background on one computer hides it in that workspace. A background or song
+  deleted from the Church Library keeps its files for the retention period, then loses them.
+- Administrator sign-in has been tested only against a provider simulated in the tests, not
+  yet against Microsoft Entra ID or Google Workspace; see `docs/spikes/oidc.md`.
+- A church song a workspace hid cannot be unhidden from that workspace; the Church Library
+  changing the song does not bring it back either.
 - A phone browser usually refuses the coordinator's self-signed certificate, so phones use
   the server and need internet at the venue; the desktops do not.
 - The venue network's part of phase 2 has not yet been tried on real hardware; see

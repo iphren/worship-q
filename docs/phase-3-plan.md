@@ -1,7 +1,7 @@
 # Worship Q — Phase 3 Plan: Church Administration
 
 **Drafted:** 2 November 2026  
-**Status:** Draft for review. Not started. Revised the same day: **Share with church** (a review queue for an administrator) is dropped; a song with a church version and a workspace version instead shows both, and the workspace chooses which to use (D31–D33).  
+**Status:** Implemented on branch `phase-3` (2 November 2026) for M1–M5; see the [acceptance record](acceptance/phase-3.md) for what is proven by tests, what awaits the sign-in spike (M0) against real providers, the walkthrough (M6), and the departures from this plan. Revised the same day it was drafted: **Share with church** (a review queue for an administrator) is dropped; a song with a church version and a workspace version instead shows both, and the workspace chooses which to use (D31–D33).  
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec"; section 7 of the [Phase 2 Plan](phase-2-plan.md), which named this phase; decision U11 of the [Media Uploads Plan](media-uploads-plan.md); and the code at version 1.1.1.
 
 ## 1. Where the implementation stands

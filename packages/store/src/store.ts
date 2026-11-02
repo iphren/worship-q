@@ -63,24 +63,91 @@ function toWorkspace(row: Row): Workspace {
   };
 }
 
+/** The columns that make up a song's content, shared by `song`, `song_revision` and `church_version`. */
+const CONTENT_COLUMNS = [
+  'title',
+  'lyrics',
+  'line_ids',
+  'author',
+  'copyright',
+  'ccli',
+  'year',
+  'background_color',
+  'background_asset_id',
+  'deck',
+  'website',
+] as const;
+
+/**
+ * A song with the church's version beside it, when the workspace has its own (D31). The
+ * `cv_` columns are null for a song with one version.
+ */
+const SONG_SELECT = `SELECT song.*, cv.revision AS cv_revision, cv.updated_at AS cv_updated_at,
+    ${CONTENT_COLUMNS.map((column) => `cv.${column} AS cv_${column}`).join(', ')}
+  FROM song LEFT JOIN church_version cv ON cv.song_id = song.id`;
+
+function songContent(row: Row, prefix = ''): SongFields & { lineIds: string[] } {
+  const at = (column: string) => row[`${prefix}${column}`];
+  return {
+    title: text(at('title')),
+    lyrics: text(at('lyrics')),
+    lineIds: json<string[]>(at('line_ids'), []),
+    author: text(at('author')),
+    copyright: text(at('copyright')),
+    ccli: optional(at('ccli')),
+    year: optionalNumber(at('year')),
+    background:
+      at('background_color') == null
+        ? null
+        : { color: text(at('background_color')), assetId: optional(at('background_asset_id')) },
+    deck: json<Deck | null>(at('deck'), null),
+    website: json<Website | null>(at('website'), null),
+  };
+}
+
+const originOf = (value: SqlValue | undefined): Song['origin'] =>
+  value === 'church' || value === 'workspace' ? value : null;
+
+/**
+ * The song as the workspace presents it: its own content, or the church's version when the
+ * workspace chose that (D32). The identity, dates and removal are always the song's own.
+ */
 function toSong(row: Row): Song {
+  const hasChurch = row.cv_revision != null;
+  const useChurch = hasChurch && Number(row.use_church_version) === 1;
   return {
     id: text(row.id),
     workspaceId: text(row.workspace_id),
-    title: text(row.title),
-    lyrics: text(row.lyrics),
-    lineIds: json<string[]>(row.line_ids, []),
-    author: text(row.author),
-    copyright: text(row.copyright),
-    ccli: optional(row.ccli),
-    year: optionalNumber(row.year),
-    background: songBackground(row),
-    deck: json<Deck | null>(row.deck, null),
-    website: json<Website | null>(row.website, null),
+    ...songContent(row, useChurch ? 'cv_' : ''),
     revision: Number(row.revision),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
     removedAt: optional(row.removed_at),
+    origin: originOf(row.origin),
+    useChurchVersion: useChurch,
+    versions: hasChurch
+      ? {
+          own: { revision: Number(row.revision), updatedAt: text(row.updated_at) },
+          church: { revision: Number(row.cv_revision), updatedAt: text(row.cv_updated_at) },
+        }
+      : null,
+  };
+}
+
+/** The church's version of a two-version song, as a song of its own for showing. */
+function toChurchVersion(row: Row): Song | null {
+  if (row.cv_revision == null) return null;
+  return {
+    id: text(row.id),
+    workspaceId: text(row.workspace_id),
+    ...songContent(row, 'cv_'),
+    revision: Number(row.cv_revision),
+    createdAt: text(row.created_at),
+    updatedAt: text(row.cv_updated_at),
+    removedAt: null,
+    origin: 'church',
+    useChurchVersion: false,
+    versions: null,
   };
 }
 
@@ -135,6 +202,7 @@ function toBackground(row: Row): BackgroundAsset {
     originalName: text(row.original_name),
     createdAt: text(row.created_at),
     removedAt: optional(row.removed_at),
+    origin: originOf(row.origin),
   };
 }
 
@@ -195,6 +263,13 @@ export type CopyMode = 'append' | 'replace';
 
 /** Data access for one local database. Every write in the app goes through here. */
 export class Store {
+  /**
+   * Whether this workspace manages the Church Library, as the instance last said. Then its
+   * songs are the church's, and editing one edits the church's rather than making a version
+   * of the workspace's own (D31). Set from the sync state; false without a church.
+   */
+  managesChurchLibrary = false;
+
   constructor(
     readonly db: SqlDriver,
     readonly env: StoreEnv,
@@ -331,13 +406,17 @@ export class Store {
       createdAt: now,
       updatedAt: now,
       removedAt: null,
+      // A managing workspace's new song is the church's; elsewhere the instance says.
+      origin: this.managesChurchLibrary ? 'church' : null,
+      useChurchVersion: false,
+      versions: null,
     };
     this.validate(song);
     await this.db.batch([
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, website, revision, created_at, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                background_color, background_asset_id, deck, website, revision, created_at, updated_at, origin)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -355,6 +434,7 @@ export class Store {
           1,
           now,
           now,
+          song.origin,
         ],
       },
       this.revisionInsert(song),
@@ -368,6 +448,7 @@ export class Store {
    * identity. Saving without any change creates no revision.
    */
   async updateSong(id: string, fields: Partial<SongFields>): Promise<Song> {
+    // What the operator sees and edits: the version in use (D32).
     const current = await this.getSong(id);
     if (!current) throw new Error(`Song ${id} does not exist`);
     const next: Song = { ...current, ...fields };
@@ -388,11 +469,29 @@ export class Store {
     next.lineIds = assignLineIds(current, next.lyrics, () => this.env.newId());
     next.revision = current.revision + 1;
     next.updatedAt = this.env.now();
-    await this.db.batch([
+    const statements: Statement[] = [];
+    // Editing a church song in a workspace that does not manage the Church Library makes
+    // the workspace's own version of it; the church's is kept beside it (D31). An edit made
+    // while the church's version was in use goes into the workspace's version, which is
+    // then the one in use (D32).
+    const makesVersion = current.origin === 'church' && !this.managesChurchLibrary;
+    if (makesVersion) statements.push(this.keepChurchVersion(id));
+    next.origin = makesVersion ? 'workspace' : current.origin;
+    next.useChurchVersion = false;
+    next.versions = makesVersion
+      ? {
+          own: { revision: next.revision, updatedAt: next.updatedAt },
+          church: { revision: current.revision, updatedAt: current.updatedAt },
+        }
+      : current.versions && {
+          ...current.versions,
+          own: { revision: next.revision, updatedAt: next.updatedAt },
+        };
+    statements.push(
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
                 background_color = ?, background_asset_id = ?, deck = ?, website = ?, revision = ?,
-                updated_at = ?
+                updated_at = ?, origin = ?, use_church_version = 0
               WHERE id = ?`,
         params: [
           next.title,
@@ -408,13 +507,64 @@ export class Store {
           next.website ? JSON.stringify(next.website) : null,
           next.revision,
           next.updatedAt,
+          next.origin,
           id,
         ],
       },
       this.revisionInsert(next),
       this.searchUpsert(next),
-    ]);
+    );
+    await this.db.batch(statements);
     return next;
+  }
+
+  /** Copies the song's row, which holds the church's content, into `church_version`. */
+  keepChurchVersionStatement(id: string): Statement {
+    return this.keepChurchVersion(id);
+  }
+
+  private keepChurchVersion(id: string): Statement {
+    const columns = CONTENT_COLUMNS.join(', ');
+    return {
+      sql: `INSERT OR REPLACE INTO church_version (song_id, ${columns}, revision, updated_at)
+            SELECT id, ${columns}, revision, updated_at FROM song WHERE id = ?`,
+      params: [id],
+    };
+  }
+
+  /**
+   * On a song with two versions, chooses which one this workspace presents (D32). The
+   * choice synchronizes like an edit, so every device of the workspace agrees.
+   */
+  async setUseChurchVersion(id: string, useChurchVersion: boolean): Promise<Song> {
+    const current = await this.getSong(id);
+    if (!current) throw new Error(`Song ${id} does not exist`);
+    if (!current.versions) throw new Error(`Song ${id} has one version`);
+    if (current.useChurchVersion === useChurchVersion) return current;
+    const now = this.env.now();
+    await this.db.batch([
+      {
+        sql: `UPDATE song SET use_church_version = ?, revision = revision + 1, updated_at = ? WHERE id = ?`,
+        params: [useChurchVersion ? 1 : 0, now, id],
+      },
+    ]);
+    const next = (await this.getSong(id))!;
+    await this.db.batch([this.searchUpsert(next)]);
+    return next;
+  }
+
+  /** The workspace's own version of a two-version song, whichever is in use. */
+  async getOwnVersion(id: string): Promise<Song | null> {
+    const rows = await this.db.select<Row>(`${SONG_SELECT} WHERE song.id = ?`, [id]);
+    const row = rows[0];
+    if (!row) return null;
+    return toSong({ ...row, use_church_version: 0 });
+  }
+
+  /** The church's version of a two-version song, for showing beside the workspace's. */
+  async getChurchVersion(id: string): Promise<Song | null> {
+    const rows = await this.db.select<Row>(`${SONG_SELECT} WHERE song.id = ?`, [id]);
+    return rows[0] ? toChurchVersion(rows[0]) : null;
   }
 
   /**
@@ -423,18 +573,24 @@ export class Store {
    */
   async removeSong(id: string): Promise<void> {
     const now = this.env.now();
+    const current = await this.getSong(id);
+    // Removing a church song hides it in this workspace only: the removal is the
+    // workspace's own record of the song (spec §5), with the church's kept beside it.
+    const hides = current?.origin === 'church' && !this.managesChurchLibrary;
     await this.db.batch([
+      ...(hides ? [this.keepChurchVersion(id)] : []),
       {
-        sql: `UPDATE song SET removed_at = ?, revision = revision + 1, updated_at = ?
+        sql: `UPDATE song SET removed_at = ?, revision = revision + 1, updated_at = ?,
+                origin = coalesce(?, origin), use_church_version = 0
               WHERE id = ? AND removed_at IS NULL`,
-        params: [now, now, id],
+        params: [now, now, hides ? 'workspace' : null, id],
       },
     ]);
   }
 
-  /** Any song by identifier, including one removed from the library. */
+  /** Any song by identifier, including one removed from the library, as the workspace presents it. */
   async getSong(id: string): Promise<Song | null> {
-    const rows = await this.db.select<Row>('SELECT * FROM song WHERE id = ?', [id]);
+    const rows = await this.db.select<Row>(`${SONG_SELECT} WHERE song.id = ?`, [id]);
     return rows[0] ? toSong(rows[0]) : null;
   }
 
@@ -462,17 +618,26 @@ export class Store {
       }
     }
     const rows = await this.db.select<Row>(
-      `SELECT song.*, s.title_text, s.title_pinyin, s.title_initials,
+      `${SONG_SELECT.replace(
+        'FROM song',
+        `, s.title_text, s.title_pinyin, s.title_initials,
               s.lyrics_text, s.lyrics_pinyin, s.lyrics_initials
-       FROM song ${terms.length > 0 ? 'JOIN' : 'LEFT JOIN'} song_search s ON s.song_id = song.id
+       FROM song ${terms.length > 0 ? 'JOIN' : 'LEFT JOIN'} song_search s ON s.song_id = song.id`,
+      )}
        WHERE song.workspace_id = ? AND song.removed_at IS NULL
-       ${where.map((clause) => `AND ${clause}`).join(' ')}
-       ORDER BY song.title COLLATE NOCASE, song.created_at`,
+       ${where.map((clause) => `AND ${clause}`).join(' ')}`,
       params,
     );
-    if (terms.length === 0) return rows.map(toSong);
-    return rows
-      .map((row) => ({ song: toSong(row), rank: rankSong(terms, toSongKeys(row)) ?? Infinity }))
+    // Ordered by the title in use, which may be the church's (D32).
+    const songs = rows.map((row) => ({ song: toSong(row), row }));
+    songs.sort(
+      (a, b) =>
+        a.song.title.localeCompare(b.song.title, undefined, { sensitivity: 'accent' }) ||
+        a.song.createdAt.localeCompare(b.song.createdAt),
+    );
+    if (terms.length === 0) return songs.map(({ song }) => song);
+    return songs
+      .map(({ song, row }) => ({ song, rank: rankSong(terms, toSongKeys(row)) ?? Infinity }))
       .sort((a, b) => a.rank - b.rank)
       .map(({ song }) => song);
   }
@@ -482,15 +647,16 @@ export class Store {
    * Run at startup, after migrating.
    */
   async refreshSearchIndex(): Promise<number> {
-    const rows = await this.db.select<{ id: string; title: string; lyrics: string }>(
-      `SELECT song.id, song.title, song.lyrics FROM song
-       LEFT JOIN song_search s ON s.song_id = song.id
+    const rows = await this.db.select<Row>(
+      `${SONG_SELECT.replace('FROM song', 'FROM song LEFT JOIN song_search s ON s.song_id = song.id')}
        WHERE s.song_id IS NULL OR s.version <> ?`,
       [SEARCH_VERSION],
     );
     const BATCH = 200;
     for (let start = 0; start < rows.length; start += BATCH) {
-      await this.db.batch(rows.slice(start, start + BATCH).map((row) => this.searchUpsert(row)));
+      await this.db.batch(
+        rows.slice(start, start + BATCH).map((row) => this.searchUpsert(toSong(row))),
+      );
     }
     return rows.length;
   }
@@ -824,14 +990,23 @@ export class Store {
     asset: { id: string; kind: BackgroundKind; fileName: string; originalName: string },
   ): Promise<BackgroundAsset> {
     const now = this.env.now();
+    const origin = this.managesChurchLibrary ? 'church' : null;
     await this.db.batch([
       {
-        sql: `INSERT INTO background_asset (id, workspace_id, kind, file_name, original_name, created_at)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        params: [asset.id, workspaceId, asset.kind, asset.fileName, asset.originalName, now],
+        sql: `INSERT INTO background_asset (id, workspace_id, kind, file_name, original_name, created_at, origin)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        params: [
+          asset.id,
+          workspaceId,
+          asset.kind,
+          asset.fileName,
+          asset.originalName,
+          now,
+          origin,
+        ],
       },
     ]);
-    return { ...asset, workspaceId, createdAt: now, removedAt: null };
+    return { ...asset, workspaceId, createdAt: now, removedAt: null, origin };
   }
 
   async listBackgrounds(workspaceId: string): Promise<BackgroundAsset[]> {

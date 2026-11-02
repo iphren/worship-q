@@ -199,6 +199,36 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE song_revision ADD COLUMN website TEXT`,
     ],
   },
+  {
+    // Phase 3 (decisions D31, D32). Where a song or background came from: the Church
+    // Library's or this workspace's own. A song the workspace made its own version of keeps
+    // the church's latest in `church_version`, and `use_church_version` says which one the
+    // workspace presents. Everything is pulled again from the start once, so every record
+    // learns its origin and every two-version song gets its church version (plan M3).
+    version: 9,
+    statements: [
+      `ALTER TABLE song ADD COLUMN origin TEXT`,
+      `ALTER TABLE song ADD COLUMN use_church_version INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE background_asset ADD COLUMN origin TEXT`,
+      `CREATE TABLE church_version (
+        song_id TEXT PRIMARY KEY REFERENCES song(id),
+        title TEXT NOT NULL,
+        lyrics TEXT NOT NULL,
+        line_ids TEXT NOT NULL,
+        author TEXT NOT NULL,
+        copyright TEXT NOT NULL,
+        ccli TEXT,
+        year INTEGER,
+        background_color TEXT,
+        background_asset_id TEXT,
+        deck TEXT,
+        website TEXT,
+        revision INTEGER NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+      `UPDATE sync_state SET value = '0' WHERE key = 'cursor'`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

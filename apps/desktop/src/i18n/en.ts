@@ -90,6 +90,29 @@ export const en = {
   'songs.discardBody': 'You have unsaved changes to this song.',
   'songs.discard': 'Discard changes',
   'songs.removedBadge': 'Removed from library',
+  'songs.churchBadge': 'Church',
+  'songs.versionsBadge': '2 versions',
+  'songs.versionChurch': 'Church’s version',
+  'songs.versionOwn': 'Our version',
+  'songs.versionChanged': 'changed {time}',
+  'songs.versionsHint':
+    'This song has two versions. Choose which one this workspace presents; other workspaces are not affected.',
+  'songs.versionsSaveFirst': 'Save or discard your changes before switching versions.',
+  'songs.showOtherVersion': 'Show the other version',
+  'songs.hideOtherVersion': 'Hide the other version',
+  'songs.deleteOwnVersion': 'Delete our version…',
+  'songs.deleteOwnVersionTitle': 'Delete this workspace’s version of “{title}”?',
+  'songs.deleteOwnVersionBody':
+    'The church’s version becomes the song again, here and on this workspace’s other computers. Run sheets keep the song. This cannot be undone.',
+  'songs.deleteOwnVersionConfirm': 'Delete our version',
+  'songs.deleteOwnVersionNeedsServer': 'Connect to the church server to delete this version.',
+  'songs.deleteOwnVersionFailed': 'That did not work: {error}',
+  'songs.churchEditHint':
+    'This is a church song. Your changes become this workspace’s version; the church’s stays as it is, here and for other workspaces.',
+  'songs.hideChurchBody':
+    'This is a church song. It is hidden in this workspace only; the church and other workspaces keep it.',
+  'songs.hideChurchUsed':
+    'This is a church song, used here on {count} dates ({dates}). It is hidden in this workspace only; those run sheets keep it, marked as removed.',
 
   'calendar.meetingDays': 'Meeting days: {label}',
   'calendar.anyDay': 'Any day',
@@ -276,6 +299,21 @@ export const en = {
   'church.connecting': 'Connecting…',
   'church.invalidCode':
     'That connection code was not accepted. Check it with whoever runs the server.',
+  'church.codesOff':
+    'Connection codes are off for this server: an administrator must approve this computer instead.',
+  'church.next': 'Next',
+  'church.pair': 'Ask for approval',
+  'church.pairingIntro':
+    'An administrator of your church approves new computers. Show them this code, or let them scan it.',
+  'church.pairingWaiting': 'Waiting for an administrator to approve this computer…',
+  'church.pairingExpires': 'The code works until {time}.',
+  'church.pairingRefused': 'The administrator did not approve this computer.',
+  'church.pairingExpired':
+    'Nobody approved this computer in time. Ask again when an administrator is ready.',
+  'church.pairingUseCode': 'I have a connection code instead',
+  'church.pairingAsk': 'Ask an administrator to approve this computer instead',
+  'church.adminAddress':
+    'Administrators manage workspaces, computers and the Church Library at {url}',
   'church.unreachable': 'The server could not be reached: {error}',
   'church.updateNeeded':
     'The server needs a newer version of Worship Q. Update the app, then try again.',

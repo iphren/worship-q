@@ -7,14 +7,23 @@
  * update rather than failing unpredictably.
  */
 import { z } from 'zod';
-import { LiveStateSchema, type BackgroundKind, type OutputKind } from './records';
+import {
+  LiveStateSchema,
+  RecordOriginSchema,
+  type BackgroundKind,
+  type OutputKind,
+} from './records';
 
 /**
  * The protocol this build speaks. Version 2 (phase 2) added one live state per workspace,
  * shared between every operator device through a coordinator, so a workspace never mixes
- * version 1 and version 2 desktops.
+ * version 1 and version 2 desktops. Version 3 (phase 3) is additive: pulled records say
+ * where they come from (`origin`, `shadow`), devices pair with an administrator's approval,
+ * and a workspace's song record may choose the church's version (`useChurchVersion`). The
+ * live-state protocol is unchanged, so version 2 and 3 desktops present together, and each
+ * side speaks the other's version when it is older (decision D26).
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -22,6 +31,44 @@ export function isCompatibleProtocol(version: unknown): boolean {
   return (
     typeof version === 'number' && version >= MIN_PROTOCOL_VERSION && version <= PROTOCOL_VERSION
   );
+}
+
+/**
+ * The version this build speaks to a server that reported `serverProtocolVersion`: the
+ * server's own when it is older than this build's and still accepted, else this build's.
+ * A server reporting nothing, or something unreadable, is spoken to at this build's version
+ * and answers with update-needed if it cannot.
+ */
+export function negotiateProtocol(serverProtocolVersion: unknown): number {
+  if (
+    typeof serverProtocolVersion === 'number' &&
+    Number.isInteger(serverProtocolVersion) &&
+    serverProtocolVersion >= MIN_PROTOCOL_VERSION &&
+    serverProtocolVersion < PROTOCOL_VERSION
+  ) {
+    return serverProtocolVersion;
+  }
+  return PROTOCOL_VERSION;
+}
+
+/** What `GET /api/v1/info` says about an instance. Fields after `outputs` came with version 3. */
+export interface ServerInfo {
+  name: string;
+  protocolVersion: number;
+  minProtocolVersion: number;
+  /** Slide decks can be imported. */
+  decks: boolean;
+  /** Browser output pages are served. */
+  outputs: boolean;
+  /** New devices pair with an administrator's approval (phase 3, decision D29). */
+  pairing?: boolean;
+  /** Administrator sign-in is configured, so the admin app at `/admin/` works. */
+  admin?: boolean;
+  /**
+   * Connection codes work for every workspace, because the instance has no administrator
+   * yet (D30). Once one exists this is false, and a code works only where turned on.
+   */
+  codes?: boolean;
 }
 
 /**
@@ -101,6 +148,16 @@ export const SyncRecordSchema = z.object({
   revision: z.number().int().min(0),
   updatedAt: z.string().min(1),
   data: z.record(z.string(), z.unknown()),
+  /**
+   * Set by a version 3 instance on every pulled record. Absent from pushed records and from
+   * records of a version 2 instance, which a device treats as it always has.
+   */
+  origin: RecordOriginSchema.optional(),
+  /**
+   * The church's record for a song the workspace has its own version of: kept beside the
+   * workspace's version, never shown as the song itself. Only version 3 devices receive it.
+   */
+  shadow: z.boolean().optional(),
 });
 export type SyncRecord = z.infer<typeof SyncRecordSchema>;
 
@@ -135,6 +192,11 @@ export interface PullResponse {
   /** True when more records are waiting. */
   more: boolean;
   church: ChurchSettings;
+  /**
+   * Whether the workspace manages the Church Library, so a device knows that editing a
+   * church song edits the church's rather than making a workspace version. Version 3.
+   */
+  manageLibrary?: boolean;
 }
 
 export interface EnrollResponse {
@@ -147,6 +209,32 @@ export interface EnrollResponse {
     contentId: string | null;
   };
 }
+
+/** `POST /api/v1/sync/restore`: the church's record, now the workspace's song again (D32). */
+export interface RestoreResponse {
+  record: SyncRecord;
+}
+
+// ── Pairing (phase 3, decision D29) ────────────────────────────────────────
+
+/** What a device shows while it waits for an administrator (`POST /api/v1/pair`). */
+export interface PairingStartResponse {
+  /** Proves the device on each poll; never shown or put in the QR code. */
+  secret: string;
+  /** Eight characters shown as `ABCD-2345`; the administrator sees and approves this. */
+  code: string;
+  /** Opens the request in the admin app after sign-in. */
+  url: string;
+  expiresAt: string;
+  /** How often to poll. */
+  intervalMs: number;
+}
+
+export type PairingPollResponse =
+  | { status: 'pending' }
+  | ({ status: 'approved' } & EnrollResponse)
+  | { status: 'refused' }
+  | { status: 'expired' };
 
 // ── Remote control ─────────────────────────────────────────────────────────
 
