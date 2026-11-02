@@ -237,6 +237,8 @@ export interface LanTransportDeps {
 export class LanTransport implements Transport {
   readonly kind: TransportKind = 'lan';
   private connection: string | null = null;
+  /** The coordinator the connection was made to. */
+  private connectedTo: string | null = null;
   private open_ = false;
   private stopped = false;
   private attempt = 0;
@@ -295,6 +297,26 @@ export class LanTransport implements Transport {
     void this.look();
   }
 
+  /**
+   * The church server's word on who coordinates changed (D14, D21): a connection to any
+   * other device on the LAN is dropped, and the coordinator looked for again. Nothing is
+   * dropped while the server names nobody, since the device connected to is presenting and
+   * this one follows it. Dropped too while this device is itself the coordinator.
+   */
+  follow(coordinatorId: string | null, coordinating: boolean): void {
+    if (this.connection && (coordinating || (coordinatorId && this.connectedTo !== coordinatorId)))
+      this.disconnect();
+    else this.lookNow();
+  }
+
+  /** Ends the connection now; the coordinator is looked for again later, if there is one to follow. */
+  private disconnect(): void {
+    const connection = this.connection;
+    if (!connection) return;
+    void native.lanDisconnect(connection).catch(() => undefined);
+    this.lost();
+  }
+
   private async look(): Promise<void> {
     if (this.stopped || this.connection) return;
     if (!this.deps.enabled()) return this.later();
@@ -306,13 +328,20 @@ export class LanTransport implements Transport {
         this.deps.coordinatorId(),
       );
       if (chosen && this.deps.enabled() && !this.stopped) {
-        this.connection = await native.lanConnect(
+        const connection = await native.lanConnect(
           chosen.address,
           chosen.port,
           chosen.fingerprint,
           this.deps.token(),
           this.deps.hello(),
         );
+        if (this.stopped || !this.deps.enabled()) {
+          // This device became coordinator meanwhile: it follows nobody.
+          void native.lanDisconnect(connection).catch(() => undefined);
+          return this.later();
+        }
+        this.connection = connection;
+        this.connectedTo = chosen.deviceId;
         return;
       }
     } catch {
@@ -329,6 +358,7 @@ export class LanTransport implements Transport {
 
   private lost(): void {
     this.connection = null;
+    this.connectedTo = null;
     if (this.open_) {
       this.open_ = false;
       this.deps.events.close(this.kind);

@@ -311,10 +311,19 @@ export class Relay {
       return { take: operator && !room.coordinator, standing, dropped: null };
     }
     const awaited = room.awaiting;
-    if (operator && awaited?.deviceId === desktop.deviceId) {
-      return { take: true, standing: standing ?? awaited, dropped: null };
+    if (awaited?.deviceId === desktop.deviceId) {
+      if (operator) return { take: true, standing: standing ?? awaited, dropped: null };
+      // Back as a viewer: it presents nothing now, and a viewer is never seated.
+      room.awaiting = null;
+      return { take: false, standing: null, dropped: null };
     }
-    if (live?.kind === 'following' && !room.coordinator && !awaited) {
+    if (
+      live?.kind === 'following' &&
+      !room.coordinator &&
+      !awaited &&
+      // A device connected here has been seated, or not, already; it is not awaited.
+      ![...room.desktops].some((each) => each.deviceId === live.deviceId)
+    ) {
       room.awaiting = {
         deviceId: live.deviceId,
         name: live.name,
@@ -335,6 +344,28 @@ export class Relay {
       return { take: false, standing: null, dropped: desktop };
     }
     return { take: !room.coordinator && !awaited, standing: null, dropped: null };
+  }
+
+  /**
+   * The coordinator is gone. No other desktop takes over by itself; one does when an
+   * operator asks (D18), or when a presenter returns (D14).
+   */
+  private unseat(room: WorkspaceRoom): void {
+    room.coordinator = null;
+    room.standing = null;
+    for (const output of room.outputs) {
+      send(output.socket, { type: 'waiting' } satisfies RelayToOutput);
+    }
+  }
+
+  /** Stops awaiting a presenter once no connected desktop reports following it any more. */
+  private pruneAwaiting(room: WorkspaceRoom): void {
+    const awaited = room.awaiting;
+    if (!awaited) return;
+    const vouched = [...room.desktops].some(
+      (each) => each.live?.kind === 'following' && each.live.deviceId === awaited.deviceId,
+    );
+    if (!vouched) room.awaiting = null;
   }
 
   /** Where a phone's hello goes: its invitation's desktop, else the coordinator. */
@@ -428,10 +459,16 @@ export class Relay {
               for (const remote of room.remotes.values()) {
                 if (remote.desktop === old) remote.desktop = desktop;
               }
-              if (room.coordinator === old) room.coordinator = desktop;
+              if (room.coordinator === old) {
+                // Unless it is back as a viewer, which is never seated (M3.2).
+                if (desktop.role === 'operator') room.coordinator = desktop;
+                else this.unseat(room);
+              }
               old.socket.close(4002, 'replaced');
             }
           }
+          // What the old connection said it was following no longer counts.
+          this.pruneAwaiting(room);
           room.desktops.add(desktop);
           if (room.coordinator === desktop) {
             return becomeCoordinator(room, workspaceId, room.standing);
@@ -535,24 +572,8 @@ export class Relay {
           send(remote.socket, { type: 'unavailable', reason: 'reconnect' } satisfies RelayToRemote);
           remote.socket.close(4005, 'reconnect');
         }
-        const awaited = room.awaiting;
-        if (
-          awaited &&
-          ![...room.desktops].some(
-            (each) => each.live?.kind === 'following' && each.live.deviceId === awaited.deviceId,
-          )
-        ) {
-          // Nobody connected vouches for it any more.
-          room.awaiting = null;
-        }
-        if (room.coordinator === desktop) {
-          // No other desktop takes over by itself; one does when an operator asks (D18).
-          room.coordinator = null;
-          room.standing = null;
-          for (const output of room.outputs) {
-            send(output.socket, { type: 'waiting' } satisfies RelayToOutput);
-          }
-        }
+        this.pruneAwaiting(room);
+        if (room.coordinator === desktop) this.unseat(room);
         this.announce(room, workspaceId);
       },
     };

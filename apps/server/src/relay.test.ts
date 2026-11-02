@@ -229,6 +229,13 @@ describe('remote control through the relay', () => {
       startedAt,
       updatedAt,
     });
+    const following = (deviceId: string, name = 'Projector'): LivePresence => ({
+      kind: 'following',
+      deviceId,
+      name,
+      startedAt: EARLY,
+      updatedAt: EARLY,
+    });
 
     it('keeps the role for the presenter its followers still reach on the LAN', async () => {
       const { desktop } = await setup();
@@ -351,6 +358,79 @@ describe('remote control through the relay', () => {
       expect(older.socket.last<Ready>()).toMatchObject({ coordinator: false });
       expect(older.socket.last<Ready>().handover).toBeUndefined();
     });
+
+    it('does not await a device that is connected here, whatever a stale hello says it follows', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      const laptop = desktop('Laptop', { withHost: false });
+      projector.handlers.close();
+      expect(laptop.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: null,
+      });
+      // Streaming last followed the laptop over the LAN; the laptop is here and not coordinator,
+      // so it is not presenting. Awaiting it would name it coordinator to itself.
+      const streaming = desktop('Streaming', {
+        withHost: false,
+        live: following(laptop.deviceId, 'Laptop'),
+      });
+      expect(streaming.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(laptop.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: streaming.deviceId,
+      });
+    });
+
+    it('stops awaiting a presenter that comes back as a viewer (M3.2)', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      const token = projector.token;
+      projector.handlers.close();
+      const follower = desktop('Streaming', {
+        withHost: false,
+        live: following(projector.deviceId),
+      });
+      expect(follower.socket.last<Ready>()).toMatchObject({ coordinatorId: projector.deviceId });
+      const viewer = desktop('Projector', {
+        token,
+        withHost: false,
+        role: 'viewer',
+        live: presenting(EARLY),
+      });
+      expect(viewer.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: null,
+      });
+      expect(follower.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: null,
+      });
+      const office = desktop('Office', { withHost: false });
+      expect(office.socket.last<Ready>()).toMatchObject({ coordinator: true });
+      expect(viewer.socket.last<Ready>()).toMatchObject({
+        coordinator: false,
+        coordinatorId: office.deviceId,
+      });
+    });
+
+    it('forgets what a replaced connection said it was following', async () => {
+      const { desktop } = await setup();
+      const projector = desktop('Projector', { withHost: false });
+      projector.handlers.close();
+      const follower = desktop('Streaming', {
+        withHost: false,
+        live: following(projector.deviceId),
+      });
+      expect(follower.socket.last<Ready>()).toMatchObject({ coordinatorId: projector.deviceId });
+      // The same computer connects again before its old connection timed out here, no longer
+      // following anyone over the LAN: nobody vouches for the projector now.
+      const again = desktop('Streaming', { token: follower.token, withHost: false });
+      expect(follower.socket.closed).toBe(4002);
+      expect(again.socket.last<Ready>()).toMatchObject({
+        coordinator: true,
+        coordinatorId: again.deviceId,
+      });
+    });
   });
 
   it('gives the role back to a coordinator that reconnects before its old connection ends', async () => {
@@ -365,6 +445,35 @@ describe('remote control through the relay', () => {
     const remote = phone({ invite: host.invite() });
     await settle();
     expect(remote.socket.last()).toMatchObject({ type: 'pending' });
+  });
+
+  it('does not seat a coordinator that reconnects as a viewer before its old connection ends (M3.2)', async () => {
+    const { desktop, output, instance, workspace } = await setup();
+    const asleep = desktop('Projector PC', { withHost: false });
+    const { token } = instance.createOutputLink(workspace.id, 'slideshow', 'Foyer');
+    const page = output(token);
+    // The app was reopened in viewer mode while the server still held the old connection.
+    const viewer = desktop('Projector PC', {
+      token: asleep.token,
+      withHost: false,
+      role: 'viewer',
+    });
+    expect(asleep.socket.closed).toBe(4002);
+    expect(viewer.socket.last()).toMatchObject({
+      type: 'ready',
+      coordinator: false,
+      coordinatorId: null,
+    });
+    expect(page.socket.last()).toEqual({ type: 'waiting' });
+    const laptop = desktop('Laptop', { withHost: false });
+    // Seated, and asked for the output page's snapshot straight away.
+    expect(laptop.socket.received[0]).toMatchObject({ type: 'ready', coordinator: true });
+    expect(laptop.socket.last()).toMatchObject({ type: 'peer', data: { type: 'resync' } });
+    const seated = laptop.socket.received[0] as Extract<RelayToDesktop, { type: 'ready' }>;
+    expect(viewer.socket.last()).toMatchObject({
+      coordinator: false,
+      coordinatorId: seated.deviceId,
+    });
   });
 
   it('answers pings from desktops and phones', async () => {

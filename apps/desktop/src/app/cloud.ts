@@ -610,13 +610,16 @@ export class CloudController {
     link.subscribe(() => {
       const status = link.status;
       this.update({ live: status });
-      if (status.role !== lastRole) {
+      const roleChanged = status.role !== lastRole;
+      if (roleChanged) {
         lastRole = status.role;
         void this.lanHost?.setCoordinating(status.role === 'coordinator');
       }
-      if (status.coordinatorId !== lastCoordinator) {
+      if (roleChanged || status.coordinatorId !== lastCoordinator) {
         lastCoordinator = status.coordinatorId;
-        this.lanTransport?.lookNow();
+        // A connection to another coordinator on the LAN would carry its live state here,
+        // and this device's commands to it, while the server says otherwise (D14, D21).
+        this.lanTransport?.follow(status.coordinatorId, status.role === 'coordinator');
       }
       void this.rememberPeers();
     });

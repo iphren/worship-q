@@ -475,6 +475,28 @@ describe('recovery (M4)', () => {
     expect(a.session.live?.presented?.index).toBe(0);
   });
 
+  it('keeps saying the coordinator is lost while the relay names nobody, even as its snapshots still arrive (D14)', async () => {
+    const { a, b } = await venue();
+    // The server lost the projector's connection; this computer still has it over the LAN.
+    b.link.receive({
+      type: 'ready',
+      workspaceId: 'ws',
+      deviceId: b.deviceId,
+      coordinator: false,
+      coordinatorName: null,
+      coordinatorId: null,
+      peers: [],
+    });
+    await settle();
+    expect(b.link.status).toMatchObject({ coordinatorLost: true, coordinatorId: null });
+    await a.session.next();
+    await settle();
+    // The snapshot is shown, but the server's word stands, without flickering every second.
+    expect(slide(b.session)).toBe(slide(a.session));
+    expect(slide(b.session)).not.toBeNull();
+    expect(b.link.status.coordinatorLost).toBe(true);
+  });
+
   it('follows the relay’s latest word when the role moves on while taking over', async () => {
     const { time, dir, relay, backup, a, b } = await venue();
     const c = await desktop('Vestry', time, relay, dir, backup);

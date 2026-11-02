@@ -26,11 +26,18 @@ export interface Transport {
   readonly open: boolean;
 }
 
+type Ready = Extract<RelayToDesktop, { type: 'ready' }>;
+
 /**
  * Chooses between the transports available: the LAN while it is open, else the relay. The
  * relay is kept connected underneath so content changes and phones still arrive through it,
  * but live-state messages travel over one transport only; when the LAN comes up the relay
  * socket for live state is left idle rather than carrying a second copy.
+ *
+ * Roles are another matter: the church server decides who coordinates (D14), so its word
+ * stands whatever carries the live state, and the room a coordinator serves on the LAN is
+ * heard only while the server names nobody: it cannot see that coordinator, but this device
+ * is following it.
  */
 export class TransportSwitch {
   private active: TransportKind | null = null;
@@ -41,7 +48,9 @@ export class TransportSwitch {
    * change; so falling back to the relay after the LAN dropped would otherwise leave the
    * link with no coordinator, and the follower saying it is not responding, indefinitely.
    */
-  private readonly lastReady = new Map<TransportKind, RelayToDesktop>();
+  private readonly lastReady = new Map<TransportKind, Ready>();
+  /** The word on roles the link heard last, so one is not repeated. */
+  private delivered: Ready | null = null;
 
   constructor(
     private readonly transports: Transport[],
@@ -74,22 +83,44 @@ export class TransportSwitch {
     this.openKinds.delete(kind);
     this.lastReady.delete(kind);
     this.settle();
+    // The relay closing while the LAN carries on leaves the LAN room's word as the only one.
+    this.announce();
   }
 
   /**
    * A message arrived on a transport. Live-state messages count only from the active one.
-   * Content changes and phones always come through the relay and are always passed on, as
-   * is who the coordinator is: the church server's word on roles stands whatever carries
-   * the live state.
+   * Content changes and phones always come through the relay and are always passed on.
+   * Who the coordinator is comes from whichever transport has the authority on roles.
    */
   received(kind: TransportKind, message: RelayToDesktop): void {
-    if (message.type === 'ready') this.lastReady.set(kind, message);
+    if (message.type === 'ready') {
+      this.lastReady.set(kind, message);
+      return this.announce();
+    }
     const always =
-      message.type === 'changed' ||
-      message.type === 'message' ||
-      message.type === 'left' ||
-      message.type === 'ready';
+      message.type === 'changed' || message.type === 'message' || message.type === 'left';
     if (kind === this.active || always) this.events.message(kind, message);
+  }
+
+  /**
+   * Whose word on roles the link hears: the server's while it is connected and names a
+   * coordinator (or this device), else the LAN room's while connected to one, else the
+   * server's word that there is nobody.
+   */
+  private authority(): TransportKind | null {
+    const relay = this.openKinds.has('relay') ? this.lastReady.get('relay') : undefined;
+    if (relay && (relay.coordinator || relay.coordinatorId !== null)) return 'relay';
+    if (this.openKinds.has('lan') && this.lastReady.has('lan')) return 'lan';
+    return relay ? 'relay' : null;
+  }
+
+  /** Passes the authoritative word on roles to the link, unless it heard that one already. */
+  private announce(): void {
+    const kind = this.authority();
+    const ready = kind ? this.lastReady.get(kind) : undefined;
+    if (!kind || !ready || ready === this.delivered) return;
+    this.delivered = ready;
+    this.events.message(kind, ready);
   }
 
   private settle(): void {
@@ -100,8 +131,10 @@ export class TransportSwitch {
     if (previous) this.events.close(previous);
     if (!next) return;
     this.events.open(next);
-    const ready = this.lastReady.get(next);
-    if (ready) this.events.message(next, ready);
+    // Closing emptied the link's idea of who the coordinator is: it is told again, so it
+    // asks the coordinator for the snapshot over the transport now active.
+    this.delivered = null;
+    this.announce();
   }
 
   send(message: DesktopToRelay): void {

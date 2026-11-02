@@ -655,7 +655,13 @@ export class LiveLink {
       switch (event.kind) {
         case 'snapshot':
           await this.deps.session.applySnapshot(event.snapshot);
-          this.update({ devices: event.snapshot.devices, coordinatorLost: false });
+          // A snapshot while the relay names no coordinator comes over the LAN from one the
+          // server cannot see (D14); the relay's word stands, and the watch would say lost
+          // again a moment later anyway.
+          this.update({
+            devices: event.snapshot.devices,
+            ...(this.status_.coordinatorId ? { coordinatorLost: false } : {}),
+          });
           break;
         case 'ack': {
           const pending = this.forwards.get(event.id);
