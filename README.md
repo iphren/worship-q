@@ -2,122 +2,165 @@
 
 _Every screen. In harmony._
 
-Church lyrics and presentation software: a local desktop app that needs no church instance,
-account or network, and a church server through which several computers, phones and
-browsers share one presentation.
+Church lyrics and presentation software. The desktop app works on its own, with no church
+server, account or network. A church server lets several computers, phones and browsers
+share one presentation.
 
-- [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)
-- [Phase 1 task breakdown](docs/phase-1-task-breakdown.md)
-- [Phase 2 plan](docs/phase-2-plan.md) and [task breakdown](docs/phase-2-task-breakdown.md)
-- [Phase 2 acceptance record](docs/acceptance/phase-2.md)
-- [Volunteer guide](docs/volunteer-guide.md)
-- [Church server deployment](docs/server-deployment.md)
+## Documentation
 
-## Run it
+| For                     | Document                                                                                                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Volunteers              | [Volunteer guide](docs/volunteer-guide.md)                                                                                                                       |
+| Whoever runs the server | [Church server deployment](docs/server-deployment.md)                                                                                                            |
+| Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                 |
+| Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                 |
+| Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md) |
+| Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                 |
 
-Needs Node 22, pnpm 9 and a Rust toolchain ([Tauri prerequisites](https://tauri.app/start/prerequisites/)).
+## Develop
+
+You need Node 22, pnpm 9 and a Rust toolchain. See the
+[Tauri prerequisites](https://tauri.app/start/prerequisites/).
 
 ```sh
 pnpm install
-pnpm dev        # desktop app with live reload
-pnpm build      # installer for this platform, under apps/desktop/src-tauri/target/release/bundle
-```
+pnpm dev          # desktop app with live reload
+pnpm build        # installer for this platform, in apps/desktop/src-tauri/target/release/bundle
 
-```sh
-pnpm test       # unit tests
+pnpm test         # unit tests
 pnpm typecheck
 pnpm lint
 pnpm format
 ```
 
-## Versions and releases
-
-The desktop app's version lives in `apps/desktop/package.json`; `tauri.conf.json` reads it,
-and the root `package.json`, `Cargo.toml` and `Cargo.lock` are kept equal. CI fails when
-they differ.
-
-Releases come from [release-please](https://github.com/googleapis/release-please): it keeps
-a Release PR open with the next version and `apps/desktop/CHANGELOG.md`, worked out from the
-Conventional Commit messages (`fix:` patch, `feat:` minor, `feat!:` major). Every commit
-counts, since the desktop app is built from `packages/` as well, except those that only touch
-`docs/`, `apps/server/`, `apps/remote/` or `apps/website/`, which do not ship in the app (the
-remote page ships with the server). Merging that PR
-tags `vX.Y.Z` and creates a draft GitHub Release, and `.github/workflows/release.yml` builds
-the macOS (universal) and Windows installers into it, with the signed updater feed
-`latest.json`. Nothing reaches users until the draft is published:
-
-1. Wait for the Release workflow's `check` job, which confirms `latest.json` covers every
-   platform.
-2. Install the draft's builds on a Mac and a Windows PC and run through a service.
-3. Publish the draft. The download links and installed apps' updates now point at it.
-
-If a release turns out bad, mark the previous release as latest again (or edit its
-`latest.json` back) and ship a fix.
-
-Release builds need the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
-repository secrets, which sign the updates. Losing that key means installed apps can no longer
-be updated.
+### Church server
 
 ```sh
-pnpm version:check          # are all the files on the same version?
-pnpm version:bump 1.2.3     # set it by hand, outside release-please
+pnpm --filter @worship-q/remote-web build
+pnpm --filter @worship-q/output-web build
+pnpm --filter @worship-q/server dev                       # http://localhost:8080, data in apps/server/data
+pnpm --filter @worship-q/server cli workspace create "Test"
+```
+
+For Docker, the reverse proxy and CloudFront, see
+[Church server deployment](docs/server-deployment.md).
+
+### Website
+
+`apps/website` is the download page at [worship-q.com](https://worship-q.com). Its build
+reads the latest published release and fills in the installer links (`*_universal.dmg`,
+`*_x64-setup.exe`), the version and the date. `.github/workflows/website.yml` deploys it to
+GitHub Pages when a release is published or when the site changes. Run that workflow by hand
+after you point "latest" at another release.
+
+```sh
+pnpm --filter @worship-q/website dev
 ```
 
 ## Layout
 
 ```text
 apps/desktop/          Desktop app: React interface and the Tauri (Rust) core
-packages/protocol/     Shared record schemas and types
+apps/server/           Church server: sync, backups, church defaults, relay, live-state backup
+apps/remote/           Phone remote-control page, served by the church server
+apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
+apps/website/          worship-q.com download page, on GitHub Pages
+
+packages/protocol/     Shared record schemas, wire messages and the protocol version
 packages/lyrics/       Lyrics parsing, pieces and piece identity
+packages/search/       Song search keys: both Chinese scripts, pinyin and initials
 packages/calendar/     Workspace-timezone dates and meeting days
-packages/live-state/   Live state: commands, start rules, expiry
+packages/live-state/   Live state: commands, start rules, expiry, coordinator and followers
 packages/store/        SQLite schema, migrations and data access
 packages/session/      One operator device's session, tying the above together
 packages/renderer/     Slideshow and subtitle fitting, wrapping and drawing
 packages/sync/         Content synchronization with a church server
-packages/remote/       Remote control on every operator computer: approvals, commands
-packages/relay/        The relay between a workspace's devices, run by the server and on the LAN
-apps/server/           Church server: sync, backups, church defaults, relay, live-state backup
-apps/remote/           Phone remote-control page, served by the church server
-apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
-apps/website/          worship-q.com: the download page, on GitHub Pages
+packages/remote/       Remote control on every operator computer: approvals and commands
+packages/relay/        Relay between a workspace's devices, run by the server and on the LAN
 ```
 
-The Rust core is limited to windows, files, fonts, the database, the localhost pages, the
-system keychain and the venue-network connections. Everything else is TypeScript and is
-unit-tested without the app running.
+The Rust core handles only these:
+
+- windows, files and fonts
+- the database
+- the localhost pages
+- the system keychain
+- venue-network connections
+
+Everything else is TypeScript and is unit-tested without running the app.
 
 ## Where data lives
 
-One SQLite database and a `backgrounds` folder in the app's data directory:
+The app's data folder:
 
 - macOS: `~/Library/Application Support/com.worship-q.desktop`
 - Windows: `%APPDATA%\com.worship-q.desktop`
 
-Settings → Backup saves and restores both as a single `.worshipq` file.
+The first workspace's folder is the data folder itself. Each further workspace has its own
+folder, `workspaces/<id>/`, inside it. Every workspace folder holds:
 
-## Website
+| Path                          | Holds                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| The SQLite database           | The workspace's content and its church connection                                                                 |
+| `backgrounds/`                | Imported images and videos                                                                                        |
+| `backups/`                    | Backups saved before joining a church workspace. Backups of removed workspaces go in the data folder's `backups/` |
+| `lan-cert.der`, `lan-key.der` | This workspace's certificate for venue-network connections                                                        |
 
-`apps/website` is the download page at [worship-q.com](https://worship-q.com). Its build
-reads the latest published release and writes in its installer links (`*_universal.dmg`,
-`*_x64-setup.exe`), version and date. `.github/workflows/website.yml` deploys it to GitHub
-Pages whenever a release is published or the site changes; run it by hand after pointing
-"latest" at another release.
+The church device token lives in the system keychain, under the service
+`com.worship-q.desktop`, rather than in the database. **Settings → Backup** saves a workspace's
+database and backgrounds as one `.worshipq` file and restores them from it.
+
+## Local ports
+
+| Port               | Serves                                                                            |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `127.0.0.1:47310`  | `/overlay/subtitle` and `/slideshow` pages, for OBS and browsers on this computer |
+| `47311` (LAN, TLS) | Other devices of the workspace on the venue network, found by mDNS                |
+
+## Versions and releases
+
+The desktop app's version lives in `apps/desktop/package.json`, and `tauri.conf.json` reads
+it from there. The root `package.json`, `Cargo.toml` and `Cargo.lock` must carry the same
+version, and CI fails when they differ.
 
 ```sh
-pnpm --filter @worship-q/website dev
+pnpm version:check          # are all the files on the same version?
+pnpm version:bump 1.2.3     # set it by hand, outside release-please
 ```
 
-## Church server
+[release-please](https://github.com/googleapis/release-please) keeps a Release PR open with
+the next version and `apps/desktop/CHANGELOG.md`. It works these out from Conventional
+Commit messages:
 
-```sh
-pnpm --filter @worship-q/remote-web build
-pnpm --filter @worship-q/output-web build
-pnpm --filter @worship-q/server dev       # http://localhost:8080, data in apps/server/data
-pnpm --filter @worship-q/server cli workspace create "Test"
-```
+- `fix:` makes a patch release.
+- `feat:` makes a minor release.
+- `feat!:` or a `BREAKING CHANGE:` footer makes a major release.
+- A `Release-As: x.y.z` footer sets the version directly.
 
-See [Church server deployment](docs/server-deployment.md) for Docker and CloudFront.
+Every commit counts, because the app is also built from `packages/`. The exception is a
+commit that only touches `docs/`, `apps/server/`, `apps/remote/` or `apps/website/`. Those
+don't ship in the app.
+
+Merging the Release PR tags `vX.Y.Z` and creates a **draft** GitHub Release.
+`.github/workflows/release.yml` then builds the macOS (universal) and Windows installers into
+that draft, together with the signed updater feed `latest.json`. Nothing reaches users until
+the draft is published:
+
+1. Wait for the Release workflow's `check` job, which confirms `latest.json` covers every
+   platform.
+2. Install the draft's builds on a Mac and a Windows PC, and run through a service.
+3. Publish the draft. The download links and the updates of installed apps now point at it.
+
+If a release turns out bad, mark the previous release as latest again, or edit its
+`latest.json` back. Then ship a fix. This stops further updates, but it doesn't downgrade
+computers that already updated.
+
+A release that raises the protocol version needs the church server updated first. See
+[Church server deployment](docs/server-deployment.md#updating-to-phase-2-protocol-version-2).
+
+Release builds need the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, which sign the updates. If you lose that key, installed
+apps can no longer be updated.
 
 ## License
 
