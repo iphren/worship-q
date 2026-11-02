@@ -35,6 +35,13 @@ export interface Transport {
 export class TransportSwitch {
   private active: TransportKind | null = null;
   private readonly openKinds = new Set<TransportKind>();
+  /**
+   * Each open transport's latest word on roles. Becoming active empties the live link's idea
+   * of who the coordinator is, and a transport says `ready` only when it connects or roles
+   * change; so falling back to the relay after the LAN dropped would otherwise leave the
+   * link with no coordinator, and the follower saying it is not responding, indefinitely.
+   */
+  private readonly lastReady = new Map<TransportKind, RelayToDesktop>();
 
   constructor(
     private readonly transports: Transport[],
@@ -65,6 +72,7 @@ export class TransportSwitch {
   /** A transport closed. */
   closed(kind: TransportKind): void {
     this.openKinds.delete(kind);
+    this.lastReady.delete(kind);
     this.settle();
   }
 
@@ -75,6 +83,7 @@ export class TransportSwitch {
    * the live state.
    */
   received(kind: TransportKind, message: RelayToDesktop): void {
+    if (message.type === 'ready') this.lastReady.set(kind, message);
     const always =
       message.type === 'changed' ||
       message.type === 'message' ||
@@ -89,7 +98,10 @@ export class TransportSwitch {
     const previous = this.active;
     this.active = next;
     if (previous) this.events.close(previous);
-    if (next) this.events.open(next);
+    if (!next) return;
+    this.events.open(next);
+    const ready = this.lastReady.get(next);
+    if (ready) this.events.message(next, ready);
   }
 
   send(message: DesktopToRelay): void {

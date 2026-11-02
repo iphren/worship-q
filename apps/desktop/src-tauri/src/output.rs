@@ -5,11 +5,19 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    webview::WebviewBuilder, AppHandle, Manager, Monitor, PhysicalPosition, PhysicalSize, Url,
-    WebviewUrl, WebviewWindowBuilder,
+    utils::config::BackgroundThrottlingPolicy, webview::WebviewBuilder, AppHandle, Manager,
+    Monitor, PhysicalPosition, PhysicalSize, Url, WebviewUrl, WebviewWindowBuilder,
 };
 
 pub const OUTPUT_LABEL: &str = "output";
+/// WebView2's arguments for every webview of the app, so a page is never throttled while its
+/// window is minimized or hidden: the coordinator's heartbeats to the other devices run on
+/// timers, and a presenting computer's main window is often behind the slideshow. WebView2
+/// needs every webview made with the same arguments, so `tauri.conf.json` gives the main
+/// window these too; a test keeps the two alike. The first is wry's default, kept.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+--disable-background-timer-throttling --disable-renderer-backgrounding \
+--disable-backgrounding-occluded-windows";
 // The output is looked up as a window, never as a webview window: once it hosts the website's
 // webview as well, the system no longer counts it as one, and it would seem to be closed.
 /// The webview over the slideshow that shows a presented website.
@@ -176,6 +184,8 @@ pub async fn open_output(
                 .shadow(windowed)
                 .skip_taskbar(true)
                 .focused(false)
+                .additional_browser_args(BROWSER_ARGS)
+                .background_throttling(BackgroundThrottlingPolicy::Disabled)
                 .position(position.x as f64 / scale, position.y as f64 / scale)
                 .inner_size(size.width as f64 / scale, size.height as f64 / scale)
                 .build()
@@ -281,6 +291,8 @@ pub async fn output_website(app: AppHandle, url: Option<String>) -> Result<(), S
         .add_child(
             WebviewBuilder::new(WEBSITE_LABEL, WebviewUrl::External(url))
                 .focused(false)
+                .additional_browser_args(BROWSER_ARGS)
+                .background_throttling(BackgroundThrottlingPolicy::Disabled)
                 .auto_resize(),
             PhysicalPosition::new(0, 0),
             size,
@@ -291,4 +303,18 @@ pub async fn output_website(app: AppHandle, url: Option<String>) -> Result<(), S
         let _ = main.set_focus();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gives_the_main_window_the_same_browser_arguments() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let main = &config["app"]["windows"][0];
+        assert_eq!(main["additionalBrowserArgs"], BROWSER_ARGS);
+        assert_eq!(main["backgroundThrottling"], "disabled");
+    }
 }

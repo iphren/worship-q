@@ -268,7 +268,11 @@ pub fn lan_set_credentials(
 // `rename_all` on an enum renames only the variants; the fields need `rename_all_fields`,
 // or the interface gets `device_id` where it reads `deviceId`.
 #[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "kind")]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "kind"
+)]
 enum Opened {
     /// Another desktop of the workspace, proved by its device token.
     Desktop {
