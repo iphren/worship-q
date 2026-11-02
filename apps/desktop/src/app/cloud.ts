@@ -72,6 +72,11 @@ export interface CloudStatus {
   live: LiveStatus | null;
   /** Browser output links of the workspace (D22). */
   outputs: OutputLink[];
+  /**
+   * Whether this run has the device token: `refused` when the keychain would not give it
+   * back (macOS asks after each update), `missing` when its entry is gone (D23).
+   */
+  credentials: 'ok' | 'refused' | 'missing';
 }
 
 export class CloudController {
@@ -121,6 +126,7 @@ export class CloudController {
       backup: { kind: 'idle' },
       live: null,
       outputs: [],
+      credentials: 'ok',
     };
   }
 
@@ -230,13 +236,14 @@ export class CloudController {
 
   /** Moves the device token into the system keychain, or loads it from there. */
   private async protectCredentials(): Promise<void> {
+    let credentials: CloudStatus['credentials'] = 'ok';
     try {
       const folder =
         this.workspaceFolder ??
         (await native.listWorkspaces()).find((entry) => entry.active)?.id ??
         this.session.workspace.id;
       this.workspaceFolder = folder;
-      await protectToken(
+      const loaded = await protectToken(
         {
           getState: () => this.syncStore.getState(),
           setState: (patch) => this.syncStore.setState(patch),
@@ -249,10 +256,17 @@ export class CloudController {
         },
         keychainAccount(folder),
       );
+      if (loaded === 'refused' || loaded === 'missing') credentials = loaded;
     } catch {
       // The database copy stays; Settings says the token is not yet protected.
     }
     this.state = await this.syncStore.getState();
+    this.update({ credentials });
+  }
+
+  /** Asks the keychain again for the token it refused, by starting over (D23). */
+  retryCredentials(): void {
+    window.location.reload();
   }
 
   private async refreshState(): Promise<void> {

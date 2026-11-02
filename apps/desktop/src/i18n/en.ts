@@ -343,6 +343,11 @@ export const en = {
   'church.viaLan': 'On this network',
   'church.tokenUnprotected':
     'This computer’s church credential is not yet protected by the system keychain.',
+  'church.tokenRefused':
+    'The system keychain did not let Worship Q read this computer’s church credential, so it is not connected. Ask again and choose Always Allow.',
+  'church.tokenRetry': 'Ask again',
+  'church.tokenMissing':
+    'This computer’s church credential is no longer in the system keychain. Disconnect, then connect again with an enrollment code.',
 
   'live.lost': 'The presenting computer is not responding.',
   'live.carryOn': 'Carry on here',

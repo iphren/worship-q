@@ -4,6 +4,10 @@
  * the keychain copy has been read back. If the keychain refuses, the token stays in the
  * database, the app keeps working, and Settings says it is not yet protected. Enrollment is
  * never reset by this move.
+ *
+ * Reading it back later can be refused too: macOS asks whether this build of the app may
+ * read the entry, and the answer may be no. That is not a lost token, and is never treated
+ * as one: the entry stays, nothing is changed, and Settings offers to ask again.
  */
 import type { SyncState } from '@worship-q/store';
 
@@ -26,24 +30,34 @@ export function keychainAccount(workspaceFolder: string): string {
 }
 
 /**
- * Loads the token for this run and moves it into the keychain when it is not there yet.
- * Returns where the token lives afterwards, or null when there is no token.
+ * Where the token is after loading it: in the keychain or the database; `refused` when the
+ * keychain would not give it back this time; `missing` when its entry is gone; null when
+ * this computer is not enrolled.
  */
+export type TokenLoad = NonNullable<SyncState['tokenStorage']> | 'refused' | 'missing' | null;
+
+/** Loads the token for this run and moves it into the keychain when it is not there yet. */
 export async function protectToken(
   store: CredentialStore,
   keychain: Keychain,
   account: string,
-): Promise<SyncState['tokenStorage']> {
+): Promise<TokenLoad> {
   const state = await store.getState();
   if (state.tokenStorage === 'keychain' && !state.deviceToken) {
-    const token = await keychain.get(account).catch(() => null);
+    let token: string | null;
+    try {
+      token = await keychain.get(account);
+    } catch {
+      // Denied or locked this time; the entry is still there and is left alone.
+      return 'refused';
+    }
     if (token) {
       store.setMemoryToken(token);
       return 'keychain';
     }
-    // The keychain lost it: this computer must enroll again, as the plan's "never reset"
-    // rule cannot be kept without the secret. Settings shows the connection form.
-    return null;
+    // The entry is gone: this computer must enroll again, as the plan's "never reset" rule
+    // cannot be kept without the secret.
+    return 'missing';
   }
   const token = state.deviceToken;
   if (!token) return null;

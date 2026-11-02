@@ -15,7 +15,9 @@ function fakeStore(initial: Partial<SyncState>) {
   return { store, state: () => state, memory: () => memory };
 }
 
-function fakeKeychain(options: { refuse?: boolean; lossy?: boolean } = {}): Keychain & {
+function fakeKeychain(
+  options: { refuse?: boolean; refuseRead?: boolean; lossy?: boolean } = {},
+): Keychain & {
   entries: Map<string, string>;
 } {
   const entries = new Map<string, string>();
@@ -25,7 +27,10 @@ function fakeKeychain(options: { refuse?: boolean; lossy?: boolean } = {}): Keyc
       if (options.refuse) throw new Error('keychain locked');
       if (!options.lossy) entries.set(account, secret);
     },
-    get: async (account) => entries.get(account) ?? null,
+    get: async (account) => {
+      if (options.refuseRead) throw new Error('User canceled the operation.');
+      return entries.get(account) ?? null;
+    },
     delete: async (account) => void entries.delete(account),
   };
 }
@@ -61,6 +66,24 @@ describe('device token in the keychain (D23)', () => {
       'database',
     );
     expect(state().deviceToken).toBe('secret-3');
+  });
+
+  it('leaves everything as it is when the keychain refuses to give the token back', async () => {
+    // macOS asks after an update whether the new build may read the entry; Deny ends here.
+    const before = { tokenStorage: 'keychain' as const, joinedAt: 'x' };
+    const { store, state, memory } = fakeStore(before);
+    const keychain = fakeKeychain({ refuseRead: true });
+    keychain.entries.set('ws:device-token', 'secret-4');
+    expect(await protectToken(store, keychain, 'ws:device-token')).toBe('refused');
+    expect(state()).toMatchObject({ ...before, deviceToken: null });
+    expect(keychain.entries.get('ws:device-token')).toBe('secret-4');
+    expect(memory()).toBeNull();
+  });
+
+  it('says so when the keychain entry is gone', async () => {
+    const { store, state } = fakeStore({ tokenStorage: 'keychain', joinedAt: 'x' });
+    expect(await protectToken(store, fakeKeychain(), 'ws:device-token')).toBe('missing');
+    expect(state().tokenStorage).toBe('keychain');
   });
 
   it('does nothing for a computer that is not enrolled', async () => {

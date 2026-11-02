@@ -242,6 +242,17 @@ function Connected() {
       {state.tokenStorage === 'database' && (
         <p className="text-xs text-amber-300">{t('church.tokenUnprotected')}</p>
       )}
+      {status.credentials === 'refused' && (
+        <p className="text-amber-300">
+          {t('church.tokenRefused')}
+          <button className="btn btn-sm ml-2" onClick={() => cloud.retryCredentials()}>
+            {t('church.tokenRetry')}
+          </button>
+        </p>
+      )}
+      {status.credentials === 'missing' && (
+        <p className="text-amber-300">{t('church.tokenMissing')}</p>
+      )}
       <p className="text-xs text-slate-400">
         {backup.kind === 'failed'
           ? t('church.backupFailed', { error: backup.message })
