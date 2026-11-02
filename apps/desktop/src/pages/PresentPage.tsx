@@ -566,11 +566,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
       </div>
 
       {editingSong && !isLyrics(editingSong) && (
-        <Dialog
-          title={t('present.editTitleTitle', { title: editingSong.title || t('songs.untitled') })}
-          onClose={() => setEditingSong(null)}
-          actions={null}
-        >
+        <Dialog title={t('present.liveEdit')} onClose={() => setEditingSong(null)} actions={null}>
           <TitleForm
             key={editingSong.id}
             song={editingSong}
@@ -586,7 +582,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
       {editingSong && isLyrics(editingSong) && (
         <Dialog
           wide
-          title={t('present.editLyricsTitle', { title: editingSong.title || t('songs.untitled') })}
+          title={t('present.liveEdit')}
           onClose={() => setEditingSong(null)}
           actions={null}
         >

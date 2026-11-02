@@ -54,7 +54,7 @@ function fieldsOf(draft: SongDraft) {
  */
 type SongFormProps = {
   song: Song | null;
-  /** Hide the title and open on the lyrics, for quick fixes while live. */
+  /** Open on the lyrics, for quick fixes while live; decks and websites hide their title. */
   quick?: boolean;
   onSaved(song: Song): void;
   onDirtyChange?(dirty: boolean): void;
@@ -333,17 +333,15 @@ function LyricsForm(props: SongFormProps) {
         }
       }}
     >
-      {!props.quick && (
-        <label>
-          <span className="label">{t('songs.title')}</span>
-          <input
-            className="field"
-            value={draft.title}
-            onChange={(e) => set({ title: e.target.value })}
-            autoFocus={!song}
-          />
-        </label>
-      )}
+      <label>
+        <span className="label">{t('songs.title')}</span>
+        <input
+          className="field"
+          value={draft.title}
+          onChange={(e) => set({ title: e.target.value })}
+          autoFocus={!song}
+        />
+      </label>
       <div className="flex min-h-0 flex-1 flex-col">
         <div role="tablist" className="mb-2 flex gap-1 border-b border-slate-700">
           {tabs.map((key) => (

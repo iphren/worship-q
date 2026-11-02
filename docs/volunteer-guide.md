@@ -39,7 +39,7 @@ Other dates are read-only until you choose **Edit run sheet** on them.
 
 ## 4. Fix a lyric during the service
 
-Choose **Edit lyrics** above the song, correct the text and **Save**. The screen updates
+Choose **Edit lyrics** above the song, correct the text or title and **Save**. The screen updates
 straight away and stays on the same slide.
 
 Slide decks and websites show **Edit title** instead, which renames the item.
