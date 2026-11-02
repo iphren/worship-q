@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0](https://github.com/iphren/worship-q/compare/v1.0.1...v1.1.0) (2026-11-02)
+
+
+### Features
+
+* add title editing functionality for decks and websites ([18581cd](https://github.com/iphren/worship-q/commit/18581cdeb8c3763b21a6e058ea580424ee875e44))
+* implement last shown tracking for live presentations and update related components ([5e6f8ec](https://github.com/iphren/worship-q/commit/5e6f8ec55686a723e2699665598ec28c87a84c76))
+
+
+### Bug Fixes
+
+* adjust button class for better layout in live presentation ([a18028f](https://github.com/iphren/worship-q/commit/a18028fcf39431007de6b45f02c1b00664bb3ae2))
+* enhance credential handling and user feedback for keychain access ([b42d238](https://github.com/iphren/worship-q/commit/b42d238345e2f915d91ab08609590db539b8f24e))
+* enhance transport handling with last ready state and add tests for transport switching ([238925e](https://github.com/iphren/worship-q/commit/238925e6e9f7f9d5a47122a73612f4506fbce512))
+* implement role change handling in LiveLink to ensure correct state transitions during relay updates ([2af8bff](https://github.com/iphren/worship-q/commit/2af8bff5e1daa76233dacbb2f84494d58cd2c9a8))
+* move OutputLinks section to maintain layout consistency in SettingsPage ([99d4b80](https://github.com/iphren/worship-q/commit/99d4b80f269db9940d57eef047e23ae4a1a614fa))
+* update dialog titles for live editing and improve volunteer guide instructions ([4829631](https://github.com/iphren/worship-q/commit/4829631498605dc534e3f214b99c0025f1c65bc2))
+* update LastShownChip and Live component styles for better visibility ([15c4d49](https://github.com/iphren/worship-q/commit/15c4d497ef59997521dc8a76363b077572704e7b))
+* update OutputLinks component and related translations for clarity and consistency in SettingsPage ([0b49bef](https://github.com/iphren/worship-q/commit/0b49bef194d105ca6f1947fa17692a526569550a))
+
 ## [1.0.1](https://github.com/iphren/worship-q/compare/v1.0.0...v1.0.1) (2026-11-02)
 
 
