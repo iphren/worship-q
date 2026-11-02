@@ -15,7 +15,7 @@ import { createTestStore } from '@worship-q/store/testing';
 import { describe, expect, it, vi } from 'vitest';
 import { openDatabase } from './db';
 import { Instance } from './instance';
-import { Relay, type Socket } from '@worship-q/relay';
+import { Relay, type RelayOptions, type Socket } from '@worship-q/relay';
 
 class FakeSocket implements Socket {
   received: unknown[] = [];
@@ -46,10 +46,10 @@ const snapshot = (revision: number, coordinatorId: string): LiveSnapshot => ({
   devices: [],
 });
 
-async function setup() {
+async function setup(relayOptions?: RelayOptions) {
   const instance = new Instance(openDatabase(':memory:'));
   const { workspace, code } = instance.createWorkspace('North Branch');
-  const relay = new Relay(instance);
+  const relay = new Relay(instance, undefined, undefined, relayOptions);
   const { store, env } = await createTestStore();
   const { session } = await Session.open(store, { now: () => env.date() }, 'Europe/London');
   const song = await session.createSong({ title: 'Song', lyrics: 'one\ntwo\n\nthree' });
@@ -196,6 +196,21 @@ describe('remote control through the relay', () => {
     const remote = phone({ invite: host.invite() });
     await settle();
     expect(remote.socket.last()).toEqual({ type: 'unavailable', reason: 'presentation-offline' });
+  });
+
+  it('refuses claims where it is told to, as the room a coordinator serves on the LAN', async () => {
+    const { desktop } = await setup({ claims: false });
+    const first = desktop('Branch laptop');
+    const second = desktop('Home laptop');
+    const before = second.socket.received.length;
+    second.say({ type: 'claim' });
+    expect(second.socket.received.length).toBe(before);
+    expect(second.socket.last()).toMatchObject({ type: 'ready', coordinator: false });
+    expect(first.socket.last()).toMatchObject({
+      type: 'ready',
+      coordinator: true,
+      coordinatorId: first.deviceId,
+    });
   });
 
   it('gives the role back to a coordinator that reconnects before its old connection ends', async () => {

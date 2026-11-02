@@ -587,8 +587,11 @@ export class CloudController {
         if (message.type === 'toFollower') {
           this.transports?.sendOn('relay', message);
           this.lanHost?.send(message);
-        } else if (this.offlineCoordinator && message.type === 'claim') {
-          // Nothing to claim from while offline.
+        } else if (message.type === 'claim') {
+          // Only the church server decides who coordinates (D14), whatever carries the live
+          // state: a claim sent over the LAN would reach the coordinator's own room, not the
+          // server. Nothing to claim from while offline.
+          if (!this.offlineCoordinator) this.transports?.sendOn('relay', message);
         } else {
           this.transports?.send(message);
         }

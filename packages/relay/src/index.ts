@@ -42,6 +42,16 @@ export interface RelayDirectory {
   outputLook(workspaceId: string, kind: OutputKind): OutputView['look'];
 }
 
+export interface RelayOptions {
+  /**
+   * Whether a desktop may claim the coordinator role. The church server's relay allows it;
+   * the room a coordinator serves on the LAN does not, since the server decides who
+   * coordinates and the room only serves while its own device does (D14, D20). A claim
+   * honoured there would leave two desktops presenting, each unaware of the other.
+   */
+  claims?: boolean;
+}
+
 /** A random connection identifier; works in Node and in browsers. */
 function connectionId(): string {
   return globalThis.crypto.randomUUID();
@@ -124,6 +134,7 @@ export class Relay {
       message,
       detail,
     ) => console.warn(message, detail),
+    private readonly options: RelayOptions = {},
   ) {}
 
   private room(workspaceId: string): WorkspaceRoom {
@@ -321,6 +332,13 @@ export class Relay {
         const room = this.room(workspaceId!);
         switch (message.type) {
           case 'claim':
+            if (this.options.claims === false) {
+              this.warn('Refused a claim to the coordinator role', {
+                workspaceId,
+                from: desktop.deviceId,
+              });
+              return;
+            }
             if (room.coordinator !== desktop && desktop.role === 'operator') {
               becomeCoordinator(room, workspaceId!);
             }

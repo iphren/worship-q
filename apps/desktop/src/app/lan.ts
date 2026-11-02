@@ -163,7 +163,8 @@ export class LanHost {
   }
 
   private openRoom(): void {
-    const relay = new Relay(this.directory);
+    // Only the church server hands out the role; a claim sent here is refused.
+    const relay = new Relay(this.directory, undefined, undefined, { claims: false });
     this.relay = relay;
     const me = this.deps.deviceId();
     this.directory.identities.set('lan:self', { id: me, name: this.deps.deviceName() });
