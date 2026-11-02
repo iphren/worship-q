@@ -438,6 +438,16 @@ export function SettingsPage() {
           </label>
         </Section>
 
+        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
+          <OutputLinks
+            localSlideshowUrl={
+              overlay && !overlay.error
+                ? overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow')
+                : null
+            }
+          />
+        </Section>
+
         <Section
           title={t('settings.background')}
           hint={
@@ -522,16 +532,6 @@ export function SettingsPage() {
 
         <Section title={t('devices.title')} hint={t('devices.hint')}>
           <ConnectedDevices />
-        </Section>
-
-        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
-          <OutputLinks
-            localSlideshowUrl={
-              overlay && !overlay.error
-                ? overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow')
-                : null
-            }
-          />
         </Section>
 
         <Section title={t('settings.backup')} hint={t('settings.backupHint')}>
