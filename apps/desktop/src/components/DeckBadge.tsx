@@ -1,6 +1,7 @@
 import type { Song } from '@worship-q/protocol';
 import { useSession } from '../app/context';
 import { t } from '../i18n';
+import { Icon } from './Icon';
 
 /**
  * Marks an imported slide deck or a website wherever songs are listed; nothing for an
@@ -8,9 +9,14 @@ import { t } from '../i18n';
  */
 export function DeckBadge(props: { song: Song }) {
   if (!props.song.deck && !props.song.website) return null;
+  const label = props.song.website ? t('songs.websiteBadge') : t('songs.deckBadge');
   return (
-    <span className="mr-1.5 inline-block rounded bg-slate-700 px-1 align-middle text-[10px] leading-4 font-semibold tracking-wide text-slate-300 uppercase">
-      {props.song.website ? t('songs.websiteBadge') : t('songs.deckBadge')}
+    <span
+      className="mr-1.5 inline-flex rounded bg-slate-700 p-0.5 align-middle text-slate-300"
+      title={label}
+    >
+      <Icon name={props.song.website ? 'website' : 'slides'} className="h-3 w-3" />
+      <span className="sr-only">{label}</span>
     </span>
   );
 }
