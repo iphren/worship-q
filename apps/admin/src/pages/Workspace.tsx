@@ -493,11 +493,11 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
         </Fact>
       </dl>
 
-      {/* The previews keep a modest size; beside them goes the run sheet when the card is
-          wide enough for both. */}
+      {/* Alone in a column the previews take the full width; beside the run sheet, when the
+          card is wide enough for both, they take a share of it that grows to a cap. */}
       <div className="@container">
         <div className="flex flex-col gap-4 @2xl:flex-row @2xl:items-start">
-          <div className="w-full max-w-md shrink-0 space-y-4">
+          <div className="w-full shrink-0 space-y-4 @2xl:w-[45%] @2xl:max-w-xl">
             <div>
               <h3 className="mb-1 flex flex-wrap items-center gap-2 font-semibold text-slate-100">
                 On screen
