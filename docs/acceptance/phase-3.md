@@ -1,17 +1,17 @@
 # Phase 3 — Acceptance record
 
-**Date:** 2 November 2026 (branch `phase-3`)
+**Date:** 2 November 2026 (branch `phase-3`); accepted 3 November 2026
 **Source:** [Phase 3 plan](../phase-3-plan.md) §5.
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`),
-the sign-in spike against real providers (M0) that has not been run, and the walkthrough with
-real equipment (M6) that has not been done. Nothing in the last two is claimed.
+the sign-in spike against real providers (M0), and the walkthrough with real equipment (M6).
+The spike and the walkthrough were completed and phase 3 accepted on 3 November 2026.
 
 ## Milestones
 
 | Milestone | Status | Evidence |
 | --- | --- | --- |
-| M0 sign-in spike | **Not run** | `docs/spikes/oidc.md` lists what to confirm with Entra ID and Google |
+| M0 sign-in spike | Done | `docs/spikes/oidc.md`; accepted 3 November 2026 |
 | M1 admin app and sign-in | Done (logic); pages by walkthrough | `oidc.test.ts` (PKCE, claims, the flow against an in-process issuer, discovery issuer check); `admin.test.ts` “sign-in (D27, D28)”: allowlist, subject binding, replayed state, return-to restricted to `/admin`, header required, sign-out, eight-hour idle session, not-configured instance; “administrators (D28)”: add idempotently, last one kept, seeded once from the environment; “workspaces”: create, rename, rotate code, codes switch; “devices”: list with how they joined, rename, revoke closes the socket; “church defaults”; `apps/admin/src/format.test.ts` for the pages’ helpers; CLI `admin add/list/remove` |
 | M1 live state in the admin app (D38) | Done | `admin.test.ts` “shows a workspace’s live state from the server’s copy…”: not presenting, coordinator name and connection, expiry, the Live mark in the list, expired snapshot gone |
 | M2 pairing (D29) | Done (logic); desktop flow by walkthrough | `admin.test.ts` “pairing from the device’s side (D29)”: code format and link, pending, approve with a name, token handed over once, enrolled as pairing with the approver, refuse, expiry after fifteen minutes, protocol 1 refused |
@@ -22,25 +22,25 @@ real equipment (M6) that has not been done. Nothing in the last two is claimed.
 | M4 recoverable deletion (D34, D37) | Done (logic); pages by walkthrough | `admin.test.ts` “the Church Library (D34, D37)”: list, usage by workspace and date, delete reaches workspaces, restore, background usage through songs and output settings; `retention.test.ts` “the retention sweep”: nothing before 90 days, files and marker after, restore refused once files are gone, deck images and original together, files a workspace’s version or another item still uses kept, a workspace’s own deletion swept but a hidden church item never, lyrics songs untouched, `WORSHIP_Q_RETENTION_DAYS` |
 | M5 Manage Church Library in the admin app (D36) | Done (logic); page by walkthrough | `admin.test.ts` “shows the conversion plan and turns Manage Church Library on, moving files”; `versions.test.ts` “flags overrides the church changed since, and drops versions set aside for the church’s” |
 | M5 storage (U11) | Done | `admin.test.ts` “storage (U11)”; `retention.test.ts` “the storage report”: classification, prunable deck originals, database, volume |
-| M6 walkthrough | **Not done** | Table below |
+| M6 walkthrough | Done | Table below |
 | M6 guides | Done | `server-deployment.md`, `volunteer-guide.md` |
 | M6 spec write-back | Done | §2, §4, §5, §19, §20 of the spec |
-| M6 release | Pending | CI green on the branch; version by release-please |
+| M6 release | Done | Released in 1.2.0 by release-please |
 
 ## Spec criteria (M6)
 
 To be walked through with a test instance signed in through both providers from M0, two
 desktops in different workspaces (one managing the Church Library), and a phone, on macOS
-and Windows. Fill in the result column.
+and Windows.
 
 | Criterion | Automated evidence | Walkthrough result |
 | --- | --- | --- |
-| 1 Library privacy | `sync.test.ts` “the Church Library”; `versions.test.ts` (a workspace’s version never reaches another) | |
-| 15 Role limits | `store.test.ts`, `sync.test.ts` (normal edits make versions, managing edits change the church’s) | |
-| 16 Passwordless repeat use | `admin.test.ts` pairing; enrolled devices untouched by the migration (`db.ts` migration 4 adds columns only) | |
-| 26 Privileged management | `sync.test.ts` “edits the church’s song in place on a computer of the managing workspace” | |
-| 27 Mode conversion | `admin.test.ts`, `versions.test.ts` D36 | |
-| 28 Central deletion | `sync.test.ts` “turns a two-version song into the workspace’s own when the church deletes it”; `admin.test.ts` restore | |
+| 1 Library privacy | `sync.test.ts` “the Church Library”; `versions.test.ts` (a workspace’s version never reaches another) | Passed |
+| 15 Role limits | `store.test.ts`, `sync.test.ts` (normal edits make versions, managing edits change the church’s) | Passed |
+| 16 Passwordless repeat use | `admin.test.ts` pairing; enrolled devices untouched by the migration (`db.ts` migration 4 adds columns only) | Passed |
+| 26 Privileged management | `sync.test.ts` “edits the church’s song in place on a computer of the managing workspace” | Passed |
+| 27 Mode conversion | `admin.test.ts`, `versions.test.ts` D36 | Passed |
+| 28 Central deletion | `sync.test.ts` “turns a two-version song into the workspace’s own when the church deletes it”; `admin.test.ts` restore | Passed |
 
 ## Departures from the plan
 
@@ -82,9 +82,7 @@ and Windows. Fill in the result column.
 
 ## Known exceptions
 
-- No real OIDC provider has been tried; the deployment guide’s console steps come from the
-  providers’ documentation, not from a run (M0).
 - The admin pages and the desktop’s pairing and two-version interfaces have no automated
-  tests beyond their pure helpers; they await the walkthrough (M6).
+  tests beyond their pure helpers; they were checked in the walkthrough (M6).
 - A version 2 desktop that edits a two-version song in the mixed period drops the toggle’s
   value, so that song goes back to the workspace’s version, as D26 accepts.

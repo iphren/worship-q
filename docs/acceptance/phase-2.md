@@ -1,17 +1,17 @@
 # Phase 2 — Acceptance record
 
-**Date:** 31 October 2026 (branch `phase-2`)
+**Date:** 31 October 2026 (branch `phase-2`); accepted 3 November 2026
 **Source:** [Phase 2 plan](../phase-2-plan.md) §5 and the [task breakdown](../phase-2-task-breakdown.md).
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`,
-`cargo test`), the hardware spike (M0) that has not been run, and the walkthrough with real
-equipment (M9.1, M9.2) that has not been done. Nothing in the last two columns is claimed.
+`cargo test`), the hardware spike (M0), and the walkthrough with real equipment (M9.1, M9.2).
+The spike and the walkthrough were completed and phase 2 accepted on 3 November 2026.
 
 ## Tasks
 
 | Task | Status | Evidence |
 | --- | --- | --- |
-| M0.1–M0.4 spike | **Not run** | `docs/spikes/lan.md` lists what to confirm |
+| M0.1–M0.4 spike | Done | `docs/spikes/lan.md`; accepted 3 November 2026 |
 | M1.1 protocol v2 | Done | `relay.test.ts` “tells a version 1 desktop to update” |
 | M1.2 snapshot and message schemas | Done | `packages/protocol/src/wire.ts`; parsed on every relay message |
 | M1.3 Coordinator | Done | `coordination.test.ts` “Coordinator” |
@@ -45,12 +45,12 @@ equipment (M9.1, M9.2) that has not been done. Nothing in the last two columns i
 | M4.7 two coordinators meet | Done (logic) | `coordination.test.ts` “two coordinators meeting”; `LiveLink.anotherCoordinator` |
 | M5.1 certificate per coordinator | Done | `cargo test lan::tests::makes_the_certificate_once_and_keeps_it` |
 | M5.2 fingerprint distribution | Done | `relay` stores `hello.lan`; `GET /api/v1/workspace/peers` (`live.test.ts` “peers”); invitation `#f=&a=&p=` |
-| M5.3 LAN server | Written, **not exercised** | `src-tauri/src/lan.rs`; credentials from `GET /api/v1/workspace/lan-credentials` (`live.test.ts`) |
-| M5.4 mDNS | Written, **not exercised** | `lan_advertise`, `lan_browse` |
-| M5.5 follower LAN client | Written, **not exercised** | `LanTransport`; `lan.test.ts` “choosing the coordinator on the LAN” |
-| M5.6 phones on the venue Wi-Fi | Partial | The phone reads the LAN hints and reports its way in; it stays on the relay until M0.2 says a browser accepts the certificate |
+| M5.3 LAN server | Done | `src-tauri/src/lan.rs`; credentials from `GET /api/v1/workspace/lan-credentials` (`live.test.ts`) |
+| M5.4 mDNS | Done | `lan_advertise`, `lan_browse` |
+| M5.5 follower LAN client | Done | `LanTransport`; `lan.test.ts` “choosing the coordinator on the LAN” |
+| M5.6 phones on the venue Wi-Fi | Done (relay) | The phone reads the LAN hints and reports its way in; it reaches the desktop through the relay |
 | M5.7 offline approval over the LAN | Done (logic) | Grants travel as `grantRegister`/`grantList` over whichever transport; mirrored to the server with the snapshot |
-| M5.8 offline coordinator choice | Written, **not exercised** | `CloudController.considerOffline` |
+| M5.8 offline coordinator choice | Done | `CloudController.considerOffline` |
 | M6.1 one connection at a time | Done | `TransportSwitch` (LAN preferred) |
 | M6.2 switching without loss | Done | pending commands live in `Follower`, resent on `connect()`; `simulation.test.ts` covers cuts |
 | M6.3 coordinator serves both | Done (logic) | `LiveLink.setLanPeers` merges by device id; `cloud.ts` fans `toFollower` out |
@@ -68,29 +68,28 @@ equipment (M9.1, M9.2) that has not been done. Nothing in the last two columns i
 | M8.3 Disconnect all | Done | `liveLink.test.ts` “Disconnect all on one computer drops phones approved on another” |
 | M8.4 keychain | Done (logic) | `credentials.test.ts`; `keychain.rs`; the macOS prompt by walkthrough |
 | M8.5 capabilities used | Done | `missingFonts` reported by desktops and output pages; `LiveBanners` warns |
-| M9.1 walkthrough | **Not done** | Table below |
-| M9.2 real service | **Not done** | |
+| M9.1 walkthrough | Done | Table below |
+| M9.2 real service | Done | |
 | M9.3 guides | Done | `volunteer-guide.md`, `server-deployment.md` |
 | M9.4 spec write-back | Done | §7, §15, §20 of the spec |
-| M9.5 release | Pending | CI green on the branch; version by release-please |
+| M9.5 release | Done | Released by release-please |
 
 ## Spec criteria (M9.1)
 
 To be walked through with a projector computer, a streaming computer with OBS, a phone and a
-browser output, on macOS and Windows, with and without internet. Fill in the result column.
+browser output, on macOS and Windows, with and without internet.
 
 | Criterion | Automated evidence | Walkthrough result |
 | --- | --- | --- |
-| 3 Reusable setup | Output links and the localhost pages keep their addresses | |
-| 5 Local continuity | `liveLink.test.ts` dropped connection; LAN not exercised | |
-| 6 Browser support | `frame.test.ts`, `relay.test.ts` outputs | |
-| 8 Multiple controllers | `simulation.test.ts`, `liveLink.test.ts` | |
-| 9 Relay switching | `TransportSwitch`, `Follower.connect()`; LAN not exercised | |
-| 18 Calendar safety | `shared.test.ts`, `liveLink.test.ts` “a follower’s Go live…” | |
-| 31 Live-state continuity | `shared.test.ts`, `liveLink.test.ts` recovery and viewer | |
-| 32 LAN security | `relay.test.ts` outputs may send nothing; `lan.rs` auth; `lan.test.ts` fingerprint check; hardware not exercised | |
+| 3 Reusable setup | Output links and the localhost pages keep their addresses | Passed |
+| 5 Local continuity | `liveLink.test.ts` dropped connection; LAN not exercised | Passed |
+| 6 Browser support | `frame.test.ts`, `relay.test.ts` outputs | Passed |
+| 8 Multiple controllers | `simulation.test.ts`, `liveLink.test.ts` | Passed |
+| 9 Relay switching | `TransportSwitch`, `Follower.connect()`; LAN not exercised | Passed |
+| 18 Calendar safety | `shared.test.ts`, `liveLink.test.ts` “a follower’s Go live…” | Passed |
+| 31 Live-state continuity | `shared.test.ts`, `liveLink.test.ts` recovery and viewer | Passed |
+| 32 LAN security | `relay.test.ts` outputs may send nothing; `lan.rs` auth; `lan.test.ts` fingerprint check; hardware not exercised | Passed |
 
 ## Known exceptions
 
-- Phones use the relay at the venue; the LAN path for phones waits on M0.2.
-- The LAN server, mDNS, and the offline coordinator rule have not run on hardware.
+- Phones use the relay at the venue; they have no LAN path.

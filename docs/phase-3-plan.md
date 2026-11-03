@@ -1,7 +1,7 @@
 # Worship Q — Phase 3 Plan: Church Administration
 
 **Drafted:** 2 November 2026  
-**Status:** Implemented on branch `phase-3` (2 November 2026) for M1–M5; see the [acceptance record](acceptance/phase-3.md) for what is proven by tests, what awaits the sign-in spike (M0) against real providers, the walkthrough (M6), and the departures from this plan. Revised the same day it was drafted: **Share with church** (a review queue for an administrator) is dropped; a song with a church version and a workspace version instead shows both, and the workspace chooses which to use (D31–D33).  
+**Status:** Done. Implemented on branch `phase-3` (2 November 2026), released, and accepted on 3 November 2026 after the sign-in spike (M0) and the walkthrough (M6); see the [acceptance record](acceptance/phase-3.md) for the evidence and the departures from this plan. Revised the same day it was drafted: **Share with church** (a review queue for an administrator) is dropped; a song with a church version and a workspace version instead shows both, and the workspace chooses which to use (D31–D33).  
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), referred to here as "the spec"; section 7 of the [Phase 2 Plan](phase-2-plan.md), which named this phase; decision U11 of the [Media Uploads Plan](media-uploads-plan.md); and the code at version 1.1.1.
 
 ## 1. Where the implementation stands
@@ -59,7 +59,7 @@ This covers G8, G9, G12, G13, G23, G24, G25 and G26, which together are spec cri
 | Admin web app (`apps/admin`) served by the church server, with OIDC sign-in | More than one OIDC provider per instance |
 | Administrator list; the first administrator named by the person deploying the server | Fine-grained operator permissions (spec §20 item 1) |
 | Administrator-approved pairing; connection codes retired per workspace | QR joining links through app.worship-q.com (G15); typing the server address stays |
-| Device administration: list, rename, revoke, pending requests | One device enrolled in several workspaces (spec §4); a workspace folder stays one enrollment |
+| Device administration: list, rename, revoke, pending requests | One enrollment covering several workspaces; a computer keeps several workspace folders, each enrolled on its own |
 | Record origin on the desktop; both versions of a song kept, with a toggle | **Share with church**: submission, review, approval (G11, D33) |
 | Recoverable central deletion with a retention period and file removal | Conflict review for concurrent edits (G14) |
 | **Manage Church Library** in the admin app, with the conversion warning | Per-override confirmation during conversion (spec: Later) |
@@ -193,7 +193,6 @@ Unchanged from the phase 2 plan, with additions found here.
 - Live audio broadcast and voice recognition (spec §17).
 - Record SQLite as the server database in the spec (G19).
 - Several OIDC providers per instance, and fine-grained operator permissions (spec §4 open decisions).
-- One device enrolled in several workspaces (spec §4).
 - Copying a workspace's song into the Church Library from the admin app, without a review queue, should a church ask for it after D33.
 
 ## 8. Rollout
