@@ -100,15 +100,11 @@ export function Notice(props: {
   );
 }
 
-export function Badge(props: {
-  children: ReactNode;
-  tone?: 'live' | 'muted' | 'accent' | 'info' | 'warn';
-}) {
+export function Badge(props: { children: ReactNode; tone?: 'live' | 'muted' | 'accent' | 'warn' }) {
   const tone = {
     live: 'bg-emerald-800 text-emerald-100',
     muted: 'bg-slate-700 text-slate-200',
     accent: 'bg-violet-900 text-violet-100',
-    info: 'bg-sky-900 text-sky-100',
     warn: 'bg-amber-800 text-amber-100',
   }[props.tone ?? 'muted'];
   return (

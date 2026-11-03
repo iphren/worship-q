@@ -403,10 +403,10 @@ function ItemRow(props: {
 
 const CHANGE_TONE: Record<
   NonNullable<AdminLibraryItem['change']>['type'],
-  'accent' | 'info' | 'muted'
+  'accent' | 'warn' | 'muted'
 > = {
   own: 'accent',
-  override: 'info',
+  override: 'warn',
   hidden: 'muted',
 };
 
