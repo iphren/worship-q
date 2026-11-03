@@ -285,9 +285,7 @@ function ItemRow(props: {
         </button>
         {change && (
           <div className="flex flex-wrap justify-end gap-1">
-            <Badge tone={change.type === 'hidden' ? 'muted' : 'accent'}>
-              {CHANGE_LABEL[change.type]}
-            </Badge>
+            <Badge tone={CHANGE_TONE[change.type]}>{CHANGE_LABEL[change.type]}</Badge>
             {change.type === 'override' && change.usesChurchVersion && (
               <Badge tone="muted">Uses the church's for now</Badge>
             )}
@@ -402,6 +400,15 @@ function ItemRow(props: {
     </li>
   );
 }
+
+const CHANGE_TONE: Record<
+  NonNullable<AdminLibraryItem['change']>['type'],
+  'accent' | 'info' | 'muted'
+> = {
+  own: 'accent',
+  override: 'info',
+  hidden: 'muted',
+};
 
 const CHANGE_LABEL: Record<NonNullable<AdminLibraryItem['change']>['type'], string> = {
   own: 'Its own',
