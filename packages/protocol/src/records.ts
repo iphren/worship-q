@@ -157,6 +157,16 @@ export function cleanSongFields(fields: SongFields): SongFields {
   };
 }
 
+/** Whose record it is: the Church Library's, or the workspace's own (phase 3, decision D31). */
+export const RecordOriginSchema = z.enum(['church', 'workspace']);
+export type RecordOrigin = z.infer<typeof RecordOriginSchema>;
+
+/** When one version of a two-version song last changed, for the toggle (D32). */
+export const SongVersionStampSchema = z.object({
+  revision: RevisionSchema,
+  updatedAt: TimestampSchema,
+});
+
 export const SongSchema = SongFieldsSchema.extend({
   id: IdSchema,
   workspaceId: IdSchema,
@@ -166,6 +176,21 @@ export const SongSchema = SongFieldsSchema.extend({
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
   removedAt: TimestampSchema.nullable(),
+  /**
+   * Where the song came from (D31): the Church Library's, or this workspace's own. Null on a
+   * device without a church, or before its first pull from a version 3 instance.
+   */
+  origin: RecordOriginSchema.nullable().default(null),
+  /**
+   * On a song with two versions, whether this workspace presents the church's rather than
+   * its own (D32). The song's fields are then the church's; `versions` tells both apart.
+   */
+  useChurchVersion: z.boolean().default(false),
+  /** Set on a song with two versions: the workspace's own and the church's. */
+  versions: z
+    .object({ own: SongVersionStampSchema, church: SongVersionStampSchema })
+    .nullable()
+    .default(null),
 });
 export type Song = z.infer<typeof SongSchema>;
 
@@ -225,6 +250,8 @@ export const BackgroundAssetSchema = z.object({
   originalName: z.string(),
   createdAt: TimestampSchema,
   removedAt: TimestampSchema.nullable(),
+  /** The Church Library's or the workspace's own (D31); backgrounds have no versions. */
+  origin: RecordOriginSchema.nullable().default(null),
 });
 export type BackgroundAsset = z.infer<typeof BackgroundAssetSchema>;
 

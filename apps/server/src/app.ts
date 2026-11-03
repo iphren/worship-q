@@ -29,13 +29,19 @@ import {
   type Deck,
   type EnrollResponse,
   type OutputLink,
+  type PairingStartResponse,
   type PullResponse,
   type PushResponse,
+  type RestoreResponse,
+  type ServerInfo,
 } from '@worship-q/protocol';
 import { z } from 'zod';
+import { registerAdminRoutes } from './admin';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
-import type { DeviceRow, Instance } from './instance';
+import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
+import type { OidcClient } from './oidc';
+import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { Relay } from '@worship-q/relay';
 
 export interface ServerConfig {
@@ -55,6 +61,21 @@ export interface ServerConfig {
    */
   convertDeck?: (source: string, outDir: string, workDir: string) => Promise<ConvertedDeck>;
   logger?: boolean;
+  /** Built admin pages, served at /admin/; optional in tests (phase 3). */
+  adminDir?: string;
+  /** Administrator sign-in; null or absent when not configured (D27). */
+  oidc?: OidcClient | null;
+  /**
+   * This server's public address, for the pairing link in the QR code (D29). Without it the
+   * address the request came in on is used.
+   */
+  publicUrl?: string;
+  /** E-mail addresses made administrators at start, idempotently (D28). */
+  administrators?: string[];
+  /** Days a deleted item keeps its files (D34). */
+  retentionDays?: number;
+  /** Whether the retention sweep runs on a timer; off in tests. */
+  sweep?: boolean;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
@@ -75,6 +96,22 @@ export async function buildServer(config: ServerConfig) {
   const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message));
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
+  for (const email of config.administrators ?? []) {
+    if (email.trim()) instance.seedAdministrator(email);
+  }
+  const retentionDays = config.retentionDays ?? DEFAULT_RETENTION_DAYS;
+  const retention =
+    config.sweep === false
+      ? null
+      : setInterval(() => {
+          try {
+            const swept = sweepDeletedFiles(instance, config.dataDir, retentionDays);
+            if (swept.files > 0) app.log.info(`Retention sweep removed ${swept.files} files`);
+          } catch (error) {
+            app.log.error(error);
+          }
+        }, SWEEP_EVERY_MS);
+  retention?.unref();
   const app = Fastify({
     logger: config.logger ?? false,
     bodyLimit: 16 * 1024 * 1024,
@@ -121,15 +158,48 @@ export async function buildServer(config: ServerConfig) {
     request.device = device;
   };
 
-  app.get('/api/v1/info', async () => ({
-    name: config.name,
-    protocolVersion: PROTOCOL_VERSION,
-    minProtocolVersion: MIN_PROTOCOL_VERSION,
-    /** Slide decks can be imported. */
-    decks: config.convertDeck !== undefined,
-    /** Browser output pages are served. */
-    outputs: config.outputDir !== undefined,
-  }));
+  app.get('/api/v1/info', async () => {
+    const info: ServerInfo = {
+      name: config.name,
+      protocolVersion: PROTOCOL_VERSION,
+      minProtocolVersion: MIN_PROTOCOL_VERSION,
+      decks: config.convertDeck !== undefined,
+      outputs: config.outputDir !== undefined,
+      pairing: true,
+      admin: !!config.oidc,
+      codes: !instance.hasAdministrators(),
+    };
+    return info;
+  });
+
+  // ── Pairing (D29): a device asks, shows the code, and polls ──────────────
+
+  const publicUrl = (request: FastifyRequest) =>
+    config.publicUrl ?? `${request.protocol}://${request.host}`;
+
+  app.post<{ Body: { protocolVersion?: number; deviceName?: string } }>(
+    '/api/v1/pair',
+    async (request, reply) => {
+      const { protocolVersion, deviceName } = request.body ?? {};
+      if (!isCompatibleProtocol(protocolVersion)) {
+        return reply.code(426).send({ error: UPDATE_NEEDED, protocolVersion: PROTOCOL_VERSION });
+      }
+      const started = instance.startPairing(String(deviceName ?? ''), request.ip);
+      if (!started) return reply.code(429).send({ error: 'too-many-requests' });
+      const { secret, code, expiresAt } = started;
+      return {
+        secret,
+        code,
+        url: `${publicUrl(request)}/admin/pair?code=${encodeURIComponent(code)}`,
+        expiresAt,
+        intervalMs: PAIRING_INTERVAL_MS,
+      } satisfies PairingStartResponse;
+    },
+  );
+
+  app.post<{ Body: { secret?: string } }>('/api/v1/pair/poll', async (request) => {
+    return instance.pollPairing(String(request.body?.secret ?? ''));
+  });
 
   // What a browser output page is to look like, before it connects (M7.2, M7.4).
   app.get<{ Querystring: { t?: string } }>('/api/v1/output/look', async (request, reply) => {
@@ -192,9 +262,10 @@ export async function buildServer(config: ServerConfig) {
       }
       const enrolled = instance.enroll(String(code ?? ''), String(deviceName ?? ''));
       if (!enrolled) {
-        // Slows down guessing.
+        // Slows down guessing. A code that is off (D30) is told apart, so the device can
+        // say that an administrator must approve it instead.
         await new Promise((done) => setTimeout(done, 1000));
-        return reply.code(403).send({ error: 'invalid-code' });
+        return reply.code(403).send({ error: instance.codeRefusal(String(code ?? '')) });
       }
       const workspace = instance.getWorkspace(enrolled.device.workspaceId)!;
       return {
@@ -317,9 +388,31 @@ export async function buildServer(config: ServerConfig) {
 
     api.get<{ Querystring: { since?: string } }>('/api/v1/sync/pull', async (request) => {
       const since = Math.max(0, Number(request.query.since ?? 0) || 0);
-      const page = instance.pull(request.device!.workspaceId, since);
-      return { ...page, church: instance.churchSettings() } satisfies PullResponse;
+      const protocol = Number(request.headers[PROTOCOL_HEADER]);
+      const page = instance.pull(request.device!.workspaceId, since, 500, protocol);
+      return {
+        ...page,
+        church: instance.churchSettings(),
+        manageLibrary: instance.getWorkspace(request.device!.workspaceId)?.manageLibrary ?? false,
+      } satisfies PullResponse;
     });
+
+    /** Drops the workspace's own version of a church song or background (D32). */
+    api.post<{ Body: { kind?: string; key?: string } }>(
+      '/api/v1/sync/restore',
+      async (request, reply) => {
+        const kind = request.body?.kind;
+        const key = String(request.body?.key ?? '');
+        if ((kind !== 'song' && kind !== 'background') || !key) {
+          return reply.code(400).send({ error: 'invalid-request' });
+        }
+        const device = request.device!;
+        const record = instance.dropOwnVersion(device.workspaceId, kind, key);
+        if (!record) return reply.code(409).send({ error: 'no-church-version' });
+        relay.contentChanged(device.workspaceId, device.id);
+        return { record } satisfies RestoreResponse;
+      },
+    );
 
     api.put<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
@@ -503,8 +596,20 @@ export async function buildServer(config: ServerConfig) {
       });
     }
   }
+  await registerAdminRoutes(app, {
+    instance,
+    relay,
+    oidc: config.oidc ?? null,
+    dataDir: config.dataDir,
+    name: config.name,
+    adminDir: config.adminDir,
+  });
+
   app.get('/', async () => ({ name: config.name, app: 'worship-q' }));
-  app.addHook('onClose', async () => clearInterval(sweeper));
+  app.addHook('onClose', async () => {
+    clearInterval(sweeper);
+    if (retention) clearInterval(retention);
+  });
 
   return { app, relay };
 }

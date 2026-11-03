@@ -104,6 +104,66 @@ const MIGRATIONS: string[][] = [
       revoked_at TEXT
     )`,
   ],
+  [
+    // Phase 3. Connection codes work for a workspace only until the instance has an
+    // administrator, unless turned on again for it (decision D30).
+    `ALTER TABLE workspace ADD COLUMN codes_enabled INTEGER NOT NULL DEFAULT 0`,
+    // How a device joined, and which administrator approved it (D29).
+    `ALTER TABLE device ADD COLUMN enrolled_by TEXT NOT NULL DEFAULT 'code'`,
+    `ALTER TABLE device ADD COLUMN approved_by TEXT`,
+    // Set once the retention sweep removed a deleted item's files (D34).
+    `ALTER TABLE record ADD COLUMN files_removed_at TEXT`,
+    `ALTER TABLE church_record ADD COLUMN files_removed_at TEXT`,
+    // Administrators are an allowlist of e-mail addresses, bound to the provider's subject
+    // on first sign-in (D28). A removed administrator keeps its row for attribution.
+    `CREATE TABLE administrator (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      subject TEXT,
+      name TEXT,
+      added_by TEXT,
+      created_at TEXT NOT NULL,
+      last_sign_in_at TEXT,
+      removed_at TEXT
+    )`,
+    `CREATE UNIQUE INDEX administrator_email ON administrator(email) WHERE removed_at IS NULL`,
+    // Sign-in sessions; only the hash of the cookie's token is kept (D27).
+    `CREATE TABLE admin_session (
+      token_hash TEXT PRIMARY KEY,
+      administrator_id TEXT NOT NULL REFERENCES administrator(id),
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    )`,
+    // A sign-in under way: the state the provider sends back, and what it must match.
+    `CREATE TABLE auth_state (
+      state TEXT PRIMARY KEY,
+      verifier TEXT NOT NULL,
+      nonce TEXT NOT NULL,
+      return_to TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    // A device waiting for an administrator (D29). The device token is kept here only until
+    // the device first uses it, or the request expires.
+    `CREATE TABLE pairing_request (
+      id TEXT PRIMARY KEY,
+      secret_hash TEXT NOT NULL UNIQUE,
+      code TEXT NOT NULL UNIQUE,
+      device_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      device_id TEXT,
+      token TEXT,
+      decided_at TEXT,
+      decided_by TEXT
+    )`,
+  ],
+  [
+    // Who deleted a Church Library item: `administrator:<id>` or `workspace:<id>` (D34).
+    `ALTER TABLE church_record ADD COLUMN removed_by TEXT`,
+    // Where a pairing request came from, so one address cannot fill the pending list (D29).
+    `ALTER TABLE pairing_request ADD COLUMN requested_from TEXT`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

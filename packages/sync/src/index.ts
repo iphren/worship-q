@@ -7,13 +7,19 @@
  * in tests.
  */
 import {
+  negotiateProtocol,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   UPDATE_NEEDED,
   updateNeededBy,
   type EnrollResponse,
+  type LibraryKind,
+  type PairingPollResponse,
+  type PairingStartResponse,
   type PullResponse,
   type PushResponse,
+  type RestoreResponse,
+  type ServerInfo,
   type SyncRecord,
 } from '@worship-q/protocol';
 import type { Session } from '@worship-q/session';
@@ -30,11 +36,18 @@ export interface WorkspaceInfo {
 
 /** What the device asks of its church instance. */
 export interface InstanceApi {
+  /** What the instance is and speaks; needs no credentials. */
+  info(): Promise<ServerInfo>;
   enroll(code: string, deviceName: string): Promise<EnrollResponse>;
+  /** Pairing with an administrator's approval (phase 3, D29). */
+  startPairing(deviceName: string): Promise<PairingStartResponse>;
+  pollPairing(secret: string): Promise<PairingPollResponse>;
   workspace(): Promise<WorkspaceInfo>;
   claim(contentId: string): Promise<string>;
   push(records: SyncRecord[]): Promise<PushResponse>;
   pull(since: number): Promise<PullResponse>;
+  /** Drops the workspace's own version of a church song or background (D32). */
+  restore(kind: LibraryKind, key: string): Promise<RestoreResponse>;
 }
 
 /** Moving background files to and from the instance. */
@@ -67,6 +80,27 @@ export class InvalidCodeError extends Error {
   }
 }
 
+/** The code names a workspace, but codes are off: an administrator must approve (D30). */
+export class CodesOffError extends Error {
+  constructor() {
+    super('codes-off');
+  }
+}
+
+/** Too many computers are waiting for approval at the instance; try again later (D29). */
+export class TooManyPairingRequestsError extends Error {
+  constructor() {
+    super('too-many-requests');
+  }
+}
+
+/** The instance has no live church version to go back to (D32). */
+export class NoChurchVersionError extends Error {
+  constructor() {
+    super('no-church-version');
+  }
+}
+
 /** The instance's address without a trailing slash, with https added when missing. */
 export function normalizeServer(address: string): string {
   let value = address.trim().replace(/\/+$/, '');
@@ -74,13 +108,34 @@ export function normalizeServer(address: string): string {
   return value;
 }
 
+/**
+ * Asks an instance what it speaks and picks the version to use with it (D26): the
+ * instance's own when it is older than this build's and still accepted, else this build's.
+ * An instance that cannot be asked is spoken to at this build's version.
+ */
+export async function negotiate(
+  server: string,
+  fetchImpl: typeof fetch = (...args) => fetch(...args),
+): Promise<{ protocol: number; info: ServerInfo | null }> {
+  try {
+    const response = await fetchImpl(`${server}/api/v1/info`);
+    if (!response.ok) return { protocol: PROTOCOL_VERSION, info: null };
+    const info = (await response.json()) as ServerInfo;
+    return { protocol: negotiateProtocol(info.protocolVersion), info };
+  } catch {
+    return { protocol: PROTOCOL_VERSION, info: null };
+  }
+}
+
 export function httpApi(
   server: string,
   token: () => string | null,
   fetchImpl: typeof fetch = (...args) => fetch(...args),
+  /** The protocol version to speak, negotiated with the instance (D26). */
+  protocol: () => number = () => PROTOCOL_VERSION,
 ): InstanceApi {
   async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { [PROTOCOL_HEADER]: String(PROTOCOL_VERSION) };
+    const headers: Record<string, string> = { [PROTOCOL_HEADER]: String(protocol()) };
     const bearer = token();
     if (bearer) headers.authorization = `Bearer ${bearer}`;
     if (body !== undefined) headers['content-type'] = 'application/json';
@@ -96,19 +151,31 @@ export function httpApi(
       throw new UpdateNeededError(body?.protocolVersion);
     }
     if (response.status === 401) throw new UnauthorizedError();
-    if (response.status === 403) throw new InvalidCodeError();
+    if (response.status === 429) throw new TooManyPairingRequestsError();
+    if (response.status === 403) {
+      const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      throw body?.error === 'codes-off' ? new CodesOffError() : new InvalidCodeError();
+    }
+    if (response.status === 409) {
+      const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      if (body?.error === 'no-church-version') throw new NoChurchVersionError();
+    }
     if (!response.ok) throw new Error(`${method} ${path}: ${response.status}`);
     return (await response.json()) as T;
   }
   return {
+    info: () => call('GET', '/api/v1/info'),
     enroll: (code, deviceName) =>
-      call('POST', '/api/v1/enroll', { protocolVersion: PROTOCOL_VERSION, code, deviceName }),
+      call('POST', '/api/v1/enroll', { protocolVersion: protocol(), code, deviceName }),
+    startPairing: (deviceName) =>
+      call('POST', '/api/v1/pair', { protocolVersion: protocol(), deviceName }),
+    pollPairing: (secret) => call('POST', '/api/v1/pair/poll', { secret }),
     workspace: () => call('GET', '/api/v1/workspace'),
     claim: async (contentId) =>
       (await call<{ contentId: string }>('POST', '/api/v1/claim', { contentId })).contentId,
-    push: (records) =>
-      call('POST', '/api/v1/sync/push', { protocolVersion: PROTOCOL_VERSION, records }),
+    push: (records) => call('POST', '/api/v1/sync/push', { protocolVersion: protocol(), records }),
     pull: (since) => call('GET', `/api/v1/sync/pull?since=${since}`),
+    restore: (kind, key) => call('POST', '/api/v1/sync/restore', { kind, key }),
   };
 }
 
@@ -165,6 +232,7 @@ export class SyncClient {
   /** Reads the saved connection, to show its state before the first synchronization. */
   async load(): Promise<SyncState> {
     const state = await this.sync.getState();
+    this.session.store.managesChurchLibrary = state.manageLibrary === true;
     this.setStatus(
       state.joinedAt ? { kind: 'idle', lastSyncAt: state.lastSyncAt } : { kind: 'disconnected' },
     );
@@ -254,6 +322,13 @@ export class SyncClient {
       cursor = page.cursor;
     } while (page.more);
     const workspaceId = this.session.workspace.id;
+    // A version 3 instance says whether this workspace manages the Church Library (D31).
+    if (typeof page.manageLibrary === 'boolean' && page.manageLibrary !== state.manageLibrary) {
+      await this.sync.setState({ manageLibrary: page.manageLibrary });
+    }
+    if (typeof page.manageLibrary === 'boolean') {
+      this.session.store.managesChurchLibrary = page.manageLibrary;
+    }
     const changes: AppliedChanges = await this.session.applyRemote(async () => {
       await this.session.store.setChurchSettings(page.church);
       return this.sync.applyRemote(workspaceId, records);
@@ -281,6 +356,30 @@ export class SyncClient {
    */
   async enroll(server: string, code: string, deviceName: string): Promise<EnrollResponse> {
     const enrolled = await this.api.enroll(code, deviceName);
+    await this.adopt(server, enrolled, deviceName);
+    return enrolled;
+  }
+
+  /**
+   * Asks the instance to pair this device (D29). The device then shows the code and polls
+   * with `pollPairing` until an administrator decides. Nothing here changes until approval.
+   */
+  startPairing(deviceName: string): Promise<PairingStartResponse> {
+    return this.api.startPairing(deviceName);
+  }
+
+  /** One poll of a pairing; on approval the device is enrolled as with a code. */
+  async pollPairing(
+    server: string,
+    secret: string,
+    deviceName: string,
+  ): Promise<PairingPollResponse> {
+    const result = await this.api.pollPairing(secret);
+    if (result.status === 'approved') await this.adopt(server, result, deviceName);
+    return result;
+  }
+
+  private async adopt(server: string, enrolled: EnrollResponse, deviceName: string): Promise<void> {
     await this.sync.setState({
       server,
       deviceId: enrolled.deviceId,
@@ -293,8 +392,19 @@ export class SyncClient {
       pushedThrough: null,
       lastSyncAt: null,
       lastError: null,
+      manageLibrary: null,
     });
-    return enrolled;
+  }
+
+  /**
+   * Drops this workspace's own version of a church song (D32, “Delete our version”): the
+   * instance forgets it and hands back the church's record, which is applied here as the
+   * song. Other devices of the workspace receive it on their next pull.
+   */
+  async deleteOwnVersion(kind: LibraryKind, key: string): Promise<void> {
+    const { record } = await this.api.restore(kind, key);
+    const workspaceId = this.session.workspace.id;
+    await this.session.applyRemote(() => this.sync.applyRemote(workspaceId, [record]));
   }
 
   /**

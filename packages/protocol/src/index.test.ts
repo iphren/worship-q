@@ -4,7 +4,9 @@ import {
   invalidSongFields,
   maxSongYear,
   MIN_PROTOCOL_VERSION,
+  negotiateProtocol,
   PROTOCOL_VERSION,
+  SyncRecordSchema,
   updateNeededBy,
   websiteUrl,
 } from './index';
@@ -95,5 +97,43 @@ describe('a refused protocol version', () => {
     expect(updateNeededBy(undefined)).toBe('app');
     expect(updateNeededBy(null)).toBe('app');
     expect(updateNeededBy('1')).toBe('app');
+  });
+});
+
+describe('speaking an older server’s version (D26)', () => {
+  it('speaks the server’s version when it is older and still accepted', () => {
+    expect(negotiateProtocol(MIN_PROTOCOL_VERSION)).toBe(MIN_PROTOCOL_VERSION);
+  });
+
+  it('speaks its own version to a server as new or newer', () => {
+    expect(negotiateProtocol(PROTOCOL_VERSION)).toBe(PROTOCOL_VERSION);
+    expect(negotiateProtocol(PROTOCOL_VERSION + 5)).toBe(PROTOCOL_VERSION);
+  });
+
+  it('speaks its own version to a server too old or saying nothing, which then refuses', () => {
+    expect(negotiateProtocol(MIN_PROTOCOL_VERSION - 1)).toBe(PROTOCOL_VERSION);
+    expect(negotiateProtocol(undefined)).toBe(PROTOCOL_VERSION);
+    expect(negotiateProtocol('2')).toBe(PROTOCOL_VERSION);
+    expect(negotiateProtocol(2.5)).toBe(PROTOCOL_VERSION);
+  });
+
+  it('keeps version 3 at least one above the oldest accepted, so negotiation has a range', () => {
+    expect(PROTOCOL_VERSION).toBeGreaterThan(MIN_PROTOCOL_VERSION);
+  });
+});
+
+describe('record origins (D31)', () => {
+  const record = { kind: 'song', id: 's1', key: 's1', revision: 1, updatedAt: 't', data: {} };
+
+  it('reads records with and without an origin', () => {
+    expect(SyncRecordSchema.parse(record).origin).toBeUndefined();
+    expect(SyncRecordSchema.parse({ ...record, origin: 'church', shadow: true })).toMatchObject({
+      origin: 'church',
+      shadow: true,
+    });
+  });
+
+  it('rejects an unknown origin', () => {
+    expect(SyncRecordSchema.safeParse({ ...record, origin: 'elsewhere' }).success).toBe(false);
   });
 });

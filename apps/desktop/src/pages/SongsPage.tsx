@@ -2,6 +2,7 @@ import { open as openFile } from '@tauri-apps/plugin-dialog';
 import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
+import { OriginBadge } from '../components/DeckBadge';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
@@ -131,6 +132,7 @@ export function SongsPage() {
                   }`}
                   onClick={() => select(song)}
                 >
+                  <OriginBadge song={song} />
                   {song.title || t('songs.untitled')}
                 </button>
               </SongPeek>
@@ -203,16 +205,26 @@ export function SongsPage() {
         <ConfirmDialog
           title={t('songs.removeTitle', { title: removing.song.title || t('songs.untitled') })}
           body={
+            // A church song is only hidden here (spec §5); the dialog says so.
             removing.usage.length === 0
-              ? t('songs.removeUnused')
-              : t('songs.removeUsed', {
-                  count: removing.usage.length,
-                  dates:
-                    removing.usage
-                      .slice(-3)
-                      .map((date) => formatDate(date))
-                      .join(', ') + (removing.usage.length > 3 ? ', …' : ''),
-                })
+              ? t(
+                  removing.song.origin === 'church' && !session.store.managesChurchLibrary
+                    ? 'songs.hideChurchBody'
+                    : 'songs.removeUnused',
+                )
+              : t(
+                  removing.song.origin === 'church' && !session.store.managesChurchLibrary
+                    ? 'songs.hideChurchUsed'
+                    : 'songs.removeUsed',
+                  {
+                    count: removing.usage.length,
+                    dates:
+                      removing.usage
+                        .slice(-3)
+                        .map((date) => formatDate(date))
+                        .join(', ') + (removing.usage.length > 3 ? ', …' : ''),
+                  },
+                )
           }
           confirmLabel={t('common.remove')}
           danger

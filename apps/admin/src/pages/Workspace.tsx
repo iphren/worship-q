@@ -1,0 +1,539 @@
+import type { AdminLibraryPlan, AdminLiveView, AdminWorkspace } from '@worship-q/protocol';
+import { useState, type ReactNode } from 'react';
+import { api } from '../api';
+import {
+  CONNECTION_LABEL,
+  ROLE_LABEL,
+  expiryText,
+  formatDate,
+  formatDateTime,
+  isPast,
+  onScreen,
+  routePath,
+} from '../format';
+import { useSession } from '../session';
+import {
+  Badge,
+  Button,
+  Card,
+  CodeReveal,
+  Confirm,
+  ErrorText,
+  InlineForm,
+  Link,
+  Notice,
+  PageTitle,
+  SectionTitle,
+  Spinner,
+  Switch,
+  When,
+} from '../ui';
+import { useAction, useLoad } from '../useLoad';
+
+export function WorkspacePage({ id }: { id: string }) {
+  // There is no route for one workspace, so the list is loaded and the one picked out.
+  const list = useLoad(() => api.workspaces(), []);
+  const workspace = list.data?.workspaces.find((w) => w.id === id) ?? null;
+  const replace = (next: AdminWorkspace) =>
+    list.setData((d) => ({ workspaces: d.workspaces.map((w) => (w.id === next.id ? next : w)) }));
+
+  if (!list.data) {
+    return (
+      <div className="space-y-3">
+        <ErrorText error={list.error} />
+        {!list.error && (
+          <p className="flex items-center gap-2 text-slate-400">
+            <Spinner /> Loading…
+          </p>
+        )}
+      </div>
+    );
+  }
+  if (!workspace) {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold text-white">Workspace not found</h1>
+        <p className="text-slate-400">There is no workspace with this address.</p>
+        <Link to={routePath({ page: 'workspaces' })} className="text-sky-400 hover:underline">
+          Back to Workspaces
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <Link
+        to={routePath({ page: 'workspaces' })}
+        className="text-sm text-slate-400 hover:text-white"
+      >
+        ‹ Workspaces
+      </Link>
+      <Header workspace={workspace} onChanged={replace} />
+      <ErrorText error={list.error} />
+      <LiveSection id={id} />
+      <CodeSection workspace={workspace} onChanged={replace} />
+      <LibrarySection workspace={workspace} onChanged={replace} />
+    </div>
+  );
+}
+
+function Header(props: { workspace: AdminWorkspace; onChanged(next: AdminWorkspace): void }) {
+  const { workspace } = props;
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(workspace.name);
+  const rename = useAction();
+  async function submit() {
+    const result = await rename.run(() => api.updateWorkspace(workspace.id, { name: name.trim() }));
+    if (!result) return;
+    props.onChanged(result.workspace);
+    setEditing(false);
+  }
+  return (
+    <div>
+      {editing ? (
+        <InlineForm
+          label="Workspace name"
+          value={name}
+          onChange={setName}
+          placeholder="Workspace name"
+          submitLabel="Save"
+          busy={rename.busy}
+          error={rename.error}
+          autoFocus
+          onSubmit={() => void submit()}
+          onCancel={() => {
+            setEditing(false);
+            rename.clear();
+          }}
+        />
+      ) : (
+        <PageTitle
+          aside={
+            <Button
+              small
+              onClick={() => {
+                setName(workspace.name);
+                setEditing(true);
+              }}
+            >
+              Rename
+            </Button>
+          }
+        >
+          {workspace.name}
+          {workspace.live && <Badge tone="live">Live</Badge>}
+        </PageTitle>
+      )}
+      <p className="text-sm text-slate-400">
+        {workspace.devices === 1 ? '1 device' : `${workspace.devices} devices`} · Created{' '}
+        <When iso={workspace.createdAt} />
+        {workspace.contentId === null && ' · No content uploaded yet'}
+      </p>
+    </div>
+  );
+}
+
+// ── Connection code (D30) ────────────────────────────────────────────────────
+
+function CodeSection(props: { workspace: AdminWorkspace; onChanged(next: AdminWorkspace): void }) {
+  const { workspace } = props;
+  const me = useSession();
+  const toggle = useAction();
+  const [confirmNew, setConfirmNew] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+
+  async function setEnabled(codesEnabled: boolean) {
+    const result = await toggle.run(() => api.updateWorkspace(workspace.id, { codesEnabled }));
+    if (result) props.onChanged(result.workspace);
+  }
+
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          <Switch
+            label="Connection code works"
+            checked={workspace.codesEnabled}
+            disabled={toggle.busy}
+            onChange={(on) => void setEnabled(on)}
+          />
+        }
+      >
+        Connection code
+      </SectionTitle>
+      <div className="space-y-3 text-sm text-slate-300">
+        {me.hasAdministrators ? (
+          <p>
+            The code is {workspace.codesEnabled ? <strong>on</strong> : <strong>off</strong>}.
+            Because this instance has administrators, codes are off unless turned on here: a new
+            computer normally pairs instead, and an administrator approves it on the Devices page.
+            Turn the code on for a while when a computer must join with it, and off again
+            afterwards.
+          </p>
+        ) : (
+          <p>Computers join this workspace with its connection code.</p>
+        )}
+        <ErrorText error={toggle.error} />
+        {code && (
+          <CodeReveal code={code} workspaceName={workspace.name} onClose={() => setCode(null)} />
+        )}
+        <Button small onClick={() => setConfirmNew(true)}>
+          New code
+        </Button>
+      </div>
+      {confirmNew && (
+        <Confirm
+          title="Make a new connection code?"
+          confirmLabel="New code"
+          onCancel={() => setConfirmNew(false)}
+          onConfirm={async () => {
+            const result = await api.newCode(workspace.id);
+            setCode(result.code);
+            setConfirmNew(false);
+          }}
+        >
+          <p>
+            The current code stops working at once. Computers that already joined are not affected.
+            The new code is shown once.
+          </p>
+        </Confirm>
+      )}
+    </Card>
+  );
+}
+
+// ── Manage Church Library (D36) ──────────────────────────────────────────────
+
+function LibrarySection(props: {
+  workspace: AdminWorkspace;
+  onChanged(next: AdminWorkspace): void;
+}) {
+  const { workspace } = props;
+  const [turning, setTurning] = useState<'on' | 'off' | null>(null);
+  const [plan, setPlan] = useState<AdminLibraryPlan | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [moved, setMoved] = useState<number | null>(null);
+
+  function begin(on: boolean) {
+    setMoved(null);
+    setTurning(on ? 'on' : 'off');
+    setPlan(null);
+    setPlanError(null);
+    if (on) {
+      api
+        .libraryPlan(workspace.id)
+        .then(setPlan, (cause: unknown) =>
+          setPlanError(cause instanceof Error ? cause.message : 'The plan could not be loaded.'),
+        );
+    }
+  }
+
+  async function confirm(on: boolean) {
+    const result = await api.setManageLibrary(workspace.id, on);
+    props.onChanged(result.workspace);
+    setMoved(on ? result.moved : null);
+    setTurning(null);
+  }
+
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          <Switch
+            label="Manage Church Library"
+            checked={workspace.manageLibrary}
+            onChange={(on) => begin(on)}
+          />
+        }
+      >
+        Manage Church Library
+      </SectionTitle>
+      <div className="space-y-3 text-sm text-slate-300">
+        {workspace.manageLibrary ? (
+          <p>
+            This workspace <strong>manages the Church Library</strong>: its songs and backgrounds
+            are the church's, and every workspace receives them.
+          </p>
+        ) : (
+          <p>
+            This workspace has its own library and receives the Church Library. Turning this on
+            makes its songs and backgrounds the church's; the changes are listed for confirmation
+            first.
+          </p>
+        )}
+        {moved !== null && (
+          <Notice tone="success" onClose={() => setMoved(null)}>
+            Manage Church Library is on.{' '}
+            {moved === 1 ? '1 file was moved' : `${moved} files were moved`} to the Church Library.
+          </Notice>
+        )}
+      </div>
+      {turning === 'on' && (
+        <Confirm
+          title="Turn on Manage Church Library?"
+          confirmLabel="Turn on"
+          ready={plan !== null}
+          onCancel={() => setTurning(null)}
+          onConfirm={() => confirm(true)}
+        >
+          <p>
+            Everything in <strong>{workspace.name}</strong> becomes the church's and reaches every
+            workspace. This is what will happen:
+          </p>
+          <ErrorText error={planError} />
+          {!plan && !planError && (
+            <p className="flex items-center gap-2 text-slate-400">
+              <Spinner /> Working out the changes…
+            </p>
+          )}
+          {plan && <PlanView plan={plan} />}
+        </Confirm>
+      )}
+      {turning === 'off' && (
+        <Confirm
+          title="Turn off Manage Church Library?"
+          confirmLabel="Turn off"
+          onCancel={() => setTurning(null)}
+          onConfirm={() => confirm(false)}
+        >
+          <p>
+            <strong>{workspace.name}</strong> stops managing the Church Library. What it put there
+            stays the church's; from now on the workspace receives the Church Library like any
+            other, and its new songs stay its own.
+          </p>
+        </Confirm>
+      )}
+    </Card>
+  );
+}
+
+/** The plan grouped as D36 asks, so the administrator sees every effect before confirming. */
+function PlanView({ plan }: { plan: AdminLibraryPlan }) {
+  const promoted = plan.overrides.filter((o) => !o.usesChurchVersion);
+  const dropped = plan.overrides.filter((o) => o.usesChurchVersion);
+  const empty =
+    plan.songs.length + plan.backgrounds.length + plan.overrides.length + plan.hidden.length === 0;
+  if (empty) {
+    return (
+      <p className="text-slate-400">Nothing changes: the workspace has no content of its own.</p>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <PlanGroup title="Songs that become the church's" items={plan.songs} />
+      <PlanGroup title="Backgrounds that become the church's" items={plan.backgrounds} />
+      {promoted.length > 0 && (
+        <PlanGroup
+          title="Church songs this workspace's version replaces, church-wide"
+          items={promoted.map((o) => (
+            <>
+              {o.title}
+              {o.churchChangedSince && <Badge tone="warn">the church's changed since</Badge>}
+            </>
+          ))}
+        />
+      )}
+      {dropped.length > 0 && (
+        <PlanGroup
+          title="Versions dropped, the church's stands"
+          hint="This workspace chose the church's version of these songs, so its own version is let go, not promoted."
+          items={dropped.map((o) => o.title)}
+        />
+      )}
+      <PlanGroup
+        title="Hidden church items that reappear"
+        hint="The workspace had deleted these from its view; they come back for it."
+        items={plan.hidden}
+      />
+    </div>
+  );
+}
+
+function PlanGroup(props: { title: string; hint?: string; items: ReactNode[] }) {
+  if (props.items.length === 0) return null;
+  return (
+    <div>
+      <h3 className="font-semibold text-slate-100">
+        {props.title} <span className="font-normal text-slate-400">({props.items.length})</span>
+      </h3>
+      {props.hint && <p className="text-xs text-slate-400">{props.hint}</p>}
+      <ul className="mt-1 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5 text-slate-200">
+        {props.items.map((item, index) => (
+          <li key={index} className="flex flex-wrap items-center gap-2">
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Live now (D38) ───────────────────────────────────────────────────────────
+
+const LIVE_POLL_MS = 5000;
+
+function LiveSection({ id }: { id: string }) {
+  const live = useLoad(() => api.live(id), [id], LIVE_POLL_MS);
+  const view: AdminLiveView | null = live.data;
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          view?.live ? (
+            <Badge tone="live">Live now</Badge>
+          ) : view ? (
+            <Badge>Not presenting</Badge>
+          ) : null
+        }
+      >
+        Presentation
+      </SectionTitle>
+      <ErrorText error={live.error} className="mb-2" />
+      {!view && !live.error && (
+        <p className="flex items-center gap-2 text-sm text-slate-400">
+          <Spinner /> Checking…
+        </p>
+      )}
+      {view && !view.live && (
+        <p className="text-sm text-slate-400">
+          No computer of this workspace is presenting right now. This page checks every few seconds.
+        </p>
+      )}
+      {view?.live && <LiveView view={view} />}
+    </Card>
+  );
+}
+
+function LiveView({ view }: { view: Extract<AdminLiveView, { live: true }> }) {
+  const { snapshot, coordinator } = view;
+  const screen = onScreen(snapshot);
+  const expired = isPast(view.expiresAt);
+  return (
+    <div className="space-y-4 text-sm">
+      <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        <Fact label="Presenting computer">
+          {coordinator.name ?? 'Unnamed computer'}{' '}
+          {coordinator.connected ? (
+            <Badge tone="live">Connected</Badge>
+          ) : (
+            <span className="text-slate-400">
+              · not connected, last heard <When iso={view.updatedAt} />
+            </span>
+          )}
+        </Fact>
+        <Fact label="Run sheet">{formatDate(snapshot.date)}</Fact>
+        <Fact label="Started">
+          <When iso={snapshot.state.startedAt} />
+        </Fact>
+        <Fact label={expired ? 'Expiry' : 'Without a computer connected'}>
+          <span title={formatDateTime(view.expiresAt)} className={expired ? 'text-amber-300' : ''}>
+            {expiryText(view.expiresAt)}
+          </span>
+        </Fact>
+      </dl>
+
+      <div>
+        <h3 className="mb-1 font-semibold text-slate-100">On screen</h3>
+        <div
+          className={`rounded-lg border px-4 py-3 ${
+            screen.blank
+              ? 'border-amber-600 bg-amber-950/50'
+              : screen.title
+                ? 'border-emerald-700 bg-emerald-950/40'
+                : 'border-slate-700 bg-slate-900'
+          }`}
+        >
+          {screen.blank && (
+            <p className="mb-1">
+              <Badge tone="warn">Blank</Badge>
+              <span className="ml-2 text-amber-100">The screen is blanked.</span>
+            </p>
+          )}
+          {screen.title ? (
+            <>
+              <p className="font-semibold text-white">{screen.title}</p>
+              {screen.lines.length > 0 ? (
+                <div className="mt-1 text-slate-200">
+                  {screen.lines.map((line, index) => (
+                    <div key={index}>{line || ' '}</div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-slate-400">
+                  {screen.pieceMissing ? 'The slide is not in the snapshot.' : 'No text.'}
+                </p>
+              )}
+            </>
+          ) : (
+            !screen.blank && <p className="text-slate-400">Nothing is on screen.</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-1 font-semibold text-slate-100">Run sheet items</h3>
+        {snapshot.items.length === 0 ? (
+          <p className="text-slate-400">The run sheet has no items.</p>
+        ) : (
+          <ol className="space-y-1">
+            {snapshot.items.map((item, index) => {
+              const current = snapshot.presented?.itemId === item.itemId;
+              return (
+                <li
+                  key={item.itemId}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+                    current ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
+                  }`}
+                >
+                  <span className="w-5 shrink-0 text-right text-xs text-slate-500">
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{item.title || 'Untitled'}</span>
+                  {item.kind !== 'lyrics' && (
+                    <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
+                  )}
+                  {item.removed && <Badge tone="warn">Removed from library</Badge>}
+                  {current && <Badge tone="live">On screen</Badge>}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-1 font-semibold text-slate-100">Connected devices</h3>
+        {snapshot.devices.length === 0 ? (
+          <p className="text-slate-400">No device is following the presentation.</p>
+        ) : (
+          <ul className="space-y-1">
+            {snapshot.devices.map((device) => (
+              <li
+                key={device.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-900 px-3 py-1.5"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium text-slate-100">
+                  {device.name || 'Unnamed'}
+                </span>
+                <span className="text-slate-400">{ROLE_LABEL[device.role]}</span>
+                <span className="text-slate-500">{CONNECTION_LABEL[device.connection]}</span>
+                <span className="text-xs text-slate-500">
+                  <When iso={device.lastSeenAt} prefix="seen" />
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Fact(props: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs tracking-wide text-slate-500 uppercase">{props.label}</dt>
+      <dd className="text-slate-200">{props.children}</dd>
+    </div>
+  );
+}

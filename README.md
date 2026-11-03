@@ -15,6 +15,7 @@ share one presentation.
 | Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                 |
 | Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                 |
 | Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md) |
+| Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                              |
 | Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                 |
 
 ## Develop
@@ -38,6 +39,7 @@ pnpm format
 ```sh
 pnpm --filter @worship-q/remote-web build
 pnpm --filter @worship-q/output-web build
+pnpm --filter @worship-q/admin-web build
 pnpm --filter @worship-q/server dev                       # http://localhost:8080, data in apps/server/data
 pnpm --filter @worship-q/server cli workspace create "Test"
 ```
@@ -64,6 +66,7 @@ apps/desktop/          Desktop app: React interface and the Tauri (Rust) core
 apps/server/           Church server: sync, backups, church defaults, relay, live-state backup
 apps/remote/           Phone remote-control page, served by the church server
 apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
+apps/admin/            Admin web app for the church's administrators, served by the church server at /admin/
 apps/website/          worship-q.com download page, on GitHub Pages
 
 packages/protocol/     Shared record schemas, wire messages and the protocol version
@@ -155,8 +158,10 @@ If a release turns out bad, mark the previous release as latest again, or edit i
 `latest.json` back. Then ship a fix. This stops further updates, but it doesn't downgrade
 computers that already updated.
 
-A release that raises the protocol version needs the church server updated first. See
-[Church server deployment](docs/server-deployment.md#updating-to-phase-2-protocol-version-2).
+A release that raises the protocol version may need the church server updated first; phase 2
+did, phase 3 does not. See
+[Church server deployment](docs/server-deployment.md#updating-to-phase-2-protocol-version-2)
+and [Updating to phase 3](docs/server-deployment.md#updating-to-phase-3-protocol-version-3).
 
 Release builds need the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, which sign the updates. If you lose that key, installed

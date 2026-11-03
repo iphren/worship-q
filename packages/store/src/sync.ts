@@ -66,6 +66,11 @@ export interface SyncState {
   lanPeers:
     | { deviceId: string; name: string; fingerprint: string; addresses: string[]; port: number }[]
     | null;
+  /**
+   * Whether the workspace manages the Church Library, as the instance last said (phase 3,
+   * D31). Null until a version 3 instance has said.
+   */
+  manageLibrary: boolean | null;
 }
 
 export const EMPTY_SYNC_STATE: SyncState = {
@@ -85,6 +90,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   tokenStorage: null,
   lanCredentials: null,
   lanPeers: null,
+  manageLibrary: null,
 };
 
 export interface AppliedChanges {
@@ -227,7 +233,8 @@ export class SyncStore {
         key: text(row.id),
         revision: Number(row.revision),
         updatedAt: text(row.updated_at),
-        data: songData(row),
+        // Which version the workspace uses travels with its record (D32).
+        data: { ...songData(row), useChurchVersion: Number(row.use_church_version) === 1 },
       });
     }
 
@@ -308,20 +315,29 @@ export class SyncStore {
       workspace: false,
       settings: false,
     };
-    // Only the latest of several records for the same thing matters.
+    // Only the latest of several records for the same thing matters. The church's shadow
+    // of a two-version song is another thing than the song (D31).
     const latest = new Map<string, SyncRecord>();
     for (const record of records) {
-      const id = `${record.kind}:${record.key}`;
+      const id = `${record.kind}:${record.key}${record.shadow ? ':shadow' : ''}`;
       const known = latest.get(id);
       if (!known || syncWins(record, known)) latest.set(id, record);
     }
+    // Shadows after the songs themselves, so a song that just became the workspace's own
+    // keeps the church's copy before a newer shadow replaces it.
     const ordered = [...latest.values()].sort(
-      (a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind),
+      (a, b) =>
+        KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) ||
+        Number(a.shadow ?? false) - Number(b.shadow ?? false),
     );
 
     // Records may refer to songs that never reached the instance; those references are left
     // out rather than failing the whole transaction.
     const incomingSongs = new Set(ordered.filter((r) => r.kind === 'song').map((r) => r.id));
+    // The songs themselves in this batch, which a shadow may belong to before they are saved.
+    const songsHere = new Map(
+      ordered.filter((r) => r.kind === 'song' && !r.shadow).map((r) => [r.id, r]),
+    );
     const known = async (songId: string) =>
       incomingSongs.has(songId) ||
       (await this.db.select('SELECT 1 FROM song WHERE id = ?', [songId])).length > 0;
@@ -337,7 +353,11 @@ export class SyncStore {
           statements.push(...(await this.applyBackground(workspaceId, record, changes)));
           break;
         case 'song':
-          statements.push(...(await this.applySong(workspaceId, record, changes)));
+          statements.push(
+            ...(record.shadow
+              ? await this.applyShadow(record, changes, songsHere.get(record.id))
+              : await this.applySong(workspaceId, record, changes)),
+          );
           break;
         case 'songRevision':
           if (await known(str(record.data.songId))) statements.push(applySongRevision(record));
@@ -401,16 +421,29 @@ export class SyncStore {
           updatedAt: optional(row.removed_at) ?? text(row.created_at),
         }
       : null;
-    if (!syncWins(record, current)) return [];
+    const origin = record.origin ?? null;
+    if (!syncWins(record, current)) {
+      // The same record, but the instance now says whose it is (D31).
+      if (row && origin && optional(row.origin) !== origin) {
+        return [
+          {
+            sql: 'UPDATE background_asset SET origin = ? WHERE id = ?',
+            params: [origin, record.id],
+          },
+        ];
+      }
+      return [];
+    }
     const { data } = record;
     const fileName = str(data.fileName);
     const removedAt = strOrNull(data.removedAt);
     if (!row && !removedAt) changes.backgroundFiles.push(fileName);
     return [
       {
-        sql: `INSERT INTO background_asset (id, workspace_id, kind, file_name, original_name, created_at, removed_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT (id) DO UPDATE SET removed_at = excluded.removed_at`,
+        sql: `INSERT INTO background_asset (id, workspace_id, kind, file_name, original_name, created_at, removed_at, origin)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT (id) DO UPDATE SET removed_at = excluded.removed_at,
+                origin = coalesce(excluded.origin, background_asset.origin)`,
         params: [
           record.id,
           workspaceId,
@@ -419,18 +452,44 @@ export class SyncStore {
           str(data.originalName),
           str(data.createdAt) || record.updatedAt,
           removedAt,
+          origin,
         ],
       },
     ];
   }
 
+  /**
+   * A song from the instance. A version 3 instance says whose it is (D31): when that
+   * changes, the instance is believed over the usual later-edit-wins rule, because it is
+   * the instance that knows whether the workspace has a version of its own.
+   */
   private async applySong(
     workspaceId: string,
     record: SyncRecord,
     changes: AppliedChanges,
   ): Promise<Statement[]> {
     const current = await this.current('SELECT * FROM song WHERE id = ?', [record.id]);
-    if (!syncWins(record, current)) return [];
+    const origin = record.origin ?? null;
+    const currentOrigin = current ? optional(current.row.origin) : null;
+    // The workspace now has its own version, made on another device: the row here holds the
+    // church's content, which is kept beside it. Or the workspace's version is gone (D32,
+    // Delete our version elsewhere) and the church's is the song again.
+    const becomesOwn = current !== null && origin === 'workspace' && currentOrigin === 'church';
+    const becomesChurch = current !== null && origin === 'church' && currentOrigin === 'workspace';
+    const statements: Statement[] = [];
+    if (!becomesOwn && !becomesChurch && !syncWins(record, current)) {
+      // The same record, but the instance now says whose it is.
+      if (current && origin && currentOrigin !== origin) {
+        statements.push({
+          sql: 'UPDATE song SET origin = ? WHERE id = ?',
+          params: [origin, record.id],
+        });
+        if (Number(current.row.use_church_version) === 1 && origin === 'church') {
+          statements.push(...(await this.dropChurchVersion(record.id)));
+        }
+      }
+      return statements;
+    }
     changes.songs.add(record.id);
     const d = record.data;
     const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
@@ -440,25 +499,136 @@ export class SyncStore {
     // A deck's slide images are fetched like background files, also for a deck removed from
     // the library: run sheets that use it still present it.
     if (deck) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
+    if (becomesOwn) statements.push(this.store.keepChurchVersionStatement(record.id));
+    if (becomesChurch) statements.push(...(await this.dropChurchVersion(record.id)));
+    const useChurchVersion = origin === 'workspace' && d.useChurchVersion === true ? 1 : 0;
+    statements.push({
+      sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
+              background_color, background_asset_id, deck, website, revision, created_at, updated_at,
+              removed_at, origin, use_church_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
+              line_ids = excluded.line_ids, author = excluded.author, copyright = excluded.copyright,
+              ccli = excluded.ccli, year = excluded.year, background_color = excluded.background_color,
+              background_asset_id = excluded.background_asset_id, deck = excluded.deck,
+              website = excluded.website,
+              revision = excluded.revision, updated_at = excluded.updated_at,
+              removed_at = excluded.removed_at,
+              origin = coalesce(excluded.origin, song.origin),
+              use_church_version = excluded.use_church_version`,
+      params: [
+        record.id,
+        workspaceId,
+        str(d.title),
+        str(d.lyrics),
+        JSON.stringify(lineIds),
+        str(d.author),
+        str(d.copyright),
+        strOrNull(d.ccli),
+        numOrNull(d.year),
+        background ? strOrNull(background.color) : null,
+        background ? strOrNull(background.assetId) : null,
+        deck ? JSON.stringify(deck) : null,
+        website ? JSON.stringify(website) : null,
+        record.revision,
+        str(d.createdAt) || record.updatedAt,
+        record.updatedAt,
+        strOrNull(d.removedAt),
+        origin,
+        useChurchVersion,
+      ],
+    });
+    // The search index follows the version in use: the church's when chosen and known here.
+    const church = useChurchVersion
+      ? await this.db.select<Row>('SELECT title, lyrics FROM church_version WHERE song_id = ?', [
+          record.id,
+        ])
+      : [];
+    const indexed = church[0] ?? { title: str(d.title), lyrics: str(d.lyrics) };
+    statements.push(
+      this.store.searchUpsert({
+        id: record.id,
+        title: text(indexed.title),
+        lyrics: text(indexed.lyrics),
+      }),
+    );
+    return statements;
+  }
+
+  /**
+   * The church's record for a song the workspace has its own version of (D31): kept beside
+   * the song, never shown as it. The church deleting the song ends the two versions: the
+   * workspace's own is the song from then on (spec §5), whichever was in use.
+   */
+  private async applyShadow(
+    record: SyncRecord,
+    changes: AppliedChanges,
+    /** The song itself when it arrived in the same batch, and so is not saved yet. */
+    arriving?: SyncRecord,
+  ): Promise<Statement[]> {
+    // A song the instance now gives as the church's has no second version (D32).
+    if (arriving?.origin === 'church') return [];
+    const saved = await this.current('SELECT * FROM song WHERE id = ?', [record.id]);
+    // What the song will be once the batch is saved: the arriving record when it is taken.
+    const taken =
+      arriving &&
+      (!saved ||
+        syncWins(arriving, saved) ||
+        (arriving.origin !== undefined && optional(saved.row.origin) !== arriving.origin));
+    const own = taken
+      ? {
+          title: str(arriving.data.title),
+          lyrics: str(arriving.data.lyrics),
+          inUse: arriving.origin === 'workspace' && arriving.data.useChurchVersion === true,
+        }
+      : saved
+        ? {
+            title: text(saved.row.title),
+            lyrics: text(saved.row.lyrics),
+            inUse: Number(saved.row.use_church_version) === 1,
+          }
+        : null;
+    if (!own) return [];
+    const d = record.data;
+    const inUse = own.inUse;
+    if (strOrNull(d.removedAt)) {
+      // Also forgets a church version kept earlier in this batch, so not looked up first.
+      const statements: Statement[] = [
+        { sql: 'DELETE FROM church_version WHERE song_id = ?', params: [record.id] },
+        { sql: 'UPDATE song SET use_church_version = 0 WHERE id = ?', params: [record.id] },
+      ];
+      if (inUse) {
+        changes.songs.add(record.id);
+        statements.push(
+          this.store.searchUpsert({ id: record.id, title: own.title, lyrics: own.lyrics }),
+        );
+      }
+      return statements;
+    }
+    const current = await this.current('SELECT * FROM church_version WHERE song_id = ?', [
+      record.id,
+    ]);
+    if (!syncWins(record, current)) return [];
+    if (inUse) changes.songs.add(record.id);
+    const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
+    const deck = deckOf(d.deck);
+    const website = websiteOf(d.website);
+    if (deck) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
     return [
       {
-        sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, website, revision, created_at, updated_at,
-                removed_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT (id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
+        sql: `INSERT INTO church_version (song_id, title, lyrics, line_ids, author, copyright, ccli, year,
+                background_color, background_asset_id, deck, website, revision, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT (song_id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
                 line_ids = excluded.line_ids, author = excluded.author, copyright = excluded.copyright,
                 ccli = excluded.ccli, year = excluded.year, background_color = excluded.background_color,
                 background_asset_id = excluded.background_asset_id, deck = excluded.deck,
-                website = excluded.website,
-                revision = excluded.revision, updated_at = excluded.updated_at,
-                removed_at = excluded.removed_at`,
+                website = excluded.website, revision = excluded.revision, updated_at = excluded.updated_at`,
         params: [
           record.id,
-          workspaceId,
           str(d.title),
           str(d.lyrics),
-          JSON.stringify(lineIds),
+          JSON.stringify(Array.isArray(d.lineIds) ? d.lineIds : []),
           str(d.author),
           str(d.copyright),
           strOrNull(d.ccli),
@@ -468,12 +638,22 @@ export class SyncStore {
           deck ? JSON.stringify(deck) : null,
           website ? JSON.stringify(website) : null,
           record.revision,
-          str(d.createdAt) || record.updatedAt,
           record.updatedAt,
-          strOrNull(d.removedAt),
         ],
       },
-      this.store.searchUpsert({ id: record.id, title: str(d.title), lyrics: str(d.lyrics) }),
+      ...(inUse
+        ? [this.store.searchUpsert({ id: record.id, title: str(d.title), lyrics: str(d.lyrics) })]
+        : []),
+    ];
+  }
+
+  /** Forgets the church's version of a song, and the choice to use it. */
+  private async dropChurchVersion(songId: string): Promise<Statement[]> {
+    const rows = await this.db.select('SELECT 1 FROM church_version WHERE song_id = ?', [songId]);
+    if (rows.length === 0) return [];
+    return [
+      { sql: 'DELETE FROM church_version WHERE song_id = ?', params: [songId] },
+      { sql: 'UPDATE song SET use_church_version = 0 WHERE id = ?', params: [songId] },
     ];
   }
 

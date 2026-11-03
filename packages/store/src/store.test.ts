@@ -49,6 +49,7 @@ describe('migrations', () => {
     expect(tables.map((t) => t.name)).toEqual([
       'background_asset',
       'church_setting',
+      'church_version',
       'live_state',
       'output_profile',
       'remote_grant',
@@ -386,6 +387,130 @@ describe('songs', () => {
     await store.addItem(second.id, song.id);
     expect(await store.songUsage(song.id)).toEqual(['2026-10-11', '2026-10-18']);
     expect(await store.songUsage('unused')).toEqual([]);
+  });
+});
+
+describe('two versions of a song (D31, D32)', () => {
+  /** A song as a version 3 instance's pull marks it: the church's. */
+  async function churchSong(title = 'Church Song', lyrics = 'church line') {
+    const song = await store.createSong(workspaceId, { title, lyrics });
+    await driver.batch([
+      { sql: `UPDATE song SET origin = 'church' WHERE id = ?`, params: [song.id] },
+    ]);
+    return (await store.getSong(song.id))!;
+  }
+
+  it('starts with no origin on a computer without a church', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mine' });
+    expect(song).toMatchObject({ origin: null, useChurchVersion: false, versions: null });
+    expect(await store.getSong(song.id)).toMatchObject({ origin: null, versions: null });
+  });
+
+  it('makes the workspace’s version on editing a church song, keeping the church’s beside it', async () => {
+    const song = await churchSong();
+    env.advance(1000);
+    const edited = await store.updateSong(song.id, { lyrics: 'our line' });
+    expect(edited).toMatchObject({
+      origin: 'workspace',
+      useChurchVersion: false,
+      lyrics: 'our line',
+      revision: 2,
+    });
+    expect(edited.versions).toEqual({
+      own: { revision: 2, updatedAt: env.now() },
+      church: { revision: 1, updatedAt: song.updatedAt },
+    });
+    expect(await store.getChurchVersion(song.id)).toMatchObject({
+      lyrics: 'church line',
+      revision: 1,
+      origin: 'church',
+    });
+    // Saving nothing new makes no version.
+    const other = await churchSong('Untouched');
+    expect((await store.updateSong(other.id, { title: 'Untouched' })).origin).toBe('church');
+  });
+
+  it('edits a church song in place when the workspace manages the Church Library', async () => {
+    store.managesChurchLibrary = true;
+    const song = await churchSong();
+    const edited = await store.updateSong(song.id, { lyrics: 'changed' });
+    expect(edited).toMatchObject({ origin: 'church', versions: null, lyrics: 'changed' });
+    expect(await store.getChurchVersion(song.id)).toBeNull();
+    expect((await store.createSong(workspaceId, { title: 'New' })).origin).toBe('church');
+  });
+
+  it('presents and searches the version the workspace chose', async () => {
+    const song = await churchSong('Amazing Grace', 'how sweet the sound');
+    await store.updateSong(song.id, { title: 'Grace (ours)', lyrics: 'our own words' });
+    expect((await store.listSongs(workspaceId, 'sweet')).length).toBe(0);
+    expect((await store.listSongs(workspaceId, 'own')).map((s) => s.title)).toEqual([
+      'Grace (ours)',
+    ]);
+
+    env.advance(1000);
+    const chosen = await store.setUseChurchVersion(song.id, true);
+    expect(chosen).toMatchObject({
+      useChurchVersion: true,
+      title: 'Amazing Grace',
+      lyrics: 'how sweet the sound',
+      origin: 'workspace',
+      revision: 3,
+    });
+    expect((await store.listSongs(workspaceId, 'sweet')).map((s) => s.title)).toEqual([
+      'Amazing Grace',
+    ]);
+    expect(await store.listSongs(workspaceId, 'own')).toEqual([]);
+    expect((await store.listSongs(workspaceId)).map((s) => s.title)).toEqual(['Amazing Grace']);
+    // Choosing again changes nothing; choosing back works.
+    expect((await store.setUseChurchVersion(song.id, true)).revision).toBe(3);
+    expect((await store.setUseChurchVersion(song.id, false)).title).toBe('Grace (ours)');
+    // The choice is recorded as an edit of the song, so it synchronizes, without a revision.
+    expect(await store.listSongRevisions(song.id)).toHaveLength(2);
+  });
+
+  it('edits the workspace’s version from the church’s text when that was in use', async () => {
+    const song = await churchSong('Church Song', 'church line');
+    await store.updateSong(song.id, { lyrics: 'our line' });
+    await store.setUseChurchVersion(song.id, true);
+    const edited = await store.updateSong(song.id, { lyrics: 'church line\nplus ours' });
+    expect(edited).toMatchObject({ useChurchVersion: false, lyrics: 'church line\nplus ours' });
+    expect((await store.getChurchVersion(song.id))?.lyrics).toBe('church line');
+  });
+
+  it('refuses to choose a version for a song with one', async () => {
+    const song = await store.createSong(workspaceId, { title: 'One' });
+    await expect(store.setUseChurchVersion(song.id, true)).rejects.toThrow(/one version/);
+  });
+
+  it('hides a church song as the workspace’s own record', async () => {
+    const song = await churchSong();
+    await store.removeSong(song.id);
+    expect(await store.getSong(song.id)).toMatchObject({
+      origin: 'workspace',
+      removedAt: env.now(),
+      useChurchVersion: false,
+    });
+    expect(await store.listSongs(workspaceId)).toEqual([]);
+  });
+
+  it('pulls everything again once after the upgrade, so every song learns its origin', async () => {
+    // A database from before phase 3, mid-way through synchronizing.
+    const earlier = MIGRATIONS.filter((m) => m.version <= 8);
+    const old = openNodeDriver();
+    await migrate(old, earlier);
+    await old.batch([
+      { sql: `INSERT INTO sync_state (key, value) VALUES ('cursor', '417')` },
+      { sql: `INSERT INTO sync_state (key, value) VALUES ('server', '"https://x"')` },
+    ]);
+    await migrate(old);
+    const rows = await old.select<{ key: string; value: string }>(
+      'SELECT key, value FROM sync_state ORDER BY key',
+    );
+    expect(rows).toEqual([
+      { key: 'cursor', value: '0' },
+      { key: 'server', value: '"https://x"' },
+    ]);
+    old.close();
   });
 });
 

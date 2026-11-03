@@ -18,7 +18,9 @@ import {
   type LiveSnapshot,
   type OutputKind,
   type OutputLink,
+  type PairingStartResponse,
   type RelayToDesktop,
+  type ServerInfo,
   type Song,
   type WorkspaceGrant,
 } from '@worship-q/protocol';
@@ -27,6 +29,7 @@ import type { Session } from '@worship-q/session';
 import { SyncStore, type SyncState } from '@worship-q/store';
 import {
   httpApi,
+  negotiate,
   normalizeServer,
   SyncClient,
   type FileTransfer,
@@ -77,6 +80,15 @@ export interface CloudStatus {
    * back (macOS asks after each update), `missing` when its entry is gone (D23).
    */
   credentials: 'ok' | 'refused' | 'missing';
+  /** What the instance said about itself when last asked; null when it could not be asked. */
+  server: ServerInfo | null;
+}
+
+/** What joining a workspace will do, shown before the operator chooses how (plan M2). */
+export interface JoinPreview {
+  workspaceName: string;
+  churchEmpty: boolean;
+  hasLocalContent: boolean;
 }
 
 export class CloudController {
@@ -106,6 +118,8 @@ export class CloudController {
   private appVersion = '';
   private missingFonts: string[] = [];
   private fontsTimer: number | undefined;
+  /** The protocol version spoken to the instance: its own when older than ours (D26). */
+  private protocolVersion = PROTOCOL_VERSION;
 
   constructor(
     private readonly session: Session,
@@ -127,6 +141,7 @@ export class CloudController {
       live: null,
       outputs: [],
       credentials: 'ok',
+      server: null,
     };
   }
 
@@ -169,10 +184,47 @@ export class CloudController {
       '',
       () => this.state?.deviceToken ?? null,
       (input, init) => fetch(`${server()}${String(input)}`, init),
+      () => this.protocolVersion,
     );
     const client = new SyncClient(this.session, this.syncStore, api, files);
-    client.subscribe(() => this.update({ sync: client.status }));
+    client.subscribe(() => {
+      this.update({ sync: client.status });
+      // The instance refused our version: it may have been updated, or we were. Ask it
+      // again what it speaks and try once more at that version (D26).
+      if (client.status.kind === 'update-needed') void this.renegotiate();
+    });
     return client;
+  }
+
+  /**
+   * Asks the instance what it speaks and keeps to that (D26), so a desktop updated before
+   * its church's server keeps working as a version 2 client. Also learns what the instance
+   * offers: pairing, the admin app.
+   */
+  private async negotiate(server: string): Promise<ServerInfo | null> {
+    const { protocol, info } = await negotiate(server);
+    this.protocolVersion = protocol;
+    this.update({ server: info });
+    return info;
+  }
+
+  private renegotiating = false;
+
+  private async renegotiate(): Promise<void> {
+    const server = this.state?.server;
+    if (!server || this.renegotiating) return;
+    this.renegotiating = true;
+    try {
+      const before = this.protocolVersion;
+      await this.negotiate(server);
+      if (this.protocolVersion !== before) {
+        await this.sync();
+        // The hello carries the version; a fresh connection says the new one.
+        this.relay?.reconnect();
+      }
+    } finally {
+      this.renegotiating = false;
+    }
   }
 
   /** A request to the instance with this device's token and the protocol version. */
@@ -180,7 +232,7 @@ export class CloudController {
     const { server, deviceToken } = this.state ?? {};
     if (!server || !deviceToken) throw new Error('not-connected');
     const headers: Record<string, string> = {
-      [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
+      [PROTOCOL_HEADER]: String(this.protocolVersion),
       authorization: `Bearer ${deviceToken}`,
     };
     if (body !== undefined) headers['content-type'] = 'application/json';
@@ -209,6 +261,7 @@ export class CloudController {
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
     if (!this.connected) return;
     await this.checkFonts();
+    if (this.state?.server) await this.negotiate(this.state.server);
     this.lan = await native.lanStatus().catch(() => null);
     await this.startLive();
     await this.sync();
@@ -300,21 +353,79 @@ export class CloudController {
    * Enrolls this computer with the church instance. Returns what joining will do: whether
    * the church workspace is still empty, and whether this computer has content to keep.
    */
-  async enroll(
-    address: string,
-    code: string,
+  async enroll(address: string, code: string, deviceName: string): Promise<JoinPreview> {
+    const server = await this.aim(address);
+    const enrolled = await this.client.enroll(server, code, deviceName);
+    return this.joined(enrolled.workspace);
+  }
+
+  /**
+   * Asks the instance at `address` what it is, before connecting (D26, D29): whether new
+   * computers pair with an administrator's approval, or still join with a code.
+   */
+  async probe(address: string): Promise<ServerInfo | null> {
+    return this.negotiate(normalizeServer(address));
+  }
+
+  /**
+   * Asks the instance to pair this computer (D29). The code and link are shown to the
+   * operator; `pollPairing` then waits for an administrator.
+   */
+  async startPairing(address: string, deviceName: string): Promise<PairingStartResponse> {
+    await this.aim(address);
+    return this.client.startPairing(deviceName);
+  }
+
+  /** One poll of a pairing; on approval this computer is enrolled and ready to join. */
+  async pollPairing(
+    secret: string,
     deviceName: string,
-  ): Promise<{ workspaceName: string; churchEmpty: boolean; hasLocalContent: boolean }> {
+  ): Promise<
+    { status: 'pending' | 'refused' | 'expired' } | { status: 'approved'; join: JoinPreview }
+  > {
+    const server = this.state?.server;
+    if (!server) throw new Error('not-connected');
+    const result = await this.client.pollPairing(server, secret, deviceName);
+    if (result.status !== 'approved') return { status: result.status };
+    return { status: 'approved', join: await this.joined(result.workspace) };
+  }
+
+  /** Points the connection at an instance and learns what it speaks. */
+  private async aim(address: string): Promise<string> {
     const server = normalizeServer(address);
     this.state = { ...(this.state ?? (await this.syncStore.getState())), server };
-    const enrolled = await this.client.enroll(server, code, deviceName);
+    await this.negotiate(server);
+    return server;
+  }
+
+  private async joined(workspace: {
+    name: string;
+    contentId: string | null;
+  }): Promise<JoinPreview> {
     await this.protectCredentials();
     await this.refreshState();
     return {
-      workspaceName: enrolled.workspace.name,
-      churchEmpty: enrolled.workspace.contentId === null,
+      workspaceName: workspace.name,
+      churchEmpty: workspace.contentId === null,
       hasLocalContent: await this.syncStore.hasContent(this.session.workspace.id),
     };
+  }
+
+  /** The admin app's address, when the instance has one (phase 3). */
+  get adminUrl(): string | null {
+    const server = this.state?.server;
+    return server && this.status_.server?.admin ? `${server}/admin/` : null;
+  }
+
+  // ── Two versions of a song (D32) ─────────────────────────────────────────
+
+  /**
+   * Drops this workspace's own version of a church song, going back to the church's here
+   * and, through the instance, on the workspace's other computers.
+   */
+  async deleteOwnVersion(songId: string): Promise<void> {
+    if (!this.connected) throw new Error('not-connected');
+    await this.client.deleteOwnVersion('song', songId);
   }
 
   /**
@@ -568,7 +679,7 @@ export class CloudController {
     };
     const hello = (): Extract<DesktopToRelay, { type: 'hello' }> => ({
       type: 'hello',
-      protocolVersion: PROTOCOL_VERSION,
+      protocolVersion: this.protocolVersion,
       token: this.state?.deviceToken ?? '',
       capabilities: this.capabilities(),
       role: this.session.isViewer ? 'viewer' : 'operator',
@@ -815,6 +926,14 @@ class RelayTransport implements Transport {
     this.stopped = true;
     window.clearTimeout(this.timer);
     this.socket?.close();
+  }
+
+  /** Connects again with a fresh hello, also after the server refused the last one (D26). */
+  reconnect(): void {
+    if (this.stopped) return;
+    window.clearTimeout(this.timer);
+    if (this.socket) this.socket.close();
+    else this.connect();
   }
 
   private connect(): void {
