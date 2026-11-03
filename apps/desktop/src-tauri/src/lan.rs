@@ -194,6 +194,28 @@ impl Lan {
         }
     }
 
+    /// Stops serving and advertising and ends every connection, accepted or made. The
+    /// interface that owned them is gone when its page loads again (for example when viewer
+    /// mode changes), and the new one starts with none: a connection left open would reach a
+    /// room that no longer exists, and the device at the other end would keep it, hearing
+    /// nothing, instead of connecting again.
+    pub fn reset(&self) {
+        let Ok(mut inner) = self.inner.lock() else {
+            return;
+        };
+        if let Some(server) = inner.server.take() {
+            server.abort();
+        }
+        if let Some(fullname) = inner.advertised.take() {
+            if let Some(daemon) = inner.daemon.as_ref() {
+                let _ = daemon.unregister(&fullname);
+            }
+        }
+        for (_, sender) in inner.connections.drain() {
+            let _ = sender.send(None);
+        }
+    }
+
     fn next_id(&self, prefix: &str) -> String {
         format!("{prefix}-{}", self.counter.fetch_add(1, Ordering::Relaxed))
     }

@@ -15,6 +15,7 @@ mod overlay;
 mod workspaces;
 
 use std::fs;
+use tauri::webview::PageLoadEvent;
 use tauri::{Emitter, LogicalSize, Manager, WindowEvent};
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
@@ -53,6 +54,15 @@ pub fn run() {
             overlay::start(app.handle());
             app.manage(lan::Lan::new(app.handle().clone()));
             Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            // The page loading again (viewer mode, workspaces) starts the interface afresh,
+            // but the LAN server and its connections live here and would outlast it.
+            if webview.label() == "main" && payload.event() == PageLoadEvent::Started {
+                if let Some(lan) = webview.try_state::<lan::Lan>() {
+                    lan.reset();
+                }
+            }
         })
         .on_window_event(|window, event| {
             // Closing the operator window closes the output with it.
