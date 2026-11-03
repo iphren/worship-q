@@ -12,9 +12,9 @@ export const en = {
   'nav.present': 'Present',
   'nav.settings': 'Settings',
   'nav.liveNow': 'A run sheet is live',
-  'role.coordinator': 'Leads',
-  'role.follower': 'Follows',
-  'role.viewer': 'Views',
+  'role.coordinator': 'Lead',
+  'role.follower': 'Follow',
+  'role.viewer': 'View',
   'role.toViewer': 'Switch to viewing only',
   'role.leaveViewer': 'Stop viewing only',
 
@@ -107,11 +107,11 @@ export const en = {
   'songs.deleteOwnVersionNeedsServer': 'Connect to the church server to delete this version.',
   'songs.deleteOwnVersionFailed': 'That did not work: {error}',
   'songs.churchEditHint':
-    'This is a church song. Your changes become this workspace’s version; the church’s stays as it is, here and for other workspaces.',
+    'This is a church song. Your changes become this workspace’s version, the church’s stays as it is, here and for other workspaces.',
   'songs.hideChurchBody':
-    'This is a church song. It is hidden in this workspace only; the church and other workspaces keep it.',
+    'This is a church song. It is hidden in this workspace only, the church and other workspaces keep it.',
   'songs.hideChurchUsed':
-    'This is a church song, used here on {count} dates ({dates}). It is hidden in this workspace only; those run sheets keep it, marked as removed.',
+    'This is a church song, used here on {count} dates ({dates}). It is hidden in this workspace only, those run sheets keep it, marked as removed.',
 
   'calendar.meetingDays': 'Meeting days: {label}',
   'calendar.anyDay': 'Any day',
@@ -205,7 +205,7 @@ export const en = {
   'settings.fontMissing':
     'This font doesn’t include {count} of the characters in your songs. They will be shown in a different font.',
   'settings.scale': 'Text size',
-  'settings.scaleHint': 'The size is fitted to each song automatically; this adjusts it.',
+  'settings.scaleHint': 'The size is fitted to each song automatically, this adjusts it.',
   'settings.hideCursor': 'Hide the mouse cursor on the slideshow',
   'settings.hideCursorHint': 'The cursor disappears while it is over the slideshow screen.',
   'settings.background': 'Background',
@@ -255,7 +255,7 @@ export const en = {
   'settings.churchDefaultValue': 'Church default ({value})',
   'settings.useChurchDefault': 'Use church default',
   'settings.inheritedHint': 'Set by your church. Changing it here applies to this workspace only.',
-  'settings.overriddenHint': 'This workspace’s own choice; the church default is {value}.',
+  'settings.overriddenHint': 'This workspace’s own choice, the church default is {value}.',
   'settings.yes': 'on',
   'settings.no': 'off',
 
@@ -277,7 +277,7 @@ export const en = {
   'workspaces.remove': 'Remove…',
   'workspaces.removeTitle': 'Remove “{name}” from this computer?',
   'workspaces.removeBody':
-    'Its songs, run sheets and settings are deleted from this computer; a backup is saved in the app’s data folder first. Content synchronized with the church server stays there.',
+    'Its songs, run sheets and settings are deleted from this computer, a backup is saved in the app’s data folder first. Content synchronized with the church server stays there.',
   'workspaces.removed': 'Removed. A backup was saved at {path}',
   'workspaces.leaveLiveTitle': 'Close the presentation?',
   'workspaces.leaveLiveBody':
@@ -338,7 +338,7 @@ export const en = {
   'church.syncing': 'Synchronizing…',
   'church.neverSynced': 'Not synchronized yet',
   'church.syncError':
-    'Could not synchronize: {error}. Worship Q keeps trying; everything still works here.',
+    'Could not synchronize: {error}. Worship Q keeps trying, everything still works here.',
   'church.syncUpdateNeeded':
     'The server runs a newer version. Update Worship Q to keep synchronizing.',
   'church.syncUpdateNeededServer':
@@ -348,7 +348,7 @@ export const en = {
   'church.backupNow': 'Back up now',
   'church.backingUp': 'Backing up…',
   'church.lastBackup': 'Last off-site backup: {time}',
-  'church.noBackup': 'No off-site backup yet; one is made every 12 hours while the app is open.',
+  'church.noBackup': 'No off-site backup yet, one is made every 12 hours while the app is open.',
   'church.backupFailed': 'The backup could not be sent: {error}',
   'church.disconnect': 'Disconnect…',
   'church.disconnectTitle': 'Disconnect from the church server?',
@@ -409,7 +409,7 @@ export const en = {
     'Work without internet. In OBS, add a Browser Source with one of these addresses, sized like your stream (for example 1920 × 1080).',
   'outputs.links': 'Links through the church server',
   'outputs.linksHint':
-    'For other computers, screens and OBS without Worship Q. Each link holds its own key; anyone with the link can see the presentation.',
+    'For other computers, screens and OBS without Worship Q. Each link holds its own key, anyone with the link can see the presentation.',
   'outputs.none': 'No links yet.',
   'outputs.new': 'New link',
   'outputs.name': 'Name',
