@@ -52,7 +52,8 @@ function errorText(error: unknown): string {
 
 /**
  * The background of the song on screen. Changes are saved after a short pause, so dragging
- * the color picker does not save a revision of the song for every step.
+ * the color picker does not save the setting for every step. It is the workspace's setting,
+ * so a church song keeps a single version.
  */
 function OnScreenSongBackground(props: { song: Song }) {
   const session = useSession();
@@ -69,7 +70,7 @@ function OnScreenSongBackground(props: { song: Song }) {
     pending.current = () => {
       window.clearTimeout(timer.current);
       pending.current = null;
-      void session.saveSong(song.id, { background });
+      void session.setSongBackground(song.id, background);
     };
     timer.current = window.setTimeout(() => pending.current?.(), 400);
   }
@@ -102,7 +103,9 @@ export function SettingsPage() {
   // Only a song of lyrics has a background of its own: slides and websites are shown on black.
   const onScreen = useQuery(async () => {
     const song = onScreenId ? await session.store.getSong(onScreenId) : null;
-    return song && !song.deck && !song.website ? song : null;
+    if (!song || song.deck || song.website) return null;
+    // The background it is shown on: the workspace's choice, not only what the song carries.
+    return { ...song, background: await session.store.getSongBackground(song) };
   }, [onScreenId]);
   const [fonts, setFonts] = useState<string[]>([]);
   const [version, setVersion] = useState('');

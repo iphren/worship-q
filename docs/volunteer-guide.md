@@ -84,7 +84,9 @@ church gave you a connection code instead, choose **I have a connection code ins
 
 When your church shares a library, songs that come from it carry a **Church** badge. You can
 present them as they are. If you edit one, your changes become your workspace's own version:
-the church's version stays as it is for everyone else, and the song now shows **2 versions**.
+the church's version stays as it is for everyone else, and the song now shows **2 versions**. A
+song's background is different: it is your workspace's choice, so changing it never makes a
+version, and the church's later changes to the song still reach you.
 
 Open a song with two versions and you see a switch at the top: **Original version** (the
 church's) and **Our version**. The original version is read-only; ours can be edited, and

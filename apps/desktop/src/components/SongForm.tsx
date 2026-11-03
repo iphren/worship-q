@@ -23,7 +23,6 @@ export interface SongDraft {
   ccli: string;
   year: string;
   lyrics: string;
-  background: SongBackground | null;
 }
 
 type Tab = 'lyrics' | 'copyright' | 'preview' | 'settings';
@@ -35,18 +34,52 @@ const draftOf = (song: Song | null): SongDraft => ({
   ccli: song?.ccli ?? '',
   year: song?.year?.toString() ?? '',
   lyrics: song?.lyrics ?? '',
-  background: song?.background ?? null,
 });
 
-/** The fields to save, tidied; a year that is not a whole number becomes NaN and is rejected. */
+/**
+ * The fields to save, tidied; a year that is not a whole number becomes NaN and is rejected.
+ * The background is not among them: it is the workspace's setting, not part of the song.
+ */
 function fieldsOf(draft: SongDraft) {
   const year = draft.year.trim();
-  return cleanSongFields({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { background, ...fields } = cleanSongFields({
     ...draft,
     year: year === '' ? null : /^-?\d+$/.test(year) ? Number(year) : NaN,
+    background: null,
     deck: null,
     website: null,
   });
+  return fields;
+}
+
+const sameBackground = (a: SongBackground | null, b: SongBackground | null) =>
+  a?.color === b?.color && a?.assetId === b?.assetId;
+
+/** A song's background being chosen in the editor, saved as the workspace's setting. */
+type BackgroundDraft = {
+  value: SongBackground | null;
+  /** Differs from the saved choice. */
+  changed: boolean;
+  /** The saved choice is known, so a change can be told apart. */
+  ready: boolean;
+  set(value: SongBackground | null): void;
+};
+
+function useBackgroundDraft(song: Song | null): BackgroundDraft {
+  const session = useSession();
+  const saved = useQuery(
+    async () => (song ? session.store.getSongBackground(song) : null),
+    [song?.id],
+  );
+  const [draft, setDraft] = useState<SongBackground | null | undefined>(undefined);
+  const value = draft === undefined ? (saved ?? null) : draft;
+  return {
+    value,
+    changed: draft !== undefined && saved !== undefined && !sameBackground(draft, saved),
+    ready: saved !== undefined,
+    set: setDraft,
+  };
 }
 
 /**
@@ -64,6 +97,8 @@ type SongFormProps = {
   website?: boolean;
   /** On a song with two versions: the one this form shows, and the choice still to save. */
   version?: VersionProps;
+  /** The background being chosen, when shared by both versions of a song. */
+  background?: BackgroundDraft;
 };
 
 type VersionProps = {
@@ -105,6 +140,8 @@ function VersionedSongForm(props: SongFormProps & { song: Song }) {
   useEffect(() => onDirtyChange?.(active), [active, onDirtyChange]);
   const ownDirty = useCallback((own: boolean) => setDirty((d) => ({ ...d, own })), []);
   const churchDirty = useCallback((church: boolean) => setDirty((d) => ({ ...d, church })), []);
+  // One background for the song, whichever version is shown.
+  const background = useBackgroundDraft(song);
 
   const saved = (result: Song) => {
     setUseChurch(result.useChurchVersion);
@@ -132,6 +169,7 @@ function VersionedSongForm(props: SongFormProps & { song: Song }) {
               {...props}
               song={own}
               version={versionOf(false)}
+              background={background}
               onSaved={saved}
               onDirtyChange={ownDirty}
             />
@@ -143,6 +181,7 @@ function VersionedSongForm(props: SongFormProps & { song: Song }) {
               {...props}
               song={church}
               version={versionOf(true)}
+              background={background}
               onSaved={saved}
               onDirtyChange={churchDirty}
             />
@@ -475,12 +514,14 @@ function LyricsForm(props: SongFormProps) {
   useScrollMemory(settingsRef, `songForm.settings:${scrollKey}`);
   const settings = useQuery(() => session.store.getPresentationSettings(session.workspace.id), []);
   const linesPerPiece = settings?.linesPerPiece ?? 2;
+  const ownBackground = useBackgroundDraft(song);
+  const background = props.background ?? ownBackground;
 
   const saved = draftOf(song);
   const changed = (Object.keys(saved) as (keyof SongDraft)[]).some(
     (key) => JSON.stringify(saved[key]) !== JSON.stringify(draft[key]),
   );
-  const dirty = changed || switched;
+  const dirty = changed || background.changed || switched;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const pieces = useMemo(() => {
@@ -496,25 +537,29 @@ function LyricsForm(props: SongFormProps) {
     !readOnly &&
     invalid.length === 0 &&
     (draft.title.trim() !== '' || draft.lyrics.trim() !== '');
-  const canSave = !saving && (fieldsSavable || switched);
+  // A new song needs its words first; the background is saved with it.
+  const canSave =
+    !saving &&
+    background.ready &&
+    (song ? fieldsSavable || background.changed || switched : fieldsSavable);
   const set = (patch: Partial<SongDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
   async function save() {
     if (!canSave) return;
     setSaving(true);
     try {
-      if (!fieldsSavable) {
-        props.onSaved(await props.version!.commit());
-        return;
+      let result = song;
+      if (fieldsSavable) {
+        // An untitled song takes its first lyric line as its title.
+        const cleaned = fieldsOf(draft);
+        const title = cleaned.title || pieces[0]?.lines[0]?.text.trim() || t('songs.untitled');
+        const fields = { ...cleaned, title };
+        result = song ? await session.saveSong(song.id, fields) : await session.createSong(fields);
+        setDraft(draftOf(result));
       }
-      // An untitled song takes its first lyric line as its title.
-      const cleaned = fieldsOf(draft);
-      const title = cleaned.title || pieces[0]?.lines[0]?.text.trim() || t('songs.untitled');
-      const fields = { ...cleaned, title };
-      const result = song
-        ? await session.saveSong(song.id, fields)
-        : await session.createSong(fields);
-      setDraft(draftOf(result));
+      if (!result) return;
+      if (background.changed) await session.setSongBackground(result.id, background.value);
+      if (switched) result = await props.version!.commit();
       props.onSaved(result);
     } finally {
       setSaving(false);
@@ -687,13 +732,8 @@ function LyricsForm(props: SongFormProps) {
           role="tabpanel"
           className={`min-h-0 flex-1 space-y-3 overflow-auto ${tab === 'settings' ? '' : 'hidden'}`}
         >
-          {/* A disabled fieldset locks every control of the church's version. */}
-          <fieldset disabled={readOnly} className="min-w-0 space-y-3">
-            <SongBackgroundFields
-              value={draft.background}
-              onChange={(background) => set({ background })}
-            />
-          </fieldset>
+          {/* The workspace's choice, not part of the song: open on either version. */}
+          <SongBackgroundFields value={background.value} onChange={background.set} />
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">

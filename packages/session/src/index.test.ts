@@ -1057,6 +1057,26 @@ describe('output frame', () => {
       media: { kind: 'image', url: 'media://bg.png' },
     });
   });
+
+  it("shows the workspace's chosen song background over the one the song carries", async () => {
+    await session.updateOutputProfile({ backgroundColor: '#222222' });
+    const songId = session.live!.presented!.songId;
+    await session.saveSong(songId, { background: { color: '#336699', assetId: null } });
+    const revision = (await session.store.getSong(songId))!.revision;
+
+    await session.setSongBackground(songId, { color: '#aa0000', assetId: null });
+    expect((await session.frame(mediaUrl)).background.color).toBe('#aa0000');
+    expect((await session.buildSnapshot('A'))?.presented?.background).toEqual({
+      color: '#aa0000',
+      assetId: null,
+    });
+    // A setting, not an edit of the song.
+    expect((await session.store.getSong(songId))!.revision).toBe(revision);
+
+    await session.setSongBackground(songId, null);
+    expect((await session.frame(mediaUrl)).background.color).toBe('#222222');
+    expect((await session.buildSnapshot('A'))?.presented?.background).toBeNull();
+  });
 });
 
 describe('imported slide decks', () => {

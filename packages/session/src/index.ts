@@ -45,6 +45,7 @@ import type {
   SnapshotPiece,
   SnapshotPresented,
   Song,
+  SongBackground,
   SongFields,
   Workspace,
 } from '@worship-q/protocol';
@@ -1088,6 +1089,14 @@ export class Session {
     });
   }
 
+  /**
+   * Chooses a song's background for this workspace; null is the slideshow background. A
+   * setting rather than an edit, so a church song keeps a single version.
+   */
+  setSongBackground(songId: string, background: SongBackground | null): Promise<void> {
+    return this.mutate(() => this.store.setSongBackground(this.workspace_.id, songId, background));
+  }
+
   updateOutputProfile(
     patch: OutputProfilePatch,
     kind: OutputKind = 'slideshow',
@@ -1196,7 +1205,7 @@ export class Session {
       title: song.title,
       kind: songKind(song),
       pieces: snapshotPieces(song, pieces),
-      background: song.background,
+      background: await this.store.getSongBackground(song),
       websiteUrl: song.website?.url ?? null,
       previous: this.presentingPreviousContent,
     };
@@ -1360,10 +1369,15 @@ export class Session {
     // The presented song's own background, if it has one, replaces the slideshow's. Slides
     // are shown whole, on black where their shape differs from the screen's, and a website
     // is on black while it loads.
+    const songBackground = !song
+      ? null
+      : carriedPieces
+        ? song.background
+        : await this.store.getSongBackground(song);
     const background =
       song?.deck || song?.website
         ? { color: '#000000', assetId: null }
-        : (song?.background ?? {
+        : (songBackground ?? {
             color: profile.backgroundColor,
             assetId: profile.backgroundAssetId,
           });

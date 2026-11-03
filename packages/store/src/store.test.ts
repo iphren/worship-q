@@ -21,7 +21,8 @@ import {
   SCHEMA_VERSION,
   schemaVersion,
 } from './migrations';
-import { Store } from './store';
+import { songBackgroundKey, Store } from './store';
+import { SyncStore } from './sync';
 import {
   createTestEnv,
   createTestStore,
@@ -533,6 +534,91 @@ describe('two versions of a song (D31, D32)', () => {
       { key: 'server', value: '"https://x"' },
     ]);
     old.close();
+  });
+});
+
+describe('song backgrounds, the workspace’s choice', () => {
+  const sky = { color: '#336699', assetId: null };
+  const sea = { color: '#003355', assetId: 'bg-sea' };
+
+  async function churchSong(background: typeof sky | null = null) {
+    const song = await store.createSong(workspaceId, { title: 'Church', lyrics: 'c', background });
+    await driver.batch([
+      { sql: `UPDATE song SET origin = 'church' WHERE id = ?`, params: [song.id] },
+    ]);
+    return (await store.getSong(song.id))!;
+  }
+
+  it('keeps the background a song already carries until the workspace chooses one', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Old', background: sky });
+    expect(await store.getSongBackgroundSetting(workspaceId, song.id)).toBeUndefined();
+    expect(await store.getSongBackground(song)).toEqual(sky);
+
+    await store.setSongBackground(workspaceId, song.id, sea);
+    expect(await store.getSongBackground(song)).toEqual(sea);
+    // Null is a choice too: the slideshow background.
+    await store.setSongBackground(workspaceId, song.id, null);
+    expect(await store.getSongBackgroundSetting(workspaceId, song.id)).toBeNull();
+    expect(await store.getSongBackground(song)).toBeNull();
+  });
+
+  it('chooses a church song’s background without making a version of it', async () => {
+    const song = await churchSong();
+    await store.setSongBackground(workspaceId, song.id, sky);
+    expect(await store.getSong(song.id)).toMatchObject({
+      origin: 'church',
+      versions: null,
+      revision: song.revision,
+    });
+    expect(await store.getChurchVersion(song.id)).toBeNull();
+    // Not a presentation setting.
+    expect(await store.getWorkspaceSettings(workspaceId)).toEqual({});
+  });
+
+  it('keeps the background shown when switching versions', async () => {
+    const song = await churchSong(sky);
+    await store.updateSong(song.id, { lyrics: 'ours', background: sea });
+    expect(await store.getSongBackground((await store.getSong(song.id))!)).toEqual(sea);
+
+    // With nothing chosen, the background of the version in use stays.
+    env.advance(1000);
+    const church = await store.setUseChurchVersion(song.id, true);
+    expect(church.background).toEqual(sky);
+    expect(await store.getSongBackground(church)).toEqual(sea);
+
+    // Once chosen, switching leaves the choice alone.
+    await store.setSongBackground(workspaceId, song.id, null);
+    env.advance(1000);
+    const own = await store.setUseChurchVersion(song.id, false);
+    expect(await store.getSongBackground(own)).toBeNull();
+  });
+
+  it('keeps the background shown when an edit moves to the workspace’s version', async () => {
+    const song = await churchSong(sky);
+    await store.updateSong(song.id, { lyrics: 'ours', background: sea });
+    await store.setUseChurchVersion(song.id, true);
+    await driver.batch([{ sql: `DELETE FROM setting` }]);
+    env.advance(1000);
+    const edited = await store.updateSong(song.id, { lyrics: 'ours again' });
+    expect(edited.useChurchVersion).toBe(false);
+    expect(await store.getSongBackground(edited)).toEqual(sky);
+  });
+
+  it('synchronizes the choice as a setting', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Song' });
+    await store.setSongBackground(workspaceId, song.id, sea);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.key === songBackgroundKey(song.id))!;
+    expect(record).toMatchObject({
+      kind: 'setting',
+      data: { value: { backgroundColor: '#003355', backgroundAssetId: 'bg-sea' } },
+    });
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, [record]);
+    expect(await other.store.getSongBackgroundSetting(otherWorkspace, song.id)).toEqual(sea);
+    other.driver.close();
   });
 });
 

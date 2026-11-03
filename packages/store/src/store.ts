@@ -21,6 +21,7 @@ import {
   type RunSheet,
   type RunSheetItem,
   type Song,
+  type SongBackground,
   type SongFields,
   type SongRevision,
   type Website,
@@ -261,6 +262,43 @@ const OutputLookSchema = OutputProfileSchema.pick({
 });
 const outputLookKey = (kind: OutputKind) => `outputLook.${kind}`;
 
+/**
+ * A song's background is the workspace's choice, kept as a setting rather than in the
+ * song, so choosing one never makes a version of a church song. The value is
+ * `{ backgroundColor, backgroundAssetId }`, or null for the slideshow background.
+ */
+export const songBackgroundKey = (songId: string) => `songBackground.${songId}`;
+
+/** A stored song background setting: undefined when there is none, else the background. */
+function parseSongBackground(value: SqlValue | undefined): SongBackground | null | undefined {
+  if (value === undefined) return undefined;
+  const parsed = json<unknown>(value, null);
+  if (parsed === null || typeof parsed !== 'object') return null;
+  const { backgroundColor, backgroundAssetId } = parsed as Record<string, unknown>;
+  if (typeof backgroundColor !== 'string') return null;
+  return {
+    color: backgroundColor,
+    assetId: typeof backgroundAssetId === 'string' ? backgroundAssetId : null,
+  };
+}
+
+function songBackgroundStatement(
+  workspaceId: string,
+  songId: string,
+  background: SongBackground | null,
+  now: string,
+): Statement {
+  const value = background
+    ? { backgroundColor: background.color, backgroundAssetId: background.assetId }
+    : null;
+  return {
+    sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
+          ON CONFLICT (workspace_id, key) DO UPDATE
+          SET value = excluded.value, revision = setting.revision + 1, updated_at = excluded.updated_at`,
+    params: [workspaceId, songBackgroundKey(songId), JSON.stringify(value), now],
+  };
+}
+
 export type CopyMode = 'append' | 'replace';
 
 /** Data access for one local database. Every write in the app goes through here. */
@@ -488,6 +526,16 @@ export class Store {
     // then the one in use (D32).
     const makesVersion = current.origin === 'church' && !this.managesChurch('song', current);
     if (makesVersion) statements.push(this.keepChurchVersion(id));
+    // Moving from the church's version to the workspace's keeps the background shown, as
+    // switching versions does.
+    if (
+      current.useChurchVersion &&
+      (await this.getSongBackgroundSetting(current.workspaceId, id)) === undefined
+    ) {
+      statements.push(
+        songBackgroundStatement(current.workspaceId, id, current.background, next.updatedAt),
+      );
+    }
     next.origin = makesVersion ? 'workspace' : current.origin;
     next.useChurchVersion = false;
     next.versions = makesVersion
@@ -554,7 +602,14 @@ export class Store {
     if (!current.versions) throw new Error(`Song ${id} has one version`);
     if (current.useChurchVersion === useChurchVersion) return current;
     const now = this.env.now();
+    // The background stays as it is: with none chosen yet, the one of the version in use is
+    // kept as the workspace's choice, so switching does not bring the other's.
+    const pin =
+      (await this.getSongBackgroundSetting(current.workspaceId, id)) === undefined
+        ? [songBackgroundStatement(current.workspaceId, id, current.background, now)]
+        : [];
     await this.db.batch([
+      ...pin,
       {
         sql: `UPDATE song SET use_church_version = ?, revision = revision + 1, updated_at = ? WHERE id = ?`,
         params: [useChurchVersion ? 1 : 0, now, id],
@@ -563,6 +618,36 @@ export class Store {
     const next = (await this.getSong(id))!;
     await this.db.batch([this.searchUpsert(next)]);
     return next;
+  }
+
+  /** The workspace's chosen background for a song: undefined when it has chosen none. */
+  async getSongBackgroundSetting(
+    workspaceId: string,
+    songId: string,
+  ): Promise<SongBackground | null | undefined> {
+    const rows = await this.db.select<{ value: string }>(
+      'SELECT value FROM setting WHERE workspace_id = ? AND key = ?',
+      [workspaceId, songBackgroundKey(songId)],
+    );
+    return parseSongBackground(rows[0]?.value);
+  }
+
+  /**
+   * The background a song is shown on: the workspace's choice, else the one the song itself
+   * carries from before backgrounds were the workspace's; null is the slideshow background.
+   */
+  async getSongBackground(song: Song): Promise<SongBackground | null> {
+    const chosen = await this.getSongBackgroundSetting(song.workspaceId, song.id);
+    return chosen === undefined ? song.background : chosen;
+  }
+
+  /** Chooses a song's background for the workspace; null is the slideshow background. */
+  async setSongBackground(
+    workspaceId: string,
+    songId: string,
+    background: SongBackground | null,
+  ): Promise<void> {
+    await this.db.batch([songBackgroundStatement(workspaceId, songId, background, this.env.now())]);
   }
 
   /** The workspace's own version of a two-version song, whichever is in use. */
