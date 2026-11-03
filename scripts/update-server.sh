@@ -9,6 +9,9 @@ compose=(docker compose -f apps/server/compose.yaml)
 git pull --ff-only
 "${compose[@]}" up -d --build
 docker image prune -f >/dev/null
+# Every build leaves its steps in Docker's build cache, which nothing else clears. Keep a
+# day's worth, so a second update the same day stays quick.
+docker builder prune -f --filter until=24h >/dev/null
 
 port=$(sed -n 's/^WORSHIP_Q_PORT=//p' apps/server/.env 2>/dev/null || true)
 for _ in $(seq 30); do

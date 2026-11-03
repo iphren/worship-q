@@ -2,8 +2,12 @@
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /repo
+# Packages are downloaded from the lockfile alone, so this layer stays cached until the
+# dependencies change; the install below then links them without the network.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+RUN pnpm fetch
 COPY . .
-RUN pnpm install --frozen-lockfile --filter @worship-q/server... --filter @worship-q/remote-web... --filter @worship-q/output-web... --filter @worship-q/admin-web...
+RUN pnpm install --offline --frozen-lockfile --filter @worship-q/server... --filter @worship-q/remote-web... --filter @worship-q/output-web... --filter @worship-q/admin-web...
 RUN pnpm --filter @worship-q/remote-web build && pnpm --filter @worship-q/output-web build && pnpm --filter @worship-q/admin-web build && pnpm --filter @worship-q/server build
 # Only the server's runtime dependencies go into the image.
 RUN pnpm --filter @worship-q/server deploy --prod /out
