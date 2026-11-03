@@ -493,52 +493,61 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
         </Fact>
       </dl>
 
-      <div>
-        <h3 className="mb-1 flex flex-wrap items-center gap-2 font-semibold text-slate-100">
-          On screen
-          {screen.title && (
-            <span className="min-w-0 truncate font-normal text-slate-300">· {screen.title}</span>
-          )}
-          {screen.blank && <Badge tone="warn">Blank</Badge>}
-          {screen.pieceMissing && <Badge tone="warn">Slide not in the snapshot</Badge>}
-        </h3>
-        <SlideshowPreview view={view} workspaceId={workspaceId} />
-      </div>
-
-      <div>
-        <h3 className="mb-1 font-semibold text-slate-100">Subtitle overlay</h3>
-        <SubtitleBar view={view} workspaceId={workspaceId} />
-      </div>
-
-      <div>
-        <h3 className="mb-1 font-semibold text-slate-100">Run sheet items</h3>
-        {snapshot.items.length === 0 ? (
-          <p className="text-slate-400">The run sheet has no items.</p>
-        ) : (
-          <ol className="space-y-1">
-            {snapshot.items.map((item, index) => {
-              const current = snapshot.presented?.itemId === item.itemId;
-              return (
-                <li
-                  key={item.itemId}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
-                    current ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
-                  }`}
-                >
-                  <span className="w-5 shrink-0 text-right text-xs text-slate-500">
-                    {index + 1}
+      {/* The previews keep a modest size; beside them goes the run sheet when the card is
+          wide enough for both. */}
+      <div className="@container">
+        <div className="flex flex-col gap-4 @2xl:flex-row @2xl:items-start">
+          <div className="w-full max-w-md shrink-0 space-y-4">
+            <div>
+              <h3 className="mb-1 flex flex-wrap items-center gap-2 font-semibold text-slate-100">
+                On screen
+                {screen.title && (
+                  <span className="min-w-0 truncate font-normal text-slate-300">
+                    · {screen.title}
                   </span>
-                  <span className="min-w-0 flex-1 truncate">{item.title || 'Untitled'}</span>
-                  {item.kind !== 'lyrics' && (
-                    <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
-                  )}
-                  {item.removed && <Badge tone="warn">Removed from library</Badge>}
-                  {current && <Badge tone="live">On screen</Badge>}
-                </li>
-              );
-            })}
-          </ol>
-        )}
+                )}
+                {screen.blank && <Badge tone="warn">Blank</Badge>}
+                {screen.pieceMissing && <Badge tone="warn">Slide not in the snapshot</Badge>}
+              </h3>
+              <SlideshowPreview view={view} workspaceId={workspaceId} />
+            </div>
+
+            <div>
+              <h3 className="mb-1 font-semibold text-slate-100">Subtitle overlay</h3>
+              <SubtitleBar view={view} workspaceId={workspaceId} />
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-1 font-semibold text-slate-100">Run sheet items</h3>
+            {snapshot.items.length === 0 ? (
+              <p className="text-slate-400">The run sheet has no items.</p>
+            ) : (
+              <ol className="space-y-1">
+                {snapshot.items.map((item, index) => {
+                  const current = snapshot.presented?.itemId === item.itemId;
+                  return (
+                    <li
+                      key={item.itemId}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+                        current ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
+                      }`}
+                    >
+                      <span className="w-5 shrink-0 text-right text-xs text-slate-500">
+                        {index + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{item.title || 'Untitled'}</span>
+                      {item.kind !== 'lyrics' && (
+                        <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
+                      )}
+                      {item.removed && <Badge tone="warn">Removed from library</Badge>}
+                      {current && <Badge tone="live">On screen</Badge>}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        </div>
       </div>
 
       <div>
