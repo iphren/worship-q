@@ -4,7 +4,7 @@
  * cookie, never a device token; every request must also carry `ADMIN_HEADER`, which a
  * cross-site form cannot add (decision D35). Browser pages are served at `/admin/`.
  */
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import fastifyStatic from '@fastify/static';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -19,8 +19,9 @@ import {
   type LibraryKind,
 } from '@worship-q/protocol';
 import type { Relay } from '@worship-q/relay';
+import { parseQuery, rankSong, songKeys, type SongKeys } from '@worship-q/search';
 import { z } from 'zod';
-import { moveFilesToChurch } from './files';
+import { churchFilesDir, moveFilesToChurch } from './files';
 import { formatPairingCode, type AdministratorRow, type Instance } from './instance';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { storageReport } from './storage';
@@ -45,6 +46,10 @@ declare module 'fastify' {
 }
 
 const KIND = z.enum(['song', 'background']);
+
+/** Names of Church Library files the admin app may show: backgrounds and slide images. */
+const LIBRARY_FILE =
+  /^(?:[A-Za-z0-9-]{1,80}\.(?:jpg|jpeg|png|mp4)|deck-[0-9a-f-]{36}-\d{3,}(?:-t)?\.jpg)$/i;
 
 /** The session token in the request's cookies, if any. */
 export function sessionToken(request: FastifyRequest): string {
@@ -130,6 +135,29 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       admin: admin ? { id: admin.id, email: admin.email, name: admin.name } : null,
       name: config.name,
     } satisfies AdminMe;
+  });
+
+  // Church Library files for the admin app's preview. Images and videos are loaded by the
+  // browser, which cannot add `ADMIN_HEADER`, so the session cookie alone is enough here;
+  // the route only reads.
+  app.get<{ Params: { name: string } }>('/api/v1/admin/files/:name', async (request, reply) => {
+    if (!instance.authenticateSession(sessionToken(request))) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    const { name } = request.params;
+    if (!LIBRARY_FILE.test(name)) return reply.code(404).send({ error: 'not-found' });
+    const path = join(churchFilesDir(config.dataDir), name);
+    if (!existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+    reply.header('cache-control', 'private, max-age=31536000, immutable');
+    reply.header('content-length', statSync(path).size);
+    reply.type(
+      name.toLowerCase().endsWith('.mp4')
+        ? 'video/mp4'
+        : name.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg',
+    );
+    return reply.send(createReadStream(path));
   });
 
   // ── Everything else needs a signed-in administrator ──────────────────────
@@ -405,11 +433,50 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
 
     // ── The Church Library (D34, D37) ──────────────────────────────────────
 
-    api.get<{ Params: { kind: string } }>('/api/v1/admin/library/:kind', async (request, reply) => {
-      const kind = KIND.safeParse(request.params.kind);
-      if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
-      return { items: instance.listChurch(kind.data as LibraryKind) };
-    });
+    /** Search keys of Church Library items, kept until the item changes. */
+    const searchKeys = new Map<string, { revision: number; keys: SongKeys }>();
+    const keysOf = (kind: LibraryKind, item: { id: string; title: string; revision: number }) => {
+      const cacheKey = `${kind}:${item.id}`;
+      const cached = searchKeys.get(cacheKey);
+      if (cached?.revision === item.revision) return cached.keys;
+      const content = kind === 'song' ? instance.churchContent(kind, item.id) : null;
+      const lyrics =
+        content && 'lyrics' in content ? [content.lyrics, content.websiteUrl ?? ''].join('\n') : '';
+      const keys = songKeys({ title: item.title, lyrics });
+      searchKeys.set(cacheKey, { revision: item.revision, keys });
+      return keys;
+    };
+
+    api.get<{ Params: { kind: string }; Querystring: { q?: string } }>(
+      '/api/v1/admin/library/:kind',
+      async (request, reply) => {
+        const kind = KIND.safeParse(request.params.kind);
+        if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
+        const items = instance.listChurch(kind.data as LibraryKind);
+        const terms = parseQuery(String(request.query.q ?? ''));
+        if (terms.length === 0) return { items };
+        // As the desktop's song search: by characters in either script, pinyin or initials,
+        // in the title before the lyrics; ties keep the newest change first.
+        return {
+          items: items
+            .map((item) => ({ item, rank: rankSong(terms, keysOf(kind.data, item)) }))
+            .filter((entry) => entry.rank !== null)
+            .sort((a, b) => a.rank! - b.rank!)
+            .map((entry) => entry.item),
+        };
+      },
+    );
+
+    api.get<{ Params: { kind: string; id: string } }>(
+      '/api/v1/admin/library/:kind/:id',
+      async (request, reply) => {
+        const kind = KIND.safeParse(request.params.kind);
+        if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
+        const content = instance.churchContent(kind.data as LibraryKind, request.params.id);
+        if (!content) return reply.code(404).send({ error: 'not-found' });
+        return content;
+      },
+    );
 
     api.get<{ Params: { kind: string; id: string } }>(
       '/api/v1/admin/library/:kind/:id/usage',

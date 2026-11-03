@@ -250,6 +250,9 @@ importers:
       '@worship-q/remote':
         specifier: workspace:*
         version: link:../../packages/remote
+      '@worship-q/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@worship-q/session':
         specifier: workspace:*
         version: link:../../packages/session

@@ -115,7 +115,34 @@ export interface AdminLibraryItem {
   deletedBy: { administrator: string } | { workspace: { id: string; name: string } } | null;
   /** Shown by a background's file name or a deck's; null for a lyrics song. */
   fileName: string | null;
+  /** What the item is: a song of lyrics, imported slides, a website, or a background. */
+  type: AdminLibraryType;
 }
+
+export type AdminLibraryType = 'lyrics' | 'deck' | 'website' | 'image' | 'video';
+
+/**
+ * What a Church Library item shows, for the admin app's preview. Files are fetched from
+ * `GET /api/v1/admin/files/:name`.
+ */
+export type AdminLibraryContent =
+  | {
+      type: 'lyrics' | 'deck' | 'website';
+      lyrics: string;
+      author: string;
+      copyright: string;
+      ccli: string | null;
+      year: number | null;
+      /** Slide images, for imported slides. */
+      deck: {
+        width: number;
+        height: number;
+        pages: { image: string; thumbnail: string | null; slide: number; step: number }[];
+      } | null;
+      /** The page a website song shows. */
+      websiteUrl: string | null;
+    }
+  | { type: 'image' | 'video'; fileName: string };
 
 /** Which workspaces' run sheets use an item (D37). */
 export interface AdminLibraryUsage {

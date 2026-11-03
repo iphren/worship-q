@@ -611,6 +611,109 @@ describe('the Church Library (D34, D37)', () => {
     ).toBe(400);
   });
 
+  it('tells songs, slides and websites apart, searches them, and shows what they contain', async () => {
+    const { app, instance, signIn, dataDir } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const { workspace: a, code } = instance.createWorkspace('Managing');
+    instance.setCodesEnabled(a.id, true);
+    instance.setManageLibrary(a.id, true);
+    const device = instance.enroll(code, 'A')!.device;
+    const stamp = '2026-11-01T00:00:00.000Z';
+    const image = 'deck-00000000-0000-4000-8000-000000000001-001.jpg';
+    const song = (id: string, data: Record<string, unknown>) => ({
+      kind: 'song' as const,
+      id,
+      key: id,
+      revision: 1,
+      updatedAt: stamp,
+      data: { lyrics: '', removedAt: null, ...data },
+    });
+    instance.push(a.id, device.id, [
+      song('s1', { title: '奇异恩典', lyrics: '奇异恩典 何等甘甜', author: 'John Newton' }),
+      song('s2', {
+        title: 'Announcements',
+        lyrics: 'Welcome',
+        deck: {
+          source: 'a.pptx',
+          width: 16,
+          height: 9,
+          pages: [{ image, slide: 1, step: 0, text: ['Welcome'] }],
+        },
+      }),
+      song('s3', { title: 'Bible', website: { url: 'https://bible.example.org/' } }),
+      {
+        kind: 'background',
+        id: 'b1',
+        key: 'b1',
+        revision: 1,
+        updatedAt: stamp,
+        data: { kind: 'video', fileName: 'waves.mp4', originalName: 'Waves.mp4', removedAt: null },
+      },
+    ]);
+
+    const list = async (url: string) =>
+      (await app.inject({ method: 'GET', url, headers })).json().items as {
+        id: string;
+        type: string;
+      }[];
+    expect((await list('/api/v1/admin/library/song')).map((i) => [i.id, i.type]).sort()).toEqual([
+      ['s1', 'lyrics'],
+      ['s2', 'deck'],
+      ['s3', 'website'],
+    ]);
+    expect((await list('/api/v1/admin/library/background'))[0]).toMatchObject({ type: 'video' });
+    // By pinyin initials, by words of the lyrics, and by the website's address.
+    expect((await list('/api/v1/admin/library/song?q=qyed')).map((i) => i.id)).toEqual(['s1']);
+    expect((await list('/api/v1/admin/library/song?q=welcome')).map((i) => i.id)).toEqual(['s2']);
+    expect((await list('/api/v1/admin/library/song?q=example')).map((i) => i.id)).toEqual(['s3']);
+
+    const content = async (url: string) =>
+      (await app.inject({ method: 'GET', url, headers })).json();
+    expect(await content('/api/v1/admin/library/song/s1')).toMatchObject({
+      type: 'lyrics',
+      lyrics: '奇异恩典 何等甘甜',
+      author: 'John Newton',
+    });
+    expect(await content('/api/v1/admin/library/song/s2')).toMatchObject({
+      type: 'deck',
+      deck: { pages: [{ image, thumbnail: null, slide: 1, step: 0 }] },
+    });
+    expect(await content('/api/v1/admin/library/song/s3')).toMatchObject({
+      websiteUrl: 'https://bible.example.org/',
+    });
+    expect(await content('/api/v1/admin/library/background/b1')).toEqual({
+      type: 'video',
+      fileName: 'waves.mp4',
+    });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/v1/admin/library/song/nope', headers }))
+        .statusCode,
+    ).toBe(404);
+
+    // Files are read with the session cookie alone, as an <img> sends it.
+    mkdirSync(churchFilesDir(dataDir), { recursive: true });
+    writeFileSync(join(churchFilesDir(dataDir), image), 'jpeg');
+    const file = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/files/${image}`,
+      headers: { cookie: headers.cookie },
+    });
+    expect(file.statusCode).toBe(200);
+    expect(file.headers['content-type']).toBe('image/jpeg');
+    expect(
+      (await app.inject({ method: 'GET', url: `/api/v1/admin/files/${image}` })).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/v1/admin/files/..%2Fdb.sqlite',
+          headers: { cookie: headers.cookie },
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
   it('names the workspaces whose songs or output settings use a background', async () => {
     const { instance } = await setup({ administrators: ['pat@example.org'] });
     const { workspace: a } = instance.createWorkspace('Managing');

@@ -26,6 +26,7 @@
     "@worship-q/protocol": "workspace:*",
     "@worship-q/relay": "workspace:*",
     "@worship-q/remote": "workspace:*",
+    "@worship-q/search": "workspace:*",
     "@worship-q/session": "workspace:*",
     "@worship-q/store": "workspace:*",
     "@worship-q/sync": "workspace:*",

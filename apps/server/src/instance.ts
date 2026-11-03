@@ -14,6 +14,7 @@ import {
   wellFormed,
   WorkspaceGrantSchema,
   type AdminAdministrator,
+  type AdminLibraryContent,
   type AdminLibraryItem,
   type AdminLibraryPlan,
   type AdminLibraryUsage,
@@ -1050,8 +1051,48 @@ export class Instance {
               : deck && typeof deck.source === 'string'
                 ? deck.source
                 : null,
+          type: libraryType(kind, data),
         };
       });
+  }
+
+  /** What a Church Library item shows, deleted ones included; null when there is none. */
+  churchContent(kind: LibraryKind, id: string): AdminLibraryContent | null {
+    const row = this.db
+      .prepare('SELECT data FROM church_record WHERE kind = ? AND id = ?')
+      .get(kind, id);
+    if (!row) return null;
+    const data = JSON.parse(text(row.data)) as Record<string, unknown>;
+    const type = libraryType(kind, data);
+    if (type === 'image' || type === 'video') {
+      return { type, fileName: String(data.fileName ?? '') };
+    }
+    const str = (value: unknown) => (typeof value === 'string' ? value : '');
+    const deck = data.deck as
+      { width?: unknown; height?: unknown; pages?: Record<string, unknown>[] } | null | undefined;
+    const website = data.website as { url?: unknown } | null | undefined;
+    return {
+      type,
+      lyrics: str(data.lyrics),
+      author: str(data.author),
+      copyright: str(data.copyright),
+      ccli: typeof data.ccli === 'string' ? data.ccli : null,
+      year: typeof data.year === 'number' ? data.year : null,
+      deck:
+        type === 'deck' && deck
+          ? {
+              width: Number(deck.width) || 16,
+              height: Number(deck.height) || 9,
+              pages: (Array.isArray(deck.pages) ? deck.pages : []).map((page) => ({
+                image: str(page.image),
+                thumbnail: typeof page.thumbnail === 'string' ? page.thumbnail : null,
+                slide: Number(page.slide) || 1,
+                step: Number(page.step) || 0,
+              })),
+            }
+          : null,
+      websiteUrl: type === 'website' && typeof website?.url === 'string' ? website.url : null,
+    };
   }
 
   /**
@@ -1550,6 +1591,14 @@ function toRecord(row: Record<string, SqlValue>): SyncRecord {
 const isLibraryKind = (kind: string) => (LIBRARY_KINDS as readonly string[]).includes(kind);
 const removed = (data: SqlValue | undefined) =>
   (JSON.parse(text(data)) as { removedAt?: unknown }).removedAt != null;
+/** A song by what it shows, or a background by its file. */
+function libraryType(kind: LibraryKind, data: Record<string, unknown>): AdminLibraryItem['type'] {
+  if (kind === 'background') return data.kind === 'video' ? 'video' : 'image';
+  if (data.deck) return 'deck';
+  if (data.website) return 'website';
+  return 'lyrics';
+}
+
 const titleOf = (data: SqlValue | undefined) => {
   const parsed = JSON.parse(text(data)) as { title?: unknown; originalName?: unknown };
   return String(parsed.title ?? parsed.originalName ?? '');

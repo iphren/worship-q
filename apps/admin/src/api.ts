@@ -7,6 +7,7 @@ import {
   ADMIN_HEADER,
   type AdminAdministrator,
   type AdminDevice,
+  type AdminLibraryContent,
   type AdminLibraryItem,
   type AdminLibraryPlan,
   type AdminLibraryUsage,
@@ -130,8 +131,15 @@ export const api = {
   setSetting: (key: keyof ChurchSettings, value: number | boolean | string | null) =>
     request<{ settings: ChurchSettings }>('PUT', `${ADMIN}/settings`, { key, value }),
 
-  library: (kind: LibraryKind) =>
-    request<{ items: AdminLibraryItem[] }>('GET', `${ADMIN}/library/${kind}`),
+  library: (kind: LibraryKind, search = '') =>
+    request<{ items: AdminLibraryItem[] }>(
+      'GET',
+      `${ADMIN}/library/${kind}${search.trim() ? `?q=${encode(search.trim())}` : ''}`,
+    ),
+  libraryContent: (kind: LibraryKind, id: string) =>
+    request<AdminLibraryContent>('GET', `${ADMIN}/library/${kind}/${encode(id)}`),
+  /** Where the browser loads a Church Library file from; the session cookie admits it. */
+  fileUrl: (name: string) => `${ADMIN}/files/${encode(name)}`,
   libraryUsage: (kind: LibraryKind, id: string) =>
     request<AdminLibraryUsage>('GET', `${ADMIN}/library/${kind}/${encode(id)}/usage`),
   deleteLibraryItem: (kind: LibraryKind, id: string) =>
