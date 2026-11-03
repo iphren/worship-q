@@ -11,7 +11,8 @@
   "dependencies": {
     "@worship-q/protocol": "workspace:*",
     "react": "^19.0.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "@worship-q/renderer": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

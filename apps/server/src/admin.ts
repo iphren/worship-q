@@ -21,7 +21,7 @@ import {
 import type { Relay } from '@worship-q/relay';
 import { parseQuery, rankSong, songKeys, type SongKeys } from '@worship-q/search';
 import { z } from 'zod';
-import { churchFilesDir, moveFilesToChurch } from './files';
+import { churchFilesDir, findFile, moveFilesToChurch } from './files';
 import { formatPairingCode, type AdministratorRow, type Instance } from './instance';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
@@ -153,6 +153,25 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
     return sendFile(request, reply, path, name);
   });
 
+  // A workspace's files (backgrounds and slide images), for the live view's drawing of its
+  // outputs. Like the Church Library files above, the session cookie alone admits them.
+  app.get<{ Params: { id: string; name: string } }>(
+    '/api/v1/admin/workspaces/:id/files/:name',
+    async (request, reply) => {
+      if (!instance.authenticateSession(sessionToken(request))) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+      const { id, name } = request.params;
+      if (!LIBRARY_FILE.test(name) || !instance.getWorkspace(id)) {
+        return reply.code(404).send({ error: 'not-found' });
+      }
+      const path = findFile(config.dataDir, id, name);
+      if (!path) return reply.code(404).send({ error: 'not-found' });
+      reply.header('cache-control', 'private, max-age=31536000, immutable');
+      return sendFile(request, reply, path, name);
+    },
+  );
+
   // ── Everything else needs a signed-in administrator ──────────────────────
 
   await app.register(async (api) => {
@@ -264,6 +283,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
         const live = instance.getLive(workspace.id);
         if (!live) return { live: false } satisfies AdminLiveView;
         const coordinatorId = live.snapshot.coordinatorId;
+        const assetId = live.snapshot.presented?.background?.assetId ?? null;
         const peer = relay.peers(workspace.id).find((p) => p.deviceId === coordinatorId);
         return {
           live: true,
@@ -277,6 +297,11 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           expiresAt: new Date(
             Date.parse(live.snapshot.state.lastActiveAt) + DEFAULT_EXPIRY_MS,
           ).toISOString(),
+          looks: {
+            slideshow: instance.outputLook(workspace.id, 'slideshow'),
+            subtitle: instance.outputLook(workspace.id, 'subtitle'),
+          },
+          songBackground: assetId ? instance.backgroundFile(workspace.id, assetId) : null,
         } satisfies AdminLiveView;
       },
     );

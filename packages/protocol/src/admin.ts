@@ -3,7 +3,8 @@
  * `/api/v1/admin/` and `/auth/`, are authenticated by the administrator's session cookie
  * rather than a device token, and are refused without the `ADMIN_HEADER` (decision D35).
  */
-import type { LiveSnapshot, SyncKind } from './wire';
+import type { BackgroundKind, OutputKind } from './records';
+import type { LiveSnapshot, OutputView, SyncKind } from './wire';
 
 /** Every admin request carries this header, so a cross-site form cannot reach the routes. */
 export const ADMIN_HEADER = 'x-worship-q-admin';
@@ -92,6 +93,10 @@ export type AdminLiveView =
       updatedAt: string;
       /** When the live state expires with no operator device connected (D6). */
       expiresAt: string;
+      /** The workspace's output looks, so the page draws the outputs as the screens do. */
+      looks: Record<OutputKind, OutputView['look']>;
+      /** The file of the presented song's own background, when it has one. */
+      songBackground: { kind: BackgroundKind; fileName: string } | null;
     };
 
 export type LibraryKind = Extract<SyncKind, 'song' | 'background'>;

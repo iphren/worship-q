@@ -412,6 +412,90 @@ describe('workspaces', () => {
   });
 });
 
+describe('live view drawing', () => {
+  it('gives the outputs’ looks, the song’s background file and the workspace’s files', async () => {
+    const { app, instance, signIn, time, dataDir } = await setup({
+      administrators: ['pat@example.org'],
+    });
+    const { headers } = await signIn('pat@example.org');
+    const { workspace, code } = instance.createWorkspace('North');
+    instance.setCodesEnabled(workspace.id, true);
+    const { device } = instance.enroll(code, 'Projector')!;
+    const stamp = '2026-11-01T00:00:00.000Z';
+    instance.push(workspace.id, device.id, [
+      {
+        kind: 'background',
+        id: 'bg1',
+        key: 'bg1',
+        revision: 1,
+        updatedAt: stamp,
+        data: { kind: 'video', fileName: 'bg-1.mp4', originalName: 'Sea.mp4', removedAt: null },
+      },
+      {
+        kind: 'setting',
+        id: 'outputLook.subtitle',
+        key: 'outputLook.subtitle',
+        revision: 1,
+        updatedAt: stamp,
+        data: { value: { fontFamily: 'Noto Sans SC', scale: 1.2 } },
+      },
+    ]);
+    const state = createLiveState('rs1', time.now());
+    instance.putLive(
+      workspace.id,
+      device.id,
+      {
+        revision: 1,
+        coordinatorId: device.id,
+        state: { ...state, lastActiveAt: time.now(), updatedAt: time.now() },
+        date: '2026-11-02',
+        items: [],
+        presented: {
+          itemId: 'i1',
+          pieceId: 'p1',
+          songId: 's1',
+          title: 'Song',
+          kind: 'lyrics',
+          pieces: [{ id: 'p1', lines: ['one'] }],
+          background: { color: '#000000', assetId: 'bg1' },
+          websiteUrl: null,
+          previous: false,
+        },
+        devices: [],
+      },
+      [],
+    );
+    const url = `/api/v1/admin/workspaces/${workspace.id}/live`;
+    const view = (await app.inject({ method: 'GET', url, headers })).json() as AdminLiveView;
+    expect(view).toMatchObject({
+      live: true,
+      looks: {
+        slideshow: { fontFamily: null, scale: 1, backgroundFile: null },
+        subtitle: { fontFamily: 'Noto Sans SC', scale: 1.2 },
+      },
+      songBackground: { kind: 'video', fileName: 'bg-1.mp4' },
+    });
+
+    // The files are read with the session cookie alone, as <img> and <video> send it.
+    const dir = workspaceFilesDir(dataDir, workspace.id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'bg-1.mp4'), 'mp4');
+    const fileUrl = `/api/v1/admin/workspaces/${workspace.id}/files/bg-1.mp4`;
+    const cookie = { cookie: headers.cookie };
+    expect((await app.inject({ method: 'GET', url: fileUrl, headers: cookie })).statusCode).toBe(
+      200,
+    );
+    expect((await app.inject({ method: 'GET', url: fileUrl })).statusCode).toBe(401);
+    for (const bad of [
+      `/api/v1/admin/workspaces/${workspace.id}/files/..%2Fdb.sqlite`,
+      `/api/v1/admin/workspaces/nope/files/bg-1.mp4`,
+      `/api/v1/admin/workspaces/${workspace.id}/files/missing.jpg`,
+    ]) {
+      expect((await app.inject({ method: 'GET', url: bad, headers: cookie })).statusCode).toBe(404);
+    }
+  });
+});
+
 describe('devices', () => {
   it('lists devices with how they joined, renames, and revokes them at once', async () => {
     const { app, instance, signIn, relay } = await setup({ administrators: ['pat@example.org'] });

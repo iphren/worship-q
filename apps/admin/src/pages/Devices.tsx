@@ -18,7 +18,7 @@ import {
 import { useAction, useLoad } from '../useLoad';
 
 /** Pending requests are short-lived (fifteen minutes), so the page keeps itself fresh. */
-const DEVICES_POLL_MS = 15_000;
+export const DEVICES_POLL_MS = 15_000;
 
 export function DevicesPage({ pairCode }: { pairCode: string | null }) {
   const list = useLoad(() => api.devices(), [], DEVICES_POLL_MS);
@@ -215,8 +215,13 @@ function PendingRequest(props: {
   );
 }
 
-function DeviceRow(props: { device: AdminDevice; onChanged(next: AdminDevice): void }) {
-  const { device } = props;
+export function DeviceRow(props: {
+  device: AdminDevice;
+  onChanged(next: AdminDevice): void;
+  /** Off on a workspace's own page, where every row is of that workspace. */
+  showWorkspace?: boolean;
+}) {
+  const { device, showWorkspace = true } = props;
   const revoked = device.revokedAt !== null;
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(device.name);
@@ -279,9 +284,11 @@ function DeviceRow(props: { device: AdminDevice; onChanged(next: AdminDevice): v
         </div>
       )}
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
-        <span>
-          Workspace <span className="text-slate-200">{device.workspaceName || '—'}</span>
-        </span>
+        {showWorkspace && (
+          <span>
+            Workspace <span className="text-slate-200">{device.workspaceName || '—'}</span>
+          </span>
+        )}
         <span>
           {device.enrolledBy === 'code'
             ? 'Joined with a connection code'

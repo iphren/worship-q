@@ -104,6 +104,9 @@ export const api = {
       { on },
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
+  /** Where the browser loads a workspace's file from; the session cookie admits it. */
+  workspaceFileUrl: (id: string, name: string) =>
+    `${ADMIN}/workspaces/${encode(id)}/files/${encode(name)}`,
 
   devices: () =>
     request<{ devices: AdminDevice[]; pending: AdminPairingRequest[] }>('GET', `${ADMIN}/devices`),

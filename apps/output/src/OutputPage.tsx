@@ -14,9 +14,8 @@ import {
   type OutputView,
   type RelayToOutput,
 } from '@worship-q/protocol';
-import { Slide } from '@worship-q/renderer';
+import { Slide, buildFrame, fontAvailable, missingFonts } from '@worship-q/renderer';
 import { useEffect, useMemo, useState } from 'react';
-import { buildFrame, missingFonts } from './frame';
 
 const RETRY_MS = [1000, 2000, 5000, 10000];
 const PING_MS = 15_000;
@@ -28,15 +27,6 @@ type PageState =
 
 function pageKind(pathname: string): OutputKind {
   return pathname.endsWith('/subtitle') ? 'subtitle' : 'slideshow';
-}
-
-function fontAvailable(family: string | null): boolean {
-  if (!family) return true;
-  try {
-    return document.fonts.check(`16px "${family.replace(/"/g, '\\"')}"`);
-  } catch {
-    return false;
-  }
 }
 
 export function OutputPage() {

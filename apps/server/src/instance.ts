@@ -1433,19 +1433,7 @@ export class Instance {
     const number = (value: unknown, fallback: number) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
     const assetId = typeof look.backgroundAssetId === 'string' ? look.backgroundAssetId : null;
-    let backgroundFile: NonNullable<OutputView['look']>['backgroundFile'] = null;
-    if (assetId) {
-      const asset = [
-        ...this.records(workspaceId, 'background'),
-        ...this.churchRecords('background'),
-      ].find(({ record }) => record.id === assetId && !record.data.removedAt);
-      if (asset) {
-        backgroundFile = {
-          kind: asset.record.data.kind === 'video' ? 'video' : 'image',
-          fileName: String(asset.record.data.fileName),
-        };
-      }
-    }
+    const backgroundFile = assetId ? this.backgroundFile(workspaceId, assetId) : null;
     return {
       fontFamily: typeof look.fontFamily === 'string' ? look.fontFamily : (churchFont ?? null),
       scale: number(look.scale, 1),
@@ -1456,6 +1444,22 @@ export class Instance {
         typeof settings.get('wrapLongLines') === 'boolean'
           ? (settings.get('wrapLongLines') as boolean)
           : (church.wrapLongLines ?? true),
+    };
+  }
+
+  /** The file of a background the workspace can use, its own or the church's. */
+  backgroundFile(
+    workspaceId: string,
+    assetId: string,
+  ): NonNullable<OutputView['look']>['backgroundFile'] {
+    const asset = [
+      ...this.records(workspaceId, 'background'),
+      ...this.churchRecords('background'),
+    ].find(({ record }) => record.id === assetId && !record.data.removedAt);
+    if (!asset) return null;
+    return {
+      kind: asset.record.data.kind === 'video' ? 'video' : 'image',
+      fileName: String(asset.record.data.fileName),
     };
   }
 

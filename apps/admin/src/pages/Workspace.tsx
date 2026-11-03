@@ -9,6 +9,7 @@ import {
   formatDateTime,
   isPast,
   onScreen,
+  orderDevices,
   routePath,
 } from '../format';
 import { useSession } from '../session';
@@ -18,6 +19,7 @@ import {
   Card,
   CodeReveal,
   Confirm,
+  Empty,
   ErrorText,
   InlineForm,
   Link,
@@ -28,7 +30,9 @@ import {
   Switch,
   When,
 } from '../ui';
+import { SlideshowPreview, SubtitleBar } from '../preview';
 import { useAction, useLoad } from '../useLoad';
+import { DEVICES_POLL_MS, DeviceRow } from './Devices';
 
 export function WorkspacePage({ id }: { id: string }) {
   // There is no route for one workspace, so the list is loaded and the one picked out.
@@ -71,6 +75,7 @@ export function WorkspacePage({ id }: { id: string }) {
       <Header workspace={workspace} onChanged={replace} />
       <ErrorText error={list.error} />
       <LiveSection id={id} />
+      <DevicesSection id={id} onRevoked={list.reload} />
       <CodeSection workspace={workspace} onChanged={replace} />
       <LibrarySection workspace={workspace} onChanged={replace} />
     </div>
@@ -130,6 +135,61 @@ function Header(props: { workspace: AdminWorkspace; onChanged(next: AdminWorkspa
         {workspace.contentId === null && ' · No content uploaded yet'}
       </p>
     </div>
+  );
+}
+
+// ── Devices (D29) ────────────────────────────────────────────────────────────
+
+/** This workspace's devices, as on the Devices page; revoked ones are left out like there. */
+function DevicesSection(props: { id: string; onRevoked(): void }) {
+  const list = useLoad(() => api.devices(), [], DEVICES_POLL_MS);
+  const [revokedHere, setRevokedHere] = useState<ReadonlySet<string>>(new Set());
+  const devices = orderDevices(
+    (list.data?.devices ?? []).filter(
+      (d) => d.workspaceId === props.id && (d.revokedAt === null || revokedHere.has(d.id)),
+    ),
+  );
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          <Link
+            to={routePath({ page: 'devices', pairCode: null })}
+            className="text-sm text-sky-400 hover:underline"
+          >
+            All devices
+          </Link>
+        }
+      >
+        Devices
+      </SectionTitle>
+      <ErrorText error={list.error} className="mb-2" />
+      {!list.data && !list.error && (
+        <p className="flex items-center gap-2 text-sm text-slate-400">
+          <Spinner /> Loading…
+        </p>
+      )}
+      {list.data && devices.length === 0 && <Empty>No device has joined this workspace.</Empty>}
+      <ul className="space-y-2">
+        {devices.map((device) => (
+          <DeviceRow
+            key={device.id}
+            device={device}
+            showWorkspace={false}
+            onChanged={(next) => {
+              if (next.revokedAt !== null) {
+                setRevokedHere((ids) => new Set(ids).add(next.id));
+                props.onRevoked();
+              }
+              list.setData((d) => ({
+                ...d,
+                devices: d.devices.map((x) => (x.id === next.id ? next : x)),
+              }));
+            }}
+          />
+        ))}
+      </ul>
+    </Card>
   );
 }
 
@@ -399,12 +459,13 @@ function LiveSection({ id }: { id: string }) {
           No computer of this workspace is presenting right now. This page checks every few seconds.
         </p>
       )}
-      {view?.live && <LiveView view={view} />}
+      {view?.live && <LiveView view={view} workspaceId={id} />}
     </Card>
   );
 }
 
-function LiveView({ view }: { view: Extract<AdminLiveView, { live: true }> }) {
+function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspaceId: string }) {
+  const { view, workspaceId } = props;
   const { snapshot, coordinator } = view;
   const screen = onScreen(snapshot);
   const expired = isPast(view.expiresAt);
@@ -433,41 +494,20 @@ function LiveView({ view }: { view: Extract<AdminLiveView, { live: true }> }) {
       </dl>
 
       <div>
-        <h3 className="mb-1 font-semibold text-slate-100">On screen</h3>
-        <div
-          className={`rounded-lg border px-4 py-3 ${
-            screen.blank
-              ? 'border-amber-600 bg-amber-950/50'
-              : screen.title
-                ? 'border-emerald-700 bg-emerald-950/40'
-                : 'border-slate-700 bg-slate-900'
-          }`}
-        >
-          {screen.blank && (
-            <p className="mb-1">
-              <Badge tone="warn">Blank</Badge>
-              <span className="ml-2 text-amber-100">The screen is blanked.</span>
-            </p>
+        <h3 className="mb-1 flex flex-wrap items-center gap-2 font-semibold text-slate-100">
+          On screen
+          {screen.title && (
+            <span className="min-w-0 truncate font-normal text-slate-300">· {screen.title}</span>
           )}
-          {screen.title ? (
-            <>
-              <p className="font-semibold text-white">{screen.title}</p>
-              {screen.lines.length > 0 ? (
-                <div className="mt-1 text-slate-200">
-                  {screen.lines.map((line, index) => (
-                    <div key={index}>{line || ' '}</div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-1 text-slate-400">
-                  {screen.pieceMissing ? 'The slide is not in the snapshot.' : 'No text.'}
-                </p>
-              )}
-            </>
-          ) : (
-            !screen.blank && <p className="text-slate-400">Nothing is on screen.</p>
-          )}
-        </div>
+          {screen.blank && <Badge tone="warn">Blank</Badge>}
+          {screen.pieceMissing && <Badge tone="warn">Slide not in the snapshot</Badge>}
+        </h3>
+        <SlideshowPreview view={view} workspaceId={workspaceId} />
+      </div>
+
+      <div>
+        <h3 className="mb-1 font-semibold text-slate-100">Subtitle overlay</h3>
+        <SubtitleBar view={view} workspaceId={workspaceId} />
       </div>
 
       <div>

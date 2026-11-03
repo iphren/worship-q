@@ -1,10 +1,12 @@
 /**
  * Turns the coordinator's snapshot and the workspace's output look into the frame the
- * renderer draws, as the desktop's session does from its database (plan M7.2). Pure, so it
- * is tested without a browser.
+ * renderer draws, as the desktop's session does from its database (plan M7.2), for pages
+ * that have no database: browser outputs and the admin app's live view. Pure, so it is
+ * tested without a browser.
  */
 import {
   EMPTY_FRAME,
+  type BackgroundKind,
   type LiveSnapshot,
   type OutputFrame,
   type OutputKind,
@@ -19,6 +21,11 @@ export interface FrameInput {
   fileUrl: (fileName: string) => string;
   /** The look's font when the browser has it, else null for the documented fallback. */
   fontAvailable: boolean;
+  /**
+   * The file of the presented song's own background, when the page could look it up; the
+   * snapshot names it by asset only, so without it the song's background shows as its color.
+   */
+  songBackground?: { kind: BackgroundKind; fileName: string } | null;
 }
 
 export function buildFrame(input: FrameInput): OutputFrame {
@@ -44,14 +51,11 @@ export function buildFrame(input: FrameInput): OutputFrame {
   if (presented.kind === 'deck' || presented.kind === 'website') {
     frame.background = { color: '#000000', media: null };
   } else if (presented.background) {
+    const file = presented.background.assetId ? input.songBackground : null;
     frame.background = {
       color: presented.background.color,
-      media: null,
+      media: file ? { kind: file.kind, url: input.fileUrl(file.fileName) } : null,
     };
-    if (presented.background.assetId) {
-      // The song's own background file is named by its asset only; the look names files,
-      // so a song background shows as its color here until files are named in the snapshot.
-    }
   }
   if (presented.kind === 'website') {
     frame.pieceId = presented.pieceId;
@@ -85,4 +89,14 @@ export function missingFonts(
 ): string[] {
   const family = look?.fontFamily;
   return family && !check(family) ? [family] : [];
+}
+
+/** Whether the browser has a font, by family name; no family asks for the fallback, which it has. */
+export function fontAvailable(family: string | null): boolean {
+  if (!family) return true;
+  try {
+    return document.fonts.check(`16px "${family.replace(/"/g, '\\"')}"`);
+  } catch {
+    return false;
+  }
 }

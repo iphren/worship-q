@@ -41,6 +41,9 @@ importers:
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@worship-q/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       react:
         specifier: ^19.0.0
         version: 19.3.0
@@ -170,9 +173,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.1.2
         version: 6.1.2(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0))
-      '@worship-q/live-state':
-        specifier: workspace:*
-        version: link:../../packages/live-state
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)
@@ -333,6 +333,9 @@ importers:
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
+      '@worship-q/live-state':
+        specifier: workspace:*
+        version: link:../live-state
 
   packages/search:
     dependencies:

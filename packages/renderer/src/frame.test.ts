@@ -65,6 +65,32 @@ describe('browser output frames (M7.2)', () => {
     });
   });
 
+  it('puts a song’s own background in place of the look’s, with its file when one is known', () => {
+    const presented: LiveSnapshot['presented'] = {
+      itemId: 'i1',
+      pieceId: 'p1',
+      songId: 's1',
+      title: 'Song',
+      kind: 'lyrics',
+      pieces: [{ id: 'p1', lines: ['one'] }],
+      background: { color: '#445566', assetId: 'bg2' },
+      websiteUrl: null,
+      previous: false,
+    };
+    const input = { kind: 'slideshow' as const, look, fileUrl, fontAvailable: true };
+    expect(buildFrame({ ...input, snapshot: snapshot(presented) }).background).toEqual({
+      color: '#445566',
+      media: null,
+    });
+    expect(
+      buildFrame({
+        ...input,
+        snapshot: snapshot(presented),
+        songBackground: { kind: 'video', fileName: 'waves.mp4' },
+      }).background,
+    ).toEqual({ color: '#445566', media: { kind: 'video', url: '/files/waves.mp4' } });
+  });
+
   it('falls back to the default font when the browser lacks the workspace’s, and says which (M7.4)', () => {
     const frame = buildFrame({
       kind: 'subtitle',
