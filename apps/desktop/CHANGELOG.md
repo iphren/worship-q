@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.4.0](https://github.com/iphren/worship-q/compare/v1.3.0...v1.4.0) (2026-11-03)
+
+
+### Features
+
+* a song's background is the workspace's choice, not song data ([e64c5ff](https://github.com/iphren/worship-q/commit/e64c5ffb2f8f7878a590c743062ab3014c33fff5))
+* **admin:** church library can show one workspace's differences ([0b6f7b7](https://github.com/iphren/worship-q/commit/0b6f7b7eabef7d5b3fc7dc653f8b5015283d11f4))
+* **admin:** live previews keep a modest size, beside the run sheet when wide ([073fc37](https://github.com/iphren/worship-q/commit/073fc37cfa4c187617384074cc263cbf975ca393))
+* **admin:** live view offers a website item as a link to open ([190b312](https://github.com/iphren/worship-q/commit/190b312f91759812e10c6d3ff800279a2aafdac3))
+* **admin:** live view sections are divided, with more room between them ([f7f43c3](https://github.com/iphren/worship-q/commit/f7f43c345dbc491e846587f3e144456a6d0967c8))
+* **admin:** workspace page lists its devices and draws its outputs live ([a8a5645](https://github.com/iphren/worship-q/commit/a8a56456680bbcf86f405cf7099ccf8efe8d7e09))
+* **desktop:** lost-connection role icon breathes ([fa8bffa](https://github.com/iphren/worship-q/commit/fa8bffa7804e21a4a39f3ff4ac3b9b84f39fd312))
+* manage the Church Library per type, and take its items back into a workspace ([37de296](https://github.com/iphren/worship-q/commit/37de2963d718b1bf49ef5c6446d9bb5853a71205))
+* run sheets are named like "Sunday 1st Nov" ([a7c65ad](https://github.com/iphren/worship-q/commit/a7c65ad0ddc77244934b46cc460bd883e81af761))
+
+
+### Bug Fixes
+
+* **admin:** device names keep their width, details wrap below on small screens ([9f932e5](https://github.com/iphren/worship-q/commit/9f932e54fb7dd45469d47d688fb0f8d2a3df2a97))
+* **admin:** live previews fill a single column, take a capped share beside the run sheet ([5784d76](https://github.com/iphren/worship-q/commit/5784d76f60cfeecfeeebb40e97401e25c59855e2))
+* **admin:** names keep their width in workspace, library, run sheet and pairing rows ([d783c35](https://github.com/iphren/worship-q/commit/d783c3548956475163b047888ee1378e949c6d96))
+* **admin:** own-version chip is a different colour from its-own ([567e392](https://github.com/iphren/worship-q/commit/567e392506edea97af59a3351ff88498d3aaba1f))
+* **admin:** own-version chip is amber, as a version at odds with the church's ([6102527](https://github.com/iphren/worship-q/commit/61025270da573f8fb08fdfbb425a6d7a3b3520ef))
+* **admin:** short type badges, plain workspace names in the library list ([cff9581](https://github.com/iphren/worship-q/commit/cff9581cf53f15c20280c82678356d609fb9bcb4))
+* **admin:** signing out shows the sign-in page ([ff65e5c](https://github.com/iphren/worship-q/commit/ff65e5c75d8d2e071b697166b3627e142687ceb4))
+* **admin:** subtitle preview keeps its text in the middle of the bar ([3285e3d](https://github.com/iphren/worship-q/commit/3285e3d40cee4526fbd034ce199651a8cd836748))
+* **desktop:** no church or versions badges in the song library ([176e77f](https://github.com/iphren/worship-q/commit/176e77f6c4c221a928434742fbd5b83af0404917))
+* **desktop:** reloading the window ends its LAN server and connections ([5ee6cc2](https://github.com/iphren/worship-q/commit/5ee6cc2b01040ad39dc1bac7ae130ad1c51bf81c))
+* **desktop:** slide deck and website badges are icons, not words ([82aa280](https://github.com/iphren/worship-q/commit/82aa280ff556dcc2c183eeeab60bb2797f6d4663))
+* **desktop:** song versions switch applies on Save ([f2b4a9b](https://github.com/iphren/worship-q/commit/f2b4a9b9f081a2d69de44c4fbee3d054ed884fe3))
+* improve warning message for nearly full volume ([700e0a8](https://github.com/iphren/worship-q/commit/700e0a8983142f872ba82e5a231fac815ea3d74c))
+* update role labels for consistency in language ([f7340c7](https://github.com/iphren/worship-q/commit/f7340c704d8ff86eaddde31cb78aff8a8b973a51))
+
 ## [1.3.0](https://github.com/iphren/worship-q/compare/v1.2.0...v1.3.0) (2026-11-03)
 
 
