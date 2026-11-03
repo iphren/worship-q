@@ -474,7 +474,7 @@ function LyricsForm(props: SongFormProps) {
           autoFocus={!song}
         />
       </label>
-      {dirty && song?.origin === 'church' && !session.store.managesChurchLibrary && (
+      {dirty && song?.origin === 'church' && !session.store.managesChurch('song', song) && (
         <p className="text-xs text-sky-200">{t('songs.churchEditHint')}</p>
       )}
       <div className="flex min-h-0 flex-1 flex-col">

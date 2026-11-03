@@ -17,13 +17,13 @@ export function DeckBadge(props: { song: Song }) {
 
 /**
  * Where a song comes from (D31): the Church Library's, or one with two versions. Nothing for
- * the workspace's own, and nothing in a workspace that manages the Church Library, where
- * every song is the church's.
+ * the workspace's own, and nothing for a song of a type the workspace manages in the Church
+ * Library, where every such song is the church's.
  */
 export function OriginBadge(props: { song: Song }) {
   const session = useSession();
   const { song } = props;
-  if (session.store.managesChurchLibrary) return null;
+  if (session.store.managesChurch('song', song)) return null;
   const label = song.versions
     ? t('songs.versionsBadge')
     : song.origin === 'church'

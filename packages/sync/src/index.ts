@@ -7,6 +7,8 @@
  * in tests.
  */
 import {
+  LIBRARY_TYPES,
+  libraryTypes,
   negotiateProtocol,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
@@ -14,6 +16,7 @@ import {
   updateNeededBy,
   type EnrollResponse,
   type LibraryKind,
+  type LibraryType,
   type PairingPollResponse,
   type PairingStartResponse,
   type PullResponse,
@@ -30,8 +33,24 @@ export interface WorkspaceInfo {
   name: string;
   contentId: string | null;
   deviceName: string;
-  /** Its songs and backgrounds are the Church Library's; absent from older instances. */
+  /** It manages the Church Library's songs; absent from older instances. */
   manageLibrary?: boolean;
+  /** The Church Library types it manages; absent from older instances. */
+  manageLibraryTypes?: LibraryType[];
+}
+
+/**
+ * The Church Library types an instance says the workspace manages. An instance from before
+ * management was per type says only whether it manages the Church Library, so all of it.
+ * Null when the instance says nothing.
+ */
+function managedTypes(said: {
+  manageLibrary?: boolean | null;
+  manageLibraryTypes?: LibraryType[] | null;
+}): LibraryType[] | null {
+  if (Array.isArray(said.manageLibraryTypes)) return libraryTypes(said.manageLibraryTypes);
+  if (typeof said.manageLibrary === 'boolean') return said.manageLibrary ? [...LIBRARY_TYPES] : [];
+  return null;
 }
 
 /** What the device asks of its church instance. */
@@ -232,7 +251,7 @@ export class SyncClient {
   /** Reads the saved connection, to show its state before the first synchronization. */
   async load(): Promise<SyncState> {
     const state = await this.sync.getState();
-    this.session.store.managesChurchLibrary = state.manageLibrary === true;
+    this.session.store.managedLibraryTypes = new Set(managedTypes(state) ?? []);
     this.setStatus(
       state.joinedAt ? { kind: 'idle', lastSyncAt: state.lastSyncAt } : { kind: 'disconnected' },
     );
@@ -322,12 +341,19 @@ export class SyncClient {
       cursor = page.cursor;
     } while (page.more);
     const workspaceId = this.session.workspace.id;
-    // A version 3 instance says whether this workspace manages the Church Library (D31).
-    if (typeof page.manageLibrary === 'boolean' && page.manageLibrary !== state.manageLibrary) {
-      await this.sync.setState({ manageLibrary: page.manageLibrary });
-    }
-    if (typeof page.manageLibrary === 'boolean') {
-      this.session.store.managesChurchLibrary = page.manageLibrary;
+    // A version 3 instance says what of the Church Library this workspace manages (D31).
+    const types = managedTypes(page);
+    if (types) {
+      if (
+        types.join() !== (state.manageLibraryTypes ?? []).join() ||
+        state.manageLibrary === null
+      ) {
+        await this.sync.setState({
+          manageLibrary: types.includes('songs'),
+          manageLibraryTypes: types,
+        });
+      }
+      this.session.store.managedLibraryTypes = new Set(types);
     }
     const changes: AppliedChanges = await this.session.applyRemote(async () => {
       await this.session.store.setChurchSettings(page.church);
@@ -393,6 +419,7 @@ export class SyncClient {
       lastSyncAt: null,
       lastError: null,
       manageLibrary: null,
+      manageLibraryTypes: null,
     });
   }
 

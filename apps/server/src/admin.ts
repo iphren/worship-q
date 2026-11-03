@@ -12,6 +12,8 @@ import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
 import {
   ADMIN_HEADER,
   ChurchSettingsSchema,
+  LIBRARY_TYPES,
+  libraryTypes,
   type AdminDevice,
   type AdminLibraryItem,
   type AdminLiveView,
@@ -203,7 +205,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       id: w.id,
       name: w.name,
       contentId: w.contentId,
-      manageLibrary: w.manageLibrary,
+      libraryTypes: w.libraryTypes,
       codesEnabled: w.codesEnabled,
       devices: instance.listDevices(w.id).filter((d) => !d.revokedAt).length,
       createdAt: w.createdAt,
@@ -247,27 +249,37 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       },
     );
 
-    api.get<{ Params: { id: string } }>(
+    /** What turning on management of some types would do (D36); `types` is comma-separated. */
+    api.get<{ Params: { id: string }; Querystring: { types?: string } }>(
       '/api/v1/admin/workspaces/:id/library-plan',
       async (request, reply) => {
         if (!instance.getWorkspace(request.params.id)) {
           return reply.code(404).send({ error: 'not-found' });
         }
-        return instance.libraryPlan(request.params.id);
+        const types =
+          request.query.types === undefined
+            ? LIBRARY_TYPES
+            : libraryTypes(request.query.types.split(','));
+        return instance.libraryPlan(request.params.id, types);
       },
     );
 
-    /** Turns Manage Church Library on or off (D36); the plan was shown and confirmed first. */
-    api.post<{ Params: { id: string }; Body: { on?: boolean } }>(
+    /**
+     * Sets which Church Library types the workspace manages (D36); the plan for the types
+     * turned on was shown and confirmed first.
+     */
+    api.post<{ Params: { id: string }; Body: { types?: unknown } }>(
       '/api/v1/admin/workspaces/:id/library',
       async (request, reply) => {
         const workspace = instance.getWorkspace(request.params.id);
         if (!workspace) return reply.code(404).send({ error: 'not-found' });
-        const on = request.body?.on === true;
+        const requested = request.body?.types;
+        if (!Array.isArray(requested)) return reply.code(400).send({ error: 'invalid-types' });
+        const types = libraryTypes(requested);
         let moved = 0;
-        if (workspace.manageLibrary !== on) {
-          instance.setManageLibrary(workspace.id, on);
-          if (on) moved = moveFilesToChurch(config.dataDir, workspace.id);
+        if (types.join() !== workspace.libraryTypes.join()) {
+          const files = instance.setLibraryTypes(workspace.id, types);
+          moved = moveFilesToChurch(config.dataDir, workspace.id, files);
           relay.contentChangedAll('');
         }
         return { workspace: workspaceView(instance.getWorkspace(workspace.id)!), moved };

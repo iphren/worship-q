@@ -1,4 +1,9 @@
-import type { AdminLibraryPlan, AdminLiveView, AdminWorkspace } from '@worship-q/protocol';
+import type {
+  AdminLibraryPlan,
+  AdminLiveView,
+  AdminWorkspace,
+  LibraryType,
+} from '@worship-q/protocol';
 import { useState, type ReactNode } from 'react';
 import { api } from '../api';
 import {
@@ -8,6 +13,9 @@ import {
   formatDate,
   formatDateTime,
   isPast,
+  LIBRARY_TYPE_NOUNS,
+  libraryTypeList,
+  managedLabel,
   onScreen,
   orderDevices,
   routePath,
@@ -264,80 +272,94 @@ function CodeSection(props: { workspace: AdminWorkspace; onChanged(next: AdminWo
 
 // ── Manage Church Library (D36) ──────────────────────────────────────────────
 
+const MANAGED_TYPES: { type: LibraryType; label: string }[] = [
+  { type: 'songs', label: 'Songs' },
+  { type: 'backgrounds', label: 'Backgrounds' },
+  { type: 'slides', label: 'Slides' },
+  { type: 'websites', label: 'Websites' },
+];
+
 function LibrarySection(props: {
   workspace: AdminWorkspace;
   onChanged(next: AdminWorkspace): void;
 }) {
   const { workspace } = props;
-  const [turning, setTurning] = useState<'on' | 'off' | null>(null);
+  const [turning, setTurning] = useState<{ type: LibraryType; on: boolean } | null>(null);
   const [plan, setPlan] = useState<AdminLibraryPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [moved, setMoved] = useState<number | null>(null);
+  const [moved, setMoved] = useState<{ type: LibraryType; files: number } | null>(null);
+  const managed = workspace.libraryTypes;
 
-  function begin(on: boolean) {
+  function begin(type: LibraryType, on: boolean) {
     setMoved(null);
-    setTurning(on ? 'on' : 'off');
+    setTurning({ type, on });
     setPlan(null);
     setPlanError(null);
     if (on) {
       api
-        .libraryPlan(workspace.id)
+        .libraryPlan(workspace.id, [type])
         .then(setPlan, (cause: unknown) =>
           setPlanError(cause instanceof Error ? cause.message : 'The plan could not be loaded.'),
         );
     }
   }
 
-  async function confirm(on: boolean) {
-    const result = await api.setManageLibrary(workspace.id, on);
+  async function confirm(type: LibraryType, on: boolean) {
+    const next = on ? [...managed, type] : managed.filter((t) => t !== type);
+    const result = await api.setLibraryTypes(workspace.id, next);
     props.onChanged(result.workspace);
-    setMoved(on ? result.moved : null);
+    setMoved(on ? { type, files: result.moved } : null);
     setTurning(null);
   }
 
+  const noun = turning ? LIBRARY_TYPE_NOUNS[turning.type] : '';
   return (
     <Card>
-      <SectionTitle
-        aside={
-          <Switch
-            label="Manage Church Library"
-            checked={workspace.manageLibrary}
-            onChange={(on) => begin(on)}
-          />
-        }
-      >
-        Manage Church Library
-      </SectionTitle>
+      <SectionTitle>Manage Church Library</SectionTitle>
       <div className="space-y-3 text-sm text-slate-300">
-        {workspace.manageLibrary ? (
+        {managed.length > 0 ? (
           <p>
-            This workspace <strong>manages the Church Library</strong>: its songs and backgrounds
-            are the church's, and every workspace receives them.
+            This workspace <strong>manages {managedLabel(managed)}</strong>: its{' '}
+            {libraryTypeList(managed)} are the church's, and every workspace receives them.
+            {managed.length < MANAGED_TYPES.length && ' Everything else it has stays its own.'}
           </p>
         ) : (
           <p>
-            This workspace has its own library and receives the Church Library. Turning this on
-            makes its songs and backgrounds the church's; the changes are listed for confirmation
-            first.
+            This workspace has its own library and receives the Church Library. Turning a type on
+            makes the workspace's items of that type the church's; the changes are listed for
+            confirmation first.
           </p>
         )}
+        <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
+          {MANAGED_TYPES.map(({ type, label }) => (
+            <li key={type} className="flex items-center justify-between gap-3 px-3 py-2">
+              <span className="text-slate-100">{label}</span>
+              <Switch
+                label={`Manage the Church Library's ${LIBRARY_TYPE_NOUNS[type]}`}
+                checked={managed.includes(type)}
+                onChange={(on) => begin(type, on)}
+              />
+            </li>
+          ))}
+        </ul>
         {moved !== null && (
           <Notice tone="success" onClose={() => setMoved(null)}>
-            Manage Church Library is on.{' '}
-            {moved === 1 ? '1 file was moved' : `${moved} files were moved`} to the Church Library.
+            This workspace now manages the Church Library's {LIBRARY_TYPE_NOUNS[moved.type]}.{' '}
+            {moved.files === 1 ? '1 file was moved' : `${moved.files} files were moved`} to the
+            Church Library.
           </Notice>
         )}
       </div>
-      {turning === 'on' && (
+      {turning?.on && (
         <Confirm
-          title="Turn on Manage Church Library?"
+          title={`Manage the Church Library's ${noun}?`}
           confirmLabel="Turn on"
           ready={plan !== null}
           onCancel={() => setTurning(null)}
-          onConfirm={() => confirm(true)}
+          onConfirm={() => confirm(turning.type, true)}
         >
           <p>
-            Everything in <strong>{workspace.name}</strong> becomes the church's and reaches every
+            The {noun} in <strong>{workspace.name}</strong> become the church's and reach every
             workspace. This is what will happen:
           </p>
           <ErrorText error={planError} />
@@ -349,17 +371,17 @@ function LibrarySection(props: {
           {plan && <PlanView plan={plan} />}
         </Confirm>
       )}
-      {turning === 'off' && (
+      {turning && !turning.on && (
         <Confirm
-          title="Turn off Manage Church Library?"
+          title={`Stop managing the Church Library's ${noun}?`}
           confirmLabel="Turn off"
           onCancel={() => setTurning(null)}
-          onConfirm={() => confirm(false)}
+          onConfirm={() => confirm(turning.type, false)}
         >
           <p>
-            <strong>{workspace.name}</strong> stops managing the Church Library. What it put there
-            stays the church's; from now on the workspace receives the Church Library like any
-            other, and its new songs stay its own.
+            <strong>{workspace.name}</strong> stops managing the Church Library's {noun}. The {noun}{' '}
+            it put there stay the church's; from now on the workspace receives them like any other,
+            and its new {noun} stay its own.
           </p>
         </Confirm>
       )}
@@ -372,7 +394,13 @@ function PlanView({ plan }: { plan: AdminLibraryPlan }) {
   const promoted = plan.overrides.filter((o) => !o.usesChurchVersion);
   const dropped = plan.overrides.filter((o) => o.usesChurchVersion);
   const empty =
-    plan.songs.length + plan.backgrounds.length + plan.overrides.length + plan.hidden.length === 0;
+    plan.songs.length +
+      plan.slides.length +
+      plan.websites.length +
+      plan.backgrounds.length +
+      plan.overrides.length +
+      plan.hidden.length ===
+    0;
   if (empty) {
     return (
       <p className="text-slate-400">Nothing changes: the workspace has no content of its own.</p>
@@ -381,10 +409,12 @@ function PlanView({ plan }: { plan: AdminLibraryPlan }) {
   return (
     <div className="space-y-3">
       <PlanGroup title="Songs that become the church's" items={plan.songs} />
+      <PlanGroup title="Slides that become the church's" items={plan.slides} />
+      <PlanGroup title="Websites that become the church's" items={plan.websites} />
       <PlanGroup title="Backgrounds that become the church's" items={plan.backgrounds} />
       {promoted.length > 0 && (
         <PlanGroup
-          title="Church songs this workspace's version replaces, church-wide"
+          title="Church items this workspace's version replaces, church-wide"
           items={promoted.map((o) => (
             <>
               {o.title}
@@ -396,7 +426,7 @@ function PlanView({ plan }: { plan: AdminLibraryPlan }) {
       {dropped.length > 0 && (
         <PlanGroup
           title="Versions dropped, the church's stands"
-          hint="This workspace chose the church's version of these songs, so its own version is let go, not promoted."
+          hint="This workspace chose the church's version of these, so its own version is let go, not promoted."
           items={dropped.map((o) => o.title)}
         />
       )}

@@ -18,6 +18,7 @@ import {
   type AdminWorkspace,
   type ChurchSettings,
   type LibraryKind,
+  type LibraryType,
 } from '@worship-q/protocol';
 import { errorText } from './format';
 
@@ -95,13 +96,18 @@ export const api = {
     request<{ workspace: AdminWorkspace }>('PATCH', `${ADMIN}/workspaces/${encode(id)}`, patch),
   newCode: (id: string) =>
     request<{ code: string }>('POST', `${ADMIN}/workspaces/${encode(id)}/code`),
-  libraryPlan: (id: string) =>
-    request<AdminLibraryPlan>('GET', `${ADMIN}/workspaces/${encode(id)}/library-plan`),
-  setManageLibrary: (id: string, on: boolean) =>
+  /** What turning on management of these Church Library types would do (D36). */
+  libraryPlan: (id: string, types: LibraryType[]) =>
+    request<AdminLibraryPlan>(
+      'GET',
+      `${ADMIN}/workspaces/${encode(id)}/library-plan?types=${encode(types.join(','))}`,
+    ),
+  /** Sets which Church Library types the workspace manages. */
+  setLibraryTypes: (id: string, types: LibraryType[]) =>
     request<{ workspace: AdminWorkspace; moved: number }>(
       'POST',
       `${ADMIN}/workspaces/${encode(id)}/library`,
-      { on },
+      { types },
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
   /** Where the browser loads a workspace's file from; the session cookie admits it. */

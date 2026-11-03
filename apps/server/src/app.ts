@@ -27,6 +27,7 @@ import {
   UPDATE_NEEDED,
   WorkspaceGrantSchema,
   type Deck,
+  type LibraryType,
   type EnrollResponse,
   type OutputLink,
   type PairingStartResponse,
@@ -119,11 +120,15 @@ export async function buildServer(config: ServerConfig) {
     // Behind CloudFront and a reverse proxy.
     trustProxy: true,
   });
-  // New files of a workspace that manages the Church Library are the church's.
-  const uploadDir = (workspaceId: string) =>
-    instance.getWorkspace(workspaceId)?.manageLibrary
+  // New files of a type the workspace manages in the Church Library are the church's.
+  const uploadDir = (workspaceId: string, type: LibraryType) =>
+    instance.getWorkspace(workspaceId)?.libraryTypes.includes(type)
       ? churchFilesDir(config.dataDir)
       : workspaceFilesDir(config.dataDir, workspaceId);
+  const manages = (workspaceId: string) => {
+    const types = instance.getWorkspace(workspaceId)?.libraryTypes ?? [];
+    return { manageLibrary: types.includes('songs'), manageLibraryTypes: types };
+  };
   // One conversion at a time: LibreOffice is heavy, and its settings folder is shared.
   let conversions: Promise<unknown> = Promise.resolve();
   const queued = <T>(task: () => Promise<T>): Promise<T> => {
@@ -283,7 +288,7 @@ export async function buildServer(config: ServerConfig) {
         name: workspace.name,
         contentId: workspace.contentId,
         deviceName: request.device!.name,
-        manageLibrary: workspace.manageLibrary,
+        ...manages(workspace.id),
       };
     });
 
@@ -390,7 +395,7 @@ export async function buildServer(config: ServerConfig) {
       return {
         ...page,
         church: instance.churchSettings(),
-        manageLibrary: instance.getWorkspace(request.device!.workspaceId)?.manageLibrary ?? false,
+        ...manages(request.device!.workspaceId),
       } satisfies PullResponse;
     });
 
@@ -414,7 +419,7 @@ export async function buildServer(config: ServerConfig) {
     api.put<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
       if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
-      const dir = uploadDir(request.device!.workspaceId);
+      const dir = uploadDir(request.device!.workspaceId, 'backgrounds');
       mkdirSync(dir, { recursive: true });
       await receive(request.body as Readable, join(dir, name));
       return { stored: true };
@@ -448,7 +453,7 @@ export async function buildServer(config: ServerConfig) {
         await receive(request.body as Readable, upload);
         const out = join(work, 'out');
         const converted = await queued(() => convert(upload, out, join(work, 'convert')));
-        const dir = uploadDir(request.device!.workspaceId);
+        const dir = uploadDir(request.device!.workspaceId, 'slides');
         mkdirSync(dir, { recursive: true });
         const pages: Deck['pages'] = [];
         for (const page of converted.pages) {

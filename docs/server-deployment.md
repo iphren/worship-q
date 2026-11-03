@@ -162,7 +162,8 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 | `workspace create <name>` | Creates a workspace and prints its connection code |
 | `workspace list` | Lists workspaces |
 | `workspace code <id>` | Replaces a workspace's connection code; enrolled devices keep working |
-| `workspace library <id> on\|off [--yes]` | Whether the workspace manages the Church Library; without `--yes` it only shows what would change |
+| `workspace library <id> <types>\|all\|none [--yes]` | What the workspace manages in the Church Library: `songs`, `backgrounds`, `slides`, `websites`, comma-separated; without `--yes` it only shows what would change |
+| `workspace library-take <id> <types> [--yes]` | Takes the Church Library's items of those types into the workspace's own library; without `--yes` it only lists them |
 | `device list [workspace-id]` | Lists enrolled computers |
 | `device revoke <device-id>` | Disconnects a computer; it must enroll again |
 | `settings show` | Shows the church defaults |
@@ -184,9 +185,10 @@ content, and replace it with `workspace code` if it leaks.
 
 ## The Church Library
 
-Songs and backgrounds of the Church Library are seen by every workspace. A workspace that
-manages it (`workspace library <id> on`) adds, edits and removes them directly. In every
-other workspace:
+Songs, backgrounds, slides and websites of the Church Library are seen by every workspace.
+A workspace manages each of these types on its own (`workspace library <id> songs,backgrounds`,
+or `all`); for the types it manages, it adds, edits and removes the church's items directly.
+For the other types, and in every other workspace:
 
 - new songs and backgrounds stay in that workspace;
 - editing a church song makes the workspace its own version, which replaces the church's
@@ -201,8 +203,8 @@ church's latest and its own. Its computers show both and a toggle for which one 
 workspace presents; the choice is per song and per workspace, and it synchronizes to the
 workspace's other computers like an edit. **Delete our version** goes back to the church's
 song for good. Computers show a **Church** badge on the church's songs and **2 versions** on
-songs with both; a workspace that manages the Church Library shows neither, since its songs
-are the church's.
+songs with both; a workspace shows neither on the types it manages, since those are the
+church's.
 
 Deleting a song or background from the Church Library, by a managing workspace or in the
 admin app, is recoverable: the admin app lists deleted items and **Restore** brings one back
@@ -212,17 +214,30 @@ files; the item stays listed as deleted with its files gone and can no longer be
 workspace's own deleted backgrounds and slide decks are swept the same way; a church item a
 workspace merely hid is not a deletion and keeps its files.
 
-Turning it on first shows what will happen, and changes nothing without `--yes`:
+Turning a type on first shows what will happen, and changes nothing without `--yes`. The
+list given is everything the workspace manages afterwards:
 
 ```sh
-docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> on
-docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> on --yes
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> songs,backgrounds
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library <id> songs,backgrounds --yes
 ```
 
-The workspace's songs and backgrounds become the church's. Its own versions of church
-songs replace them for every workspace, including workspaces without their own version.
-Church songs and backgrounds it hid reappear. Its files move to the church's folder.
-Turning it off leaves the Church Library as it is.
+The workspace's items of the types turned on become the church's. Its own versions of
+church items replace them for every workspace, including workspaces without their own
+version. Church items of those types it hid reappear. Their files move to the church's
+folder. Turning a type off leaves the Church Library as it is.
+
+To give the church's items of some types to one workspace instead, turn those types off for
+it and take them:
+
+```sh
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library-take <id> slides,websites
+docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js workspace library-take <id> slides,websites --yes
+```
+
+Every live church item of those types becomes the workspace's own, with its history and
+files. Every other workspace sees it deleted from the Church Library; one that made its own
+version keeps that as its own. The church's deleted item cannot be restored.
 
 Import legacy songs only once, into the workspace that manages the Church Library. The
 imported songs keep the same identifiers every time, so importing them again into another

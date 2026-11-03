@@ -3,6 +3,7 @@ import {
   ChurchSettingsSchema,
   DEFAULT_PRESENTATION_SETTINGS,
   invalidSongFields,
+  libraryTypeOf,
   LiveStateSchema,
   OutputProfileSchema,
   OutputTargetSchema,
@@ -12,6 +13,7 @@ import {
   type ChurchSettings,
   type Deck,
   type IsoDate,
+  type LibraryType,
   type LiveState,
   type OutputKind,
   type OutputProfile,
@@ -264,11 +266,20 @@ export type CopyMode = 'append' | 'replace';
 /** Data access for one local database. Every write in the app goes through here. */
 export class Store {
   /**
-   * Whether this workspace manages the Church Library, as the instance last said. Then its
-   * songs are the church's, and editing one edits the church's rather than making a version
-   * of the workspace's own (D31). Set from the sync state; false without a church.
+   * The Church Library types this workspace manages, as the instance last said. Its items of
+   * these types are the church's, and editing one edits the church's rather than making a
+   * version of the workspace's own (D31). Set from the sync state; empty without a church.
    */
-  managesChurchLibrary = false;
+  managedLibraryTypes: ReadonlySet<LibraryType> = new Set();
+
+  /** Whether the workspace manages a song's or background's type in the Church Library. */
+  managesChurch(
+    kind: 'song' | 'background',
+    data?: { deck?: unknown; website?: unknown } | null,
+  ): boolean {
+    const type = libraryTypeOf(kind, data);
+    return type !== null && this.managedLibraryTypes.has(type);
+  }
 
   constructor(
     readonly db: SqlDriver,
@@ -406,8 +417,9 @@ export class Store {
       createdAt: now,
       updatedAt: now,
       removedAt: null,
-      // A managing workspace's new song is the church's; elsewhere the instance says.
-      origin: this.managesChurchLibrary ? 'church' : null,
+      // A new song of a type the workspace manages is the church's; elsewhere the instance
+      // says.
+      origin: this.managesChurch('song', fields) ? 'church' : null,
       useChurchVersion: false,
       versions: null,
     };
@@ -474,7 +486,7 @@ export class Store {
     // the workspace's own version of it; the church's is kept beside it (D31). An edit made
     // while the church's version was in use goes into the workspace's version, which is
     // then the one in use (D32).
-    const makesVersion = current.origin === 'church' && !this.managesChurchLibrary;
+    const makesVersion = current.origin === 'church' && !this.managesChurch('song', current);
     if (makesVersion) statements.push(this.keepChurchVersion(id));
     next.origin = makesVersion ? 'workspace' : current.origin;
     next.useChurchVersion = false;
@@ -576,7 +588,7 @@ export class Store {
     const current = await this.getSong(id);
     // Removing a church song hides it in this workspace only: the removal is the
     // workspace's own record of the song (spec §5), with the church's kept beside it.
-    const hides = current?.origin === 'church' && !this.managesChurchLibrary;
+    const hides = current?.origin === 'church' && !this.managesChurch('song', current);
     await this.db.batch([
       ...(hides ? [this.keepChurchVersion(id)] : []),
       {
@@ -990,7 +1002,7 @@ export class Store {
     asset: { id: string; kind: BackgroundKind; fileName: string; originalName: string },
   ): Promise<BackgroundAsset> {
     const now = this.env.now();
-    const origin = this.managesChurchLibrary ? 'church' : null;
+    const origin = this.managesChurch('background') ? 'church' : null;
     await this.db.batch([
       {
         sql: `INSERT INTO background_asset (id, workspace_id, kind, file_name, original_name, created_at, origin)

@@ -11,6 +11,7 @@ import {
   LiveStateSchema,
   RecordOriginSchema,
   type BackgroundKind,
+  type LibraryType,
   type OutputKind,
 } from './records';
 
@@ -194,9 +195,12 @@ export interface PullResponse {
   church: ChurchSettings;
   /**
    * Whether the workspace manages the Church Library, so a device knows that editing a
-   * church song edits the church's rather than making a workspace version. Version 3.
+   * church song edits the church's rather than making a workspace version. Version 3. Since
+   * management is per type, true when it manages songs; see `manageLibraryTypes`.
    */
   manageLibrary?: boolean;
+  /** The Church Library types the workspace manages; absent from older instances. */
+  manageLibraryTypes?: LibraryType[];
 }
 
 export interface EnrollResponse {

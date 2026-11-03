@@ -5,6 +5,7 @@ import { buildPieces } from '@worship-q/lyrics';
 import { createLiveState } from '@worship-q/live-state';
 import {
   BackgroundAssetSchema,
+  LIBRARY_TYPES,
   OutputProfileSchema,
   RunSheetItemSchema,
   RunSheetSchema,
@@ -430,8 +431,29 @@ describe('two versions of a song (D31, D32)', () => {
     expect((await store.updateSong(other.id, { title: 'Untouched' })).origin).toBe('church');
   });
 
+  it('makes a version of a church deck when the workspace manages only songs', async () => {
+    store.managedLibraryTypes = new Set(['songs']);
+    const deck = {
+      source: 'a.pptx',
+      width: 16,
+      height: 9,
+      pages: [{ image: 'deck-1-001.jpg', slide: 1, step: 0, text: [] }],
+    };
+    const slides = await store.createSong(workspaceId, { title: 'Notices', deck });
+    expect(slides.origin).toBeNull();
+    await driver.batch([
+      { sql: `UPDATE song SET origin = 'church' WHERE id = ?`, params: [slides.id] },
+    ]);
+    env.advance(1000);
+    expect((await store.updateSong(slides.id, { title: 'Ours' })).origin).toBe('workspace');
+    // A song of lyrics is still edited in place, and a new one is the church's.
+    const song = await churchSong();
+    expect((await store.updateSong(song.id, { lyrics: 'x' })).origin).toBe('church');
+    expect((await store.createSong(workspaceId, { title: 'New' })).origin).toBe('church');
+  });
+
   it('edits a church song in place when the workspace manages the Church Library', async () => {
-    store.managesChurchLibrary = true;
+    store.managedLibraryTypes = new Set(LIBRARY_TYPES);
     const song = await churchSong();
     const edited = await store.updateSong(song.id, { lyrics: 'changed' });
     expect(edited).toMatchObject({ origin: 'church', versions: null, lyrics: 'changed' });

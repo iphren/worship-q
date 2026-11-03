@@ -164,6 +164,14 @@ const MIGRATIONS: string[][] = [
     // Where a pairing request came from, so one address cannot fill the pending list (D29).
     `ALTER TABLE pairing_request ADD COLUMN requested_from TEXT`,
   ],
+  [
+    // What a workspace manages in the Church Library, each type on its own: a JSON list of
+    // `songs`, `backgrounds`, `slides` and `websites`. A workspace that managed the whole
+    // Church Library manages every type. `manage_library` is no longer read.
+    `ALTER TABLE workspace ADD COLUMN library_types TEXT NOT NULL DEFAULT '[]'`,
+    `UPDATE workspace SET library_types = '["songs","backgrounds","slides","websites"]'
+     WHERE manage_library = 1`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

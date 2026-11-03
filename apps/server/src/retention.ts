@@ -5,14 +5,11 @@
  */
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { churchFilesDir, workspaceFilesDir } from './files';
+import { churchFilesDir, DECK_ID, workspaceFilesDir } from './files';
 import type { DeletedItem, Instance } from './instance';
 
 export const DEFAULT_RETENTION_DAYS = 90;
 export const SWEEP_EVERY_MS = 24 * 60 * 60 * 1000;
-
-/** The identifier in a deck image's name, `deck-<id>-001.jpg`, shared with its original. */
-const DECK_ID = /^deck-([0-9a-f-]{36})-/;
 
 export interface SweepResult {
   items: DeletedItem[];

@@ -1,13 +1,20 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { LIBRARY_TYPES } from '@worship-q/protocol';
 import { Session } from '@worship-q/session';
 import { migrate, Store, SyncStore, type StoreEnv } from '@worship-q/store';
 import { openNodeDriver } from '@worship-q/store/testing';
 import { SyncClient, type FileTransfer, type InstanceApi } from '@worship-q/sync';
 import { describe, expect, it } from 'vitest';
 import { openDatabase } from './db';
-import { churchFilesDir, findFile, moveFilesToChurch, workspaceFilesDir } from './files';
+import {
+  churchFilesDir,
+  findFile,
+  moveFilesToChurch,
+  moveFilesToWorkspace,
+  workspaceFilesDir,
+} from './files';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport, type LegacySong } from './legacy';
 
@@ -74,7 +81,11 @@ function directApi(instance: Instance, token: () => string | null, protocol = 3)
         ...instance.pull(d.workspaceId, since, 3, protocol),
         church: instance.churchSettings(),
         ...(protocol >= 3
-          ? { manageLibrary: instance.getWorkspace(d.workspaceId)?.manageLibrary ?? false }
+          ? {
+              manageLibrary:
+                instance.getWorkspace(d.workspaceId)?.libraryTypes.includes('songs') ?? false,
+              manageLibraryTypes: instance.getWorkspace(d.workspaceId)?.libraryTypes ?? [],
+            }
           : {}),
       };
     },
@@ -564,14 +575,16 @@ describe('the Church Library', () => {
 
   it('brings the songs and backgrounds of the workspace that manages it to another', async () => {
     const { clock, instance, a, b, codeB, north } = await twoBranches();
-    expect(instance.libraryPlan(a.id)).toEqual({
+    expect(instance.libraryPlan(a.id, LIBRARY_TYPES)).toEqual({
       songs: ['Amazing Grace', 'Holy Holy'],
+      slides: [],
+      websites: [],
       backgrounds: ['Sunrise.jpg'],
       overrides: [],
       hidden: [],
     });
     instance.setManageLibrary(a.id, true);
-    expect(instance.getWorkspace(a.id)?.manageLibrary).toBe(true);
+    expect(instance.getWorkspace(a.id)?.libraryTypes).toEqual(LIBRARY_TYPES);
 
     const south = await device('south', clock, instance);
     await south.connect(codeB, 'upload');
@@ -653,8 +666,10 @@ describe('the Church Library', () => {
     expect(await south.store.listBackgrounds(south.session.workspace.id)).toEqual([]);
 
     instance.setManageLibrary(a.id, false);
-    expect(instance.libraryPlan(b.id)).toEqual({
+    expect(instance.libraryPlan(b.id, LIBRARY_TYPES)).toEqual({
       songs: ['South Only'],
+      slides: [],
+      websites: [],
       backgrounds: [],
       overrides: [{ title: 'Grace, South', churchChangedSince: false, usesChurchVersion: false }],
       hidden: ['Sunrise.jpg', 'Holy Holy'],
@@ -706,13 +721,13 @@ describe('two versions of a song (D31, D32)', () => {
   it('marks where songs come from, and whether the workspace manages the Church Library', async () => {
     const { church, south1, grace } = await churchAndBranch();
     expect((await church.store.getSong(grace.id))?.origin).toBe('church');
-    expect(church.store.managesChurchLibrary).toBe(true);
+    expect(church.store.managesChurch('song')).toBe(true);
     expect(await south1.store.getSong(grace.id)).toMatchObject({
       origin: 'church',
       useChurchVersion: false,
       versions: null,
     });
-    expect(south1.store.managesChurchLibrary).toBe(false);
+    expect(south1.store.managesChurch('song')).toBe(false);
     expect((await south1.syncStore.getState()).manageLibrary).toBe(false);
   });
 
@@ -968,7 +983,195 @@ describe('two versions of a song (D31, D32)', () => {
   });
 });
 
+describe('Church Library types', () => {
+  const titles = async (d: Awaited<ReturnType<typeof device>>) =>
+    (await d.store.listSongs(d.session.workspace.id)).map((s) => s.title).sort();
+  const deck = (id: string) => ({
+    source: 'notices.pptx',
+    width: 1920,
+    height: 1080,
+    pages: [{ image: `deck-${id}-001.jpg`, slide: 1, step: 0, text: ['Notices'] }],
+  });
+
+  /** A workspace managing the whole Church Library with a song, a deck and a website. */
+  async function managingAndBranch() {
+    const { clock, instance, workspace: a, code: codeA } = await setup();
+    const { workspace: b, code: codeB } = instance.createWorkspace('South Branch');
+    const church = await device('church', clock, instance);
+    const grace = await church.session.createSong({ title: 'Amazing Grace', lyrics: 'a\nb' });
+    const notices = await church.session.createSong({
+      title: 'Notices',
+      deck: deck('0b0b0b0b-0000-4000-8000-000000000001'),
+    });
+    const site = await church.session.createSong({
+      title: 'Giving',
+      website: { url: 'https://example.org/give' },
+    });
+    await church.connect(codeA, 'upload');
+    instance.setManageLibrary(a.id, true);
+    await church.client.run();
+    clock.advance();
+    const south = await device('south', clock, instance);
+    await south.connect(codeB, 'upload');
+    clock.advance();
+    return { clock, instance, a, b, church, south, grace, notices, site };
+  }
+
+  it('keeps new slides in a workspace that manages only songs and backgrounds', async () => {
+    const { clock, instance, a, church, south } = await managingAndBranch();
+    expect(await titles(south)).toEqual(['Amazing Grace', 'Giving', 'Notices']);
+    instance.setLibraryTypes(a.id, ['songs', 'backgrounds']);
+    await church.client.run();
+    expect(church.store.managesChurch('song')).toBe(true);
+    expect(church.store.managesChurch('song', { deck: deck('x') })).toBe(false);
+    expect((await church.syncStore.getState()).manageLibraryTypes).toEqual([
+      'songs',
+      'backgrounds',
+    ]);
+
+    clock.advance();
+    const welcome = await church.session.createSong({
+      title: 'Welcome',
+      deck: deck('0b0b0b0b-0000-4000-8000-000000000002'),
+    });
+    expect(welcome.origin).toBeNull();
+    await church.session.createSong({ title: 'How Great', lyrics: 'c' });
+    clock.advance();
+    await church.client.run();
+    await south.client.run();
+    // The song reaches the branch; the slides stay with the workspace.
+    expect(await titles(south)).toEqual(['Amazing Grace', 'Giving', 'How Great', 'Notices']);
+    expect((await church.store.getSong(welcome.id))?.origin).toBe('workspace');
+    expect(instance.listChurch('song').map((item) => item.title)).not.toContain('Welcome');
+  });
+
+  it('takes the church’s slides and websites into the workspace, out of every other', async () => {
+    const { clock, instance, a, b, church, south, grace, notices, site } =
+      await managingAndBranch();
+    // The branch makes its own version of the website, which it keeps.
+    await south.session.saveSong(site.id, { title: 'Giving (South)' });
+    await south.client.run();
+    instance.setLibraryTypes(a.id, ['songs', 'backgrounds']);
+    clock.advance();
+
+    const dry = instance.takeFromChurch(a.id, ['slides', 'websites'], false);
+    expect(dry.items.map((item) => [item.type, item.title])).toEqual([
+      ['slides', 'Notices'],
+      ['websites', 'Giving'],
+    ]);
+    expect(dry.files).toEqual(['deck-0b0b0b0b-0000-4000-8000-000000000001-001.jpg']);
+    expect(instance.listChurch('song').filter((item) => item.removedAt)).toEqual([]);
+
+    const taken = instance.takeFromChurch(a.id, ['slides', 'websites']);
+    expect(taken.items).toHaveLength(2);
+    expect(taken.sharedFiles).toEqual([]);
+    await church.client.run();
+    await south.client.run();
+
+    expect(await church.store.getSong(notices.id)).toMatchObject({
+      origin: 'workspace',
+      versions: null,
+      title: 'Notices',
+    });
+    expect((await church.store.getSong(site.id))?.origin).toBe('workspace');
+    expect((await church.store.getSong(grace.id))?.origin).toBe('church');
+    expect(await titles(church)).toEqual(['Amazing Grace', 'Giving', 'Notices']);
+
+    // The branch no longer has the slides; its version of the website is its own.
+    expect(await titles(south)).toEqual(['Amazing Grace', 'Giving (South)']);
+    expect(await south.store.getSong(site.id)).toMatchObject({
+      origin: 'workspace',
+      versions: null,
+    });
+    expect(instance.listWorkspaceLibrary(b.id, 'song')).toEqual([
+      expect.objectContaining({ title: 'Giving (South)', change: { type: 'own' } }),
+    ]);
+    // The church's is deleted, by the workspace, for good.
+    const deleted = instance.listChurch('song').filter((item) => item.removedAt);
+    expect(deleted.map((item) => item.title).sort()).toEqual(['Giving', 'Notices']);
+    expect(deleted.every((item) => item.filesRemovedAt !== null)).toBe(true);
+    expect(instance.restoreChurch('song', notices.id)).toBe('files-removed');
+
+    // Edits to them stay in the workspace.
+    clock.advance();
+    await church.session.saveSong(notices.id, { title: 'Notices (new)' });
+    await church.client.run();
+    await south.client.run();
+    expect(await titles(south)).toEqual(['Amazing Grace', 'Giving (South)']);
+    expect(instance.listWorkspaceLibrary(a.id, 'song')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: 'Notices (new)', change: { type: 'own' } }),
+      ]),
+    );
+  });
+});
+
 describe('Church Library files', () => {
+  it('move to a workspace with their deck’s original, copied when another still uses them', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-files-'));
+    try {
+      const church = churchFilesDir(dataDir);
+      mkdirSync(church, { recursive: true });
+      const id = '0b0b0b0b-0000-4000-8000-000000000001';
+      const shared = '0b0b0b0b-0000-4000-8000-000000000002';
+      for (const name of [
+        `deck-${id}-001.jpg`,
+        `deck-${id}-original.pptx`,
+        `deck-${shared}-001.jpg`,
+        `deck-${shared}-original.key`,
+        'other.jpg',
+      ]) {
+        writeFileSync(join(church, name), 'x');
+      }
+      const moved = moveFilesToWorkspace(
+        dataDir,
+        'ws-a',
+        [`deck-${id}-001.jpg`, `deck-${shared}-001.jpg`],
+        [`deck-${shared}-001.jpg`],
+      );
+      expect(moved).toBe(4);
+      const own = workspaceFilesDir(dataDir, 'ws-a');
+      expect(readdirSync(own).sort()).toEqual([
+        `deck-${id}-001.jpg`,
+        `deck-${id}-original.pptx`,
+        `deck-${shared}-001.jpg`,
+        `deck-${shared}-original.key`,
+      ]);
+      // The shared deck stays in the church's folder too; the rest left it.
+      expect(readdirSync(church).sort()).toEqual([
+        `deck-${shared}-001.jpg`,
+        `deck-${shared}-original.key`,
+        'other.jpg',
+      ]);
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('a workspace that managed the whole Church Library manages every type after the upgrade', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-db-'));
+    try {
+      const path = join(dataDir, 'instance.db');
+      const before = openDatabase(path);
+      const instance = new Instance(before);
+      const managing = instance.createWorkspace('North').workspace;
+      const other = instance.createWorkspace('South').workspace;
+      // As the database was before management was per type.
+      const version = Number(before.prepare('PRAGMA user_version').get()!.user_version);
+      before.exec('ALTER TABLE workspace DROP COLUMN library_types');
+      before.prepare('UPDATE workspace SET manage_library = 1 WHERE id = ?').run(managing.id);
+      before.exec(`PRAGMA user_version = ${version - 1}`);
+      before.close();
+
+      const after = new Instance(openDatabase(path));
+      expect(after.getWorkspace(managing.id)?.libraryTypes).toEqual([...LIBRARY_TYPES]);
+      expect(after.getWorkspace(other.id)?.libraryTypes).toEqual([]);
+      after.db.close();
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('are found in the workspace’s folder, then the church’s, and moved there', () => {
     const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-files-'));
     try {
@@ -979,10 +1182,10 @@ describe('Church Library files', () => {
       expect(findFile(dataDir, 'ws-a', 'a.jpg')).toBe(join(own, 'a.jpg'));
       expect(findFile(dataDir, 'ws-b', 'a.jpg')).toBeNull();
 
-      expect(moveFilesToChurch(dataDir, 'ws-a')).toBe(1);
+      expect(moveFilesToChurch(dataDir, 'ws-a', ['a.jpg', 'b.jpg.partial'])).toBe(1);
       expect(findFile(dataDir, 'ws-b', 'a.jpg')).toBe(join(churchFilesDir(dataDir), 'a.jpg'));
       expect(existsSync(join(own, 'a.jpg'))).toBe(false);
-      expect(moveFilesToChurch(dataDir, 'ws-missing')).toBe(0);
+      expect(moveFilesToChurch(dataDir, 'ws-missing', ['a.jpg'])).toBe(0);
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }

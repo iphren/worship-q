@@ -208,12 +208,14 @@ export function SongsPage() {
             // A church song is only hidden here (spec §5); the dialog says so.
             removing.usage.length === 0
               ? t(
-                  removing.song.origin === 'church' && !session.store.managesChurchLibrary
+                  removing.song.origin === 'church' &&
+                    !session.store.managesChurch('song', removing.song)
                     ? 'songs.hideChurchBody'
                     : 'songs.removeUnused',
                 )
               : t(
-                  removing.song.origin === 'church' && !session.store.managesChurchLibrary
+                  removing.song.origin === 'church' &&
+                    !session.store.managesChurch('song', removing.song)
                     ? 'songs.hideChurchUsed'
                     : 'songs.removeUsed',
                   {

@@ -1,5 +1,10 @@
 /** Record origins and shadows for two-version songs (D26, D31, D32, D36). */
-import { PROTOCOL_HEADER, PROTOCOL_VERSION, type SyncRecord } from '@worship-q/protocol';
+import {
+  LIBRARY_TYPES,
+  PROTOCOL_HEADER,
+  PROTOCOL_VERSION,
+  type SyncRecord,
+} from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import { buildServer } from './app';
 import { openDatabase } from './db';
@@ -253,8 +258,10 @@ describe('turning Manage Church Library on with two-version songs (D36)', () => 
       { ...song('s1', 'Holy (church, edited)', time.now()), revision: 2 },
     ]);
 
-    expect(instance.libraryPlan(north.id)).toEqual({
+    expect(instance.libraryPlan(north.id, LIBRARY_TYPES)).toEqual({
       songs: [],
+      slides: [],
+      websites: [],
       backgrounds: [],
       overrides: [
         { title: 'Holy (North)', churchChangedSince: true, usesChurchVersion: false },

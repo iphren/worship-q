@@ -3,7 +3,7 @@
  * `/api/v1/admin/` and `/auth/`, are authenticated by the administrator's session cookie
  * rather than a device token, and are refused without the `ADMIN_HEADER` (decision D35).
  */
-import type { BackgroundKind, OutputKind } from './records';
+import type { BackgroundKind, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
 
 /** Every admin request carries this header, so a cross-site form cannot reach the routes. */
@@ -35,7 +35,8 @@ export interface AdminWorkspace {
   name: string;
   /** Null until a device uploaded content. */
   contentId: string | null;
-  manageLibrary: boolean;
+  /** The Church Library types it manages; empty when it manages none. */
+  libraryTypes: LibraryType[];
   /** Whether its connection code works although administrators exist (D30). */
   codesEnabled: boolean;
   devices: number;
@@ -68,9 +69,12 @@ export interface AdminPairingRequest {
   expiresAt: string;
 }
 
-/** What turning Manage Church Library on would do (D36). */
+/** What turning on management of some Church Library types would do (D36). */
 export interface AdminLibraryPlan {
+  /** Titles of the workspace's own items that become the church's, by type. */
   songs: string[];
+  slides: string[];
+  websites: string[];
   backgrounds: string[];
   overrides: {
     title: string;

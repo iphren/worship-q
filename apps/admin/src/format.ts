@@ -3,7 +3,41 @@
  * what a live snapshot says is on screen. Nothing here touches the DOM, so the root vitest
  * config (node environment) runs the tests.
  */
-import type { AdminDevice, ConnectedDevice, LiveSnapshot } from '@worship-q/protocol';
+import {
+  LIBRARY_TYPES,
+  type AdminDevice,
+  type ConnectedDevice,
+  type LibraryType,
+  type LiveSnapshot,
+} from '@worship-q/protocol';
+
+// ── Church Library types ───────────────────────────────────────────────────
+
+/** What each Church Library type is called, as a plural noun in a sentence. */
+export const LIBRARY_TYPE_NOUNS: Record<LibraryType, string> = {
+  songs: 'songs',
+  backgrounds: 'backgrounds',
+  slides: 'slides',
+  websites: 'websites',
+};
+
+/** Library types in a sentence, in their usual order: “songs, slides and websites”. */
+export function libraryTypeList(types: readonly LibraryType[]): string {
+  const nouns = LIBRARY_TYPES.filter((type) => types.includes(type)).map(
+    (type) => LIBRARY_TYPE_NOUNS[type],
+  );
+  if (nouns.length <= 1) return nouns.join('');
+  return `${nouns.slice(0, -1).join(', ')} and ${nouns[nouns.length - 1]}`;
+}
+
+/**
+ * What a workspace manages, in a sentence: “the Church Library” for every type, else “the
+ * Church Library's songs and backgrounds” and the like.
+ */
+export function managedLabel(types: readonly LibraryType[]): string {
+  if (LIBRARY_TYPES.every((type) => types.includes(type))) return 'the Church Library';
+  return `the Church Library's ${libraryTypeList(types)}`;
+}
 
 // ── Routes ─────────────────────────────────────────────────────────────────
 

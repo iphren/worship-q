@@ -283,7 +283,7 @@ describe('workspaces', () => {
     expect(workspace).toMatchObject({
       name: 'North Branch',
       codesEnabled: false,
-      manageLibrary: false,
+      libraryTypes: [],
       devices: 0,
       live: false,
     });
@@ -318,12 +318,13 @@ describe('workspaces', () => {
     expect(empty.statusCode).toBe(400);
   });
 
-  it('shows the conversion plan and turns Manage Church Library on, moving files (D36)', async () => {
+  it('shows the conversion plan and turns management on per type, moving only its files (D36)', async () => {
     const { app, instance, signIn, dataDir } = await setup({ administrators: ['pat@example.org'] });
     const { headers } = await signIn('pat@example.org');
     const { workspace, code } = instance.createWorkspace('South');
     instance.setCodesEnabled(workspace.id, true);
     const { device } = instance.enroll(code, 'Laptop')!;
+    const deckId = '0b0b0b0b-0000-4000-8000-000000000001';
     instance.push(workspace.id, device.id, [
       {
         kind: 'background',
@@ -333,33 +334,89 @@ describe('workspaces', () => {
         updatedAt: '2026-11-01T00:00:00.000Z',
         data: { kind: 'image', fileName: 'bg1.jpg', originalName: 'Sea.jpg', removedAt: null },
       },
+      {
+        kind: 'song',
+        id: 'deck1',
+        key: 'deck1',
+        revision: 1,
+        updatedAt: '2026-11-01T00:00:00.000Z',
+        data: {
+          title: 'Notices',
+          lyrics: '',
+          removedAt: null,
+          deck: {
+            source: 'notices.pptx',
+            width: 16,
+            height: 9,
+            pages: [{ image: `deck-${deckId}-001.jpg`, slide: 1, step: 0, text: [] }],
+          },
+        },
+      },
     ]);
-    mkdirSync(workspaceFilesDir(dataDir, workspace.id), { recursive: true });
-    writeFileSync(join(workspaceFilesDir(dataDir, workspace.id), 'bg1.jpg'), 'x');
+    const own = workspaceFilesDir(dataDir, workspace.id);
+    mkdirSync(own, { recursive: true });
+    for (const name of ['bg1.jpg', `deck-${deckId}-001.jpg`, `deck-${deckId}-original.pptx`]) {
+      writeFileSync(join(own, name), 'x');
+    }
 
     const plan = await app.inject({
       method: 'GET',
-      url: `/api/v1/admin/workspaces/${workspace.id}/library-plan`,
+      url: `/api/v1/admin/workspaces/${workspace.id}/library-plan?types=backgrounds`,
       headers,
     });
-    expect(plan.json()).toEqual({ songs: [], backgrounds: ['Sea.jpg'], overrides: [], hidden: [] });
-    const on = await app.inject({
+    expect(plan.json()).toEqual({
+      songs: [],
+      slides: [],
+      websites: [],
+      backgrounds: ['Sea.jpg'],
+      overrides: [],
+      hidden: [],
+    });
+    const backgrounds = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/workspaces/${workspace.id}/library`,
       headers,
-      payload: { on: true },
+      payload: { types: ['backgrounds'] },
     });
-    expect(on.json()).toMatchObject({ workspace: { manageLibrary: true }, moved: 1 });
+    expect(backgrounds.json()).toMatchObject({
+      workspace: { libraryTypes: ['backgrounds'] },
+      moved: 1,
+    });
     expect(existsSync(join(churchFilesDir(dataDir), 'bg1.jpg'))).toBe(true);
+    // The deck is not a background: it and its files stay the workspace's.
+    expect(instance.listChurch('song')).toHaveLength(0);
+    expect(existsSync(join(own, `deck-${deckId}-001.jpg`))).toBe(true);
+
+    const slides = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/workspaces/${workspace.id}/library`,
+      headers,
+      payload: { types: ['slides', 'backgrounds'] },
+    });
+    // The deck's original goes with its images.
+    expect(slides.json()).toMatchObject({
+      workspace: { libraryTypes: ['backgrounds', 'slides'] },
+      moved: 2,
+    });
+    expect(instance.listChurch('song').map((item) => item.title)).toEqual(['Notices']);
+    expect(existsSync(join(churchFilesDir(dataDir), `deck-${deckId}-original.pptx`))).toBe(true);
+
     // Off again leaves the Church Library as it is.
     const off = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/workspaces/${workspace.id}/library`,
       headers,
-      payload: { on: false },
+      payload: { types: [] },
     });
-    expect(off.json().workspace.manageLibrary).toBe(false);
+    expect(off.json().workspace.libraryTypes).toEqual([]);
     expect(instance.listChurch('background')).toHaveLength(1);
+    const invalid = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/workspaces/${workspace.id}/library`,
+      headers,
+      payload: { on: true },
+    });
+    expect(invalid.statusCode).toBe(400);
   });
 
   it('shows a workspace’s live state from the server’s copy, or that it is not presenting (D38)', async () => {

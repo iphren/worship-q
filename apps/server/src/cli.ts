@@ -8,8 +8,12 @@
  *   workspace create <name>     create a workspace and print its connection code
  *   workspace list
  *   workspace code <id>         replace a workspace's connection code
- *   workspace library <id> on|off [--yes]
- *                               whether the workspace manages the Church Library
+ *   workspace library <id> <types>|all|none [--yes]
+ *                               what the workspace manages in the Church Library, of
+ *                               songs, backgrounds, slides and websites (comma-separated)
+ *   workspace library-take <id> <types> [--yes]
+ *                               takes the Church Library's items of those types into the
+ *                               workspace's own library, which must not manage them
  *   device list [workspace-id]
  *   device revoke <device-id>
  *   settings show
@@ -22,10 +26,10 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ChurchSettingsSchema } from '@worship-q/protocol';
+import { ChurchSettingsSchema, LIBRARY_TYPES, type LibraryType } from '@worship-q/protocol';
 import { openDatabase } from './db';
 import { convertDeck, deckTools } from './decks/convert';
-import { moveFilesToChurch } from './files';
+import { moveFilesToChurch, moveFilesToWorkspace } from './files';
 import { Instance } from './instance';
 import { applyLegacyImport, parseLegacyExport, planLegacyImport } from './legacy';
 
@@ -38,6 +42,18 @@ function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
+
+/** Library types from `all`, `none`, `on`, `off` or a comma-separated list; null if unknown. */
+function parseTypes(value: string | undefined): LibraryType[] | null {
+  if (value === 'all' || value === 'on') return [...LIBRARY_TYPES];
+  if (value === 'none' || value === 'off') return [];
+  const names = (value ?? '').split(',').filter(Boolean);
+  if (names.length === 0) return null;
+  if (!names.every((name) => (LIBRARY_TYPES as readonly string[]).includes(name))) return null;
+  return LIBRARY_TYPES.filter((type) => names.includes(type));
+}
+
+const typeList = (types: readonly string[]) => (types.length > 0 ? types.join(', ') : 'nothing');
 
 function table(rows: Record<string, unknown>[]) {
   if (rows.length === 0) return console.log('(none)');
@@ -89,7 +105,7 @@ switch (`${area} ${action}`) {
         id: w.id,
         name: w.name,
         content: w.contentId ?? '(empty)',
-        churchLibrary: w.manageLibrary ? 'manages' : '',
+        churchLibrary: w.libraryTypes.join(', '),
       })),
     );
     break;
@@ -102,56 +118,104 @@ switch (`${area} ${action}`) {
   case 'workspace library': {
     const yes = rest.includes('--yes');
     const [id, setting] = rest.filter((arg) => arg !== '--yes');
-    if (!id || (setting !== 'on' && setting !== 'off')) {
-      fail('Usage: workspace library <workspace-id> on|off [--yes]');
+    const types = parseTypes(setting);
+    if (!id || !types) {
+      fail(`Usage: workspace library <workspace-id> <types>|all|none [--yes]
+  types: ${LIBRARY_TYPES.join(',')}`);
     }
     const workspace = instance.getWorkspace(id);
     if (!workspace) fail(`No workspace ${id}. See: workspace list`);
-    const on = setting === 'on';
-    if (workspace.manageLibrary === on) {
-      console.log(
-        `“${workspace.name}” ${on ? 'already manages' : 'does not manage'} the Church Library.`,
-      );
+    if (types.join() === workspace.libraryTypes.join()) {
+      console.log(`“${workspace.name}” already manages ${typeList(types)} in the Church Library.`);
       break;
     }
-    if (on) {
-      const plan = instance.libraryPlan(id);
+    const added = types.filter((type) => !workspace.libraryTypes.includes(type));
+    const dropped = workspace.libraryTypes.filter((type) => !types.includes(type));
+    console.log(
+      `“${workspace.name}” will manage ${typeList(types)} in the Church Library (now ${typeList(workspace.libraryTypes)}).`,
+    );
+    if (added.length > 0) {
+      const plan = instance.libraryPlan(id, added);
       const list = (title: string, items: string[]) => {
         console.log(`${title}: ${items.length}`);
         for (const item of items) console.log(`  ${item}`);
       };
-      console.log(`“${workspace.name}” will manage the Church Library:`);
-      console.log('its songs and backgrounds become the church’s, for every workspace.');
-      list('Songs that become the church’s', plan.songs);
-      list('Backgrounds that become the church’s', plan.backgrounds);
+      console.log(`Its ${typeList(added)} become the church’s, for every workspace.`);
+      if (added.includes('songs')) list('Songs that become the church’s', plan.songs);
+      if (added.includes('slides')) list('Slides that become the church’s', plan.slides);
+      if (added.includes('websites')) list('Websites that become the church’s', plan.websites);
+      if (added.includes('backgrounds')) {
+        list('Backgrounds that become the church’s', plan.backgrounds);
+      }
       list(
-        'Church songs this workspace changed; its version replaces them church-wide, also in workspaces without their own',
+        'Church items this workspace changed; its version replaces them church-wide, also in workspaces without their own',
         plan.overrides
           .filter((o) => !o.usesChurchVersion)
           .map((o) => (o.churchChangedSince ? `${o.title} (the church’s changed since)` : o.title)),
       );
       list(
-        'Church songs this workspace made a version of but uses the church’s; the version is dropped',
+        'Church items this workspace made a version of but uses the church’s; the version is dropped',
         plan.overrides.filter((o) => o.usesChurchVersion).map((o) => o.title),
       );
-      list('Church songs and backgrounds this workspace removed, which reappear', plan.hidden);
-      console.log('From then on, its additions, edits and removals change the Church Library.');
-    } else {
-      console.log(`“${workspace.name}” will stop managing the Church Library.`);
-      console.log('The Church Library stays as it is. New songs and backgrounds stay in the');
-      console.log('workspace, and edits to church songs become the workspace’s own versions.');
+      list('Church items this workspace removed, which reappear', plan.hidden);
+      console.log(
+        'From then on, its additions, edits and removals of these change the Church Library.',
+      );
+    }
+    if (dropped.length > 0) {
+      console.log(`It stops managing ${typeList(dropped)}. The Church Library stays as it is:`);
+      console.log('new ones stay in the workspace, and edits to the church’s become the');
+      console.log('workspace’s own versions. To take the church’s into the workspace, see');
+      console.log('workspace library-take.');
     }
     if (!yes) {
       console.log('Nothing was changed. Run again with --yes to do this.');
       break;
     }
-    instance.setManageLibrary(id, on);
-    if (on) {
-      const moved = moveFilesToChurch(dataDir, id);
-      console.log(`Done; ${moved} files moved to the Church Library.`);
-    } else {
-      console.log('Done.');
+    const files = instance.setLibraryTypes(id, types);
+    const moved = moveFilesToChurch(dataDir, id, files);
+    console.log(moved > 0 ? `Done; ${moved} files moved to the Church Library.` : 'Done.');
+    console.log('Connected computers receive the change at their next sync, within a minute.');
+    break;
+  }
+  case 'workspace library-take': {
+    const yes = rest.includes('--yes');
+    const [id, setting] = rest.filter((arg) => arg !== '--yes');
+    const types = parseTypes(setting);
+    if (!id || !types || types.length === 0) {
+      fail(`Usage: workspace library-take <workspace-id> <types> [--yes]
+  types: ${LIBRARY_TYPES.join(',')}`);
     }
+    const workspace = instance.getWorkspace(id);
+    if (!workspace) fail(`No workspace ${id}. See: workspace list`);
+    const managed = types.filter((type) => workspace.libraryTypes.includes(type));
+    if (managed.length > 0) {
+      fail(
+        `“${workspace.name}” manages ${typeList(managed)} in the Church Library. Stop first: workspace library ${id} <types> --yes`,
+      );
+    }
+    const plan = instance.takeFromChurch(id, types, yes);
+    console.log(
+      `The Church Library’s ${typeList(types)} ${yes ? 'were' : 'will be'} taken into “${workspace.name}”:`,
+    );
+    for (const type of types) {
+      const items = plan.items.filter((item) => item.type === type);
+      console.log(`${type}: ${items.length}`);
+      for (const item of items) {
+        console.log(
+          `  ${item.title}${item.ownVersion ? ' (keeps the workspace’s own version)' : ''}`,
+        );
+      }
+    }
+    console.log('Every other workspace sees them deleted from the Church Library; one that made');
+    console.log('its own version of one keeps that version as its own. They cannot be restored');
+    console.log('to the Church Library afterwards.');
+    if (!yes) {
+      console.log('Nothing was changed. Run again with --yes to do this.');
+      break;
+    }
+    const moved = moveFilesToWorkspace(dataDir, id, plan.files, plan.sharedFiles);
+    console.log(`Done; ${moved} files moved to the workspace.`);
     console.log('Connected computers receive the change at their next sync, within a minute.');
     break;
   }

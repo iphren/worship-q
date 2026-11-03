@@ -14,6 +14,7 @@ import {
   type Deck,
   type SyncKind,
   type SyncRecord,
+  type LibraryType,
   type Website,
 } from '@worship-q/protocol';
 import type { SqlValue, Statement } from './driver';
@@ -77,6 +78,8 @@ export interface SyncState {
    * D31). Null until a version 3 instance has said.
    */
   manageLibrary: boolean | null;
+  /** The Church Library types the workspace manages, as the instance last said. */
+  manageLibraryTypes: LibraryType[] | null;
 }
 
 export const EMPTY_SYNC_STATE: SyncState = {
@@ -98,6 +101,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   lanCredentials: null,
   lanPeers: null,
   manageLibrary: null,
+  manageLibraryTypes: null,
 };
 
 export interface AppliedChanges {

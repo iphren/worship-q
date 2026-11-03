@@ -7,7 +7,7 @@ import type {
 } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { formatDate } from '../format';
+import { formatDate, managedLabel } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, INPUT, PageTitle, Spinner, When } from '../ui';
 import { useAction, useLoad } from '../useLoad';
 
@@ -32,6 +32,8 @@ export function LibraryPage() {
   const workspaces = useLoad(() => api.workspaces(), []);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const workspace = workspaces.data?.workspaces.find((w) => w.id === workspaceId) ?? null;
+  // The tabs are named as the Church Library types.
+  const managesTab = workspace?.libraryTypes.includes(tab) ?? false;
   const [showDeleted, setShowDeleted] = useState(false);
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -111,7 +113,7 @@ export function LibraryPage() {
           {workspaces.data?.workspaces.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
-              {w.manageLibrary ? ' (manages the Church Library)' : ''}
+              {w.libraryTypes.length > 0 ? ` (manages ${managedLabel(w.libraryTypes)})` : ''}
             </option>
           ))}
         </select>
@@ -159,7 +161,7 @@ export function LibraryPage() {
         }}
       />
       <ErrorText error={list.error ?? workspaces.error} />
-      {workspace && !workspace.manageLibrary && !showDeleted && (
+      {workspace && !managesTab && !showDeleted && (
         <p className="text-xs text-slate-400">
           What {workspace.name} has that differs from the Church Library: its own {noun}, its own
           versions of the church's, and the church's it has hidden.
@@ -181,8 +183,8 @@ export function LibraryPage() {
           )}
           {loaded && items.length === 0 && (
             <Empty>
-              {workspace?.manageLibrary
-                ? `${workspace.name} manages the Church Library, so its ${noun} are the Church Library's.`
+              {workspace && managesTab
+                ? `${workspace.name} manages the Church Library's ${noun}, so its ${noun} are the Church Library's.`
                 : workspace && !query.trim()
                   ? showDeleted
                     ? `${workspace.name} has no deleted ${noun} of its own.`

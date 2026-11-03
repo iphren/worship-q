@@ -157,6 +157,31 @@ export function cleanSongFields(fields: SongFields): SongFields {
   };
 }
 
+/**
+ * What a workspace may manage in the Church Library, each on its own: songs of lyrics,
+ * backgrounds, imported slides and websites. Slides and websites are songs with a deck or a
+ * website, and a song's history goes with the song.
+ */
+export const LIBRARY_TYPES = ['songs', 'backgrounds', 'slides', 'websites'] as const;
+export type LibraryType = (typeof LIBRARY_TYPES)[number];
+
+/** Which Church Library type a record is; null for a kind the Church Library does not hold. */
+export function libraryTypeOf(
+  kind: string,
+  data: { deck?: unknown; website?: unknown } | null | undefined,
+): LibraryType | null {
+  if (kind === 'background') return 'backgrounds';
+  if (kind !== 'song' && kind !== 'songRevision') return null;
+  if (data?.deck) return 'slides';
+  if (data?.website) return 'websites';
+  return 'songs';
+}
+
+/** The library types named in a list, in their usual order, unknown names left out. */
+export function libraryTypes(values: readonly unknown[]): LibraryType[] {
+  return LIBRARY_TYPES.filter((type) => values.includes(type));
+}
+
 /** Whose record it is: the Church Library's, or the workspace's own (phase 3, decision D31). */
 export const RecordOriginSchema = z.enum(['church', 'workspace']);
 export type RecordOrigin = z.infer<typeof RecordOriginSchema>;

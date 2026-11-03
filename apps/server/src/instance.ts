@@ -7,6 +7,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { DEFAULT_EXPIRY_MS, isExpired } from '@worship-q/live-state';
 import {
   ChurchSettingsSchema,
+  LIBRARY_TYPES,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
   OutputKindSchema,
@@ -22,6 +23,9 @@ import {
   type ChurchSettings,
   type EnrolledBy,
   type LibraryKind,
+  libraryTypeOf,
+  libraryTypes,
+  type LibraryType,
   type LiveSnapshot,
   type OutputKind,
   type OutputLink,
@@ -37,8 +41,11 @@ export interface WorkspaceRow {
   id: string;
   name: string;
   contentId: string | null;
-  /** Its songs and backgrounds are the Church Library's (“Manage Church Library”). */
-  manageLibrary: boolean;
+  /**
+   * What of the Church Library it manages (“Manage Church Library”, per type): its records
+   * of these types are the Church Library's. Empty when it manages none.
+   */
+  libraryTypes: LibraryType[];
   /** Its connection code works although the instance has administrators (D30). */
   codesEnabled: boolean;
   createdAt: string;
@@ -137,7 +144,7 @@ export class Instance {
       id: randomUUID(),
       name: name.trim().slice(0, 80),
       contentId: null,
-      manageLibrary: false,
+      libraryTypes: [],
       codesEnabled: false,
       createdAt: this.now(),
     };
@@ -654,10 +661,9 @@ export class Instance {
    * identifier, and the device is told to adopt it. Returns the remapped identifiers, how
    * many records were stored, and how many of those went to the Church Library.
    *
-   * Songs and backgrounds of a workspace that manages the Church Library go to it. In any
-   * other workspace, a change to a church song or background is kept as that workspace's
-   * own version of it: an edit replaces the church's in that workspace, a removal hides it
-   * there.
+   * A workspace's records of the types it manages in the Church Library go to it. Otherwise,
+   * a change to a church song or background is kept as that workspace's own version of it: an
+   * edit replaces the church's in that workspace, a removal hides it there.
    */
   push(
     workspaceId: string,
@@ -667,7 +673,7 @@ export class Instance {
     const remap: Record<string, string> = {};
     let stored = 0;
     let central = 0;
-    const manages = this.getWorkspace(workspaceId)?.manageLibrary ?? false;
+    const managed = this.managedTypes(workspaceId);
     transaction(this.db, () => {
       const find = this.db.prepare(
         'SELECT id, revision, updated_at FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
@@ -689,7 +695,7 @@ export class Instance {
         const existing = find.get(workspaceId, incoming.kind, incoming.key);
         if (isLibraryKind(incoming.kind)) {
           const church = findChurch.get(incoming.kind, incoming.key);
-          if (manages && !existing) {
+          if (!existing && managed.has(libraryTypeOf(incoming.kind, incoming.data)!)) {
             if (!syncWins(incoming, version(church))) continue;
             this.putChurch(incoming, deviceId, workspaceId);
             stored++;
@@ -895,37 +901,64 @@ export class Instance {
   }
 
   /**
-   * A workspace's records of one kind, each with the device that last stored it. Songs and
-   * backgrounds of a workspace that manages the Church Library are the church's.
+   * A workspace's records of one kind, each with the device that last stored it. Those of
+   * the types it manages in the Church Library are the church's.
    */
   records(
     workspaceId: string,
     kind: SyncRecord['kind'],
   ): { record: SyncRecord; deviceId: string }[] {
-    const church = isLibraryKind(kind) && this.getWorkspace(workspaceId)?.manageLibrary;
-    const rows = church
-      ? this.db.prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY seq').all(kind)
-      : this.db
-          .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ? ORDER BY seq')
-          .all(workspaceId, kind);
-    return rows.map((row) => ({ record: toRecord(row), deviceId: text(row.device_id) }));
+    const managed = isLibraryKind(kind) ? this.managedTypes(workspaceId) : new Set();
+    const own = this.db
+      .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ? ORDER BY seq')
+      .all(workspaceId, kind)
+      .filter((row) => !managed.has(rowType(row)));
+    const church =
+      managed.size > 0
+        ? this.db
+            .prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY seq')
+            .all(kind)
+            .filter((row) => managed.has(rowType(row)))
+        : [];
+    return [...own, ...church]
+      .sort((a, b) => Number(a.seq) - Number(b.seq))
+      .map((row) => ({ record: toRecord(row), deviceId: text(row.device_id) }));
+  }
+
+  /** The Church Library types a workspace manages. */
+  managedTypes(workspaceId: string): Set<LibraryType | null> {
+    return new Set(this.getWorkspace(workspaceId)?.libraryTypes ?? []);
   }
 
   // ── Church Library ───────────────────────────────────────────────────────
 
-  private libraryRows(workspaceId: string) {
+  /** The workspace's own records of some Church Library types, each with the church's. */
+  private libraryRows(workspaceId: string, types: readonly LibraryType[]) {
     const kinds = LIBRARY_KINDS.map(() => '?').join(', ');
     const findChurch = this.db.prepare('SELECT * FROM church_record WHERE kind = ? AND key = ?');
     return this.db
       .prepare(`SELECT * FROM record WHERE workspace_id = ? AND kind IN (${kinds}) ORDER BY seq`)
       .all(workspaceId, ...LIBRARY_KINDS)
+      .filter((own) => types.includes(rowType(own)!))
       .map((own) => ({ own, church: findChurch.get(text(own.kind), text(own.key)) }));
   }
 
-  /** What `setManageLibrary(workspaceId, true)` would do (D36). */
-  libraryPlan(workspaceId: string): LibraryPlan {
-    const plan: LibraryPlan = { songs: [], backgrounds: [], overrides: [], hidden: [] };
-    for (const { own, church } of this.libraryRows(workspaceId)) {
+  /**
+   * What turning on management of some Church Library types would do (D36). Types the
+   * workspace manages already are left out.
+   */
+  libraryPlan(workspaceId: string, types: readonly LibraryType[]): LibraryPlan {
+    const plan: LibraryPlan = {
+      songs: [],
+      slides: [],
+      websites: [],
+      backgrounds: [],
+      overrides: [],
+      hidden: [],
+    };
+    const managed = this.managedTypes(workspaceId);
+    const adding = types.filter((type) => !managed.has(type));
+    for (const { own, church } of this.libraryRows(workspaceId, adding)) {
       const kind = text(own.kind);
       if (kind === 'songRevision') continue;
       const churchLive = church && !removed(church.data);
@@ -940,32 +973,43 @@ export class Instance {
           usesChurchVersion: usesChurchVersion(own.data),
         });
       } else {
-        (kind === 'song' ? plan.songs : plan.backgrounds).push(titleOf(own.data));
+        plan[rowType(own)!].push(titleOf(own.data));
       }
     }
     return plan;
   }
 
+  /** Manages every Church Library type, or none; see `setLibraryTypes`. */
+  setManageLibrary(workspaceId: string, on: boolean): string[] {
+    return this.setLibraryTypes(workspaceId, on ? LIBRARY_TYPES : []);
+  }
+
   /**
-   * Turns “Manage Church Library” on or off. Turning it on brings the workspace's songs and
-   * backgrounds into the Church Library: its own versions of church songs replace them for
-   * every workspace, and church songs and backgrounds it removed reappear for it. Turning
-   * it off leaves the Church Library as it is.
+   * Sets which Church Library types the workspace manages (“Manage Church Library”, per
+   * type). A type turned on brings the workspace's records of it into the Church Library: its
+   * own versions of church items replace them for every workspace, and church items it
+   * removed reappear for it. A type turned off leaves the Church Library as it is.
    *
-   * Background files are not moved here; see `moveFilesToChurch`.
+   * Files are not moved here: the names of the files of the records brought into the Church
+   * Library are returned, for `moveFilesToChurch`.
    */
-  setManageLibrary(workspaceId: string, on: boolean): void {
-    transaction(this.db, () => {
-      const result = this.db
-        .prepare('UPDATE workspace SET manage_library = ? WHERE id = ?')
-        .run(on ? 1 : 0, workspaceId);
-      if (Number(result.changes) === 0) throw new Error(`No workspace ${workspaceId}`);
-      if (!on) return;
+  setLibraryTypes(workspaceId: string, types: readonly LibraryType[]): string[] {
+    return transaction(this.db, () => {
+      const workspace = this.getWorkspace(workspaceId);
+      if (!workspace) throw new Error(`No workspace ${workspaceId}`);
+      const next = libraryTypes(types);
+      this.db
+        .prepare('UPDATE workspace SET library_types = ? WHERE id = ?')
+        .run(JSON.stringify(next), workspaceId);
+      const added = next.filter((type) => !workspace.libraryTypes.includes(type));
+      const files = new Set<string>();
+      if (added.length === 0) return [];
       const drop = this.db.prepare(
         'DELETE FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
       );
-      for (const { own, church } of this.libraryRows(workspaceId)) {
+      for (const { own, church } of this.libraryRows(workspaceId, added)) {
         const record = toRecord(own);
+        for (const name of fileNamesOf(record.kind, record.data)) files.add(name);
         if (church) {
           const churchRecord = toRecord(church);
           const hidden = removed(own.data) && !removed(church.data);
@@ -995,6 +1039,133 @@ export class Instance {
         }
         drop.run(workspaceId, record.kind, record.key);
       }
+      return [...files];
+    });
+  }
+
+  /**
+   * Takes the Church Library's live items of some types into one workspace's own library,
+   * with their history: the reverse of managing them. Every other workspace sees them deleted
+   * from the Church Library; a version of its own it made of one stays, as its own item. An
+   * item the workspace already has a record of (its own version, or one it hid) keeps that
+   * record. The church's record stays deleted, without its files, so it cannot be restored.
+   *
+   * With `apply` false nothing is changed: what would be taken is returned. Files are not
+   * moved here; `files` names them, and `sharedFiles` those another record still uses, which
+   * must be copied rather than moved (see `moveFilesToWorkspace`).
+   */
+  takeFromChurch(
+    workspaceId: string,
+    types: readonly LibraryType[],
+    apply = true,
+  ): {
+    items: { type: LibraryType; title: string; ownVersion: boolean }[];
+    files: string[];
+    sharedFiles: string[];
+  } {
+    return transaction(this.db, () => {
+      if (!this.getWorkspace(workspaceId)) throw new Error(`No workspace ${workspaceId}`);
+      const taken = this.db
+        .prepare(`SELECT * FROM church_record WHERE kind IN ('song', 'background') ORDER BY seq`)
+        .all()
+        .filter((row) => !removed(row.data) && types.includes(rowType(row)!));
+      const takenKeys = new Set(taken.map((row) => `${text(row.kind)}:${text(row.key)}`));
+      const findOwn = this.db.prepare(
+        'SELECT 1 FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
+      );
+      const insert = this.db.prepare(
+        `INSERT INTO record (workspace_id, kind, key, id, revision, updated_at, seq, data, device_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      const revisionsOf = this.db.prepare(
+        `SELECT * FROM church_record WHERE kind = 'songRevision'
+         AND json_extract(data, '$.songId') = ? ORDER BY seq`,
+      );
+      const now = this.now();
+      const items: { type: LibraryType; title: string; ownVersion: boolean }[] = [];
+      const files = new Set<string>();
+      for (const row of taken) {
+        const record = toRecord(row);
+        const ownVersion = findOwn.get(workspaceId, record.kind, record.key) !== undefined;
+        items.push({ type: rowType(row)!, title: titleOf(row.data), ownVersion });
+        for (const name of fileNamesOf(record.kind, record.data)) files.add(name);
+        if (!apply) continue;
+        if (!ownVersion) {
+          // Newer than the church's copy every device holds, so the workspace's devices take
+          // it as the workspace's own.
+          insert.run(
+            workspaceId,
+            record.kind,
+            record.key,
+            record.id,
+            record.revision + 1,
+            now,
+            this.nextSeq(),
+            JSON.stringify(record.data),
+            optional(row.device_id),
+          );
+          if (record.kind === 'song') {
+            for (const revision of revisionsOf.all(record.id)) {
+              const history = toRecord(revision);
+              if (findOwn.get(workspaceId, history.kind, history.key)) continue;
+              insert.run(
+                workspaceId,
+                history.kind,
+                history.key,
+                history.id,
+                history.revision,
+                history.updatedAt,
+                this.nextSeq(),
+                JSON.stringify(history.data),
+                optional(revision.device_id),
+              );
+            }
+          }
+        }
+        this.putChurch(
+          {
+            ...record,
+            revision: record.revision + 1,
+            updatedAt: now,
+            data: { ...record.data, removedAt: now },
+          },
+          optional(row.device_id),
+          optional(row.workspace_id),
+          `workspace:${workspaceId}`,
+        );
+        // Its files go with the workspace's record, so the church's cannot come back.
+        this.db
+          .prepare('UPDATE church_record SET files_removed_at = ? WHERE kind = ? AND key = ?')
+          .run(now, record.kind, record.key);
+      }
+      // Files other workspaces' records still use, or church items not taken.
+      const sharedFiles = new Set<string>();
+      if (files.size > 0) {
+        const others = [
+          ...this.db
+            .prepare(
+              `SELECT kind, key, data, 0 AS church FROM record
+               WHERE workspace_id != ? AND kind IN ('song', 'background')`,
+            )
+            .all(workspaceId),
+          ...this.db
+            .prepare(
+              `SELECT kind, key, data, 1 AS church FROM church_record
+               WHERE kind IN ('song', 'background')`,
+            )
+            .all(),
+        ];
+        for (const row of others) {
+          if (Number(row.church) === 1 && takenKeys.has(`${text(row.kind)}:${text(row.key)}`)) {
+            continue;
+          }
+          const data = JSON.parse(text(row.data)) as Record<string, unknown>;
+          for (const name of fileNamesOf(text(row.kind), data)) {
+            if (files.has(name)) sharedFiles.add(name);
+          }
+        }
+      }
+      return { items, files: [...files], sharedFiles: [...sharedFiles] };
     });
   }
 
@@ -1048,13 +1219,15 @@ export class Instance {
    */
   listWorkspaceLibrary(workspaceId: string, kind: LibraryKind): AdminLibraryItem[] {
     const workspace = this.getWorkspace(workspaceId);
-    if (!workspace || workspace.manageLibrary) return [];
+    if (!workspace) return [];
+    const managed = new Set<LibraryType | null>(workspace.libraryTypes);
     const self = { id: workspace.id, name: workspace.name };
     const findChurch = this.db.prepare('SELECT * FROM church_record WHERE kind = ? AND key = ?');
     const items: AdminLibraryItem[] = [];
     for (const own of this.db
       .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ?')
       .all(workspaceId, kind)) {
+      if (managed.has(rowType(own))) continue;
       const church = findChurch.get(kind, text(own.key));
       const churchLive = church !== undefined && !removed(church.data);
       if (churchLive && removed(own.data)) {
@@ -1529,10 +1702,19 @@ function toWorkspace(row: Record<string, SqlValue>): WorkspaceRow {
     id: text(row.id),
     name: text(row.name),
     contentId: optional(row.content_id),
-    manageLibrary: Number(row.manage_library ?? 0) === 1,
+    libraryTypes: parseLibraryTypes(row.library_types),
     codesEnabled: Number(row.codes_enabled ?? 0) === 1,
     createdAt: text(row.created_at),
   };
+}
+
+function parseLibraryTypes(value: SqlValue | undefined): LibraryType[] {
+  try {
+    const parsed: unknown = JSON.parse(text(value) || '[]');
+    return Array.isArray(parsed) ? libraryTypes(parsed) : [];
+  } catch {
+    return [];
+  }
 }
 
 function toAdministrator(row: Record<string, SqlValue>): AdministratorRow {
@@ -1599,6 +1781,10 @@ function toRecord(row: Record<string, SqlValue>): SyncRecord {
     data: JSON.parse(text(row.data)) as Record<string, unknown>,
   };
 }
+
+/** Which Church Library type a stored record is. */
+const rowType = (row: Record<string, SqlValue>) =>
+  libraryTypeOf(text(row.kind), JSON.parse(text(row.data)) as Record<string, unknown>);
 
 const isLibraryKind = (kind: string) => (LIBRARY_KINDS as readonly string[]).includes(kind);
 const removed = (data: SqlValue | undefined) =>
