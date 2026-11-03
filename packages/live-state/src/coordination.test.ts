@@ -174,12 +174,10 @@ describe('Follower', () => {
     devices: [],
   });
 
-  it('drops a snapshot older than the one it has, asking for a resync', () => {
+  it('drops a snapshot older than the one it has', () => {
     const follower = new Follower();
     expect(follower.receive({ type: 'snapshot', snapshot: snapshot(3) })).toHaveLength(1);
-    expect(follower.receive({ type: 'snapshot', snapshot: snapshot(2) })).toEqual([
-      { kind: 'send', message: { type: 'resync', have: 3 } },
-    ]);
+    expect(follower.receive({ type: 'snapshot', snapshot: snapshot(2) })).toEqual([]);
     expect(follower.receive({ type: 'snapshot', snapshot: snapshot(3) })).toEqual([]);
     expect(follower.revision).toBe(3);
   });
@@ -199,37 +197,6 @@ describe('Follower', () => {
     expect(follower.receive({ type: 'alive', revision: 3 })).toEqual([]);
     expect(follower.receive({ type: 'alive', revision: 5 })).toEqual([
       { kind: 'send', message: { type: 'resync', have: 3 } },
-    ]);
-  });
-
-  it('catches up with a coordinator that restarted and numbers from lower down', async () => {
-    // A presented up to revision 5, restarted (say as a viewer and back) and numbers again
-    // from 0: the follower must not drop everything until A passes 5.
-    const follower = new Follower();
-    follower.receive({ type: 'snapshot', snapshot: snapshot(5) });
-    const { host } = pureHost();
-    const restarted = new Coordinator(host);
-    const first = await restarted.publish();
-    expect(first.message).toMatchObject({ snapshot: { revision: 1 } });
-    const asked = follower.receive(first.message);
-    expect(asked).toEqual([{ kind: 'send', message: { type: 'resync', have: 5 } }]);
-    const answer = await restarted.receive('B', { type: 'resync', have: 5 });
-    expect(answer.outbound).toMatchObject([
-      { to: 'B', message: { type: 'snapshot', snapshot: { revision: 6 } } },
-    ]);
-    expect(follower.receive(answer.outbound[0]!.message)).toMatchObject([{ kind: 'snapshot' }]);
-    expect(follower.revision).toBe(6);
-    // Numbering carries on from there for everyone.
-    const next = await restarted.publish();
-    expect(next.message).toMatchObject({ snapshot: { revision: 7 } });
-    expect(follower.receive(next.message)).toMatchObject([{ kind: 'snapshot' }]);
-  });
-
-  it('asks for a resync when a heartbeat is behind what it has', () => {
-    const follower = new Follower();
-    follower.receive({ type: 'snapshot', snapshot: snapshot(5) });
-    expect(follower.receive({ type: 'alive', revision: 2 })).toEqual([
-      { kind: 'send', message: { type: 'resync', have: 5 } },
     ]);
   });
 

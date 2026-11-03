@@ -718,6 +718,12 @@ export class CloudController {
           await this.syncStore.setState({ grantsRegisteredAt: new Date().toISOString() });
         },
       },
+      revisions: {
+        get: async () => (await this.syncStore.getState()).revisionCeiling ?? 0,
+        reserve: async (ceiling) => {
+          await this.syncStore.setState({ revisionCeiling: ceiling });
+        },
+      },
     });
     let lastRole: LiveStatus['role'] | null = null;
     let lastCoordinator: string | null = null;

@@ -44,6 +44,8 @@ const BACKUP_DELAY_MS = 1000;
 const FORWARD_TIMEOUT_MS = 10_000;
 /** How often the coordinator is checked for silence. */
 const WATCH_EVERY_MS = 1000;
+/** Snapshot revisions reserved at a time, so the reservation is saved rarely (see `revisions`). */
+const REVISION_BLOCK = 100;
 
 export type LiveRole = 'coordinator' | 'follower' | 'viewer';
 export type ConnectionKind = ConnectedDevice['connection'];
@@ -83,6 +85,12 @@ export interface LiveLinkDeps {
   backup: LiveBackupApi | null;
   /** Remembers that earlier phone approvals were registered (plan M2.9). */
   grantsRegistered: { get(): Promise<boolean>; set(): Promise<void> } | null;
+  /**
+   * Keeps, across restarts, the highest snapshot revision this device may number up to as
+   * coordinator. Followers and the server drop a snapshot from a coordinator numbered below
+   * one it sent before, so after a restart numbering carries on past this.
+   */
+  revisions: { get(): Promise<number>; reserve(ceiling: number): Promise<void> } | null;
   newId?: () => string;
   now?: () => number;
 }
@@ -118,6 +126,10 @@ export class LiveLink {
   private readonly followerPhones = new Map<string, { grantId: string; name: string }[]>();
   private readonly followerCapabilities = new Map<string, Capabilities>();
   private grants: WorkspaceGrant[] = [];
+  /** Revisions this coordinator may publish without saving a new reservation first. */
+  private revisionCeiling = 0;
+  /** Reservations are saved one after another, so a slower one never overwrites a later one. */
+  private reserving: Promise<void> = Promise.resolve();
   /** The coordinator this device last connected to as a follower. */
   private followingId: string | null = null;
   /** Devices connected to this coordinator over the venue network (plan M6.3). */
@@ -422,6 +434,16 @@ export class LiveLink {
       await session.adoptSnapshot(local);
       startRevision = local.revision;
     }
+    // Numbering carries on past everything this device numbered before, unless it continues
+    // another device's live state, whose numbering it takes over instead (M2.3): a handover
+    // from that device must still outrank it.
+    const continuing = choice === 'server' ? server?.snapshot : adopting && local ? local : null;
+    const revisions = this.deps.revisions;
+    if (revisions && (!continuing || continuing.coordinatorId === deviceId)) {
+      const reserved = await revisions.get().catch(() => 0);
+      startRevision = Math.max(startRevision, reserved);
+    }
+    this.revisionCeiling = startRevision;
     this.grants = await host.localGrants();
     if (this.deps.grantsRegistered) await this.deps.grantsRegistered.set();
     if (!this.isLatest(count)) return;
@@ -559,6 +581,8 @@ export class LiveLink {
     if (!coordinator) return;
     const outbound = await coordinator.publish();
     if (this.coordinator !== coordinator || outbound.message.type !== 'snapshot') return;
+    await this.reserveRevisions(outbound.message.snapshot.revision);
+    if (this.coordinator !== coordinator) return;
     this.lastPublished = outbound.message.snapshot;
     // Still sent: the relay and followers refuse it, but the warning here says why.
     const checked = CoordinatorToFollowerSchema.safeParse(outbound.message);
@@ -566,6 +590,23 @@ export class LiveLink {
     this.deps.send({ type: 'toFollower', data: outbound.message });
     this.announcePresence();
     this.scheduleBackup();
+  }
+
+  /**
+   * Keeps the saved reservation ahead of `revision` (see `revisions`). Past the reservation,
+   * the snapshot waits until a new one is saved; that happens on taking the role and then
+   * once a block, as the next one is reserved halfway through the current one.
+   */
+  private async reserveRevisions(revision: number): Promise<void> {
+    const revisions = this.deps.revisions;
+    if (!revisions || revision + REVISION_BLOCK / 2 <= this.revisionCeiling) return;
+    const past = revision > this.revisionCeiling;
+    const ceiling = revision + REVISION_BLOCK;
+    this.revisionCeiling = ceiling;
+    const saved = (this.reserving = this.reserving
+      .then(() => revisions.reserve(ceiling))
+      .catch((error: unknown) => console.warn('Could not reserve snapshot revisions', error)));
+    if (past) await saved;
   }
 
   private scheduleBackup(): void {

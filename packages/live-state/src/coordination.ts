@@ -145,10 +145,7 @@ export class Coordinator {
         case 'resync': {
           const body = await this.host.snapshot();
           // The revision stays; a follower that has it drops the copy, one behind takes it.
-          // One ahead kept this device's snapshots from before it restarted, numbered higher:
-          // numbering moves past them, so it takes this copy and every one after it.
-          const revision =
-            message.have > this.revision_ ? message.have + 1 : Math.max(this.revision_, 1);
+          const revision = Math.max(this.revision_, 1);
           this.revision_ = revision;
           return {
             outbound: [
@@ -237,10 +234,6 @@ export class Follower {
     this.snapshot_ = null;
   }
 
-  private resync(): FollowerEvent {
-    return { kind: 'send', message: { type: 'resync', have: this.revision } };
-  }
-
   receive(message: CoordinatorToFollower): FollowerEvent[] {
     switch (message.type) {
       case 'snapshot': {
@@ -252,11 +245,7 @@ export class Follower {
           !current ||
           snapshot.coordinatorId !== current.coordinatorId ||
           snapshot.revision > current.revision;
-        if (!newer) {
-          // Numbered below what this coordinator sent before: it restarted and counts again
-          // from lower down. Asking for a resync moves its numbering past this copy's.
-          return snapshot.revision < current.revision ? [this.resync()] : [];
-        }
+        if (!newer) return [];
         this.snapshot_ = snapshot;
         return [{ kind: 'snapshot', snapshot }];
       }
@@ -264,8 +253,10 @@ export class Follower {
         this.pending.delete(message.id);
         return [{ kind: 'ack', id: message.id, applied: message.applied }];
       case 'alive':
-        // Ahead: a snapshot was missed. Behind: the coordinator restarted (see above).
-        return message.revision !== this.revision ? [this.resync()] : [];
+        if (message.revision > this.revision) {
+          return [{ kind: 'send', message: { type: 'resync', have: this.revision } }];
+        }
+        return [];
       case 'grantList':
         return [{ kind: 'grantList', grants: message.grants }];
       case 'notice':
