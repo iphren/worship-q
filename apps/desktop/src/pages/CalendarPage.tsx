@@ -106,7 +106,7 @@ export function CalendarPage() {
 
       <section className="flex min-w-0 flex-1 flex-col gap-3 p-4">
         <header className="flex flex-wrap items-center gap-2">
-          <h1 className="mr-2 text-xl font-semibold">{formatDate(browsed, 'long')}</h1>
+          <h1 className="mr-2 text-xl font-semibold">{formatDate(browsed)}</h1>
           {isLive ? (
             <span className="rounded bg-emerald-700 px-2 py-0.5 text-xs font-semibold">
               {t('calendar.live')}

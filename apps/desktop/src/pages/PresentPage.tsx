@@ -98,7 +98,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
               ? t('viewer.following', { name: link.coordinatorName })
               : t('viewer.waiting')}
           </p>
-          {liveDate && <p className="text-xs text-slate-400">{formatDate(liveDate, 'long')}</p>}
+          {liveDate && <p className="text-xs text-slate-400">{formatDate(liveDate)}</p>}
           <SlidePreview />
         </section>
         {props.outputPanel}

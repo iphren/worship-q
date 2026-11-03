@@ -151,8 +151,8 @@ describe('expiryText', () => {
 
 describe('formatDate', () => {
   it('shows a run sheet date without shifting it by time zone', () => {
-    expect(formatDate('2026-11-01')).toContain('Nov 1, 2026');
-    expect(formatDate('2026-11-01')).toContain('Sun');
+    expect(formatDate('2026-11-01')).toBe('Sunday 1st Nov');
+    expect(formatDate('2026-11-12')).toBe('Thursday 12th Nov');
     expect(formatDate('garbage')).toBe('garbage');
   });
 });

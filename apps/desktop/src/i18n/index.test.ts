@@ -14,9 +14,10 @@ describe('interface text', () => {
   });
 
   it('formats a date without shifting it by the computer timezone', () => {
-    expect(formatDate('2026-10-11')).toContain('Sun');
-    expect(formatDate('2026-10-11')).toContain('11');
-    expect(formatDate('2026-10-11', 'long')).toContain('Sunday');
+    expect(formatDate('2026-10-11')).toBe('Sunday 11th Oct');
+    expect(formatDate('2026-11-01')).toBe('Sunday 1st Nov');
+    expect(formatDate('2026-11-22')).toBe('Sunday 22nd Nov');
+    expect(formatDate('2026-10-03')).toBe('Saturday 3rd Oct');
   });
 });
 

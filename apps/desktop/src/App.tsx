@@ -114,7 +114,8 @@ function WindowTitle() {
   const workspace = useWorkspaceName();
   const title = t('app.windowTitle', {
     workspace,
-    date: formatDate(openDate),
+    // Only the title bar carries the year: "Sunday 1st Nov 2026".
+    date: `${formatDate(openDate)} ${openDate.slice(0, 4)}`,
   });
   useEffect(() => {
     getCurrentWindow()

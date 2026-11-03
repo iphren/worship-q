@@ -28,15 +28,15 @@ export function t(key: MessageKey, params?: Record<string, string | number>): st
 
 const utcDate = (date: string) => new Date(`${date}T00:00:00Z`);
 
-/** A date such as "Sun 11 Oct 2026", in the interface language. */
-export function formatDate(date: string, style: 'short' | 'long' = 'short'): string {
-  return new Intl.DateTimeFormat(locale, {
-    timeZone: 'UTC',
-    weekday: style === 'long' ? 'long' : 'short',
-    day: 'numeric',
-    month: style === 'long' ? 'long' : 'short',
-    year: 'numeric',
-  }).format(utcDate(date));
+const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
+const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
+
+/** A run sheet's name, such as "Sunday 1st Nov". */
+export function formatDate(date: string): string {
+  const day = Number(date.slice(8, 10));
+  const name = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...options }).format(utcDate(date));
+  return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
 }
 
 export function formatMonth(year: number, month: number): string {

@@ -194,17 +194,19 @@ export function formatDateTime(iso: string): string {
   });
 }
 
-/** A run sheet's date (YYYY-MM-DD) as words, without a time zone shift. */
+const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
+const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
+
+/** A run sheet's date (YYYY-MM-DD) as its name, such as "Sunday 1st Nov". */
 export function formatDate(date: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!match) return date;
   const [, y, m, d] = match;
-  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('en', {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
+  const day = Number(d);
+  const when = new Date(Number(y), Number(m) - 1, day);
+  const weekday = when.toLocaleDateString('en', { weekday: 'long' });
+  const month = when.toLocaleDateString('en', { month: 'short' });
+  return `${weekday} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${month}`;
 }
 
 // ── The live state (D38) ───────────────────────────────────────────────────

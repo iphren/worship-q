@@ -159,7 +159,7 @@ function Live({ view }: { view: RemoteView | null }) {
         <div className="min-w-0">
           <h1 className="truncate font-semibold text-white">{view.workspaceName}</h1>
           <p className="text-xs text-slate-400">
-            {view.status === 'live' && view.date ? view.date : 'Presentation ended'}
+            {view.status === 'live' && view.date ? runSheetName(view.date) : 'Presentation ended'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -672,4 +672,17 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
       </ul>
     </div>
   );
+}
+
+const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
+const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
+
+/** A run sheet's name, such as "Sunday 1st Nov". */
+function runSheetName(date: string): string {
+  const day = Number(date.slice(8, 10));
+  const name = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('en', { timeZone: 'UTC', ...options }).format(
+      new Date(`${date}T00:00:00Z`),
+    );
+  return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
 }
