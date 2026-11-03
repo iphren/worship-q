@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { managedLabel, routePath } from '../format';
+import { LIBRARY_TYPE_LABELS, routePath } from '../format';
 import { Badge, Button, Card, CodeReveal, Empty, ErrorText, INPUT, Link, PageTitle } from '../ui';
 import { useAction, useLoad } from '../useLoad';
 
@@ -104,9 +104,11 @@ export function WorkspacesPage() {
               <span className="text-sm text-slate-400">
                 {w.devices === 1 ? '1 device' : `${w.devices} devices`}
               </span>
-              {w.libraryTypes.length > 0 && (
-                <Badge tone="accent">Manages {managedLabel(w.libraryTypes)}</Badge>
-              )}
+              {w.libraryTypes.map((type) => (
+                <Badge key={type} tone="accent">
+                  {LIBRARY_TYPE_LABELS[type]}
+                </Badge>
+              ))}
               {w.codesEnabled && <Badge tone="warn">Connection code on</Badge>}
               {w.live && <Badge tone="live">Live</Badge>}
             </Link>

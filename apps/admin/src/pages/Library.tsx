@@ -7,7 +7,7 @@ import type {
 } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { formatDate, managedLabel } from '../format';
+import { formatDate } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, INPUT, PageTitle, Spinner, When } from '../ui';
 import { useAction, useLoad } from '../useLoad';
 
@@ -113,7 +113,6 @@ export function LibraryPage() {
           {workspaces.data?.workspaces.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
-              {w.libraryTypes.length > 0 ? ` (manages ${managedLabel(w.libraryTypes)})` : ''}
             </option>
           ))}
         </select>

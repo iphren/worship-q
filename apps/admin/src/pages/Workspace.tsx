@@ -1,8 +1,9 @@
-import type {
-  AdminLibraryPlan,
-  AdminLiveView,
-  AdminWorkspace,
-  LibraryType,
+import {
+  LIBRARY_TYPES,
+  type AdminLibraryPlan,
+  type AdminLiveView,
+  type AdminWorkspace,
+  type LibraryType,
 } from '@worship-q/protocol';
 import { useState, type ReactNode } from 'react';
 import { api } from '../api';
@@ -13,6 +14,7 @@ import {
   formatDate,
   formatDateTime,
   isPast,
+  LIBRARY_TYPE_LABELS,
   LIBRARY_TYPE_NOUNS,
   libraryTypeList,
   managedLabel,
@@ -272,13 +274,6 @@ function CodeSection(props: { workspace: AdminWorkspace; onChanged(next: AdminWo
 
 // ── Manage Church Library (D36) ──────────────────────────────────────────────
 
-const MANAGED_TYPES: { type: LibraryType; label: string }[] = [
-  { type: 'songs', label: 'Songs' },
-  { type: 'backgrounds', label: 'Backgrounds' },
-  { type: 'slides', label: 'Slides' },
-  { type: 'websites', label: 'Websites' },
-];
-
 function LibrarySection(props: {
   workspace: AdminWorkspace;
   onChanged(next: AdminWorkspace): void;
@@ -321,7 +316,7 @@ function LibrarySection(props: {
           <p>
             This workspace <strong>manages {managedLabel(managed)}</strong>: its{' '}
             {libraryTypeList(managed)} are the church's, and every workspace receives them.
-            {managed.length < MANAGED_TYPES.length && ' Everything else it has stays its own.'}
+            {managed.length < LIBRARY_TYPES.length && ' Everything else it has stays its own.'}
           </p>
         ) : (
           <p>
@@ -331,9 +326,9 @@ function LibrarySection(props: {
           </p>
         )}
         <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
-          {MANAGED_TYPES.map(({ type, label }) => (
+          {LIBRARY_TYPES.map((type) => (
             <li key={type} className="flex items-center justify-between gap-3 px-3 py-2">
-              <span className="text-slate-100">{label}</span>
+              <span className="text-slate-100">{LIBRARY_TYPE_LABELS[type]}</span>
               <Switch
                 label={`Manage the Church Library's ${LIBRARY_TYPE_NOUNS[type]}`}
                 checked={managed.includes(type)}

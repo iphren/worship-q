@@ -21,6 +21,14 @@ export const LIBRARY_TYPE_NOUNS: Record<LibraryType, string> = {
   websites: 'websites',
 };
 
+/** What each Church Library type is called on its own, as on a badge. */
+export const LIBRARY_TYPE_LABELS: Record<LibraryType, string> = {
+  songs: 'Songs',
+  backgrounds: 'Backgrounds',
+  slides: 'Slides',
+  websites: 'Websites',
+};
+
 /** Library types in a sentence, in their usual order: “songs, slides and websites”. */
 export function libraryTypeList(types: readonly LibraryType[]): string {
   const nouns = LIBRARY_TYPES.filter((type) => types.includes(type)).map(
