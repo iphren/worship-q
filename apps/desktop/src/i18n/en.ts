@@ -311,6 +311,8 @@ export const en = {
   'church.pairingExpired':
     'Nobody approved this computer in time. Ask again when an administrator is ready.',
   'church.pairingUseCode': 'I have a connection code instead',
+  'church.pairingBusy':
+    'Too many computers are waiting for approval. Ask an administrator to deal with them, then try again.',
   'church.pairingAsk': 'Ask an administrator to approve this computer instead',
   'church.adminAddress':
     'Administrators manage workspaces, computers and the Church Library at {url}',

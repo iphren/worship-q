@@ -90,7 +90,8 @@ Open a song with two versions and you see both at the top: **Church's version** 
 version**, each with when it last changed. Choose the one your workspace presents; the other
 is a click away to read. The choice is for this song in this workspace only, and every
 computer of your workspace follows it. **Delete our version** drops your workspace's version
-for good and goes back to the church's song.
+for good and goes back to the church's song. If the church deletes its version, the song
+shows only yours until the church brings its version back.
 
 Removing a church song hides it in your workspace only; the church and other workspaces keep
 it.

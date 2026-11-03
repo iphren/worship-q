@@ -108,6 +108,11 @@ export interface AdminLibraryItem {
   filesRemovedAt: string | null;
   /** Where the record last came from. */
   fromWorkspace: { id: string; name: string } | null;
+  /**
+   * Who deleted it: an administrator in the app, or a workspace that manages the Church
+   * Library (D34). Null while not deleted, or when not known.
+   */
+  deletedBy: { administrator: string } | { workspace: { id: string; name: string } } | null;
   /** Shown by a background's file name or a deck's; null for a lyrics song. */
   fileName: string | null;
 }

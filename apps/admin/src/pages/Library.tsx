@@ -147,6 +147,16 @@ function ItemRow(props: { item: AdminLibraryItem; onChanged(next: AdminLibraryIt
         {item.removedAt && (
           <span>
             Deleted <When iso={item.removedAt} />
+            {item.deletedBy && (
+              <>
+                {' by '}
+                <span className="text-slate-200">
+                  {'administrator' in item.deletedBy
+                    ? item.deletedBy.administrator
+                    : item.deletedBy.workspace.name}
+                </span>
+              </>
+            )}
           </span>
         )}
         {item.filesRemovedAt && (

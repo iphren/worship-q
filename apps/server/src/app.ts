@@ -97,7 +97,7 @@ export async function buildServer(config: ServerConfig) {
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   for (const email of config.administrators ?? []) {
-    if (email.trim()) instance.addAdministrator(email, null);
+    if (email.trim()) instance.seedAdministrator(email);
   }
   const retentionDays = config.retentionDays ?? DEFAULT_RETENTION_DAYS;
   const retention =
@@ -184,7 +184,9 @@ export async function buildServer(config: ServerConfig) {
       if (!isCompatibleProtocol(protocolVersion)) {
         return reply.code(426).send({ error: UPDATE_NEEDED, protocolVersion: PROTOCOL_VERSION });
       }
-      const { secret, code, expiresAt } = instance.startPairing(String(deviceName ?? ''));
+      const started = instance.startPairing(String(deviceName ?? ''), request.ip);
+      if (!started) return reply.code(429).send({ error: 'too-many-requests' });
+      const { secret, code, expiresAt } = started;
       return {
         secret,
         code,

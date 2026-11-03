@@ -334,6 +334,10 @@ export class SyncStore {
     // Records may refer to songs that never reached the instance; those references are left
     // out rather than failing the whole transaction.
     const incomingSongs = new Set(ordered.filter((r) => r.kind === 'song').map((r) => r.id));
+    // The songs themselves in this batch, which a shadow may belong to before they are saved.
+    const songsHere = new Map(
+      ordered.filter((r) => r.kind === 'song' && !r.shadow).map((r) => [r.id, r]),
+    );
     const known = async (songId: string) =>
       incomingSongs.has(songId) ||
       (await this.db.select('SELECT 1 FROM song WHERE id = ?', [songId])).length > 0;
@@ -351,7 +355,7 @@ export class SyncStore {
         case 'song':
           statements.push(
             ...(record.shadow
-              ? await this.applyShadow(record, changes)
+              ? await this.applyShadow(record, changes, songsHere.get(record.id))
               : await this.applySong(workspaceId, record, changes)),
           );
           break;
@@ -556,21 +560,47 @@ export class SyncStore {
    * the song, never shown as it. The church deleting the song ends the two versions: the
    * workspace's own is the song from then on (spec §5), whichever was in use.
    */
-  private async applyShadow(record: SyncRecord, changes: AppliedChanges): Promise<Statement[]> {
-    const own = await this.current('SELECT * FROM song WHERE id = ?', [record.id]);
+  private async applyShadow(
+    record: SyncRecord,
+    changes: AppliedChanges,
+    /** The song itself when it arrived in the same batch, and so is not saved yet. */
+    arriving?: SyncRecord,
+  ): Promise<Statement[]> {
+    // A song the instance now gives as the church's has no second version (D32).
+    if (arriving?.origin === 'church') return [];
+    const saved = await this.current('SELECT * FROM song WHERE id = ?', [record.id]);
+    // What the song will be once the batch is saved: the arriving record when it is taken.
+    const taken =
+      arriving &&
+      (!saved ||
+        syncWins(arriving, saved) ||
+        (arriving.origin !== undefined && optional(saved.row.origin) !== arriving.origin));
+    const own = taken
+      ? {
+          title: str(arriving.data.title),
+          lyrics: str(arriving.data.lyrics),
+          inUse: arriving.origin === 'workspace' && arriving.data.useChurchVersion === true,
+        }
+      : saved
+        ? {
+            title: text(saved.row.title),
+            lyrics: text(saved.row.lyrics),
+            inUse: Number(saved.row.use_church_version) === 1,
+          }
+        : null;
     if (!own) return [];
     const d = record.data;
-    const inUse = Number(own.row.use_church_version) === 1;
+    const inUse = own.inUse;
     if (strOrNull(d.removedAt)) {
-      const statements = await this.dropChurchVersion(record.id);
-      if (statements.length > 0 && inUse) {
+      // Also forgets a church version kept earlier in this batch, so not looked up first.
+      const statements: Statement[] = [
+        { sql: 'DELETE FROM church_version WHERE song_id = ?', params: [record.id] },
+        { sql: 'UPDATE song SET use_church_version = 0 WHERE id = ?', params: [record.id] },
+      ];
+      if (inUse) {
         changes.songs.add(record.id);
         statements.push(
-          this.store.searchUpsert({
-            id: record.id,
-            title: text(own.row.title),
-            lyrics: text(own.row.lyrics),
-          }),
+          this.store.searchUpsert({ id: record.id, title: own.title, lyrics: own.lyrics }),
         );
       }
       return statements;

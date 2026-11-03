@@ -36,7 +36,11 @@ export function sweepDeletedFiles(
   now: string = instance.now(),
 ): SweepResult {
   const before = new Date(Date.parse(now) - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-  const items = instance.deletedItems(before);
+  const candidates = instance.deletedItems(before);
+  const inUse = instance.filesInUse(before);
+  // An item whose files something else still uses keeps them all, and is looked at again
+  // at the next sweep; it can still be restored meanwhile.
+  const items = candidates.filter((item) => !item.fileNames.some((name) => inUse.has(name)));
   let files = 0;
   for (const item of items) {
     const dir =

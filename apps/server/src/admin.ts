@@ -425,7 +425,11 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       async (request, reply) => {
         const kind = KIND.safeParse(request.params.kind);
         if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
-        const deleted = instance.deleteChurch(kind.data as LibraryKind, request.params.id);
+        const deleted = instance.deleteChurch(
+          kind.data as LibraryKind,
+          request.params.id,
+          request.admin!.id,
+        );
         if (!deleted) return reply.code(404).send({ error: 'not-found' });
         relay.contentChangedAll('');
         return { deleted: true };

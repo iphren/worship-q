@@ -48,6 +48,9 @@ export const ORIGINS_PROTOCOL = 3;
 /** How long a pairing request waits for an administrator (D29). */
 export const PAIRING_TTL_MS = 15 * 60 * 1000;
 export const PAIRING_INTERVAL_MS = 5000;
+/** Pairing requests that may wait at once, from one address and in all (D29). */
+export const PAIRING_MAX_PENDING_PER_ADDRESS = 3;
+export const PAIRING_MAX_PENDING = 30;
 /** A sign-in session ends after this long without a request (D27). */
 export const SESSION_IDLE_MS = 8 * 60 * 60 * 1000;
 /** A sign-in started but not finished is forgotten after this long. */
@@ -283,9 +286,29 @@ export class Instance {
 
   // ── Pairing (D29) ────────────────────────────────────────────────────────
 
-  /** Starts a pairing: the device shows the code and polls with the secret. */
-  startPairing(deviceName: string): { secret: string; code: string; expiresAt: string } {
+  /**
+   * Starts a pairing: the device shows the code and polls with the secret. Null when too
+   * many requests are waiting, from `from` or in all, so nobody can fill the list an
+   * administrator reads (D29).
+   */
+  startPairing(
+    deviceName: string,
+    from: string | null = null,
+  ): { secret: string; code: string; expiresAt: string } | null {
     this.sweepPairing();
+    const pending = (sql: string, ...params: SqlValue[]) =>
+      Number(this.db.prepare(sql).get(...params)?.count ?? 0);
+    if (
+      pending(`SELECT count(*) AS count FROM pairing_request WHERE status = 'pending'`) >=
+        PAIRING_MAX_PENDING ||
+      (from !== null &&
+        pending(
+          `SELECT count(*) AS count FROM pairing_request WHERE status = 'pending' AND requested_from = ?`,
+          from,
+        ) >= PAIRING_MAX_PENDING_PER_ADDRESS)
+    ) {
+      return null;
+    }
     const secret = randomBytes(32).toString('base64url');
     const now = this.now();
     const expiresAt = new Date(Date.parse(now) + PAIRING_TTL_MS).toISOString();
@@ -295,8 +318,8 @@ export class Instance {
       try {
         this.db
           .prepare(
-            `INSERT INTO pairing_request (id, secret_hash, code, device_name, status, created_at, expires_at)
-             VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
+            `INSERT INTO pairing_request (id, secret_hash, code, device_name, status, created_at, expires_at, requested_from)
+             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
           )
           .run(
             randomUUID(),
@@ -305,6 +328,7 @@ export class Instance {
             deviceName.trim().slice(0, 60) || 'Desktop',
             now,
             expiresAt,
+            from,
           );
         return { secret, code, expiresAt };
       } catch (error) {
@@ -315,8 +339,9 @@ export class Instance {
   }
 
   /**
-   * What the device learns when it polls. An approval is handed over once: the token is
-   * forgotten here as soon as the device has it.
+   * What the device learns when it polls. An approval is handed over until the device first
+   * uses its token, or the request expires, so an answer lost on the way can be asked for
+   * again; then the token is forgotten here.
    */
   pollPairing(secret: string): PairingPollResponse {
     this.sweepPairing();
@@ -330,8 +355,7 @@ export class Instance {
     if (status === 'approved' && row.token && row.device_id) {
       const device = this.getDevice(text(row.device_id));
       const workspace = device ? this.getWorkspace(device.workspaceId) : null;
-      this.db.prepare('UPDATE pairing_request SET token = NULL WHERE id = ?').run(text(row.id));
-      if (device && workspace) {
+      if (device && !device.revokedAt && workspace) {
         return {
           status: 'approved',
           deviceId: device.id,
@@ -463,6 +487,20 @@ export class Instance {
     return this.getAdministrator(id)!;
   }
 
+  /**
+   * Adds an administrator named at deployment (`WORSHIP_Q_ADMINS`), read at every start.
+   * An address that was ever an administrator is left as it is, so one removed in the app
+   * stays removed; `admin add` on the command line brings it back. Returns whether added.
+   */
+  seedAdministrator(email: string): boolean {
+    const known = this.db
+      .prepare('SELECT 1 FROM administrator WHERE email = ? LIMIT 1')
+      .get(normalizeEmail(email));
+    if (known) return false;
+    this.addAdministrator(email, null);
+    return true;
+  }
+
   /** Removes an administrator and ends their sessions. The last one cannot be removed. */
   removeAdministrator(id: string): boolean {
     return transaction(this.db, () => {
@@ -555,6 +593,14 @@ export class Instance {
     if (!row) return null;
     const now = this.now();
     this.db.prepare('UPDATE device SET last_seen_at = ? WHERE id = ?').run(now, text(row.id));
+    if (text(row.enrolled_by) === 'pairing') {
+      // The device has its token, so the pairing request need not keep it (D29).
+      this.db
+        .prepare(
+          'UPDATE pairing_request SET token = NULL WHERE device_id = ? AND token IS NOT NULL',
+        )
+        .run(text(row.id));
+    }
     return toDevice({ ...row, last_seen_at: now });
   }
 
@@ -680,20 +726,41 @@ export class Instance {
     return { remap, stored, central };
   }
 
-  private putChurch(record: SyncRecord, deviceId: string | null, workspaceId: string): void {
+  /**
+   * Stores a Church Library record. `removedBy` names who deletes it when this write is a
+   * deletion by an administrator; otherwise the workspace writing it is named (D34).
+   */
+  private putChurch(
+    record: SyncRecord,
+    deviceId: string | null,
+    workspaceId: string | null,
+    removedBy?: string,
+  ): void {
     // Which version a workspace uses is the workspace's choice, never the church's (D32).
     if ('useChurchVersion' in record.data) {
       const data = { ...record.data };
       delete data.useChurchVersion;
       record = { ...record, data };
     }
+    const previous = this.db
+      .prepare('SELECT data, removed_by FROM church_record WHERE kind = ? AND key = ?')
+      .get(record.kind, record.key);
+    const wasRemoved = previous ? removed(previous.data) : false;
+    const isRemoved = typeof record.data.removedAt === 'string' && record.data.removedAt !== '';
+    let removedByNow: string | null = null;
+    if (isRemoved) {
+      removedByNow = wasRemoved
+        ? optional(previous?.removed_by)
+        : (removedBy ?? (workspaceId ? `workspace:${workspaceId}` : null));
+    }
     this.db
       .prepare(
-        `INSERT INTO church_record (kind, key, id, revision, updated_at, seq, data, device_id, workspace_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO church_record (kind, key, id, revision, updated_at, seq, data, device_id, workspace_id, removed_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (kind, key) DO UPDATE SET id = excluded.id, revision = excluded.revision,
            updated_at = excluded.updated_at, seq = excluded.seq, data = excluded.data,
-           device_id = excluded.device_id, workspace_id = excluded.workspace_id`,
+           device_id = excluded.device_id, workspace_id = excluded.workspace_id,
+           removed_by = excluded.removed_by`,
       )
       .run(
         record.kind,
@@ -705,6 +772,7 @@ export class Instance {
         JSON.stringify(record.data),
         deviceId,
         workspaceId,
+        removedByNow,
       );
   }
 
@@ -734,14 +802,13 @@ export class Instance {
              FROM record WHERE workspace_id = ? AND seq > ?
              UNION ALL
              SELECT c.kind, c.key, c.id, c.revision, c.updated_at, c.data, c.seq, 'church' AS origin,
-               EXISTS (SELECT 1 FROM record r
-                 WHERE r.workspace_id = ? AND r.kind = c.kind AND r.key = c.key) AS shadow
-             FROM church_record c
-             WHERE c.seq > ? AND (c.kind = 'song' OR NOT EXISTS (SELECT 1 FROM record r
-               WHERE r.workspace_id = ? AND r.kind = c.kind AND r.key = c.key))
+               r.key IS NOT NULL AS shadow
+             FROM church_record c LEFT JOIN record r
+               ON r.workspace_id = ? AND r.kind = c.kind AND r.key = c.key
+             WHERE c.seq > ? AND (c.kind = 'song' OR r.key IS NULL)
              ORDER BY seq LIMIT ?`,
           )
-          .all(workspaceId, since, workspaceId, since, workspaceId, limit + 1)
+          .all(workspaceId, since, workspaceId, since, limit + 1)
       : this.db
           .prepare(
             `SELECT kind, key, id, revision, updated_at, data, seq FROM record
@@ -754,18 +821,48 @@ export class Instance {
           )
           .all(workspaceId, since, since, workspaceId, limit + 1);
     const page = rows.slice(0, limit);
+    const records = page.map((row) => {
+      const record = toRecord(row);
+      // Text stored before broken characters were replaced on the way in is fixed here.
+      const fixed = { ...record, data: wellFormed(record.data) };
+      if (!origins) return fixed;
+      if (Number(row.shadow) === 1) return shadowOf(fixed);
+      return { ...fixed, origin: text(row.origin) === 'church' ? 'church' : 'workspace' } as const;
+    });
+    if (origins) records.push(...this.shadowsFor(workspaceId, page));
     return {
-      records: page.map((row) => {
-        const record = toRecord(row);
-        // Text stored before broken characters were replaced on the way in is fixed here.
-        const fixed = { ...record, data: wellFormed(record.data) };
-        if (!origins) return fixed;
-        const origin = text(row.origin) === 'church' ? 'church' : 'workspace';
-        return Number(row.shadow) === 1 ? { ...fixed, origin, shadow: true } : { ...fixed, origin };
-      }),
+      records,
       cursor: page.length > 0 ? Number(page[page.length - 1]!.seq) : since,
       more: rows.length > limit,
     };
+  }
+
+  /**
+   * The church's record beside each of the workspace's own songs in a page, unless the page
+   * already has it. A device that never held the song, such as a computer joining now, may
+   * have passed the church's record in the feed before the workspace's version reached it,
+   * and the two only make sense together (D31).
+   */
+  private shadowsFor(workspaceId: string, page: Record<string, SqlValue>[]): SyncRecord[] {
+    const inPage = new Set(
+      page.filter((row) => text(row.origin) === 'church').map((row) => text(row.key)),
+    );
+    const keys = page
+      .filter((row) => text(row.origin) === 'workspace' && text(row.kind) === 'song')
+      .map((row) => text(row.key))
+      .filter((key) => !inPage.has(key));
+    if (keys.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT c.* FROM church_record c
+         JOIN record r ON r.workspace_id = ? AND r.kind = c.kind AND r.key = c.key
+         WHERE c.kind = 'song' AND c.key IN (SELECT value FROM json_each(?))`,
+      )
+      .all(workspaceId, JSON.stringify(keys))
+      .map((row) => {
+        const record = toRecord(row);
+        return shadowOf({ ...record, data: wellFormed(record.data) });
+      });
   }
 
   /**
@@ -874,7 +971,13 @@ export class Instance {
           // A version the workspace had set aside for the church's is dropped, not promoted
           // (D36); the church's record stands as it is.
           const keepChurch = !hidden && !removed(church.data) && usesChurchVersion(own.data);
-          if (!keepChurch) {
+          if (keepChurch) {
+            // A new place in the feed, so the workspace's devices let go of the dropped
+            // version and hold the church's as the song.
+            this.db
+              .prepare('UPDATE church_record SET seq = ? WHERE kind = ? AND key = ?')
+              .run(this.nextSeq(), record.kind, record.key);
+          } else {
             // Newer than any copy a device has, so every device takes it.
             this.putChurch(
               {
@@ -911,6 +1014,18 @@ export class Instance {
   /** The Church Library's songs or backgrounds, deleted ones included, newest change first. */
   listChurch(kind: LibraryKind): AdminLibraryItem[] {
     const names = new Map(this.listWorkspaces().map((w) => [w.id, w.name]));
+    /** Who deleted an item, for the Deleted list (D34); null when not known. */
+    const deletedBy = (by: string | null): AdminLibraryItem['deletedBy'] => {
+      const [type, id] = by ? [by.slice(0, by.indexOf(':')), by.slice(by.indexOf(':') + 1)] : [];
+      if (type === 'administrator' && id) {
+        const admin = this.getAdministrator(id);
+        return admin ? { administrator: admin.email } : null;
+      }
+      if (type === 'workspace' && id && names.has(id)) {
+        return { workspace: { id, name: names.get(id)! } };
+      }
+      return null;
+    };
     return this.db
       .prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY updated_at DESC')
       .all(kind)
@@ -927,6 +1042,8 @@ export class Instance {
           removedAt: typeof data.removedAt === 'string' ? data.removedAt : null,
           filesRemovedAt: optional(row.files_removed_at),
           fromWorkspace: from && names.has(from) ? { id: from, name: names.get(from)! } : null,
+          deletedBy:
+            typeof data.removedAt === 'string' ? deletedBy(optional(row.removed_by)) : null,
           fileName:
             kind === 'background'
               ? String(data.fileName ?? '') || null
@@ -942,7 +1059,7 @@ export class Instance {
    * `removedAt` set, as a managing workspace's removal leaves it (D34). Workspace versions of a
    * deleted song are untouched and so become those workspaces' own (spec §5).
    */
-  deleteChurch(kind: LibraryKind, key: string): boolean {
+  deleteChurch(kind: LibraryKind, key: string, administratorId: string | null = null): boolean {
     const row = this.db
       .prepare('SELECT * FROM church_record WHERE kind = ? AND key = ?')
       .get(kind, key);
@@ -957,7 +1074,8 @@ export class Instance {
         data: { ...record.data, removedAt: now },
       },
       optional(row.device_id),
-      text(row.workspace_id),
+      optional(row.workspace_id),
+      administratorId ? `administrator:${administratorId}` : undefined,
     );
     return true;
   }
@@ -981,7 +1099,7 @@ export class Instance {
         data: { ...record.data, removedAt: null },
       },
       optional(row.device_id),
-      text(row.workspace_id),
+      optional(row.workspace_id),
     );
     return 'restored';
   }
@@ -1074,6 +1192,28 @@ export class Instance {
       collect(row, text(row.workspace_id));
     }
     return items;
+  }
+
+  /**
+   * File names still in use by songs and backgrounds, the church's and every workspace's:
+   * those not deleted, and those deleted at or after `before`, whose own retention has not
+   * run out. A workspace's version of a church deck shares the church's images, and must
+   * keep them after the church's is deleted (spec §5, D34).
+   */
+  filesInUse(before: string): Set<string> {
+    const names = new Set<string>();
+    for (const table of ['church_record', 'record']) {
+      for (const row of this.db
+        .prepare(`SELECT kind, data FROM ${table} WHERE kind IN ('song', 'background')`)
+        .all()) {
+        const data = JSON.parse(text(row.data)) as Record<string, unknown>;
+        const removedAt =
+          typeof data.removedAt === 'string' && data.removedAt ? data.removedAt : null;
+        if (removedAt && removedAt < before) continue;
+        for (const name of fileNamesOf(text(row.kind), data)) names.add(name);
+      }
+    }
+    return names;
   }
 
   /** Records that an item's files are gone, so it is not swept again and cannot be restored. */
@@ -1371,6 +1511,11 @@ export function pairingCode(): string {
 export function formatPairingCode(code: string): string {
   const plain = normalizeCode(code);
   return plain.length === 8 ? `${plain.slice(0, 4)}-${plain.slice(4)}` : plain;
+}
+
+/** The church's record of a song the workspace has its own version of, as a shadow (D31). */
+function shadowOf(record: SyncRecord): SyncRecord {
+  return { ...record, origin: 'church', shadow: true };
 }
 
 const usesChurchVersion = (data: SqlValue | undefined) =>

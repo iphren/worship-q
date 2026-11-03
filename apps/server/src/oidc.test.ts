@@ -24,6 +24,8 @@ export function fakeIssuer(
     emailVerified?: boolean | 'absent';
     userinfo?: Record<string, unknown> | null;
     discovery?: Record<string, unknown>;
+    /** Claims put into the ID token over the usual ones, or taken out when undefined. */
+    token?: Record<string, unknown>;
   } = {},
 ) {
   const issuer = options.issuer ?? ISSUER;
@@ -47,10 +49,16 @@ export function fakeIssuer(
       if (!code.includes(':')) return json({ error: 'invalid_grant' }, 400);
       const [email, nonce] = code.split(':') as [string, string];
       const payload: Record<string, unknown> = {
+        iss: issuer,
+        aud: 'worship-q',
         sub: `sub-${email}`,
         nonce,
         name: 'Pat Admin',
       };
+      for (const [key, value] of Object.entries(options.token ?? {})) {
+        if (value === undefined) delete payload[key];
+        else payload[key] = value;
+      }
       if (options.emailInToken !== false) payload.email = email;
       if (options.emailVerified !== 'absent')
         payload.email_verified = options.emailVerified ?? true;
@@ -171,7 +179,7 @@ describe('the sign-in flow against a provider in this process', () => {
     await expect(client.discover()).rejects.toThrow(/Issuer mismatch/);
   });
 
-  it('accepts Microsoft’s tenant placeholder in the issuer', async () => {
+  it('refuses Microsoft’s multi-tenant endpoints, where any tenant could sign in', async () => {
     const { fetchImpl } = fakeIssuer({
       discovery: {
         issuer: 'https://login.microsoftonline.com/{tenantid}/v2.0',
@@ -180,9 +188,37 @@ describe('the sign-in flow against a provider in this process', () => {
       },
     });
     const client = new OidcClient(config, fetchImpl);
-    await expect(client.discover()).resolves.toMatchObject({
-      token_endpoint: `${ISSUER}/token`,
+    await expect(client.discover()).rejects.toThrow(/multi-tenant/);
+  });
+
+  it('refuses an ID token from another issuer or for another application', async () => {
+    const fromElsewhere = new OidcClient(
+      config,
+      fakeIssuer({ token: { iss: 'https://login.microsoftonline.com/other-tenant/v2.0' } })
+        .fetchImpl,
+    );
+    await expect(fromElsewhere.finishSignIn('pat@example.org:n1', 'v', 'n1')).rejects.toThrow(
+      /another issuer/,
+    );
+    const forOther = new OidcClient(config, fakeIssuer({ token: { aud: 'other-app' } }).fetchImpl);
+    await expect(forOther.finishSignIn('pat@example.org:n1', 'v', 'n1')).rejects.toThrow(
+      /another application/,
+    );
+    // An audience given as a list is accepted when it names this application.
+    const listed = new OidcClient(
+      config,
+      fakeIssuer({ token: { aud: ['worship-q', 'other-app'] } }).fetchImpl,
+    );
+    await expect(listed.finishSignIn('pat@example.org:n1', 'v', 'n1')).resolves.toMatchObject({
+      email: 'pat@example.org',
     });
+  });
+
+  it('refuses an ID token without the nonce it was asked for', async () => {
+    const client = new OidcClient(config, fakeIssuer({ token: { nonce: undefined } }).fetchImpl);
+    await expect(client.finishSignIn('pat@example.org:n1', 'v', 'n1')).rejects.toThrow(
+      /another sign-in/,
+    );
   });
 });
 

@@ -97,7 +97,9 @@ they get in only if their e-mail address is on the server's list of administrato
 
 **Microsoft Entra ID:** in the tenant, **App registrations → New registration**; platform
 **Web**; redirect URI `https://<server>/auth/callback`. Make a client secret. Under **Token
-configuration**, add the optional claim `email` to the ID token. Then, in `apps/server/.env`:
+configuration**, add the optional claim `email` to the ID token. The issuer must name the
+church's tenant: the server refuses `common`, `organizations` and `consumers`, which would let
+any Microsoft tenant sign in. Then, in `apps/server/.env`:
 
 ```sh
 WORSHIP_Q_PUBLIC_URL=https://worship.example.org
@@ -119,8 +121,9 @@ WORSHIP_Q_OIDC_CLIENT_SECRET=<client secret>
 WORSHIP_Q_ADMINS=pat@example.org
 ```
 
-`WORSHIP_Q_ADMINS` names the first administrator; the server adds the address at every start
-and never removes one. Administrators add and remove each other in the app, and the last one
+`WORSHIP_Q_ADMINS` names the first administrator; the server adds an address it has never
+seen at start and never removes one. An administrator removed in the app stays removed even
+while still listed here; `admin add` on the command line brings them back. Administrators add and remove each other in the app, and the last one
 cannot be removed there. Without the sign-in variables the server runs as before, the admin
 app says that sign-in is not configured, and administration is the command line below.
 
@@ -203,8 +206,8 @@ are the church's.
 
 Deleting a song or background from the Church Library, by a managing workspace or in the
 admin app, is recoverable: the admin app lists deleted items and **Restore** brings one back
-to every workspace, except where a workspace made its own version meanwhile, which stays its
-own. After `WORSHIP_Q_RETENTION_DAYS` (90 by default) a daily sweep removes a deleted item's
+to every workspace; a workspace that made its own version of a song sees both versions again,
+still using its own. After `WORSHIP_Q_RETENTION_DAYS` (90 by default) a daily sweep removes a deleted item's
 files; the item stays listed as deleted with its files gone and can no longer be restored. A
 workspace's own deleted backgrounds and slide decks are swept the same way; a church item a
 workspace merely hid is not a deletion and keeps its files.

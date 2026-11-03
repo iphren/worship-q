@@ -71,6 +71,46 @@ describe('pulling with origins (D31)', () => {
     expect(pulled.json().manageLibrary).toBe(false);
   });
 
+  it('sends the church’s record beside the workspace’s version, even on a later page', async () => {
+    const { instance, north } = await setup();
+    // One record a page: the church's comes first in the feed, the workspace's after.
+    const first = instance.pull(north.id, 0, 1, PROTOCOL_VERSION);
+    expect(first.records.map((r) => [r.origin, r.shadow ?? false])).toEqual([['church', true]]);
+    const second = instance.pull(north.id, first.cursor, 1, PROTOCOL_VERSION);
+    // A device that passed the shadow before it held the song gets it again with the song.
+    expect(second.records.map((r) => [r.origin, r.shadow ?? false, r.data.title])).toEqual([
+      ['workspace', false, 'Holy (North)'],
+      ['church', true, 'Holy (church)'],
+    ]);
+    expect(second.cursor).toBeGreaterThan(first.cursor);
+    expect(second.more).toBe(false);
+    // Not twice when the page already has it.
+    const all = instance.pull(north.id, 0, 500, PROTOCOL_VERSION);
+    expect(all.records.filter((r) => r.shadow)).toHaveLength(1);
+    // And never to a version 2 device.
+    expect(instance.pull(north.id, first.cursor, 1, 2).records.some((r) => r.shadow)).toBe(false);
+  });
+
+  it('sends the church’s record as deleted while it is, and as it is again after a restore (D34)', async () => {
+    const { time, instance, north, south } = await setup();
+    time.advance();
+    instance.deleteChurch('song', 's1');
+    const deleted = instance.pull(north.id, 0, 500, PROTOCOL_VERSION).records.find((r) => r.shadow);
+    expect(deleted?.data.removedAt).toBe(time.now());
+    time.advance();
+    expect(instance.restoreChurch('song', 's1')).toBe('restored');
+    const restored = instance
+      .pull(north.id, 0, 500, PROTOCOL_VERSION)
+      .records.filter((r) => r.shadow);
+    expect(restored).toHaveLength(1);
+    expect(restored[0]!.data.removedAt).toBeNull();
+    // A workspace without a version of its own has the song back.
+    const forSouth = instance.pull(south.id, 0, 500, PROTOCOL_VERSION).records;
+    expect(forSouth.map((r) => [r.origin, r.shadow ?? false, r.data.removedAt])).toEqual([
+      ['church', false, null],
+    ]);
+  });
+
   it('gives a version 2 device exactly what it received before: the workspace’s version only', async () => {
     const { app, headers, b1 } = await setup();
     const pulled = await app.inject({

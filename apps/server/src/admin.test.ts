@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { buildServer } from './app';
 import { openDatabase } from './db';
 import { churchFilesDir, workspaceFilesDir } from './files';
-import { Instance } from './instance';
+import { Instance, PAIRING_MAX_PENDING, PAIRING_MAX_PENDING_PER_ADDRESS } from './instance';
 import { OidcClient } from './oidc';
 import { fakeIssuer } from './oidc.test';
 
@@ -239,6 +239,32 @@ describe('administrators (D28)', () => {
       administrators: ['pat@example.org', ' ', 'pat@example.org'],
     });
     expect(instance.listAdministrators()).toHaveLength(1);
+  });
+
+  it('keeps an administrator removed in the app removed, although the environment names them', async () => {
+    const { instance, dataDir } = await setup({
+      administrators: ['pat@example.org', 'sam@example.org'],
+    });
+    const sam = instance.findAdministrator('sam@example.org')!;
+    expect(instance.removeAdministrator(sam.id)).toBe(true);
+    // The server starts again with the same environment.
+    const restarted = await buildServer({
+      instance,
+      dataDir,
+      name: 'Test Church',
+      administrators: ['pat@example.org', 'sam@example.org', 'lee@example.org'],
+      sweep: false,
+    });
+    await restarted.app.close();
+    expect(
+      instance
+        .listAdministrators()
+        .map((a) => a.email)
+        .sort(),
+    ).toEqual(['lee@example.org', 'pat@example.org']);
+    // The command line brings them back.
+    instance.addAdministrator('sam@example.org', null);
+    expect(instance.findAdministrator('sam@example.org')).not.toBeNull();
   });
 });
 
@@ -532,6 +558,16 @@ describe('the Church Library (D34, D37)', () => {
       headers,
     });
     expect(deleted.json()).toEqual({ deleted: true });
+    // The Deleted list says who deleted it; the last change still came from Managing.
+    const afterDelete = await app.inject({
+      method: 'GET',
+      url: '/api/v1/admin/library/song',
+      headers,
+    });
+    expect(afterDelete.json().items[0]).toMatchObject({
+      fromWorkspace: { id: a.id, name: 'Managing' },
+      deletedBy: { administrator: 'pat@example.org' },
+    });
     // Every workspace receives the removal on its next pull.
     const pulled = instance.pull(b.id, 0);
     expect(pulled.records.find((r) => r.kind === 'song')?.data.removedAt).toBe(instance.now());
@@ -546,6 +582,22 @@ describe('the Church Library (D34, D37)', () => {
       headers,
     });
     expect(restored.json()).toEqual({ restored: true });
+    expect(instance.listChurch('song')[0]!.deletedBy).toBeNull();
+    // A deletion by the managing workspace names it.
+    instance.push(a.id, da.id, [
+      {
+        kind: 'song',
+        id: 's1',
+        key: 's1',
+        revision: 10,
+        updatedAt: '2026-11-03T00:00:00.000Z',
+        data: { title: 'Holy', lyrics: 'a', removedAt: '2026-11-03T00:00:00.000Z' },
+      },
+    ]);
+    expect(instance.listChurch('song')[0]!.deletedBy).toEqual({
+      workspace: { id: a.id, name: 'Managing' },
+    });
+    instance.restoreChurch('song', 's1');
     expect(
       instance.pull(b.id, 0).records.find((r) => r.kind === 'song')?.data.removedAt,
     ).toBeNull();
@@ -641,7 +693,7 @@ describe('pairing from the device’s side (D29)', () => {
     'content-type': 'application/json',
   };
 
-  it('starts a request, waits, and is approved into a workspace with a token handed over once', async () => {
+  it('starts a request, waits, and is approved into a workspace, handing the token over until it is used', async () => {
     const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
     const { workspace } = instance.createWorkspace('North');
     const started = await app.inject({
@@ -687,11 +739,13 @@ describe('pairing from the device’s side (D29)', () => {
       deviceId: approved.json().device.id,
       workspace: { id: workspace.id, name: 'North' },
     });
+    // An answer lost on the way can be asked for again, until the device uses its token.
+    expect((await poll()).json()).toEqual(result);
     expect(instance.authenticate(result.deviceToken)).toMatchObject({
       name: 'Foyer',
       enrolledBy: 'pairing',
     });
-    // The token was handed over once.
+    // Once used, the token is forgotten by the request.
     expect((await poll()).json()).toEqual({ status: 'expired' });
     const listed = await app.inject({
       method: 'GET',
@@ -784,6 +838,44 @@ describe('pairing from the device’s side (D29)', () => {
       payload: { secret: 'nope' },
     });
     expect(unknown.json()).toEqual({ status: 'expired' });
+  });
+
+  it('limits how many requests may wait, from one address and in all', async () => {
+    const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { workspace } = instance.createWorkspace('North');
+    const ask = (from: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/pair',
+        headers: { ...headers, 'x-forwarded-for': from },
+        payload: { protocolVersion: PROTOCOL_VERSION, deviceName: 'Laptop' },
+      });
+    const first = [];
+    for (let i = 0; i < PAIRING_MAX_PENDING_PER_ADDRESS; i++) {
+      const started = await ask('203.0.113.7');
+      expect(started.statusCode).toBe(200);
+      first.push(started.json());
+    }
+    const refused = await ask('203.0.113.7');
+    expect(refused.statusCode).toBe(429);
+    expect(refused.json()).toEqual({ error: 'too-many-requests' });
+    // Another address may still ask.
+    expect((await ask('198.51.100.1')).statusCode).toBe(200);
+    // Once one is decided, the address may ask again.
+    const admin = await signIn('pat@example.org');
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/pairing/${first[0].code}/approve`,
+      headers: admin.headers,
+      payload: { workspaceId: workspace.id },
+    });
+    expect((await ask('203.0.113.7')).statusCode).toBe(200);
+
+    // And there is a limit in all, whatever the addresses.
+    for (let i = instance.listPairingRequests().length; i < PAIRING_MAX_PENDING; i++) {
+      expect((await ask(`192.0.2.${i}`)).statusCode).toBe(200);
+    }
+    expect((await ask('192.0.2.250')).statusCode).toBe(429);
   });
 
   it('keeps connection codes working until the first administrator exists (D30)', async () => {

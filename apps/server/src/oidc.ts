@@ -3,10 +3,16 @@
  * discovery, the authorization code flow with PKCE, and the claims that come back.
  *
  * No library: the flow is three requests, and keeping it here lets the tests run it against
- * an issuer started in the same process. The ID token is read, not verified by signature: it
- * arrives straight from the provider's token endpoint over TLS in exchange for a code bound
- * to this server by PKCE, which is what makes it trustworthy. The userinfo endpoint fills in
- * any claim the token leaves out, such as Microsoft's e-mail address.
+ * an issuer started in the same process. The ID token's signature is not checked: it arrives
+ * straight from the provider's token endpoint over TLS in exchange for a code bound to this
+ * server by PKCE, which OpenID Connect accepts in place of the signature. Its issuer,
+ * audience and nonce are checked. The userinfo endpoint fills in any claim the token leaves
+ * out, such as Microsoft's e-mail address.
+ *
+ * Administrators are matched by e-mail address, so the provider must be one organization's
+ * directory, which vouches for the addresses in it. Microsoft's shared endpoints (`common`,
+ * `organizations`, `consumers`) let anyone's tenant sign in with any address it likes, so they
+ * are refused: the issuer must name the church's tenant.
  */
 import { createHash, randomBytes } from 'node:crypto';
 
@@ -102,10 +108,14 @@ export class OidcClient {
     if (!metadata.authorization_endpoint || !metadata.token_endpoint || !metadata.issuer) {
       throw new OidcError('Discovery document is missing endpoints');
     }
-    // Microsoft's document names the tenant in the issuer; the configured one may use
-    // `common`. Everything else must match exactly.
-    const same = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
-    if (!same(metadata.issuer, this.config.issuer) && !metadata.issuer.includes('{tenantid}')) {
+    // Microsoft's shared endpoints answer with a placeholder for the tenant: any tenant
+    // could sign in, with addresses nobody verified.
+    if (metadata.issuer.includes('{tenantid}')) {
+      throw new OidcError(
+        'The issuer is a multi-tenant endpoint; configure the church’s own tenant instead',
+      );
+    }
+    if (!sameIssuer(metadata.issuer, this.config.issuer)) {
       throw new OidcError(`Issuer mismatch: ${metadata.issuer}`);
     }
     return metadata as OidcMetadata;
@@ -149,9 +159,14 @@ export class OidcClient {
     const tokens = (await response.json()) as { id_token?: unknown; access_token?: unknown };
     const idToken = typeof tokens.id_token === 'string' ? decodeJwtPayload(tokens.id_token) : null;
     if (!idToken) throw new OidcError('No ID token in the provider’s answer');
-    if (typeof idToken.nonce === 'string' && idToken.nonce !== nonce) {
-      throw new OidcError('The ID token is for another sign-in');
+    if (typeof idToken.iss !== 'string' || !sameIssuer(idToken.iss, metadata.issuer)) {
+      throw new OidcError(`The ID token is from another issuer: ${String(idToken.iss)}`);
     }
+    const audience = Array.isArray(idToken.aud) ? idToken.aud : [idToken.aud];
+    if (!audience.includes(this.config.clientId)) {
+      throw new OidcError('The ID token is for another application');
+    }
+    if (idToken.nonce !== nonce) throw new OidcError('The ID token is for another sign-in');
     if (typeof idToken.sub !== 'string' || !idToken.sub) throw new OidcError('No subject');
     let claims = claimsOf(idToken);
     if (!claims.email && metadata.userinfo_endpoint && typeof tokens.access_token === 'string') {
@@ -173,6 +188,8 @@ export class OidcClient {
     return claims;
   }
 }
+
+const sameIssuer = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
 
 /** Reads the claims this server uses from a token payload or a userinfo answer. */
 export function claimsOf(payload: Record<string, unknown>): OidcClaims {

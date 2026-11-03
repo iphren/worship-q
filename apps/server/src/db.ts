@@ -143,7 +143,7 @@ const MIGRATIONS: string[][] = [
       created_at TEXT NOT NULL
     )`,
     // A device waiting for an administrator (D29). The device token is kept here only until
-    // the device polls it once.
+    // the device first uses it, or the request expires.
     `CREATE TABLE pairing_request (
       id TEXT PRIMARY KEY,
       secret_hash TEXT NOT NULL UNIQUE,
@@ -157,6 +157,12 @@ const MIGRATIONS: string[][] = [
       decided_at TEXT,
       decided_by TEXT
     )`,
+  ],
+  [
+    // Who deleted a Church Library item: `administrator:<id>` or `workspace:<id>` (D34).
+    `ALTER TABLE church_record ADD COLUMN removed_by TEXT`,
+    // Where a pairing request came from, so one address cannot fill the pending list (D29).
+    `ALTER TABLE pairing_request ADD COLUMN requested_from TEXT`,
   ],
 ];
 

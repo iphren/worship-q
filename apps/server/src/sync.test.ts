@@ -51,6 +51,7 @@ function directApi(instance: Instance, token: () => string | null, protocol = 3)
     },
     startPairing: async (name) => {
       const started = instance.startPairing(name);
+      if (!started) throw new Error('too-many-requests');
       return {
         ...started,
         url: `https://example.org/admin/pair?code=${started.code}`,
@@ -826,6 +827,104 @@ describe('two versions of a song (D31, D32)', () => {
       versions: null,
       removedAt: null,
     });
+  });
+
+  it('brings both versions and the choice to a computer that joins later', async () => {
+    const { clock, instance, b, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.session.setUseChurchVersion(grace.id, true);
+    await south1.client.run();
+    clock.advance();
+    // The church's record is earlier in the feed than the workspace's version: a new
+    // computer passes it before it holds the song.
+    const south3 = await device('south3', clock, instance);
+    await south3.connect(instance.rotateCode(b.id), 'replace');
+    expect(await south3.store.getSong(grace.id)).toMatchObject({
+      title: 'Amazing Grace',
+      useChurchVersion: true,
+      versions: { own: { revision: 3 }, church: { revision: 1 } },
+    });
+    expect((await south3.store.getOwnVersion(grace.id))?.title).toBe('Grace (South)');
+    // Search follows the version in use there too.
+    const found = await south3.store.listSongs(south3.session.workspace.id, 'amazing');
+    expect(found.map((s) => s.id)).toEqual([grace.id]);
+    // And it presents what the others present.
+    await south2.client.run();
+    expect((await south2.store.getSong(grace.id))?.title).toBe('Amazing Grace');
+  });
+
+  it('links the versions again when the church restores its song within the retention period (D34)', async () => {
+    const { clock, instance, church, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.client.run();
+    await south2.client.run();
+    expect((await south2.store.getSong(grace.id))?.versions).not.toBeNull();
+    clock.advance();
+    // South 2 is away while the church deletes the song and an administrator restores it.
+    await church.session.removeSong(grace.id);
+    await church.client.run();
+    await south1.client.run();
+    expect((await south1.store.getSong(grace.id))?.versions).toBeNull();
+    clock.advance();
+    expect(instance.restoreChurch('song', grace.id)).toBe('restored');
+    await south1.client.run();
+    await south2.client.run();
+    for (const computer of [south1, south2]) {
+      // The workspace's version stays in use; the church's is one toggle away again.
+      expect(await computer.store.getSong(grace.id)).toMatchObject({
+        title: 'Grace (South)',
+        useChurchVersion: false,
+        removedAt: null,
+      });
+      expect((await computer.store.getSong(grace.id))?.versions).not.toBeNull();
+      expect((await computer.store.getChurchVersion(grace.id))?.title).toBe('Amazing Grace');
+    }
+    // A workspace that never had its own version simply has the song back.
+    const north = await device('north', clock, instance);
+    await north.connect(instance.createWorkspace('North').code, 'replace');
+    expect(await north.store.getSong(grace.id)).toMatchObject({
+      origin: 'church',
+      title: 'Amazing Grace',
+      removedAt: null,
+    });
+  });
+
+  it('makes the song the workspace’s own on a computer that learns of the version and the deletion at once', async () => {
+    const { clock, church, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.client.run();
+    clock.advance();
+    await church.session.removeSong(grace.id);
+    await church.client.run();
+    // South 2 still holds the church's song; one pull brings both changes.
+    expect((await south2.store.getSong(grace.id))?.origin).toBe('church');
+    await south2.client.run();
+    expect(await south2.store.getSong(grace.id)).toMatchObject({
+      title: 'Grace (South)',
+      origin: 'workspace',
+      versions: null,
+      removedAt: null,
+    });
+    expect(await south2.store.getChurchVersion(grace.id)).toBeNull();
+  });
+
+  it('lets go of a version set aside for the church’s when the workspace starts managing the Church Library (D36)', async () => {
+    const { clock, instance, b, south1, south2, grace } = await churchAndBranch();
+    await south1.session.saveSong(grace.id, { title: 'Grace (South)' });
+    await south1.session.setUseChurchVersion(grace.id, true);
+    await south1.client.run();
+    await south2.client.run();
+    clock.advance();
+    instance.setManageLibrary(b.id, true);
+    for (const computer of [south1, south2]) {
+      await computer.client.run();
+      expect(await computer.store.getSong(grace.id)).toMatchObject({
+        title: 'Amazing Grace',
+        origin: 'church',
+        versions: null,
+      });
+      expect(await computer.store.getChurchVersion(grace.id)).toBeNull();
+    }
   });
 
   it('hides a church song as the workspace’s own record, and the hidden song stays hidden', async () => {

@@ -1,5 +1,11 @@
 import type { PairingStartResponse, ServerInfo } from '@worship-q/protocol';
-import { CodesOffError, InvalidCodeError, UpdateNeededError, type JoinMode } from '@worship-q/sync';
+import {
+  CodesOffError,
+  InvalidCodeError,
+  TooManyPairingRequestsError,
+  UpdateNeededError,
+  type JoinMode,
+} from '@worship-q/sync';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { useApp, useCloud } from '../app/context';
@@ -45,11 +51,13 @@ function ConnectForm() {
     setError(
       e instanceof CodesOffError
         ? t('church.codesOff')
-        : e instanceof InvalidCodeError
-          ? t('church.invalidCode')
-          : e instanceof UpdateNeededError
-            ? t(e.by === 'server' ? 'church.updateNeededServer' : 'church.updateNeeded')
-            : t('church.unreachable', { error: String(e) }),
+        : e instanceof TooManyPairingRequestsError
+          ? t('church.pairingBusy')
+          : e instanceof InvalidCodeError
+            ? t('church.invalidCode')
+            : e instanceof UpdateNeededError
+              ? t(e.by === 'server' ? 'church.updateNeededServer' : 'church.updateNeeded')
+              : t('church.unreachable', { error: String(e) }),
     );
 
   /** Asks the instance how computers join it, then goes that way. */
@@ -97,31 +105,48 @@ function ConnectForm() {
     else setJoin(result);
   }
 
-  // While pairing, ask the instance every few seconds whether an administrator decided.
+  // While pairing, ask the instance every few seconds whether an administrator decided. One
+  // question at a time, so a slow answer is never overtaken by a later one. The approval is
+  // kept for this computer until it first connects, so a question that fails on the way is
+  // simply asked again.
   const pairing = step.kind === 'pairing' ? step.pairing : null;
   const pairingInfo = step.kind === 'pairing' ? step.info : null;
   useEffect(() => {
     if (!pairing) return;
     let cancelled = false;
-    const timer = window.setInterval(() => {
-      void cloud.pollPairing(pairing.secret, deviceName()).then(
-        (result) => {
-          if (cancelled || result.status === 'pending') return;
-          window.clearInterval(timer);
-          if (result.status === 'approved') void arrived(result.join);
-          else setStep({ kind: 'refused', info: pairingInfo, reason: result.status });
-        },
-        (e) => {
-          if (cancelled) return;
-          window.clearInterval(timer);
+    let timer: number | undefined;
+    const deadline = Date.parse(pairing.expiresAt) + pairing.intervalMs;
+    const poll = async () => {
+      try {
+        const result = await cloud.pollPairing(pairing.secret, deviceName());
+        if (cancelled) return;
+        if (result.status === 'approved') {
+          cancelled = true;
+          arrived(result.join).catch(failed);
+          return;
+        }
+        if (result.status !== 'pending') {
+          setStep({ kind: 'refused', info: pairingInfo, reason: result.status });
+          return;
+        }
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof UpdateNeededError) {
           failed(e);
           setStep({ kind: 'code', info: pairingInfo });
-        },
-      );
-    }, pairing.intervalMs);
+          return;
+        }
+      }
+      if (Date.now() > deadline) {
+        setStep({ kind: 'refused', info: pairingInfo, reason: 'expired' });
+        return;
+      }
+      timer = window.setTimeout(() => void poll(), pairing.intervalMs);
+    };
+    timer = window.setTimeout(() => void poll(), pairing.intervalMs);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing]);

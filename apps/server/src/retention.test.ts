@@ -136,6 +136,56 @@ describe('the retention sweep (D34)', () => {
     expect(existsSync(join(church, 'shared.jpg'))).toBe(true);
   });
 
+  it('keeps a deleted church deck’s files while a workspace’s version uses them', () => {
+    const { time, dataDir, instance, managing, north, church, write, deckSong } = setup();
+    instance.push(managing.id, 'd', [deckSong('deck1', DECK)]);
+    for (const name of [
+      `deck-${DECK}-001.jpg`,
+      `deck-${DECK}-001-t.jpg`,
+      `deck-${DECK}-original.pptx`,
+    ]) {
+      write(church, name);
+    }
+    // North's own version of the church's deck shares its images.
+    const own = deckSong('deck1', DECK);
+    instance.push(north.id, 'n', [
+      { ...own, revision: 2, data: { ...own.data, title: 'Slides (North)' } },
+    ]);
+    instance.deleteChurch('song', 'deck1');
+    time.advance(100 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90)).toEqual({ items: [], files: 0 });
+    expect(existsSync(join(church, `deck-${DECK}-001.jpg`))).toBe(true);
+    expect(existsSync(join(church, `deck-${DECK}-original.pptx`))).toBe(true);
+    // Still restorable meanwhile.
+    expect(instance.listChurch('song')[0]!.filesRemovedAt).toBeNull();
+
+    // North deletes its version too; its files go once that deletion is old enough.
+    instance.push(north.id, 'n', [
+      {
+        ...own,
+        revision: 3,
+        updatedAt: time.now(),
+        data: { ...own.data, title: 'Slides (North)', removedAt: time.now() },
+      },
+    ]);
+    time.advance(10 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(0);
+    time.advance(81 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(3);
+    expect(existsSync(join(church, `deck-${DECK}-001.jpg`))).toBe(false);
+    expect(instance.listChurch('song')[0]!.filesRemovedAt).not.toBeNull();
+  });
+
+  it('keeps a file another live item names, whatever deleted one also named it', () => {
+    const { time, dataDir, instance, managing, church, write, background } = setup();
+    instance.push(managing.id, 'd', [background('old', 'same.jpg'), background('new', 'same.jpg')]);
+    write(church, 'same.jpg');
+    instance.deleteChurch('background', 'old');
+    time.advance(100 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(0);
+    expect(existsSync(join(church, 'same.jpg'))).toBe(true);
+  });
+
   it('leaves a lyrics song alone: it has no files', () => {
     const { time, dataDir, instance, managing } = setup();
     instance.push(managing.id, 'd', [

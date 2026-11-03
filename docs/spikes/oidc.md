@@ -12,12 +12,12 @@ Each item lists what to confirm and where the result goes.
 | --- | --- | --- |
 | Flow | Authorization Code with PKCE (S256), `scope=openid email profile`, `state` and `nonce` kept server-side for ten minutes | Decision D27; works for both providers; no implicit flow |
 | Library | None: discovery, the token exchange and userinfo are three `fetch` calls | Three requests do not need a dependency, and the tests can run the whole flow in-process |
-| ID token | Read, not verified by signature. It arrives from the provider's token endpoint over TLS in exchange for a code bound by PKCE to this server, which is what makes it trustworthy | Avoids a JWT library and key fetching; the nonce is still checked when the token carries one |
+| ID token | Signature not verified. It arrives from the provider's token endpoint over TLS in exchange for a code bound by PKCE to this server, which OpenID Connect accepts in place of the signature. `iss` must be the discovered issuer, `aud` must name the client, and `nonce` must be the one sent | Avoids a JWT library and key fetching |
 | E-mail | `email` from the ID token, else `preferred_username` when it looks like an address, else the userinfo endpoint | Entra ID leaves `email` out of the ID token unless the `email` claim is configured; userinfo has it |
 | Verified | An `email_verified: false` claim refuses sign-in; an absent claim is accepted | Entra ID sends no `email_verified`; Google does |
 | Session | Cookie `wq_admin`, `HttpOnly`, `SameSite=Lax`, `Secure` behind HTTPS, idle eight hours, only the hash kept | D27 |
 | Admin routes | Need the `x-worship-q-admin` header besides the cookie | D35: a cross-site form cannot add a header |
-| Issuer check | The discovery document's `issuer` must match the configured one, except Microsoft's `{tenantid}` placeholder | The `common` and `organizations` endpoints answer with a placeholder issuer |
+| Issuer check | The discovery document's `issuer` must match the configured one exactly. Microsoft's `{tenantid}` placeholder is refused | The `common`, `organizations` and `consumers` endpoints let any tenant sign in, and a tenant can give its users any address; matching administrators by address is only safe within the church's own tenant |
 
 ## M0.1 — Microsoft Entra ID
 

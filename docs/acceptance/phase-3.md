@@ -18,8 +18,8 @@ real equipment (M6) that has not been done. Nothing in the last two is claimed.
 | M2 code retirement (D30) | Done | `admin.test.ts` “keeps connection codes working until the first administrator exists”; `versions.test.ts` setup enrols with codes before an administrator exists; `joinMethod.test.ts` (desktop): pairing only when the instance has sign-in and an administrator |
 | M2 protocol 3 (D26) | Done | `index.test.ts` (protocol) “speaking an older server’s version”; `versions.test.ts` “gives a version 2 device exactly what it received before”; `sync.test.ts` “keeps a version 2 computer presenting the workspace’s version, with nothing new”; the desktop negotiates on connect and again after an update-needed answer (`CloudController.negotiate`, `RelayTransport.reconnect`) |
 | M3 origins and shadows (D31) | Done | `versions.test.ts` “pulling with origins”: own version plus shadow for version 3, church without shadow for a workspace with no version, backgrounds never shadowed, `useChurchVersion` never enters the Church Library; `store.test.ts` “two versions of a song”: version made on edit, church copy kept, in-place edit in a managing workspace, origin-less without a church, hide as the workspace’s record, cursor reset by the migration |
-| M3 the toggle (D32) | Done (logic); interface by walkthrough | `sync.test.ts` “two versions of a song (D31, D32)”: two computers converge on both versions, the choice synchronizes and search follows it, editing while the church’s is in use edits the workspace’s and switches, Delete our version goes back everywhere, a church deletion makes the song the workspace’s own; `Session.setUseChurchVersion` relocates the presented piece like an edit; `OriginBadge`, `VersionsBar` and the church-edit hint in `apps/desktop` |
-| M4 recoverable deletion (D34, D37) | Done (logic); pages by walkthrough | `admin.test.ts` “the Church Library (D34, D37)”: list, usage by workspace and date, delete reaches workspaces, restore, background usage through songs and output settings; `retention.test.ts` “the retention sweep”: nothing before 90 days, files and marker after, restore refused once files are gone, deck images and original together, a workspace’s own deletion swept but a hidden church item never, lyrics songs untouched, `WORSHIP_Q_RETENTION_DAYS` |
+| M3 the toggle (D32) | Done (logic); interface by walkthrough | `sync.test.ts` “two versions of a song (D31, D32)”: two computers converge on both versions, a computer joining later gets both and the choice, the choice synchronizes and search follows it, editing while the church’s is in use edits the workspace’s and switches, Delete our version goes back everywhere, a church deletion makes the song the workspace’s own, also when learnt in the same pull as the version, and a restore links the two versions again; `Session.setUseChurchVersion` relocates the presented piece like an edit; `OriginBadge`, `VersionsBar` and the church-edit hint in `apps/desktop` |
+| M4 recoverable deletion (D34, D37) | Done (logic); pages by walkthrough | `admin.test.ts` “the Church Library (D34, D37)”: list, usage by workspace and date, delete reaches workspaces, restore, background usage through songs and output settings; `retention.test.ts` “the retention sweep”: nothing before 90 days, files and marker after, restore refused once files are gone, deck images and original together, files a workspace’s version or another item still uses kept, a workspace’s own deletion swept but a hidden church item never, lyrics songs untouched, `WORSHIP_Q_RETENTION_DAYS` |
 | M5 Manage Church Library in the admin app (D36) | Done (logic); page by walkthrough | `admin.test.ts` “shows the conversion plan and turns Manage Church Library on, moving files”; `versions.test.ts` “flags overrides the church changed since, and drops versions set aside for the church’s” |
 | M5 storage (U11) | Done | `admin.test.ts` “storage (U11)”; `retention.test.ts` “the storage report”: classification, prunable deck originals, database, volume |
 | M6 walkthrough | **Not done** | Table below |
@@ -45,8 +45,28 @@ and Windows. Fill in the result column.
 ## Departures from the plan
 
 - **D27:** sign-in uses no `openid-client`; the three requests are made directly and the ID
-  token is read without signature verification, which the token exchange over TLS with PKCE
-  makes safe. The userinfo endpoint fills in a missing e-mail address. See `docs/spikes/oidc.md`.
+  token's signature is not verified, which the token exchange over TLS with PKCE makes safe.
+  Its issuer, audience and nonce are checked, and Microsoft's multi-tenant endpoints are
+  refused, since administrators are matched by address. The userinfo endpoint fills in a
+  missing e-mail address. See `docs/spikes/oidc.md`.
+- **D28:** `WORSHIP_Q_ADMINS` adds only addresses that were never administrators, so one
+  removed in the app stays removed; `admin add` brings them back.
+- **D29:** the device token stays with an approved request until the device first uses it
+  (or the request expires), so an answer lost on the way can be polled again. At most three
+  requests wait from one address and thirty in all; more are answered 429.
+- **D31:** the church's record of a two-version song travels with every page that carries the
+  workspace's version, so a computer that joins later gets both versions and the choice.
+- **D34:** a church deletion does not break the link between the church's song and a
+  workspace's version of it; it only hides the church's version, and the toggle with it, while
+  the song is deleted. A restore shows them again, with the workspace's own version in use (the
+  draft plan said the version stays independent; the plan and spec now say this). The link breaks only when the deletion becomes
+  permanent, which is when the sweep removes the item's files and a restore is refused. A
+  lyrics song has no files, so it is never permanently deleted and its link never breaks.
+- **D34:** the sweep keeps any file a live item, or one deleted within the retention period,
+  still names, such as the deck images a workspace's version shares with a deleted church
+  deck. The Deleted list says who deleted an item.
+- **D36:** a version set aside for the church's is dropped on conversion with the church's
+  record given a new place in the feed, so the workspace's computers let go of it.
 - **D31:** `/api/v1/info` also reports `codes`, whether connection codes work for every
   workspace because the instance has no administrator yet; the desktop uses it to choose
   between pairing and a code.

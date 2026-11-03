@@ -87,6 +87,13 @@ export class CodesOffError extends Error {
   }
 }
 
+/** Too many computers are waiting for approval at the instance; try again later (D29). */
+export class TooManyPairingRequestsError extends Error {
+  constructor() {
+    super('too-many-requests');
+  }
+}
+
 /** The instance has no live church version to go back to (D32). */
 export class NoChurchVersionError extends Error {
   constructor() {
@@ -144,6 +151,7 @@ export function httpApi(
       throw new UpdateNeededError(body?.protocolVersion);
     }
     if (response.status === 401) throw new UnauthorizedError();
+    if (response.status === 429) throw new TooManyPairingRequestsError();
     if (response.status === 403) {
       const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
       throw body?.error === 'codes-off' ? new CodesOffError() : new InvalidCodeError();
