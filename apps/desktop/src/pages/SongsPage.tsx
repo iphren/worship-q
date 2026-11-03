@@ -2,7 +2,6 @@ import { open as openFile } from '@tauri-apps/plugin-dialog';
 import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { OriginBadge } from '../components/DeckBadge';
 import { ConfirmDialog } from '../components/Dialog';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
@@ -132,7 +131,6 @@ export function SongsPage() {
                   }`}
                   onClick={() => select(song)}
                 >
-                  <OriginBadge song={song} />
                   {song.title || t('songs.untitled')}
                 </button>
               </SongPeek>

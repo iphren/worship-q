@@ -95,8 +95,6 @@ export const en = {
   'songs.discardBody': 'You have unsaved changes to this song.',
   'songs.discard': 'Discard changes',
   'songs.removedBadge': 'Removed from library',
-  'songs.churchBadge': 'Church',
-  'songs.versionsBadge': '2 versions',
   'songs.versionChurch': 'Church’s version',
   'songs.versionOwn': 'Our version',
   'songs.versionChanged': 'changed {time}',
