@@ -712,6 +712,103 @@ describe('the Church Library (D34, D37)', () => {
     ).toBe(400);
   });
 
+  it('shows how one workspace differs: its own items, its versions, and what it hid', async () => {
+    const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const { workspace: a, code: codeA } = instance.createWorkspace('Managing');
+    const { workspace: b, code: codeB } = instance.createWorkspace('North');
+    instance.setCodesEnabled(a.id, true);
+    instance.setCodesEnabled(b.id, true);
+    instance.setManageLibrary(a.id, true);
+    const da = instance.enroll(codeA, 'A')!.device;
+    const db = instance.enroll(codeB, 'B')!.device;
+    const song = (
+      id: string,
+      revision: number,
+      updatedAt: string,
+      data: Record<string, unknown>,
+    ) => ({
+      kind: 'song' as const,
+      id,
+      key: id,
+      revision,
+      updatedAt,
+      data: { lyrics: '', removedAt: null, ...data },
+    });
+    instance.push(a.id, da.id, [
+      song('c1', 1, '2026-11-01T00:00:00.000Z', { title: 'Holy', lyrics: 'church words' }),
+      song('c2', 1, '2026-11-01T00:00:00.000Z', { title: 'Grace' }),
+      song('c3', 1, '2026-11-01T00:00:00.000Z', { title: 'Untouched' }),
+    ]);
+    instance.push(b.id, db.id, [
+      song('c1', 2, '2026-11-02T00:00:00.000Z', { title: 'Holy', lyrics: 'our words' }),
+      song('c2', 2, '2026-11-03T00:00:00.000Z', {
+        title: 'Grace',
+        removedAt: '2026-11-03T00:00:00.000Z',
+      }),
+      song('w1', 1, '2026-11-04T00:00:00.000Z', { title: 'Ours alone' }),
+      song('w2', 2, '2026-11-05T00:00:00.000Z', {
+        title: 'Gone',
+        removedAt: '2026-11-05T00:00:00.000Z',
+      }),
+    ]);
+    // The church's song changed after North made its version.
+    instance.push(a.id, da.id, [
+      song('c1', 3, '2026-11-06T00:00:00.000Z', { title: 'Holy', lyrics: 'new church words' }),
+    ]);
+
+    const list = async (url: string) =>
+      (await app.inject({ method: 'GET', url, headers })).json().items as {
+        id: string;
+        title: string;
+        removedAt: string | null;
+        change: unknown;
+      }[];
+    const items = await list(`/api/v1/admin/workspaces/${b.id}/library/song`);
+    expect(items.map((i) => [i.id, i.title, i.removedAt !== null, i.change])).toEqual([
+      ['w2', 'Gone', true, { type: 'own' }],
+      ['w1', 'Ours alone', false, { type: 'own' }],
+      ['c2', 'Grace', false, { type: 'hidden', churchId: 'c2' }],
+      [
+        'c1',
+        'Holy',
+        false,
+        { type: 'override', churchId: 'c1', churchChangedSince: true, usesChurchVersion: false },
+      ],
+    ]);
+    // Searched by the workspace's own words, not the church's.
+    expect(
+      (await list(`/api/v1/admin/workspaces/${b.id}/library/song?q=our%20words`)).map((i) => i.id),
+    ).toEqual(['c1']);
+    expect(await list(`/api/v1/admin/workspaces/${b.id}/library/song?q=new%20church`)).toEqual([]);
+    const content = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/workspaces/${b.id}/library/song/c1`,
+      headers,
+    });
+    expect(content.json()).toMatchObject({ type: 'lyrics', lyrics: 'our words' });
+    // A workspace that manages the Church Library has no difference of its own.
+    expect(await list(`/api/v1/admin/workspaces/${a.id}/library/song`)).toEqual([]);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: '/api/v1/admin/workspaces/nope/library/song',
+          headers,
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/v1/admin/workspaces/${b.id}/library/song/c3`,
+          headers,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
   it('tells songs, slides and websites apart, searches them, and shows what they contain', async () => {
     const { app, instance, signIn, dataDir } = await setup({ administrators: ['pat@example.org'] });
     const { headers } = await signIn('pat@example.org');

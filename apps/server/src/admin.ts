@@ -13,6 +13,7 @@ import {
   ADMIN_HEADER,
   ChurchSettingsSchema,
   type AdminDevice,
+  type AdminLibraryItem,
   type AdminLiveView,
   type AdminMe,
   type AdminWorkspace,
@@ -453,16 +454,37 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
 
     /** Search keys of Church Library items, kept until the item changes. */
     const searchKeys = new Map<string, { revision: number; keys: SongKeys }>();
-    const keysOf = (kind: LibraryKind, item: { id: string; title: string; revision: number }) => {
-      const cacheKey = `${kind}:${item.id}`;
+    /** `workspaceId` is null for the church's items. */
+    const keysOf = (workspaceId: string | null, item: AdminLibraryItem) => {
+      const cacheKey = `${workspaceId ?? ''}:${item.kind}:${item.id}`;
       const cached = searchKeys.get(cacheKey);
       if (cached?.revision === item.revision) return cached.keys;
-      const content = kind === 'song' ? instance.churchContent(kind, item.id) : null;
+      let content = null;
+      if (item.kind === 'song') {
+        // A hidden church song is searched by what the church has.
+        content =
+          workspaceId === null
+            ? instance.churchContent(item.kind, item.id)
+            : item.change?.type === 'hidden'
+              ? instance.churchContent(item.kind, item.change.churchId)
+              : instance.workspaceContent(workspaceId, item.kind, item.id);
+      }
       const lyrics =
         content && 'lyrics' in content ? [content.lyrics, content.websiteUrl ?? ''].join('\n') : '';
       const keys = songKeys({ title: item.title, lyrics });
       searchKeys.set(cacheKey, { revision: item.revision, keys });
       return keys;
+    };
+    // As the desktop's song search: by characters in either script, pinyin or initials, in
+    // the title before the lyrics; ties keep the newest change first.
+    const search = (workspaceId: string | null, items: AdminLibraryItem[], q: unknown) => {
+      const terms = parseQuery(String(q ?? ''));
+      if (terms.length === 0) return items;
+      return items
+        .map((item) => ({ item, rank: rankSong(terms, keysOf(workspaceId, item)) }))
+        .filter((entry) => entry.rank !== null)
+        .sort((a, b) => a.rank! - b.rank!)
+        .map((entry) => entry.item);
     };
 
     api.get<{ Params: { kind: string }; Querystring: { q?: string } }>(
@@ -471,17 +493,36 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
         const kind = KIND.safeParse(request.params.kind);
         if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
         const items = instance.listChurch(kind.data as LibraryKind);
-        const terms = parseQuery(String(request.query.q ?? ''));
-        if (terms.length === 0) return { items };
-        // As the desktop's song search: by characters in either script, pinyin or initials,
-        // in the title before the lyrics; ties keep the newest change first.
-        return {
-          items: items
-            .map((item) => ({ item, rank: rankSong(terms, keysOf(kind.data, item)) }))
-            .filter((entry) => entry.rank !== null)
-            .sort((a, b) => a.rank! - b.rank!)
-            .map((entry) => entry.item),
-        };
+        return { items: search(null, items, request.query.q) };
+      },
+    );
+
+    /** How one workspace's songs or backgrounds differ from the Church Library. */
+    api.get<{ Params: { id: string; kind: string }; Querystring: { q?: string } }>(
+      '/api/v1/admin/workspaces/:id/library/:kind',
+      async (request, reply) => {
+        const kind = KIND.safeParse(request.params.kind);
+        if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
+        if (!instance.getWorkspace(request.params.id)) {
+          return reply.code(404).send({ error: 'not-found' });
+        }
+        const items = instance.listWorkspaceLibrary(request.params.id, kind.data as LibraryKind);
+        return { items: search(request.params.id, items, request.query.q) };
+      },
+    );
+
+    api.get<{ Params: { id: string; kind: string; itemId: string } }>(
+      '/api/v1/admin/workspaces/:id/library/:kind/:itemId',
+      async (request, reply) => {
+        const kind = KIND.safeParse(request.params.kind);
+        if (!kind.success) return reply.code(400).send({ error: 'invalid-kind' });
+        const content = instance.workspaceContent(
+          request.params.id,
+          kind.data as LibraryKind,
+          request.params.itemId,
+        );
+        if (!content) return reply.code(404).send({ error: 'not-found' });
+        return content;
       },
     );
 

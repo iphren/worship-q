@@ -122,6 +122,23 @@ export interface AdminLibraryItem {
   fileName: string | null;
   /** What the item is: a song of lyrics, imported slides, a website, or a background. */
   type: AdminLibraryType;
+  /**
+   * Set when the item is listed for one workspace: how the workspace's content differs from
+   * the Church Library's. Its own item has no church record (or the church's was deleted); a
+   * version of its own replaces a church item there; a hidden church item was removed in the
+   * workspace only, and is shown as the church has it, `updatedAt` saying when it was hidden.
+   */
+  change?:
+    | { type: 'own' }
+    | {
+        type: 'override';
+        churchId: string;
+        /** The church's item changed after the workspace last edited its version. */
+        churchChangedSince: boolean;
+        /** The workspace chose the church's version for now, keeping its own (D32). */
+        usesChurchVersion: boolean;
+      }
+    | { type: 'hidden'; churchId: string };
 }
 
 export type AdminLibraryType = 'lyrics' | 'deck' | 'website' | 'image' | 'video';

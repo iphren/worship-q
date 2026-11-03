@@ -139,6 +139,16 @@ export const api = {
       'GET',
       `${ADMIN}/library/${kind}${search.trim() ? `?q=${encode(search.trim())}` : ''}`,
     ),
+  workspaceLibrary: (workspaceId: string, kind: LibraryKind, search = '') =>
+    request<{ items: AdminLibraryItem[] }>(
+      'GET',
+      `${ADMIN}/workspaces/${encode(workspaceId)}/library/${kind}${search.trim() ? `?q=${encode(search.trim())}` : ''}`,
+    ),
+  workspaceLibraryContent: (workspaceId: string, kind: LibraryKind, id: string) =>
+    request<AdminLibraryContent>(
+      'GET',
+      `${ADMIN}/workspaces/${encode(workspaceId)}/library/${kind}/${encode(id)}`,
+    ),
   libraryContent: (kind: LibraryKind, id: string) =>
     request<AdminLibraryContent>('GET', `${ADMIN}/library/${kind}/${encode(id)}`),
   /** Where the browser loads a Church Library file from; the session cookie admits it. */

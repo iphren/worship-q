@@ -1031,29 +1031,68 @@ export class Instance {
       .prepare('SELECT * FROM church_record WHERE kind = ? ORDER BY updated_at DESC')
       .all(kind)
       .map((row) => {
-        const data = JSON.parse(text(row.data)) as Record<string, unknown>;
         const from = optional(row.workspace_id);
-        const deck = data.deck as { source?: unknown } | null | undefined;
+        const item = libraryItem(kind, row);
         return {
-          kind,
-          id: text(row.id),
-          title: titleOf(row.data),
-          revision: Number(row.revision),
-          updatedAt: text(row.updated_at),
-          removedAt: typeof data.removedAt === 'string' ? data.removedAt : null,
-          filesRemovedAt: optional(row.files_removed_at),
+          ...item,
           fromWorkspace: from && names.has(from) ? { id: from, name: names.get(from)! } : null,
-          deletedBy:
-            typeof data.removedAt === 'string' ? deletedBy(optional(row.removed_by)) : null,
-          fileName:
-            kind === 'background'
-              ? String(data.fileName ?? '') || null
-              : deck && typeof deck.source === 'string'
-                ? deck.source
-                : null,
-          type: libraryType(kind, data),
+          deletedBy: item.removedAt ? deletedBy(optional(row.removed_by)) : null,
         };
       });
+  }
+
+  /**
+   * How one workspace's songs or backgrounds differ from the Church Library, newest change
+   * first: its own items, its versions of church items, and the church items it hid. Empty
+   * for a workspace that manages the Church Library, whose items are the church's.
+   */
+  listWorkspaceLibrary(workspaceId: string, kind: LibraryKind): AdminLibraryItem[] {
+    const workspace = this.getWorkspace(workspaceId);
+    if (!workspace || workspace.manageLibrary) return [];
+    const self = { id: workspace.id, name: workspace.name };
+    const findChurch = this.db.prepare('SELECT * FROM church_record WHERE kind = ? AND key = ?');
+    const items: AdminLibraryItem[] = [];
+    for (const own of this.db
+      .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ?')
+      .all(workspaceId, kind)) {
+      const church = findChurch.get(kind, text(own.key));
+      const churchLive = church !== undefined && !removed(church.data);
+      if (churchLive && removed(own.data)) {
+        // Shown as the church has it, which is what the workspace no longer sees.
+        items.push({
+          ...libraryItem(kind, church),
+          id: text(own.id),
+          updatedAt: text(own.updated_at),
+          fromWorkspace: self,
+          deletedBy: null,
+          change: { type: 'hidden', churchId: text(church.id) },
+        });
+        continue;
+      }
+      const item = libraryItem(kind, own);
+      items.push({
+        ...item,
+        fromWorkspace: self,
+        deletedBy: item.removedAt ? { workspace: self } : null,
+        change: churchLive
+          ? {
+              type: 'override',
+              churchId: text(church.id),
+              churchChangedSince: text(church.updated_at) > text(own.updated_at),
+              usesChurchVersion: usesChurchVersion(own.data),
+            }
+          : { type: 'own' },
+      });
+    }
+    return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  /** What a workspace's own song or background shows, deleted ones included. */
+  workspaceContent(workspaceId: string, kind: LibraryKind, id: string): AdminLibraryContent | null {
+    const row = this.db
+      .prepare('SELECT data FROM record WHERE workspace_id = ? AND kind = ? AND id = ?')
+      .get(workspaceId, kind, id);
+    return row ? contentOf(kind, row) : null;
   }
 
   /** What a Church Library item shows, deleted ones included; null when there is none. */
@@ -1061,38 +1100,7 @@ export class Instance {
     const row = this.db
       .prepare('SELECT data FROM church_record WHERE kind = ? AND id = ?')
       .get(kind, id);
-    if (!row) return null;
-    const data = JSON.parse(text(row.data)) as Record<string, unknown>;
-    const type = libraryType(kind, data);
-    if (type === 'image' || type === 'video') {
-      return { type, fileName: String(data.fileName ?? '') };
-    }
-    const str = (value: unknown) => (typeof value === 'string' ? value : '');
-    const deck = data.deck as
-      { width?: unknown; height?: unknown; pages?: Record<string, unknown>[] } | null | undefined;
-    const website = data.website as { url?: unknown } | null | undefined;
-    return {
-      type,
-      lyrics: str(data.lyrics),
-      author: str(data.author),
-      copyright: str(data.copyright),
-      ccli: typeof data.ccli === 'string' ? data.ccli : null,
-      year: typeof data.year === 'number' ? data.year : null,
-      deck:
-        type === 'deck' && deck
-          ? {
-              width: Number(deck.width) || 16,
-              height: Number(deck.height) || 9,
-              pages: (Array.isArray(deck.pages) ? deck.pages : []).map((page) => ({
-                image: str(page.image),
-                thumbnail: typeof page.thumbnail === 'string' ? page.thumbnail : null,
-                slide: Number(page.slide) || 1,
-                step: Number(page.step) || 0,
-              })),
-            }
-          : null,
-      websiteUrl: type === 'website' && typeof website?.url === 'string' ? website.url : null,
-    };
+    return row ? contentOf(kind, row) : null;
   }
 
   /**
@@ -1595,6 +1603,66 @@ function toRecord(row: Record<string, SqlValue>): SyncRecord {
 const isLibraryKind = (kind: string) => (LIBRARY_KINDS as readonly string[]).includes(kind);
 const removed = (data: SqlValue | undefined) =>
   (JSON.parse(text(data)) as { removedAt?: unknown }).removedAt != null;
+/** What a song or background record shows, for the admin app's preview. */
+function contentOf(kind: LibraryKind, row: Record<string, SqlValue>): AdminLibraryContent {
+  const data = JSON.parse(text(row.data)) as Record<string, unknown>;
+  const type = libraryType(kind, data);
+  if (type === 'image' || type === 'video') {
+    return { type, fileName: String(data.fileName ?? '') };
+  }
+  const str = (value: unknown) => (typeof value === 'string' ? value : '');
+  const deck = data.deck as
+    { width?: unknown; height?: unknown; pages?: Record<string, unknown>[] } | null | undefined;
+  const website = data.website as { url?: unknown } | null | undefined;
+  return {
+    type,
+    lyrics: str(data.lyrics),
+    author: str(data.author),
+    copyright: str(data.copyright),
+    ccli: typeof data.ccli === 'string' ? data.ccli : null,
+    year: typeof data.year === 'number' ? data.year : null,
+    deck:
+      type === 'deck' && deck
+        ? {
+            width: Number(deck.width) || 16,
+            height: Number(deck.height) || 9,
+            pages: (Array.isArray(deck.pages) ? deck.pages : []).map((page) => ({
+              image: str(page.image),
+              thumbnail: typeof page.thumbnail === 'string' ? page.thumbnail : null,
+              slide: Number(page.slide) || 1,
+              step: Number(page.step) || 0,
+            })),
+          }
+        : null,
+    websiteUrl: type === 'website' && typeof website?.url === 'string' ? website.url : null,
+  };
+}
+
+/** A song or background record as the admin app lists it, before who it came from. */
+function libraryItem(
+  kind: LibraryKind,
+  row: Record<string, SqlValue>,
+): Omit<AdminLibraryItem, 'fromWorkspace' | 'deletedBy'> {
+  const data = JSON.parse(text(row.data)) as Record<string, unknown>;
+  const deck = data.deck as { source?: unknown } | null | undefined;
+  return {
+    kind,
+    id: text(row.id),
+    title: titleOf(row.data),
+    revision: Number(row.revision),
+    updatedAt: text(row.updated_at),
+    removedAt: typeof data.removedAt === 'string' ? data.removedAt : null,
+    filesRemovedAt: optional(row.files_removed_at),
+    fileName:
+      kind === 'background'
+        ? String(data.fileName ?? '') || null
+        : deck && typeof deck.source === 'string'
+          ? deck.source
+          : null,
+    type: libraryType(kind, data),
+  };
+}
+
 /** A song by what it shows, or a background by its file. */
 function libraryType(kind: LibraryKind, data: Record<string, unknown>): AdminLibraryItem['type'] {
   if (kind === 'background') return data.kind === 'video' ? 'video' : 'image';
