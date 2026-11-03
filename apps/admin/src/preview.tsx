@@ -70,14 +70,34 @@ export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
           transition
         />
       )}
-      {/* A website is shown by the screen itself; here it is named by its address. */}
+      {/* A website is shown by the screen itself (many refuse to be embedded); here it is
+          offered as a link to open beside the page. */}
       {frame.website && (
-        <div className="absolute inset-0 flex items-center justify-center p-4">
-          <span className="truncate text-sm text-slate-300">Website: {frame.website.url}</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4">
+          {webAddress(frame.website.url) ? (
+            <a
+              href={frame.website.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
+            >
+              Open website ↗
+            </a>
+          ) : null}
+          <span className="max-w-full truncate text-xs text-slate-400">{frame.website.url}</span>
         </div>
       )}
     </div>
   );
+}
+
+/** Only an ordinary web address is linked: the address comes from the presenting computer. */
+function webAddress(url: string): boolean {
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol);
+  } catch {
+    return false;
+  }
 }
 
 /** The subtitle overlay's band of text, over a pattern standing in for the video under it. */
