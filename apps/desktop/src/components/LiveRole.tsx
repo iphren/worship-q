@@ -71,7 +71,7 @@ export function LiveRoleBadge() {
   return (
     <div ref={holder} className="relative">
       <button
-        className={`flex w-12 flex-col items-center gap-0.5 rounded-md py-1.5 hover:bg-slate-800 ${
+        className={`flex h-11 w-11 flex-col items-center justify-center gap-0.5 rounded-md hover:bg-slate-800 ${
           open ? 'bg-slate-800' : ''
         } ${color}`}
         title={title}

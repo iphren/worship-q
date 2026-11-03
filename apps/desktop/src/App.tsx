@@ -162,7 +162,7 @@ function Sidebar({ page }: { page: Page }) {
       <WorkspaceButton />
       {!session.isViewer && (
         <button
-          className={`relative rounded-md p-2 ${
+          className={`relative flex h-11 w-11 items-center justify-center rounded-md ${
             remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'
           }`}
           title={t('remote.title')}

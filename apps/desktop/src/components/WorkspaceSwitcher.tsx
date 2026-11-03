@@ -149,7 +149,7 @@ export function WorkspaceButton() {
   return (
     <>
       <button
-        className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-600 text-xs font-semibold text-slate-200 hover:bg-slate-800"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-slate-200 hover:bg-slate-800"
         title={`${name} · ${t('workspaces.choose')}`}
         aria-label={`${name} · ${t('workspaces.choose')}`}
         onClick={(event) => {
@@ -158,7 +158,9 @@ export function WorkspaceButton() {
           setOpen(true);
         }}
       >
-        {initials}
+        <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-500 text-[10px] font-semibold">
+          {initials}
+        </span>
       </button>
       {open && (
         <Dialog title={t('workspaces.title')} onClose={() => setOpen(false)}>
