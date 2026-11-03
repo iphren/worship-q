@@ -1,4 +1,5 @@
 import type { AdminStorage, StorageTotal, StorageType } from '@worship-q/protocol';
+import { Fragment } from 'react';
 import { api } from '../api';
 import { formatBytes, usedPercent } from '../format';
 import { Card, ErrorText, PageTitle, SectionTitle } from '../ui';
@@ -23,6 +24,9 @@ const sum = (totals: Record<StorageType, StorageTotal>): StorageTotal =>
     { bytes: 0, files: 0 },
   );
 
+/** A part of a whole, from 0 to 1. */
+const share = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
+
 const files = (n: number) => (n === 1 ? '1 file' : `${n.toLocaleString('en')} files`);
 
 /** The storage monitor (media plan U11): a view only, nothing is removed from here. */
@@ -45,6 +49,9 @@ export function StoragePage() {
                 formatBytes(report.totals[type].bytes),
                 files(report.totals[type].files),
               ])}
+              shares={TYPES.map(({ type }) =>
+                share(report.totals[type].bytes, sum(report.totals).bytes),
+              )}
               foot={[
                 'Total',
                 formatBytes(sum(report.totals).bytes),
@@ -133,30 +140,43 @@ function WorkspaceTable({ workspaces }: { workspaces: AdminStorage['workspaces']
   );
 }
 
-function Table(props: { head: string[]; rows: string[][]; foot?: string[] }) {
+/**
+ * A table of sizes. With `shares`, a bar after the first column shows each row's part of
+ * the total, so the biggest kinds of file stand out.
+ */
+function Table(props: { head: string[]; rows: string[][]; foot?: string[]; shares?: number[] }) {
   const cell = (index: number) => (index === 0 ? 'text-left' : 'text-right whitespace-nowrap');
+  const { shares } = props;
+  const barCell = <td className="w-full px-4" aria-hidden="true" />;
   return (
     <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs tracking-wide text-slate-500 uppercase">
             {props.head.map((h, i) => (
-              <th key={i} className={`pb-2 font-medium ${cell(i)}`}>
-                {h}
-              </th>
+              <Fragment key={i}>
+                <th className={`pb-2 font-medium ${cell(i)}`}>{h}</th>
+                {shares && i === 0 && (
+                  <th className="px-4 pb-2 text-left font-medium">
+                    <span className="sr-only">Share of the total</span>
+                  </th>
+                )}
+              </Fragment>
             ))}
           </tr>
         </thead>
         <tbody>
           {props.rows.map((row, r) => (
-            <tr key={r} className="border-t border-slate-800">
+            <tr key={r} className="group border-t border-slate-800">
               {row.map((value, i) => (
-                <td
-                  key={i}
-                  className={`py-2 ${cell(i)} ${i === 0 ? 'text-slate-100' : 'text-slate-300'}`}
-                >
-                  {value}
-                </td>
+                <Fragment key={i}>
+                  <td
+                    className={`py-2 ${cell(i)} ${i === 0 ? 'whitespace-nowrap text-slate-100' : 'text-slate-300'}`}
+                  >
+                    {value}
+                  </td>
+                  {shares && i === 0 && <ShareBar share={shares[r] ?? 0} />}
+                </Fragment>
               ))}
             </tr>
           ))}
@@ -165,14 +185,40 @@ function Table(props: { head: string[]; rows: string[][]; foot?: string[] }) {
           <tfoot>
             <tr className="border-t border-slate-700 font-semibold text-white">
               {props.foot.map((value, i) => (
-                <td key={i} className={`pt-2 ${cell(i)}`}>
-                  {value}
-                </td>
+                <Fragment key={i}>
+                  <td className={`pt-2 ${cell(i)}`}>{value}</td>
+                  {shares && i === 0 && barCell}
+                </Fragment>
               ))}
             </tr>
           </tfoot>
         )}
       </table>
     </div>
+  );
+}
+
+/** One row's part of the total as a bar, with the percentage on hover. */
+function ShareBar({ share }: { share: number }) {
+  const percent = share * 100;
+  const text =
+    share === 0
+      ? 'None'
+      : percent < 1
+        ? 'Under 1% of the total'
+        : `${Math.round(percent)}% of the total`;
+  return (
+    <td className="w-full min-w-24 px-4 py-2" title={text}>
+      <div className="h-2 w-full rounded-full bg-slate-800">
+        {share > 0 && (
+          <div
+            className="h-full rounded-full bg-sky-500 group-hover:bg-sky-400"
+            // A sliver stays visible however small the part is.
+            style={{ width: `max(${percent}%, 4px)` }}
+          />
+        )}
+      </div>
+      <span className="sr-only">{text}</span>
+    </td>
   );
 }
