@@ -95,14 +95,10 @@ export const en = {
   'songs.discardBody': 'You have unsaved changes to this song.',
   'songs.discard': 'Discard changes',
   'songs.removedBadge': 'Removed from library',
-  'songs.versionChurch': 'Church’s version',
+  'songs.versionChurch': 'Original version',
   'songs.versionOwn': 'Our version',
   'songs.versionChanged': 'changed {time}',
-  'songs.versionsHint':
-    'This song has two versions. Choose which one this workspace presents; other workspaces are not affected.',
-  'songs.versionsSaveFirst': 'Save or discard your changes before switching versions.',
-  'songs.showOtherVersion': 'Show the other version',
-  'songs.hideOtherVersion': 'Hide the other version',
+  'songs.readOnly': 'Read-only',
   'songs.deleteOwnVersion': 'Delete our version…',
   'songs.deleteOwnVersionTitle': 'Delete this workspace’s version of “{title}”?',
   'songs.deleteOwnVersionBody':

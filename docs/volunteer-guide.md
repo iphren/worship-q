@@ -86,11 +86,12 @@ When your church shares a library, songs that come from it carry a **Church** ba
 present them as they are. If you edit one, your changes become your workspace's own version:
 the church's version stays as it is for everyone else, and the song now shows **2 versions**.
 
-Open a song with two versions and you see both at the top: **Church's version** and **Our
-version**, each with when it last changed. Choose the one your workspace presents; the other
-is a click away to read. The choice is for this song in this workspace only, and every
-computer of your workspace follows it. **Delete our version** drops your workspace's version
-for good and goes back to the church's song. If the church deletes its version, the song
+Open a song with two versions and you see a switch at the top: **Original version** (the
+church's) and **Our version**. The original version is read-only; ours can be edited, and
+**Delete our version** beside the switch drops it for good and goes back to the church's song.
+Choose the one your workspace presents and press **Save**: like any edit, the choice takes
+effect only when saved. It is for this song in this workspace only, and every computer of your
+workspace follows it. If the church deletes its version, the song
 shows only yours until the church brings its version back.
 
 Removing a church song hides it in your workspace only; the church and other workspaces keep

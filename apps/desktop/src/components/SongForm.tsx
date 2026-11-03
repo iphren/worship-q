@@ -8,7 +8,7 @@ import {
   type Song,
   type SongBackground,
 } from '@worship-q/protocol';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { SongBackgroundFields } from './BackgroundPicker';
@@ -62,28 +62,93 @@ type SongFormProps = {
   actions?: ReactNode;
   /** With no song, adds a website instead of a song. */
   website?: boolean;
+  /** On a song with two versions: the one this form shows, and the choice still to save. */
+  version?: VersionProps;
 };
 
+type VersionProps = {
+  /** The church's version: shown, never edited here. */
+  readOnly: boolean;
+  /** This version is chosen but not yet the one in use; saving makes it so. */
+  switched: boolean;
+  /** Makes this version the one in use. */
+  commit(): Promise<Song>;
+};
+
+function InnerForm(props: SongFormProps) {
+  return props.song?.website || (!props.song && props.website) ? (
+    <WebsiteForm {...props} />
+  ) : props.song?.deck ? (
+    <DeckForm {...props} song={props.song} deck={props.song.deck} />
+  ) : (
+    <LyricsForm {...props} />
+  );
+}
+
 export function SongForm(props: SongFormProps) {
-  const [dirty, setDirty] = useState(false);
-  const onDirtyChange = (value: boolean) => {
-    setDirty(value);
-    props.onDirtyChange?.(value);
+  if (!props.song?.versions || props.quick) return <InnerForm {...props} />;
+  return <VersionedSongForm {...props} song={props.song} />;
+}
+
+/**
+ * A song with two versions (D32): a switch between them, the church's shown read-only and
+ * the workspace's editable. The choice, like any edit, takes effect only on Save.
+ */
+function VersionedSongForm(props: SongFormProps & { song: Song }) {
+  const session = useSession();
+  const { song, onDirtyChange } = props;
+  const [useChurch, setUseChurch] = useState(song.useChurchVersion);
+  const [dirty, setDirty] = useState({ own: false, church: false });
+  const own = useQuery(() => session.store.getOwnVersion(song.id), [song.id]);
+  const church = useQuery(() => session.store.getChurchVersion(song.id), [song.id]);
+  const active = useChurch ? dirty.church : dirty.own;
+  useEffect(() => onDirtyChange?.(active), [active, onDirtyChange]);
+  const ownDirty = useCallback((own: boolean) => setDirty((d) => ({ ...d, own })), []);
+  const churchDirty = useCallback((church: boolean) => setDirty((d) => ({ ...d, church })), []);
+
+  const saved = (result: Song) => {
+    setUseChurch(result.useChurchVersion);
+    props.onSaved(result);
   };
-  const inner = { ...props, onDirtyChange };
-  const form =
-    props.song?.website || (!props.song && props.website) ? (
-      <WebsiteForm {...inner} />
-    ) : props.song?.deck ? (
-      <DeckForm {...inner} song={props.song} deck={props.song.deck} />
-    ) : (
-      <LyricsForm {...inner} />
-    );
-  if (!props.song?.versions || props.quick) return form;
+  const versionOf = (church: boolean): VersionProps => ({
+    readOnly: church,
+    switched: song.useChurchVersion !== church,
+    commit: () => session.setUseChurchVersion(song.id, church),
+  });
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <VersionsBar song={props.song} dirty={dirty} onChanged={props.onSaved} />
-      <div className="min-h-0 flex-1">{form}</div>
+      <VersionsBar
+        song={song}
+        useChurch={useChurch}
+        onChoose={setUseChurch}
+        onDeleted={props.onSaved}
+      />
+      {own && church && (
+        <>
+          <div className={`min-h-0 flex-1 ${useChurch ? 'hidden' : ''}`}>
+            <InnerForm
+              key="own"
+              {...props}
+              song={own}
+              version={versionOf(false)}
+              onSaved={saved}
+              onDirtyChange={ownDirty}
+            />
+          </div>
+          <div className={`min-h-0 flex-1 ${useChurch ? '' : 'hidden'}`}>
+            <InnerForm
+              // Read-only, so it can follow a newer church's version without losing anything.
+              key={`church-${church.revision}`}
+              {...props}
+              song={church}
+              version={versionOf(true)}
+              onSaved={saved}
+              onDirtyChange={churchDirty}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -91,32 +156,21 @@ export function SongForm(props: SongFormProps) {
 const changedText = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
-/**
- * A song with two versions (D32): which one this workspace presents, with the other one a
- * click away to read, and the way to drop the workspace's own.
- */
-function VersionsBar(props: { song: Song; dirty: boolean; onChanged(song: Song): void }) {
+/** The switch between a song's two versions, and the way to drop the workspace's own. */
+function VersionsBar(props: {
+  song: Song;
+  useChurch: boolean;
+  onChoose(useChurch: boolean): void;
+  onDeleted(song: Song): void;
+}) {
   const session = useSession();
   const { cloud } = useApp();
   const status = useCloud();
-  const { song } = props;
+  const { song, useChurch } = props;
   const versions = song.versions!;
-  const [showOther, setShowOther] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
-  const other = useQuery(
-    () =>
-      song.useChurchVersion
-        ? session.store.getOwnVersion(song.id)
-        : session.store.getChurchVersion(song.id),
-    [song.id, song.useChurchVersion, song.revision],
-  );
-
-  async function choose(useChurch: boolean) {
-    if (props.dirty || useChurch === song.useChurchVersion) return;
-    props.onChanged(await session.setUseChurchVersion(song.id, useChurch));
-  }
 
   async function deleteOwn() {
     setDeleting(false);
@@ -124,72 +178,59 @@ function VersionsBar(props: { song: Song; dirty: boolean; onChanged(song: Song):
     try {
       await cloud.deleteOwnVersion(song.id);
       const after = await session.store.getSong(song.id);
-      if (after) props.onChanged(after);
+      if (after) props.onDeleted(after);
     } catch (e) {
       setError(t('songs.deleteOwnVersionFailed', { error: String(e) }));
     }
   }
 
-  const option = (useChurch: boolean, label: string, stamp: { updatedAt: string }) => {
-    const selected = song.useChurchVersion === useChurch;
+  const option = (church: boolean, label: string, stamp: { updatedAt: string }) => {
+    const selected = useChurch === church;
     return (
       <button
         type="button"
         role="radio"
         aria-checked={selected}
-        className={`rounded-md border px-3 py-1.5 text-left text-sm ${
-          selected
-            ? 'border-sky-500 bg-sky-900/60 text-slate-100'
-            : 'border-slate-600 bg-slate-800 text-slate-300 hover:bg-slate-700'
-        } disabled:cursor-not-allowed disabled:opacity-60`}
-        disabled={props.dirty && !selected}
-        title={props.dirty && !selected ? t('songs.versionsSaveFirst') : undefined}
-        onClick={() => void choose(useChurch)}
+        title={t('songs.versionChanged', { time: changedText(stamp.updatedAt) })}
+        className={`px-3 py-1 text-sm font-medium ${
+          selected ? 'bg-sky-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+        }`}
+        onClick={() => props.onChoose(church)}
       >
-        <span className="font-medium">{label}</span>
-        <span className="ml-2 text-xs text-slate-400">
-          {t('songs.versionChanged', { time: changedText(stamp.updatedAt) })}
-        </span>
+        {label}
       </button>
     );
   };
 
   return (
-    <div className="space-y-2 rounded-md border border-amber-900/60 bg-amber-950/20 p-3">
-      <div className="flex flex-wrap items-center gap-2" role="radiogroup">
-        {option(true, t('songs.versionChurch'), versions.church)}
-        {option(false, t('songs.versionOwn'), versions.own)}
-        <span className="flex-1" />
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={() => setShowOther((v) => !v)}
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          role="radiogroup"
+          className="inline-flex overflow-hidden rounded-md border border-slate-600 bg-slate-800"
         >
-          {showOther ? t('songs.hideOtherVersion') : t('songs.showOtherVersion')}
-        </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm text-rose-300"
-          disabled={!connected}
-          title={connected ? undefined : t('songs.deleteOwnVersionNeedsServer')}
-          onClick={() => setDeleting(true)}
-        >
-          {t('songs.deleteOwnVersion')}
-        </button>
-      </div>
-      <p className="text-xs text-slate-400">{t('songs.versionsHint')}</p>
-      {error && <p className="text-xs text-rose-300">{error}</p>}
-      {showOther && other && (
-        <div className="max-h-48 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2 text-sm">
-          <p className="mb-1 font-semibold text-slate-200">
-            {other.title || t('songs.untitled')}
-            <span className="ml-2 text-xs font-normal text-slate-400">
-              {song.useChurchVersion ? t('songs.versionOwn') : t('songs.versionChurch')}
-            </span>
-          </p>
-          <pre className="font-sans whitespace-pre-wrap text-slate-300">{other.lyrics}</pre>
+          {option(true, t('songs.versionChurch'), versions.church)}
+          {option(false, t('songs.versionOwn'), versions.own)}
         </div>
-      )}
+        {/* One place beside the switch: the original version cannot be changed here, and
+            ours can be deleted. */}
+        {useChurch ? (
+          <button type="button" className="btn btn-sm" disabled>
+            {t('songs.readOnly')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-sm text-rose-300"
+            disabled={!connected}
+            title={connected ? undefined : t('songs.deleteOwnVersionNeedsServer')}
+            onClick={() => setDeleting(true)}
+          >
+            {t('songs.deleteOwnVersion')}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-rose-300">{error}</p>}
       {deleting && (
         <ConfirmDialog
           title={t('songs.deleteOwnVersionTitle', { title: song.title || t('songs.untitled') })}
@@ -212,20 +253,26 @@ function WebsiteForm(props: SongFormProps) {
   const [address, setAddress] = useState(song?.website?.url ?? '');
   const [saving, setSaving] = useState(false);
   const url = websiteUrl(address);
-  const dirty =
+  const readOnly = !!props.version?.readOnly;
+  const switched = !!props.version?.switched;
+  const changed =
     title.trim() !== (song?.title ?? '') || address.trim() !== (song?.website?.url ?? '');
+  const dirty = changed || switched;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
-  const canSave = dirty && !saving && url !== null;
+  const canSave = !saving && ((changed && url !== null) || switched);
 
   async function save() {
     if (!canSave) return;
     setSaving(true);
     try {
-      // An untitled website is named after its site.
-      const fields = { title: title.trim() || new URL(url).hostname, website: { url } };
-      const result = song
-        ? await session.saveSong(song.id, fields)
-        : await session.createSong(fields);
+      let result: Song;
+      if (changed && url !== null) {
+        // An untitled website is named after its site.
+        const fields = { title: title.trim() || new URL(url).hostname, website: { url } };
+        result = song ? await session.saveSong(song.id, fields) : await session.createSong(fields);
+      } else {
+        result = await props.version!.commit();
+      }
       setTitle(result.title);
       setAddress(result.website?.url ?? '');
       props.onSaved(result);
@@ -249,6 +296,7 @@ function WebsiteForm(props: SongFormProps) {
             className="field"
             value={title}
             placeholder={url ? new URL(url).hostname : undefined}
+            readOnly={readOnly}
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
@@ -265,6 +313,7 @@ function WebsiteForm(props: SongFormProps) {
           placeholder="https://"
           value={address}
           aria-invalid={address.trim() !== '' && url === null}
+          readOnly={readOnly}
           onChange={(e) => setAddress(e.target.value)}
           autoFocus={!song}
         />
@@ -334,15 +383,21 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
   const { song, deck, onDirtyChange } = props;
   const [title, setTitle] = useState(song.title);
   const [saving, setSaving] = useState(false);
-  const dirty = title.trim() !== song.title;
+  const readOnly = !!props.version?.readOnly;
+  const switched = !!props.version?.switched;
+  const changed = title.trim() !== song.title;
+  const dirty = changed || switched;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
-  const canSave = dirty && !saving && title.trim() !== '';
+  const canSave = !saving && ((changed && title.trim() !== '') || switched);
 
   async function save() {
     if (!canSave) return;
     setSaving(true);
     try {
-      const result = await session.saveSong(song.id, { title: title.trim() });
+      const result =
+        changed && title.trim() !== ''
+          ? await session.saveSong(song.id, { title: title.trim() })
+          : await props.version!.commit();
       setTitle(result.title);
       props.onSaved(result);
     } finally {
@@ -361,7 +416,12 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
       {!props.quick && (
         <label>
           <span className="label">{t('songs.title')}</span>
-          <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input
+            className="field"
+            value={title}
+            readOnly={readOnly}
+            onChange={(e) => setTitle(e.target.value)}
+          />
         </label>
       )}
       <p className="text-xs text-slate-400">
@@ -404,7 +464,11 @@ function LyricsForm(props: SongFormProps) {
   const copyrightRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const scrollKey = `${props.quick ? 'quick' : 'page'}:${song?.id ?? 'new'}`;
+  const readOnly = !!props.version?.readOnly;
+  const switched = !!props.version?.switched;
+  // The two versions of a song keep their own scroll positions.
+  const variant = props.version ? (readOnly ? ':church' : ':own') : '';
+  const scrollKey = `${props.quick ? 'quick' : 'page'}:${song?.id ?? 'new'}${variant}`;
   useScrollMemory(lyricsRef, `songForm.lyrics:${scrollKey}`);
   useScrollMemory(copyrightRef, `songForm.copyright:${scrollKey}`);
   useScrollMemory(previewRef, `songForm.preview:${scrollKey}`);
@@ -413,9 +477,10 @@ function LyricsForm(props: SongFormProps) {
   const linesPerPiece = settings?.linesPerPiece ?? 2;
 
   const saved = draftOf(song);
-  const dirty = (Object.keys(saved) as (keyof SongDraft)[]).some(
+  const changed = (Object.keys(saved) as (keyof SongDraft)[]).some(
     (key) => JSON.stringify(saved[key]) !== JSON.stringify(draft[key]),
   );
+  const dirty = changed || switched;
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const pieces = useMemo(() => {
@@ -426,17 +491,22 @@ function LyricsForm(props: SongFormProps) {
 
   const invalid = invalidSongFields(fieldsOf(draft), new Date());
   const tabs: Tab[] = ['lyrics', 'copyright', 'preview', 'settings'];
-  const canSave =
-    dirty &&
-    !saving &&
+  const fieldsSavable =
+    changed &&
+    !readOnly &&
     invalid.length === 0 &&
     (draft.title.trim() !== '' || draft.lyrics.trim() !== '');
+  const canSave = !saving && (fieldsSavable || switched);
   const set = (patch: Partial<SongDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
   async function save() {
     if (!canSave) return;
     setSaving(true);
     try {
+      if (!fieldsSavable) {
+        props.onSaved(await props.version!.commit());
+        return;
+      }
       // An untitled song takes its first lyric line as its title.
       const cleaned = fieldsOf(draft);
       const title = cleaned.title || pieces[0]?.lines[0]?.text.trim() || t('songs.untitled');
@@ -470,11 +540,12 @@ function LyricsForm(props: SongFormProps) {
         <input
           className="field"
           value={draft.title}
+          readOnly={readOnly}
           onChange={(e) => set({ title: e.target.value })}
           autoFocus={!song}
         />
       </label>
-      {dirty && song?.origin === 'church' && !session.store.managesChurch('song', song) && (
+      {changed && song?.origin === 'church' && !session.store.managesChurch('song', song) && (
         <p className="text-xs text-sky-200">{t('songs.churchEditHint')}</p>
       )}
       <div className="flex min-h-0 flex-1 flex-col">
@@ -517,6 +588,7 @@ function LyricsForm(props: SongFormProps) {
             className="field min-h-40 flex-1 resize-none leading-relaxed"
             aria-label={t('songs.lyrics')}
             value={draft.lyrics}
+            readOnly={readOnly}
             onChange={(e) => set({ lyrics: e.target.value })}
             spellCheck={false}
             autoFocus={props.quick}
@@ -537,6 +609,7 @@ function LyricsForm(props: SongFormProps) {
             <input
               className="field"
               value={draft.author}
+              readOnly={readOnly}
               placeholder={t('songs.authorHint')}
               onChange={(e) => set({ author: e.target.value })}
             />
@@ -546,6 +619,7 @@ function LyricsForm(props: SongFormProps) {
             <input
               className="field"
               value={draft.copyright}
+              readOnly={readOnly}
               onChange={(e) => set({ copyright: e.target.value })}
             />
           </label>
@@ -555,6 +629,7 @@ function LyricsForm(props: SongFormProps) {
               className="field"
               inputMode="numeric"
               value={draft.ccli}
+              readOnly={readOnly}
               aria-invalid={invalid.includes('ccli')}
               onChange={(e) => set({ ccli: e.target.value })}
             />
@@ -568,6 +643,7 @@ function LyricsForm(props: SongFormProps) {
               className="field"
               inputMode="numeric"
               value={draft.year}
+              readOnly={readOnly}
               aria-invalid={invalid.includes('year')}
               onChange={(e) => set({ year: e.target.value })}
             />
@@ -611,10 +687,13 @@ function LyricsForm(props: SongFormProps) {
           role="tabpanel"
           className={`min-h-0 flex-1 space-y-3 overflow-auto ${tab === 'settings' ? '' : 'hidden'}`}
         >
-          <SongBackgroundFields
-            value={draft.background}
-            onChange={(background) => set({ background })}
-          />
+          {/* A disabled fieldset locks every control of the church's version. */}
+          <fieldset disabled={readOnly} className="min-w-0 space-y-3">
+            <SongBackgroundFields
+              value={draft.background}
+              onChange={(background) => set({ background })}
+            />
+          </fieldset>
         </div>
       </div>
       <div className="flex items-center justify-end gap-2">
