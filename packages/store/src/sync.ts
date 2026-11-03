@@ -56,6 +56,12 @@ export interface SyncState {
    */
   grantsRegisteredAt: string | null;
   /**
+   * Live snapshot revisions this device may number up to as coordinator, reserved ahead of
+   * use; it numbers past this after a restart, so nothing it sent before outranks what it
+   * sends next. Null before it first coordinated.
+   */
+  revisionCeiling: number | null;
+  /**
    * Where the device token is kept: in the system keychain, or still in this database when
    * the keychain refused (decision D23). Null before the move was tried.
    */
@@ -87,6 +93,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   lastBackupAt: null,
   lastError: null,
   grantsRegisteredAt: null,
+  revisionCeiling: null,
   tokenStorage: null,
   lanCredentials: null,
   lanPeers: null,

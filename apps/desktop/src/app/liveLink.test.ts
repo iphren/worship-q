@@ -77,7 +77,12 @@ async function desktop(
   relay: Relay,
   dir: ReturnType<typeof directory>,
   backup: LiveBackupApi | null,
-  options: { role?: 'operator' | 'viewer'; driver?: ReturnType<typeof openNodeDriver> } = {},
+  options: {
+    role?: 'operator' | 'viewer';
+    driver?: ReturnType<typeof openNodeDriver>;
+    /** The driver belongs to an earlier desktop, which closes it. */
+    reuse?: boolean;
+  } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
   await migrate(driver);
@@ -94,6 +99,7 @@ async function desktop(
     () => deviceId,
   );
   let registered = false;
+  const sync = new SyncStore(store);
   /** Everything the desktop sent to the relay. */
   const sent: DesktopToRelay[] = [];
 
@@ -131,6 +137,11 @@ async function desktop(
     grantsRegistered: {
       get: async () => registered,
       set: async () => void (registered = true),
+    },
+    // Kept in the desktop's own database, so it lasts across a restart on the same one.
+    revisions: {
+      get: async () => (await sync.getState()).revisionCeiling ?? 0,
+      reserve: async (ceiling) => void (await sync.setState({ revisionCeiling: ceiling })),
     },
     newId: () => `${name}-cmd-${++counter}`,
     now: time.ms,
@@ -170,7 +181,7 @@ async function desktop(
   cleanups.push(() => {
     link.stop();
     host.dispose();
-    driver.close();
+    if (!options.reuse) driver.close();
   });
   return { session, host, link, store, driver, connect, disconnect, deviceId, token, sent };
 }
@@ -648,6 +659,119 @@ describe('recovery (M4)', () => {
     const d = await desktop('Late', time, relay, dir, backup);
     await settle();
     expect(d.session.live?.presented).toBeNull();
+  });
+});
+
+describe('a coordinator restarting (M4.6)', () => {
+  /** Closes the app on `who` and opens it again on the same database, as switching viewer mode does. */
+  async function restart(
+    who: Awaited<ReturnType<typeof desktop>>,
+    name: string,
+    venueParts: Awaited<ReturnType<typeof venue>>,
+    role?: 'operator' | 'viewer',
+  ) {
+    who.disconnect();
+    who.link.stop();
+    who.host.dispose();
+    await settle();
+    const { time, relay, dir, backup } = venueParts;
+    return desktop(name, time, relay, dir, backup, { driver: who.driver, role, reuse: true });
+  }
+
+  it('numbers past what it sent before, so a follower takes what it sends next', async () => {
+    const parts = await venue({ backup: false });
+    const { a, b } = parts;
+    for (let i = 0; i < 3; i++) await a.session.next();
+    await settle();
+    const before = b.link.snapshot!.revision;
+    expect(before).toBeGreaterThan(1);
+
+    const again = await restart(a, 'Projector', parts);
+    await settle();
+    expect(again.link.status.role).toBe('coordinator');
+    expect(again.link.snapshot!.revision).toBeGreaterThan(before);
+    expect(b.link.status).toMatchObject({ role: 'follower', coordinatorId: again.deviceId });
+
+    // The follower moves the slide and sees it move, as does the coordinator.
+    await b.session.next();
+    await settle();
+    expect(again.session.live?.presented?.index).toBe(1);
+    expect(slide(b.session)).toBe(slide(again.session));
+  });
+
+  it('keeps numbering up after going viewer and back', async () => {
+    const parts = await venue({ backup: false });
+    const { a, b } = parts;
+    for (let i = 0; i < 3; i++) await a.session.next();
+    await settle();
+    const before = b.link.snapshot!.revision;
+
+    const viewer = await restart(a, 'Projector', parts, 'viewer');
+    await settle();
+    expect(viewer.link.status.role).toBe('viewer');
+    expect(b.link.status).toMatchObject({ role: 'follower', coordinatorLost: true });
+    const operator = await restart(viewer, 'Projector', parts);
+    await settle();
+    expect(operator.link.status.role).toBe('coordinator');
+    expect(operator.link.snapshot!.revision).toBeGreaterThan(before);
+
+    await b.session.next();
+    await settle();
+    expect(slide(b.session)).toBe(slide(operator.session));
+  });
+
+  it('saves its reservation once a block, not for every snapshot', async () => {
+    const { a } = await venue({ backup: false });
+    const ceiling = async () => (await new SyncStore(a.store).getState()).revisionCeiling;
+    const first = await ceiling();
+    expect(first).toBeGreaterThan(a.link.snapshot!.revision);
+    for (let i = 0; i < 5; i++) {
+      await a.session.next();
+      await settle(2);
+    }
+    expect(a.link.snapshot!.revision).toBeLessThan(first!);
+    expect(await ceiling()).toBe(first);
+  });
+
+  it('continues the numbering of a live state it takes over, so a handover still counts (M2.3)', async () => {
+    const parts = await venue({ backup: false });
+    const { a, b } = parts;
+    // B presented once, so it holds a reservation well above A's numbering.
+    b.link.claim();
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    const reservedByB = (await new SyncStore(b.store).getState()).revisionCeiling!;
+    a.link.claim();
+    await settle();
+    expect(a.link.status.role).toBe('coordinator');
+    await a.session.next();
+    await settle();
+    const fromA = b.link.snapshot!.revision;
+    expect(fromA).toBeLessThan(reservedByB);
+
+    // Taking it back continues from A's copy, below B's own reservation.
+    b.link.claim();
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    expect(b.link.snapshot!.revision).toBeLessThan(reservedByB);
+    expect(slide(b.session)).toBe(slide(a.session));
+  });
+
+  it('numbers past its last copy on the server when it comes back alone', async () => {
+    const parts = await venue();
+    const { a, b, backup } = parts;
+    for (let i = 0; i < 3; i++) await a.session.next();
+    await new Promise((done) => setTimeout(done, 1200));
+    const backedUp = backup!.stored!.revision;
+    b.disconnect();
+    const again = await restart(a, 'Projector', parts);
+    await settle();
+    expect(again.link.status.role).toBe('coordinator');
+    await again.session.next();
+    await new Promise((done) => setTimeout(done, 1200));
+    // The server keeps the newer copy only when its number is higher.
+    expect(backup!.stored!.revision).toBeGreaterThan(backedUp);
+    expect(backup!.stored!.state.presented?.index).toBe(again.session.live?.presented?.index);
   });
 });
 

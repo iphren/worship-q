@@ -13,6 +13,7 @@ import {
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
 import { LiveBanners } from './components/LiveBanners';
+import { LiveRoleBadge } from './components/LiveRole';
 import {
   RemoteControlDialog,
   RemoteEditsBanner,
@@ -146,14 +147,22 @@ function Sidebar({ page }: { page: Page }) {
             page === entry.page ? 'bg-sky-700 text-white' : 'text-slate-300 hover:bg-slate-800'
           }`}
         >
-          <Icon name={entry.icon} />
+          <span className="relative block">
+            <Icon name={entry.icon} />
+            {entry.page === 'present' && liveDate && (
+              <span
+                className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-400"
+                title={t('nav.liveNow')}
+              />
+            )}
+          </span>
         </NavButton>
       ))}
       <span className="flex-1" />
       <WorkspaceButton />
       {!session.isViewer && (
         <button
-          className={`relative rounded-md p-2 ${
+          className={`relative flex h-11 w-11 items-center justify-center rounded-md ${
             remoteActive ? 'text-sky-300 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-800'
           }`}
           title={t('remote.title')}
@@ -172,15 +181,7 @@ function Sidebar({ page }: { page: Page }) {
         </button>
       )}
       {remoteOpen && <RemoteControlDialog onClose={() => setRemoteOpen(false)} />}
-      {liveDate && (
-        <NavButton
-          target="present"
-          label={t('nav.live')}
-          className="rounded-md bg-emerald-700 p-2 hover:bg-emerald-600"
-        >
-          <Icon name="live" />
-        </NavButton>
-      )}
+      <LiveRoleBadge />
     </nav>
   );
 }
