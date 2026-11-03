@@ -11,7 +11,7 @@ import {
   buildFrame,
   fontAvailable,
 } from '@worship-q/renderer';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
 
 type LiveOn = Extract<AdminLiveView, { live: true }>;
@@ -100,19 +100,32 @@ function webAddress(url: string): boolean {
   }
 }
 
-/** The subtitle overlay's band of text, over a pattern standing in for the video under it. */
+/** The subtitle overlay's band of text, over a pattern standing in for the video under it.
+ * The text sits at the foot of its band and its height varies, so the bar's window is moved
+ * to keep the drawn text in its middle. */
 export function SubtitleBar(props: { view: LiveOn; workspaceId: string }) {
   const frame = useFrame(props.view, props.workspaceId, 'subtitle');
   const { ref, width } = useWidth();
+  const slideRef = useRef<HTMLDivElement>(null);
+  const centre = useTextCentre(slideRef, width);
   const factor = width / OUTPUT_WIDTH;
+  const barHeight = OUTPUT_HEIGHT * BAR_FRACTION * factor;
+  const offset =
+    centre === null
+      ? -OUTPUT_HEIGHT * (1 - BAR_FRACTION) * factor
+      : barHeight / 2 - centre * factor;
   return (
     <div
       ref={ref}
       className="w-full overflow-hidden rounded-lg border border-slate-700"
-      style={{ background: CHECKERBOARD, height: OUTPUT_HEIGHT * BAR_FRACTION * factor }}
+      style={{ background: CHECKERBOARD, height: barHeight }}
     >
       {width > 0 && (
-        <div style={{ marginTop: -OUTPUT_HEIGHT * (1 - BAR_FRACTION) * factor }}>
+        <div
+          ref={slideRef}
+          className="transition-[margin] duration-300"
+          style={{ marginTop: offset }}
+        >
           <ScaledSlide
             frame={frame}
             width={OUTPUT_WIDTH}
@@ -124,4 +137,49 @@ export function SubtitleBar(props: { view: LiveOn; workspaceId: string }) {
       )}
     </div>
   );
+}
+
+/** The middle of the text drawn in `slideRef`, in output pixels from the slide's top, or
+ * null while there is none. Measured again whenever the drawing changes. */
+function useTextCentre(slideRef: RefObject<HTMLDivElement | null>, width: number) {
+  const [centre, setCentre] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const slide = slideRef.current;
+    if (!slide || width <= 0) return;
+    const factor = width / OUTPUT_WIDTH;
+    let frameId = 0;
+    const measure = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        const origin = slide.getBoundingClientRect().top;
+        let top = Infinity;
+        let bottom = -Infinity;
+        const walker = document.createTreeWalker(slide, NodeFilter.SHOW_TEXT);
+        const range = document.createRange();
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (!node.textContent?.trim()) continue;
+          range.selectNodeContents(node);
+          const rect = range.getBoundingClientRect();
+          if (rect.height === 0) continue;
+          top = Math.min(top, rect.top);
+          bottom = Math.max(bottom, rect.bottom);
+        }
+        setCentre(top < bottom ? ((top + bottom) / 2 - origin) / factor : null);
+      });
+    };
+    measure();
+    const observer = new MutationObserver(measure);
+    observer.observe(slide, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+      attributeFilter: ['style'],
+    });
+    void document.fonts.ready.then(measure);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frameId);
+    };
+  }, [slideRef, width]);
+  return centre;
 }
