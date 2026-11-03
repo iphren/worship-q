@@ -23,6 +23,12 @@ const DEVICES_POLL_MS = 15_000;
 export function DevicesPage({ pairCode }: { pairCode: string | null }) {
   const list = useLoad(() => api.devices(), [], DEVICES_POLL_MS);
   const workspaces = useLoad(() => api.workspaces(), []);
+  // Revoked devices are left out, except one revoked here, which stays until the page is left
+  // so that the administrator sees the revocation happen.
+  const [revokedHere, setRevokedHere] = useState<ReadonlySet<string>>(new Set());
+  const devices = orderDevices(
+    (list.data?.devices ?? []).filter((d) => d.revokedAt === null || revokedHere.has(d.id)),
+  );
   const pending = list.data?.pending ?? [];
   const wanted = pairCode ? normalizePairingCode(pairCode) : null;
   const wantedPending = wanted
@@ -69,18 +75,19 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
 
       <section>
         <SectionTitle>Computers and phones</SectionTitle>
-        {list.data && list.data.devices.length === 0 && <Empty>No device has joined yet.</Empty>}
+        {list.data && devices.length === 0 && <Empty>No device has access to a workspace.</Empty>}
         <ul className="space-y-2">
-          {orderDevices(list.data?.devices ?? []).map((device) => (
+          {devices.map((device) => (
             <DeviceRow
               key={device.id}
               device={device}
-              onChanged={(next) =>
+              onChanged={(next) => {
+                if (next.revokedAt !== null) setRevokedHere((ids) => new Set(ids).add(next.id));
                 list.setData((d) => ({
                   ...d,
                   devices: d.devices.map((x) => (x.id === next.id ? next : x)),
-                }))
-              }
+                }));
+              }}
             />
           ))}
         </ul>
