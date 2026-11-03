@@ -17,6 +17,7 @@ import { BackgroundPicker, SongBackgroundFields } from '../components/Background
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
 import { ConnectedDevices } from '../components/ConnectedDevices';
+import { ViewerModeDialog } from '../components/LiveRole';
 import { ConfirmDialog } from '../components/Dialog';
 import { OutputLinks } from '../components/OutputLinks';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
@@ -94,7 +95,7 @@ export function SettingsPage() {
     [],
   );
   const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
-  const [viewerMode, setViewerMode] = useState(() => deviceSettings.get().viewerMode);
+  const [viewerMode] = useState(() => deviceSettings.get().viewerMode);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
@@ -604,19 +605,7 @@ export function SettingsPage() {
       </aside>
 
       {viewerChange !== null && (
-        <ConfirmDialog
-          title={t('viewer.title')}
-          body={t('viewer.hint')}
-          confirmLabel={t('workspaces.leaveLiveConfirm')}
-          onCancel={() => setViewerChange(null)}
-          onConfirm={() => {
-            deviceSettings.set({ viewerMode: viewerChange });
-            setViewerMode(viewerChange);
-            setViewerChange(null);
-            // The session's role is fixed when it opens, so the app starts again.
-            window.location.reload();
-          }}
-        />
+        <ViewerModeDialog viewer={viewerChange} onCancel={() => setViewerChange(null)} />
       )}
       {restoreFrom && (
         <ConfirmDialog

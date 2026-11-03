@@ -1,14 +1,24 @@
+import { useEffect } from 'react';
 import { useApp, useCloud } from '../app/context';
 import { t } from '../i18n';
+
+/** The "another computer carried on" notice clears itself after this long. */
+const DEMOTED_NOTICE_MS = 8000;
 
 /**
  * What the operator must know about the shared live state, wherever they are in the app:
  * the coordinator stopped responding (decision D18), another computer took over (plan
- * M4.5), or a device lacks the workspace's font (plan M8.5).
+ * M4.5; clears itself, as the sidebar keeps showing the role), or a device lacks the workspace's font (plan M8.5).
  */
 export function LiveBanners() {
   const { cloud, session } = useApp();
   const { live, relay } = useCloud();
+  const demoted = live?.demoted ?? false;
+  useEffect(() => {
+    if (!demoted) return;
+    const timer = setTimeout(() => cloud.dismissDemoted(), DEMOTED_NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [demoted, cloud]);
   if (!live || relay.kind !== 'connected') return null;
   const lost = live.coordinatorLost && live.role !== 'coordinator';
   return (

@@ -11,7 +11,12 @@ export const en = {
   'nav.calendar': 'Calendar',
   'nav.present': 'Present',
   'nav.settings': 'Settings',
-  'nav.live': 'Live',
+  'nav.liveNow': 'A run sheet is live',
+  'role.coordinator': 'Leads',
+  'role.follower': 'Follows',
+  'role.viewer': 'Views',
+  'role.toViewer': 'Switch to viewing only',
+  'role.leaveViewer': 'Stop viewing only',
 
   'common.cancel': 'Cancel',
   'common.save': 'Save',
@@ -356,10 +361,10 @@ export const en = {
   'church.disconnectBody':
     'Songs and run sheets stay on this computer, but stop synchronizing. Phones lose remote control. You can connect again with a connection code.',
   'church.remoteConnecting': 'Connecting to the church server…',
-  'church.takeOver': 'Use this computer',
+  'church.takeOver': 'Take over presenting',
   'church.takeOverHint':
     'Makes this computer hold the presentation. What is on every screen stays as it is.',
-  'church.liveCoordinator': 'This computer holds the presentation; the others follow it.',
+  'church.liveCoordinator': 'This computer holds the presentation, the others follow it.',
   'church.liveFollowing': 'Following the presentation on “{name}”.',
   'church.liveViewer': 'This computer is a viewer: it shows the presentation and never holds it.',
   'church.liveNobody': 'No computer holds the presentation right now.',
@@ -376,7 +381,7 @@ export const en = {
   'live.lost': 'The presenting computer is not responding.',
   'live.carryOn': 'Carry on here',
   'live.carryOnHint': 'Continues from the last slide, on this computer.',
-  'live.demoted': 'Another computer carried on; this one now follows.',
+  'live.demoted': 'Another computer carried on, this one now follows.',
   'live.fontWarning': '“{name}” does not have the font {fonts}. Its slides use another font.',
 
   'viewer.title': 'Viewer mode',
