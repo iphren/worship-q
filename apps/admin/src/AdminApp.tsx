@@ -172,8 +172,12 @@ function Shell(props: { me: AdminMe; route: Route; onSignedOut(): void; children
   );
 
   async function doSignOut() {
-    const done = await signOut.run(() => api.logout());
-    if (done !== undefined) {
+    // The logout answers with no body, so success is said here: `run` gives undefined on failure.
+    const done = await signOut.run(async () => {
+      await api.logout();
+      return true;
+    });
+    if (done) {
       props.onSignedOut();
       navigate({ page: 'home', error: null }, true);
     }
