@@ -114,7 +114,7 @@ function Volume({ volume }: { volume: AdminStorage['volume'] }) {
       <p className="mt-2 text-xs text-slate-400">
         {percent}% used ({formatBytes(used)}).{' '}
         {percent >= 90 && (
-          <span className="text-red-300">The volume is nearly full; free space soon.</span>
+          <span className="text-red-300">The volume is nearly full, free space soon.</span>
         )}
       </p>
     </Card>
