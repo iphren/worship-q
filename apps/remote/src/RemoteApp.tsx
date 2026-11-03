@@ -261,7 +261,9 @@ function Live({ view }: { view: RemoteView | null }) {
                             src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
                             alt={piece.lines.join(' ')}
                             loading="lazy"
-                            className="block w-full rounded"
+                            // Hold the slide's space before the image loads, so a scroll to the
+                            // presented slide is not thrown short by thumbnails loading on the way.
+                            className="block aspect-video w-full rounded object-contain"
                           />
                         ) : (
                           piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
