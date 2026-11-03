@@ -53,7 +53,7 @@ export function LiveRoleBadge() {
           ? t('church.liveFollowing', { name: live.coordinatorName })
           : t('church.liveNobody');
   const color = lost
-    ? 'text-amber-300'
+    ? 'text-amber-300 breathe'
     : live.role === 'coordinator'
       ? 'text-emerald-300'
       : live.role === 'follower' && !nobody

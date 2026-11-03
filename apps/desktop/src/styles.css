@@ -96,6 +96,22 @@ textarea {
   .item-flash {
     animation: item-flash 900ms ease-out;
   }
+  /* Slowly pulses a warning so it is noticed from across the room. */
+  .breathe {
+    animation: breathe 2s ease-in-out infinite;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe {
+    animation: none;
+  }
 }
 
 @keyframes item-flash {
