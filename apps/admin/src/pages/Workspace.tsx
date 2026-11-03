@@ -470,7 +470,7 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
   const screen = onScreen(snapshot);
   const expired = isPast(view.expiresAt);
   return (
-    <div className="space-y-4 text-sm">
+    <div className="divide-y divide-slate-800 text-sm *:py-6 *:first:pt-0 *:last:pb-0">
       <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         <Fact label="Presenting computer">
           {coordinator.name ?? 'Unnamed computer'}{' '}
