@@ -259,28 +259,30 @@ export function DeviceRow(props: {
         />
       ) : (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+          <span className="min-w-40 flex-1 truncate text-[15px] font-semibold text-white">
             {device.name || 'Unnamed'}
           </span>
-          {device.connected && !revoked && <Badge tone="live">Connected now</Badge>}
-          {revoked && <Badge tone="warn">Revoked</Badge>}
-          {!revoked && (
-            <div className="flex gap-1">
-              <Button
-                small
-                variant="ghost"
-                onClick={() => {
-                  setName(device.name);
-                  setRenaming(true);
-                }}
-              >
-                Rename
-              </Button>
-              <Button small variant="ghost" onClick={() => setRevoking(true)}>
-                Revoke
-              </Button>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {device.connected && !revoked && <Badge tone="live">Connected now</Badge>}
+            {revoked && <Badge tone="warn">Revoked</Badge>}
+            {!revoked && (
+              <div className="flex gap-1">
+                <Button
+                  small
+                  variant="ghost"
+                  onClick={() => {
+                    setName(device.name);
+                    setRenaming(true);
+                  }}
+                >
+                  Rename
+                </Button>
+                <Button small variant="ghost" onClick={() => setRevoking(true)}>
+                  Revoke
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">

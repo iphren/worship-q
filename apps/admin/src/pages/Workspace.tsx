@@ -561,11 +561,13 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
                 key={device.id}
                 className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-900 px-3 py-1.5"
               >
-                <span className="min-w-0 flex-1 truncate font-medium text-slate-100">
+                <span className="min-w-40 flex-1 truncate font-medium text-slate-100">
                   {device.name || 'Unnamed'}
                 </span>
-                <span className="text-slate-400">{ROLE_LABEL[device.role]}</span>
-                <span className="text-slate-500">{CONNECTION_LABEL[device.connection]}</span>
+                <span className="flex flex-wrap gap-x-3">
+                  <span className="text-slate-400">{ROLE_LABEL[device.role]}</span>
+                  <span className="text-slate-500">{CONNECTION_LABEL[device.connection]}</span>
+                </span>
                 <span className="text-xs text-slate-500">
                   <When iso={device.lastSeenAt} prefix="seen" />
                 </span>
