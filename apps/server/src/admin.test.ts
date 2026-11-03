@@ -11,6 +11,7 @@ import {
   type LiveSnapshot,
 } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
+import { byteRange } from './admin';
 import { buildServer } from './app';
 import { openDatabase } from './db';
 import { churchFilesDir, workspaceFilesDir } from './files';
@@ -500,6 +501,22 @@ describe('church defaults', () => {
   });
 });
 
+describe('byteRange', () => {
+  it('reads the one range a video player asks for', () => {
+    expect(byteRange('bytes=0-1', 10)).toEqual({ start: 0, end: 1 });
+    expect(byteRange('bytes=0-', 10)).toEqual({ start: 0, end: 9 });
+    expect(byteRange('bytes=5-99', 10)).toEqual({ start: 5, end: 9 });
+    expect(byteRange('bytes=-3', 10)).toEqual({ start: 7, end: 9 });
+    expect(byteRange('bytes=-30', 10)).toEqual({ start: 0, end: 9 });
+    expect(byteRange('bytes=10-', 10)).toBe('unsatisfiable');
+    expect(byteRange('bytes=4-2', 10)).toBe('unsatisfiable');
+    expect(byteRange('bytes=-0', 10)).toBe('unsatisfiable');
+    expect(byteRange(undefined, 10)).toBeNull();
+    expect(byteRange('bytes=0-1,4-5', 10)).toBeNull();
+    expect(byteRange('items=0-1', 10)).toBeNull();
+  });
+});
+
 describe('the Church Library (D34, D37)', () => {
   it('lists church songs, deletes one recoverably, shows who uses it, and restores it', async () => {
     const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
@@ -703,6 +720,23 @@ describe('the Church Library (D34, D37)', () => {
     expect(
       (await app.inject({ method: 'GET', url: `/api/v1/admin/files/${image}` })).statusCode,
     ).toBe(401);
+    // Parts of a file, as Safari asks for them to play a video.
+    const part = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/files/${image}`,
+      headers: { cookie: headers.cookie, range: 'bytes=1-2' },
+    });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers['content-range']).toBe('bytes 1-2/4');
+    expect(part.body).toBe('pe');
+    expect(file.headers['accept-ranges']).toBe('bytes');
+    const beyond = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/files/${image}`,
+      headers: { cookie: headers.cookie, range: 'bytes=9-' },
+    });
+    expect(beyond.statusCode).toBe(416);
+    expect(beyond.headers['content-range']).toBe('bytes */4');
     expect(
       (
         await app.inject({

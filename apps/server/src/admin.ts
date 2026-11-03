@@ -51,6 +51,31 @@ const KIND = z.enum(['song', 'background']);
 const LIBRARY_FILE =
   /^(?:[A-Za-z0-9-]{1,80}\.(?:jpg|jpeg|png|mp4)|deck-[0-9a-f-]{36}-\d{3,}(?:-t)?\.jpg)$/i;
 
+/**
+ * The part of a file a `Range` header asks for, inclusive at both ends. Null means the whole
+ * file: no header, one this does not understand, or several ranges, which browsers playing
+ * video never ask for.
+ */
+export function byteRange(
+  header: string | undefined,
+  size: number,
+): { start: number; end: number } | 'unsatisfiable' | null {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header?.trim() ?? '');
+  if (!match) return null;
+  const [, from = '', to = ''] = match;
+  if (from === '' && to === '') return null;
+  if (from === '') {
+    // The last `to` bytes.
+    const length = Number(to);
+    if (length === 0 || size === 0) return 'unsatisfiable';
+    return { start: Math.max(0, size - length), end: size - 1 };
+  }
+  const start = Number(from);
+  const end = to === '' ? size - 1 : Math.min(Number(to), size - 1);
+  if (start >= size || end < start) return 'unsatisfiable';
+  return { start, end };
+}
+
 /** The session token in the request's cookies, if any. */
 export function sessionToken(request: FastifyRequest): string {
   const header = request.headers.cookie ?? '';
@@ -148,8 +173,9 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
     if (!LIBRARY_FILE.test(name)) return reply.code(404).send({ error: 'not-found' });
     const path = join(churchFilesDir(config.dataDir), name);
     if (!existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+    const { size } = statSync(path);
     reply.header('cache-control', 'private, max-age=31536000, immutable');
-    reply.header('content-length', statSync(path).size);
+    reply.header('accept-ranges', 'bytes');
     reply.type(
       name.toLowerCase().endsWith('.mp4')
         ? 'video/mp4'
@@ -157,6 +183,19 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           ? 'image/png'
           : 'image/jpeg',
     );
+    // Safari plays a video only from a server that sends parts of it on request.
+    const range = byteRange(request.headers.range, size);
+    if (range === 'unsatisfiable') {
+      reply.header('content-range', `bytes */${size}`);
+      return reply.code(416).send();
+    }
+    if (range) {
+      reply.code(206);
+      reply.header('content-range', `bytes ${range.start}-${range.end}/${size}`);
+      reply.header('content-length', range.end - range.start + 1);
+      return reply.send(createReadStream(path, range));
+    }
+    reply.header('content-length', size);
     return reply.send(createReadStream(path));
   });
 
