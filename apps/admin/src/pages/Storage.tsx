@@ -145,7 +145,9 @@ function WorkspaceTable({ workspaces }: { workspaces: AdminStorage['workspaces']
  * the total, so the biggest kinds of file stand out.
  */
 function Table(props: { head: string[]; rows: string[][]; foot?: string[]; shares?: number[] }) {
-  const cell = (index: number) => (index === 0 ? 'text-left' : 'text-right whitespace-nowrap');
+  // Cells never wrap, and columns keep a gap; a narrow screen scrolls the table sideways.
+  const cell = (index: number) =>
+    `whitespace-nowrap ${index === 0 ? 'text-left' : 'pl-6 text-right'}`;
   const { shares } = props;
   const barCell = <td className="w-full px-4" aria-hidden="true" />;
   return (
@@ -171,7 +173,7 @@ function Table(props: { head: string[]; rows: string[][]; foot?: string[]; share
               {row.map((value, i) => (
                 <Fragment key={i}>
                   <td
-                    className={`py-2 ${cell(i)} ${i === 0 ? 'whitespace-nowrap text-slate-100' : 'text-slate-300'}`}
+                    className={`py-2 ${cell(i)} ${i === 0 ? 'text-slate-100' : 'text-slate-300'}`}
                   >
                     {value}
                   </td>
