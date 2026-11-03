@@ -420,6 +420,7 @@ function Contents({ content, filesGone }: { content: AdminLibraryContent; filesG
       <video
         key={src}
         src={src}
+        autoPlay
         controls
         muted
         loop
