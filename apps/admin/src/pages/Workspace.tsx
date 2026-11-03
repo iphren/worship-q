@@ -553,19 +553,21 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
                   return (
                     <li
                       key={item.itemId}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+                      className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg px-3 py-1.5 ${
                         current ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
                       }`}
                     >
                       <span className="w-5 shrink-0 text-right text-xs text-slate-500">
                         {index + 1}
                       </span>
-                      <span className="min-w-0 flex-1 truncate">{item.title || 'Untitled'}</span>
-                      {item.kind !== 'lyrics' && (
-                        <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
-                      )}
-                      {item.removed && <Badge tone="warn">Removed from library</Badge>}
-                      {current && <Badge tone="live">On screen</Badge>}
+                      <span className="min-w-40 flex-1 truncate">{item.title || 'Untitled'}</span>
+                      <span className="flex flex-wrap gap-1">
+                        {item.kind !== 'lyrics' && (
+                          <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
+                        )}
+                        {item.removed && <Badge tone="warn">Removed from library</Badge>}
+                        {current && <Badge tone="live">On screen</Badge>}
+                      </span>
                     </li>
                   );
                 })}

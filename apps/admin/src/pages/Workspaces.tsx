@@ -98,19 +98,21 @@ export function WorkspacesPage() {
               to={routePath({ page: 'workspace', id: w.id })}
               className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 hover:border-slate-600"
             >
-              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
+              <span className="min-w-40 flex-1 truncate text-[15px] font-semibold text-white">
                 {w.name}
               </span>
-              <span className="text-sm text-slate-400">
-                {w.devices === 1 ? '1 device' : `${w.devices} devices`}
+              <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="text-sm text-slate-400">
+                  {w.devices === 1 ? '1 device' : `${w.devices} devices`}
+                </span>
+                {w.libraryTypes.map((type) => (
+                  <Badge key={type} tone="accent">
+                    {LIBRARY_TYPE_LABELS[type]}
+                  </Badge>
+                ))}
+                {w.codesEnabled && <Badge tone="warn">Connection code on</Badge>}
+                {w.live && <Badge tone="live">Live</Badge>}
               </span>
-              {w.libraryTypes.map((type) => (
-                <Badge key={type} tone="accent">
-                  {LIBRARY_TYPE_LABELS[type]}
-                </Badge>
-              ))}
-              {w.codesEnabled && <Badge tone="warn">Connection code on</Badge>}
-              {w.live && <Badge tone="live">Live</Badge>}
             </Link>
           </li>
         ))}

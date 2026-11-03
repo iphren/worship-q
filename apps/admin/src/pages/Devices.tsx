@@ -130,7 +130,7 @@ function PendingRequest(props: {
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-mono text-xl tracking-[0.15em] text-white">{request.code}</span>
-        <span className="min-w-0 flex-1 truncate text-[15px] text-slate-100">
+        <span className="min-w-40 flex-1 truncate text-[15px] text-slate-100">
           {request.deviceName || 'Unnamed computer'}
         </span>
         <span className="text-xs text-slate-400">

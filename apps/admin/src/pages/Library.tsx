@@ -275,7 +275,7 @@ function ItemRow(props: {
           onClick={props.onOpen}
           aria-expanded={props.selected}
           title="Show what it contains"
-          className="min-w-0 flex-1 cursor-pointer text-left"
+          className="min-w-40 flex-1 cursor-pointer text-left"
         >
           <p
             className={`truncate text-[15px] font-semibold hover:underline ${deleted ? 'text-slate-300' : 'text-white'}`}
@@ -284,38 +284,40 @@ function ItemRow(props: {
           </p>
           {item.fileName && <p className="truncate text-xs text-slate-500">{item.fileName}</p>}
         </button>
-        {change && (
-          <div className="flex flex-wrap justify-end gap-1">
-            <Badge tone={CHANGE_TONE[change.type]}>{CHANGE_LABEL[change.type]}</Badge>
-            {change.type === 'override' && change.usesChurchVersion && (
-              <Badge tone="muted">Uses the church's for now</Badge>
-            )}
-            {change.type === 'override' && change.churchChangedSince && (
-              <Badge tone="warn">Church's changed since</Badge>
-            )}
-          </div>
-        )}
-        {readOnly ? (
-          filesGone && <span className="text-xs text-amber-300">Files were removed</span>
-        ) : deleted ? (
-          <div className="flex flex-col items-end gap-1">
-            <Button
-              small
-              variant="primary"
-              busy={restore.busy}
-              disabled={filesGone}
-              title={filesGone ? 'Files were removed' : undefined}
-              onClick={() => void doRestore()}
-            >
-              Restore
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {change && (
+            <div className="flex flex-wrap justify-end gap-1">
+              <Badge tone={CHANGE_TONE[change.type]}>{CHANGE_LABEL[change.type]}</Badge>
+              {change.type === 'override' && change.usesChurchVersion && (
+                <Badge tone="muted">Uses the church's for now</Badge>
+              )}
+              {change.type === 'override' && change.churchChangedSince && (
+                <Badge tone="warn">Church's changed since</Badge>
+              )}
+            </div>
+          )}
+          {readOnly ? (
+            filesGone && <span className="text-xs text-amber-300">Files were removed</span>
+          ) : deleted ? (
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                small
+                variant="primary"
+                busy={restore.busy}
+                disabled={filesGone}
+                title={filesGone ? 'Files were removed' : undefined}
+                onClick={() => void doRestore()}
+              >
+                Restore
+              </Button>
+              {filesGone && <span className="text-xs text-amber-300">Files were removed</span>}
+            </div>
+          ) : (
+            <Button small variant="ghost" onClick={beginDelete}>
+              Delete
             </Button>
-            {filesGone && <span className="text-xs text-amber-300">Files were removed</span>}
-          </div>
-        ) : (
-          <Button small variant="ghost" onClick={beginDelete}>
-            Delete
-          </Button>
-        )}
+          )}
+        </div>
       </div>
       <ErrorText error={restore.error} className="mt-1" />
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
