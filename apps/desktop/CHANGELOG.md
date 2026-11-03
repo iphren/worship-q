@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/iphren/worship-q/compare/v1.2.0...v1.3.0) (2026-11-03)
+
+
+### Features
+
+* **admin:** background videos play as soon as the preview opens ([9a35ae1](https://github.com/iphren/worship-q/commit/9a35ae10b745c49c7c103ed9ef663bb1a3fa9827))
+* **admin:** bars show each storage type's share of the total ([f87e860](https://github.com/iphren/worship-q/commit/f87e8609f67ad019f4875b270177d83d30f4d0bd))
+* **admin:** library tabs for slides and websites, search, and a preview drawer ([78806a8](https://github.com/iphren/worship-q/commit/78806a8824f64276621a2cad9aaebfd2b69921a4))
+* live role badge with role menu ([6ef8f73](https://github.com/iphren/worship-q/commit/6ef8f737de40143b9f4a11a0b8a4a1faa9ffff1a))
+
+
+### Bug Fixes
+
+* a restarted coordinator numbers past what it sent before ([8e9eda5](https://github.com/iphren/worship-q/commit/8e9eda55130ded9bc4c2c19b08c5b1c506ac948e))
+* **admin:** font setting buttons wrap instead of overflowing ([9e594b5](https://github.com/iphren/worship-q/commit/9e594b51165cdfd5a9c66e912a86a4e20b85d980))
+* **admin:** leave revoked devices out of the device list ([0ac27c5](https://github.com/iphren/worship-q/commit/0ac27c5314d17e33626f761f76c72c4026941020))
+* **admin:** storage table columns keep their gap on narrow screens ([c6cb012](https://github.com/iphren/worship-q/commit/c6cb0128c51f642623b43422f2afa084d9eb4541))
+* followers catch up with a restarted coordinator ([0b35569](https://github.com/iphren/worship-q/commit/0b35569b07005d2591e599aee6e6bd4f3586797f))
+* **server:** bundle the search package and install its dependencies ([d85b9da](https://github.com/iphren/worship-q/commit/d85b9da54c6975d4217fdf5c9b269878d82a44fb))
+
 ## [1.2.0](https://github.com/iphren/worship-q/compare/v1.1.1...v1.2.0) (2026-11-03)
 
 
