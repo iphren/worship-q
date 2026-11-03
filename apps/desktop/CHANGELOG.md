@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/iphren/worship-q/compare/v1.1.1...v1.2.0) (2026-11-03)
+
+
+### Features
+
+* implement phase 3, church administration ([43e52dd](https://github.com/iphren/worship-q/commit/43e52dd0fe71871021d12da46aa56e2728dd1a8c))
+
+
+### Bug Fixes
+
+* implement live state presence handling for desktops after outages ([61ca0fe](https://github.com/iphren/worship-q/commit/61ca0fefbe98b38952fc17b9fc97949bcac82605))
+* phase 3 review findings ([3529d32](https://github.com/iphren/worship-q/commit/3529d321c6f09356a87d68652eb0e62397bc8ea1))
+* presence-message fix for stale follower data ([320b393](https://github.com/iphren/worship-q/commit/320b3933f4c02baa5c29a9d6d40a638a829756ff))
+* six role-divergence bugs across the relay, transport switch, LAN transport and LiveLink ([e73ee35](https://github.com/iphren/worship-q/commit/e73ee35734e4c3681a7d146f3b492b67ce210e7c))
+
 ## [1.1.1](https://github.com/iphren/worship-q/compare/v1.1.0...v1.1.1) (2026-11-02)
 
 
