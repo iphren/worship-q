@@ -17,6 +17,7 @@ await build({
     '@worship-q/lyrics': '../../packages/lyrics/src/index.ts',
     '@worship-q/live-state': '../../packages/live-state/src/index.ts',
     '@worship-q/relay': '../../packages/relay/src/index.ts',
+    '@worship-q/search': '../../packages/search/src/index.ts',
   },
   banner: {
     js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);",
