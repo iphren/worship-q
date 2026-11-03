@@ -11,12 +11,12 @@ import {
   type LiveSnapshot,
 } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
-import { byteRange } from './admin';
 import { buildServer } from './app';
 import { openDatabase } from './db';
 import { churchFilesDir, workspaceFilesDir } from './files';
 import { Instance, PAIRING_MAX_PENDING, PAIRING_MAX_PENDING_PER_ADDRESS } from './instance';
 import { OidcClient } from './oidc';
+import { byteRange } from './ranges';
 import { fakeIssuer } from './oidc.test';
 
 function clock(start = '2026-11-02T09:00:00.000Z') {

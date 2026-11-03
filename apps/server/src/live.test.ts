@@ -204,6 +204,15 @@ describe('browser output links (D22)', () => {
       headers: { 'if-none-match': first.headers.etag as string },
     });
     expect(second.statusCode).toBe(304);
+    // Parts of a file, as Safari asks for them to play a video.
+    const part = await app.inject({
+      method: 'GET',
+      url: `/api/v1/output/files/bg-1.jpg?t=${token}`,
+      headers: { range: 'bytes=0-2' },
+    });
+    expect(part.statusCode).toBe(206);
+    expect(part.headers['content-range']).toBe('bytes 0-2/7');
+    expect(part.body).toBe('pic');
     expect(
       (await app.inject({ method: 'GET', url: '/api/v1/output/files/bg-1.jpg?t=nope' })).statusCode,
     ).toBe(401);

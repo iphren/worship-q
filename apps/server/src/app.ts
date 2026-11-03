@@ -39,6 +39,7 @@ import { z } from 'zod';
 import { registerAdminRoutes } from './admin';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
+import { sendFile } from './ranges';
 import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
@@ -227,11 +228,7 @@ export async function buildServer(config: ServerConfig) {
       reply.header('cache-control', 'private, max-age=31536000, immutable');
       reply.header('etag', etag);
       if (request.headers['if-none-match'] === etag) return reply.code(304).send();
-      reply.header('content-length', statSync(path).size);
-      reply.type(
-        name.endsWith('.mp4') ? 'video/mp4' : name.endsWith('.png') ? 'image/png' : 'image/jpeg',
-      );
-      return reply.send(createReadStream(path));
+      return sendFile(request, reply, path, name);
     },
   );
 
