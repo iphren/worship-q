@@ -151,14 +151,14 @@ function FontFamily(props: {
   return (
     <Setting title={props.title} hint={props.hint} isSet={props.value != null}>
       <form
-        className="flex flex-col gap-2 sm:flex-row"
+        className="flex flex-wrap gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           if (text.trim()) void save(text.trim());
         }}
       >
         <input
-          className={INPUT}
+          className={`${INPUT} min-w-48 flex-1 basis-48`}
           aria-label={props.title}
           value={text}
           maxLength={100}
