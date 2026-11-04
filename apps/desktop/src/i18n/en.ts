@@ -329,6 +329,9 @@ export const en = {
     '“{name}” already has content, and so does this computer. Keep both, or replace this computer’s songs and run sheets with the church’s copy?',
   'church.joinReplaceRequired':
     '“{name}” already has content. The administrator who approved this computer chose that it takes the church’s copy: its songs, run sheets and settings will be replaced by those of “{name}”.',
+  'church.joinStartEmptyRequired':
+    '“{name}” has no content yet. The administrator who approved this computer chose that it does not bring its own: its songs, run sheets and settings will be removed, and it starts “{name}” empty. The Church Library stays available.',
+  'church.joinStartEmpty': 'Remove and connect',
   'church.joinMerge': 'Keep both',
   'church.joinReplace': 'Use the church’s copy',
   'church.joinReplaceOnly':

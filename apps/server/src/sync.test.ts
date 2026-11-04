@@ -185,6 +185,26 @@ describe('synchronization between two devices', () => {
     expect(await titles(home)).toEqual(['Branch song', 'Home song']);
   });
 
+  it('starts a workspace empty when its first device takes the church’s copy', async () => {
+    const { clock, instance, code } = await setup();
+    const first = await device('first', clock, instance);
+    const song = await first.session.createSong({ title: 'First song', lyrics: 'a' });
+    await first.session.addSong(first.session.openDate, song.id);
+    await first.connect(code, 'replace');
+
+    const titles = async (d: typeof first) =>
+      (await d.store.listSongs(d.session.workspace.id)).map((s) => s.title);
+    expect(await titles(first)).toEqual([]);
+    expect(first.session.workspace.name).toBe('North Branch');
+    // It brought nothing: a device joining later receives no songs either.
+    clock.advance();
+    const later = await device('later', clock, instance);
+    await later.connect(code, 'replace');
+    expect(later.session.workspace.id).toBe(first.session.workspace.id);
+    expect(await titles(later)).toEqual([]);
+    expect(later.session.workspace.name).toBe('North Branch');
+  });
+
   it('takes a website and its history to another device', async () => {
     const { clock, instance, code } = await setup();
     const branch = await device('branch', clock, instance);

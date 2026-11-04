@@ -314,8 +314,10 @@ building.
 3. The first computer of a workspace uploads its songs, run sheets and settings.
    A computer joining later chooses either **Keep both**, which merges its songs into the
    workspace, or **Use the church's copy**, which replaces its own. If the administrator who
-   approved its pairing did not allow merging, it is offered only **Use the church's copy**.
-   Either way a backup is saved first in the app's data folder, under `backups/`.
+   approved its pairing did not allow merging, it is offered only **Use the church's copy**,
+   and brings nothing even to a workspace with no content yet, which it then starts empty.
+   The admin app warns when that would leave the computer with no songs at all. Either way
+   a backup is saved first in the app's data folder, under `backups/`.
 
 Computers connected before phase 3 stay connected; the device list shows them as joined with
 a connection code.

@@ -410,6 +410,7 @@ describe('workspaces', () => {
     });
     expect(off.json().workspace.libraryTypes).toEqual([]);
     expect(instance.listChurch('background')).toHaveLength(1);
+    expect(instance.churchLibraryEmpty()).toBe(false);
     const invalid = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/workspaces/${workspace.id}/library`,
@@ -1092,6 +1093,7 @@ describe('pairing from the device’s side (D29)', () => {
       url: '/api/v1/admin/devices',
       headers: admin.headers,
     });
+    expect(devices.json().churchLibraryEmpty).toBe(true);
     expect(devices.json().pending).toEqual([
       {
         code,

@@ -1188,6 +1188,14 @@ export class Instance {
 
   // ── The Church Library for administrators (D34, D37) ─────────────────────
 
+  /** Whether the Church Library has no item of any type, deleted ones aside. */
+  churchLibraryEmpty(): boolean {
+    return this.db
+      .prepare('SELECT data FROM church_record')
+      .all()
+      .every((row) => removed(row.data));
+  }
+
   /** The Church Library's songs or backgrounds, deleted ones included, newest change first. */
   listChurch(kind: LibraryKind): AdminLibraryItem[] {
     const names = new Map(this.listWorkspaces().map((w) => [w.id, w.name]));

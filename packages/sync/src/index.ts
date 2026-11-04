@@ -215,7 +215,10 @@ export type JoinMode =
   | 'upload'
   /** Keep this device's songs and run sheets, and add the church's. */
   | 'merge'
-  /** Discard this device's songs and run sheets and take the church's. */
+  /**
+   * Discard this device's songs and run sheets and take the church's. Into a workspace with
+   * no content yet, the device brings nothing and starts it empty.
+   */
   | 'replace';
 
 export class SyncClient {
@@ -442,23 +445,26 @@ export class SyncClient {
   async join(mode: JoinMode): Promise<void> {
     const local = this.session.workspace;
     const info = await this.api.workspace();
+    // Whether the church already has a copy to take; a workspace without one is started here.
+    const churchCopy = info.contentId !== null;
     const contentId = info.contentId ?? (await this.api.claim(local.id));
+    // A device that claims the workspace although another got there first still takes theirs.
+    const taking = mode === 'replace' && (churchCopy || contentId !== local.id);
     await this.session.external(async () => {
-      if (contentId !== local.id) {
-        if (mode === 'replace') await this.sync.clearContent(local.id);
-        await this.sync.rehomeWorkspace(local.id, contentId);
-      }
-      // Replacing takes the church's workspace settings too; otherwise the name the church
-      // gave the workspace is adopted.
-      if (mode === 'replace') await this.sync.yieldWorkspace(contentId);
+      if (mode === 'replace') await this.sync.clearContent(local.id);
+      if (contentId !== local.id) await this.sync.rehomeWorkspace(local.id, contentId);
+      // Taking the church's copy takes its workspace settings too; otherwise the name the
+      // church gave the workspace is adopted.
+      if (taking) await this.sync.yieldWorkspace(contentId);
       else await this.session.store.setWorkspaceName(contentId, info.name);
     });
     await this.sync.setState({
       workspaceName: info.name,
       joinedAt: this.now(),
       cursor: 0,
-      // After replacing, nothing here is newer than the church's copy.
-      pushedThrough: mode === 'replace' ? this.now() : null,
+      // After taking the church's copy, nothing here is newer than it. A workspace started
+      // empty here still sends its name and settings.
+      pushedThrough: taking ? this.now() : null,
     });
   }
 

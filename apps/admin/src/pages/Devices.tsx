@@ -63,6 +63,7 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
               key={request.code}
               request={request}
               workspaces={workspaces.data?.workspaces ?? []}
+              churchLibraryEmpty={list.data?.churchLibraryEmpty ?? false}
               highlighted={wantedPending?.code === request.code}
               onDone={() => {
                 list.reload();
@@ -99,6 +100,7 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
 function PendingRequest(props: {
   request: AdminPairingRequest;
   workspaces: AdminWorkspace[];
+  churchLibraryEmpty: boolean;
   highlighted: boolean;
   onDone(): void;
 }) {
@@ -115,6 +117,7 @@ function PendingRequest(props: {
     if (props.highlighted) ref.current?.scrollIntoView({ block: 'center' });
   }, [props.highlighted]);
   const chosen = workspaceId || (workspaces.length === 1 ? workspaces[0]!.id : '');
+  const workspaceHasContent = workspaces.find((w) => w.id === chosen)?.contentId != null;
 
   async function submit() {
     const result = await approve.run(() =>
@@ -206,12 +209,20 @@ function PendingRequest(props: {
                 <span className="text-slate-100">Don’t allow merging</span>
                 <span className="block text-xs text-slate-400">
                   They are replaced by the workspace’s copy, so the workspace receives nothing from
-                  it. A backup stays on the computer. A workspace with no content yet still takes
-                  this computer’s.
+                  it, even when the workspace has no content yet. A backup stays on the computer.
                 </span>
               </span>
             </label>
           </fieldset>
+          {allowMerge === false && props.churchLibraryEmpty && (
+            <Notice tone="warning">
+              This computer’s own songs and run sheets will be removed from it; only a backup in its
+              data folder keeps them.{' '}
+              {chosen && !workspaceHasContent
+                ? 'The Church Library is empty and this workspace has no content yet, so this computer will start with no songs at all.'
+                : 'The Church Library is empty, so this computer will have only the songs of the workspace it joins.'}
+            </Notice>
+          )}
           <ErrorText error={approve.error} />
           <div className="flex flex-wrap gap-2">
             <Button

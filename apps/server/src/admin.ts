@@ -341,6 +341,8 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           ...r,
           code: formatPairingCode(r.code),
         })),
+        // So that approving a computer that may not merge can warn it would have no songs.
+        churchLibraryEmpty: instance.churchLibraryEmpty(),
       };
     });
 

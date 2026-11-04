@@ -115,7 +115,11 @@ export const api = {
     `${ADMIN}/workspaces/${encode(id)}/files/${encode(name)}`,
 
   devices: () =>
-    request<{ devices: AdminDevice[]; pending: AdminPairingRequest[] }>('GET', `${ADMIN}/devices`),
+    request<{
+      devices: AdminDevice[];
+      pending: AdminPairingRequest[];
+      churchLibraryEmpty: boolean;
+    }>('GET', `${ADMIN}/devices`),
   renameDevice: (id: string, name: string) =>
     request<{ renamed: boolean }>('PATCH', `${ADMIN}/devices/${encode(id)}`, { name }),
   revokeDevice: (id: string) =>

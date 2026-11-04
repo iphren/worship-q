@@ -117,9 +117,11 @@ function ConnectForm() {
 
   /** Enrolled, one way or the other: choose how this computer's content meets the church's. */
   async function arrived(result: JoinPreview) {
-    // Nothing here to keep: simply take the church's content.
-    if (!result.churchEmpty && !result.hasLocalContent) await cloud.join('replace');
-    else setJoin(result);
+    // Nothing here to keep, or nothing this computer may bring: simply take the church's
+    // content, if any.
+    if (!result.hasLocalContent && (!result.churchEmpty || !result.allowMerge)) {
+      await cloud.join('replace');
+    } else setJoin(result);
   }
 
   // While pairing, ask the instance every few seconds whether an administrator decided. One
@@ -307,7 +309,7 @@ function ConnectForm() {
               <button type="button" className="btn" disabled={busy} onClick={() => setJoin(null)}>
                 {t('common.cancel')}
               </button>
-              {join.churchEmpty ? (
+              {join.churchEmpty && join.allowMerge ? (
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -342,7 +344,13 @@ function ConnectForm() {
                   disabled={busy}
                   onClick={() => void choose('replace')}
                 >
-                  {t(join.hasLocalContent ? 'church.joinReplace' : 'church.joinReceive')}
+                  {t(
+                    !join.hasLocalContent
+                      ? 'church.joinReceive'
+                      : join.churchEmpty
+                        ? 'church.joinStartEmpty'
+                        : 'church.joinReplace',
+                  )}
                 </button>
               )}
             </>
@@ -350,13 +358,18 @@ function ConnectForm() {
         >
           <div className="space-y-3">
             <p>
-              {join.churchEmpty
-                ? t('church.joinUploadBody', { name: join.workspaceName })
-                : !join.hasLocalContent
-                  ? t('church.joinReplaceOnly', { name: join.workspaceName })
-                  : join.allowMerge
-                    ? t('church.joinChooseBody', { name: join.workspaceName })
-                    : t('church.joinReplaceRequired', { name: join.workspaceName })}
+              {t(
+                join.churchEmpty && join.allowMerge
+                  ? 'church.joinUploadBody'
+                  : !join.hasLocalContent
+                    ? 'church.joinReplaceOnly'
+                    : join.allowMerge
+                      ? 'church.joinChooseBody'
+                      : join.churchEmpty
+                        ? 'church.joinStartEmptyRequired'
+                        : 'church.joinReplaceRequired',
+                { name: join.workspaceName },
+              )}
             </p>
             <p className="text-xs text-slate-400">{t('church.joinBackupNote')}</p>
           </div>
