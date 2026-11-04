@@ -131,9 +131,16 @@ function ConnectForm() {
     // Nothing here to keep, or nothing this computer may bring: simply take the church's
     // content, if any.
     if (!result.hasLocalContent && (!result.churchEmpty || !result.allowMerge)) {
-      await cloud.join('replace');
+      try {
+        await cloud.join('replace');
+      } catch (e) {
+        joinFailed(e);
+      }
     } else setJoin(result);
   }
+
+  /** Joining can fail here as well as on the way to the server, so it says neither. */
+  const joinFailed = (e: unknown) => setError(t('church.joinFailed', { error: String(e) }));
 
   // While pairing, ask the instance every few seconds whether an administrator decided. One
   // question at a time, so a slow answer is never overtaken by a later one. The approval is
@@ -186,7 +193,7 @@ function ConnectForm() {
     try {
       await cloud.join(mode);
     } catch (e) {
-      setError(t('church.unreachable', { error: String(e) }));
+      joinFailed(e);
       setJoin(null);
       setBusy(false);
     }

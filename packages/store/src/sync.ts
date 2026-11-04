@@ -838,6 +838,10 @@ export class SyncStore {
         sql: `DELETE FROM song_revision WHERE song_id IN (SELECT id FROM song WHERE workspace_id = ?)`,
         params: [workspaceId],
       },
+      {
+        sql: `DELETE FROM church_version WHERE song_id IN (SELECT id FROM song WHERE workspace_id = ?)`,
+        params: [workspaceId],
+      },
       { sql: 'DELETE FROM song WHERE workspace_id = ?', params: [workspaceId] },
       { sql: 'DELETE FROM setting WHERE workspace_id = ?', params: [workspaceId] },
       { sql: 'DELETE FROM background_asset WHERE workspace_id = ?', params: [workspaceId] },

@@ -432,6 +432,16 @@ describe('two versions of a song (D31, D32)', () => {
     expect((await store.updateSong(other.id, { title: 'Untouched' })).origin).toBe('church');
   });
 
+  it('clears a workspace’s songs with their church versions, to take the church’s copy', async () => {
+    const song = await churchSong();
+    env.advance(1000);
+    await store.updateSong(song.id, { lyrics: 'our line' });
+    expect(await store.getChurchVersion(song.id)).not.toBeNull();
+    await new SyncStore(store).clearContent(workspaceId);
+    expect(await store.listSongs(workspaceId)).toEqual([]);
+    expect(await store.getChurchVersion(song.id)).toBeNull();
+  });
+
   it('makes a version of a church deck when the workspace manages only songs', async () => {
     store.managedLibraryTypes = new Set(['songs']);
     const deck = {

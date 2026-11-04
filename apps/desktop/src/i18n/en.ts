@@ -332,6 +332,7 @@ export const en = {
   'church.joinStartEmptyRequired':
     '“{name}” has no content yet. The administrator who approved this computer chose that it does not bring its own: its songs, run sheets and settings will be removed, and it starts “{name}” empty. The Church Library stays available.',
   'church.joinStartEmpty': 'Remove and connect',
+  'church.joinFailed': 'Could not connect this computer: {error}',
   'church.joinMerge': 'Keep both',
   'church.joinReplace': 'Use the church’s copy',
   'church.joinReplaceOnly':
