@@ -23,6 +23,23 @@ function timeText(iso: string | null | undefined): string {
   });
 }
 
+/**
+ * What is wrong with the church connection, to flag outside Settings; null when nothing is,
+ * or when this computer is not connected to a church.
+ */
+export function useChurchProblem(): string | null {
+  const { state, sync, backup, credentials } = useCloud();
+  if (!state?.joinedAt) return null;
+  if (sync.kind === 'revoked') return t('church.revoked');
+  if (sync.kind === 'update-needed')
+    return t(sync.by === 'server' ? 'church.syncUpdateNeededServer' : 'church.syncUpdateNeeded');
+  if (credentials === 'refused') return t('church.tokenRefused');
+  if (credentials === 'missing') return t('church.tokenMissing');
+  if (sync.kind === 'error') return t('church.syncError', { error: sync.message });
+  if (backup.kind === 'failed') return t('church.backupFailed', { error: backup.message });
+  return null;
+}
+
 /** Settings section: connect to a church instance, or the state of the connection. */
 export function ChurchConnection() {
   const status = useCloud();

@@ -272,6 +272,7 @@ export const en = {
   'workspaces.unnamed': 'New workspace',
   'workspaces.local': 'Not connected',
   'workspaces.current': 'Open',
+  'workspaces.connect': 'Connect…',
   'workspaces.switch': 'Switch',
   'workspaces.add': 'Add workspace',
   'workspaces.remove': 'Remove…',
