@@ -236,7 +236,15 @@ export interface PairingStartResponse {
 
 export type PairingPollResponse =
   | { status: 'pending' }
-  | ({ status: 'approved' } & EnrollResponse)
+  | ({
+      status: 'approved';
+      /**
+       * Whether the administrator let this device keep its own songs and run sheets alongside
+       * the workspace's (“Keep both”). When false it can only take the workspace's copy, unless
+       * the workspace has no content yet. Missing from servers before this choice: allowed.
+       */
+      allowMerge?: boolean;
+    } & EnrollResponse)
   | { status: 'refused' }
   | { status: 'expired' };
 

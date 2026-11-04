@@ -278,6 +278,7 @@ const ERROR_TEXT: Record<string, string> = {
   'missing-header': 'The request was refused. Reload the page and try again.',
   'name-required': 'Enter a name.',
   'workspace-required': 'Choose a workspace.',
+  'merge-choice-required': 'Choose whether this computer may keep its own songs and run sheets.',
   'invalid-email': 'That is not a valid e-mail address.',
   'last-administrator':
     'The last administrator cannot be removed. Add another administrator first.',

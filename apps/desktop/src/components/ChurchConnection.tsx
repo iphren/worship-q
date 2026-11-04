@@ -316,7 +316,7 @@ function ConnectForm() {
                 >
                   {t('church.joinUpload')}
                 </button>
-              ) : join.hasLocalContent ? (
+              ) : join.hasLocalContent && join.allowMerge ? (
                 <>
                   <button
                     type="button"
@@ -342,7 +342,7 @@ function ConnectForm() {
                   disabled={busy}
                   onClick={() => void choose('replace')}
                 >
-                  {t('church.joinReceive')}
+                  {t(join.hasLocalContent ? 'church.joinReplace' : 'church.joinReceive')}
                 </button>
               )}
             </>
@@ -352,9 +352,11 @@ function ConnectForm() {
             <p>
               {join.churchEmpty
                 ? t('church.joinUploadBody', { name: join.workspaceName })
-                : join.hasLocalContent
-                  ? t('church.joinChooseBody', { name: join.workspaceName })
-                  : t('church.joinReplaceOnly', { name: join.workspaceName })}
+                : !join.hasLocalContent
+                  ? t('church.joinReplaceOnly', { name: join.workspaceName })
+                  : join.allowMerge
+                    ? t('church.joinChooseBody', { name: join.workspaceName })
+                    : t('church.joinReplaceRequired', { name: join.workspaceName })}
             </p>
             <p className="text-xs text-slate-400">{t('church.joinBackupNote')}</p>
           </div>

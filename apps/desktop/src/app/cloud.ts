@@ -89,6 +89,11 @@ export interface JoinPreview {
   workspaceName: string;
   churchEmpty: boolean;
   hasLocalContent: boolean;
+  /**
+   * The administrator who approved the pairing let this computer keep its own content
+   * (“Keep both”). Always true when joining with a connection code.
+   */
+  allowMerge: boolean;
 }
 
 export class CloudController {
@@ -356,7 +361,7 @@ export class CloudController {
   async enroll(address: string, code: string, deviceName: string): Promise<JoinPreview> {
     const server = await this.aim(address);
     const enrolled = await this.client.enroll(server, code, deviceName);
-    return this.joined(enrolled.workspace);
+    return this.joined(enrolled.workspace, true);
   }
 
   /**
@@ -387,7 +392,10 @@ export class CloudController {
     if (!server) throw new Error('not-connected');
     const result = await this.client.pollPairing(server, secret, deviceName);
     if (result.status !== 'approved') return { status: result.status };
-    return { status: 'approved', join: await this.joined(result.workspace) };
+    return {
+      status: 'approved',
+      join: await this.joined(result.workspace, result.allowMerge !== false),
+    };
   }
 
   /** Points the connection at an instance and learns what it speaks. */
@@ -398,16 +406,17 @@ export class CloudController {
     return server;
   }
 
-  private async joined(workspace: {
-    name: string;
-    contentId: string | null;
-  }): Promise<JoinPreview> {
+  private async joined(
+    workspace: { name: string; contentId: string | null },
+    allowMerge: boolean,
+  ): Promise<JoinPreview> {
     await this.protectCredentials();
     await this.refreshState();
     return {
       workspaceName: workspace.name,
       churchEmpty: workspace.contentId === null,
       hasLocalContent: await this.syncStore.hasContent(this.session.workspace.id),
+      allowMerge,
     };
   }
 

@@ -1158,9 +1158,11 @@ describe('Church Library files', () => {
       const other = instance.createWorkspace('South').workspace;
       // As the database was before management was per type.
       const version = Number(before.prepare('PRAGMA user_version').get()!.user_version);
+      // The migrations since then are undone too, so that they run again.
+      before.exec('ALTER TABLE pairing_request DROP COLUMN allow_merge');
       before.exec('ALTER TABLE workspace DROP COLUMN library_types');
       before.prepare('UPDATE workspace SET manage_library = 1 WHERE id = ?').run(managing.id);
-      before.exec(`PRAGMA user_version = ${version - 1}`);
+      before.exec(`PRAGMA user_version = ${version - 2}`);
       before.close();
 
       const after = new Instance(openDatabase(path));

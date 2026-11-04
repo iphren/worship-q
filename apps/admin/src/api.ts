@@ -120,11 +120,11 @@ export const api = {
     request<{ renamed: boolean }>('PATCH', `${ADMIN}/devices/${encode(id)}`, { name }),
   revokeDevice: (id: string) =>
     request<{ revoked: boolean }>('DELETE', `${ADMIN}/devices/${encode(id)}`),
-  approvePairing: (code: string, workspaceId: string, name: string | null) =>
+  approvePairing: (code: string, workspaceId: string, name: string | null, allowMerge: boolean) =>
     request<{ device: { id: string; name: string; workspaceId: string } }>(
       'POST',
       `${ADMIN}/pairing/${encode(code)}/approve`,
-      name ? { workspaceId, name } : { workspaceId },
+      name ? { workspaceId, name, allowMerge } : { workspaceId, allowMerge },
     ),
   refusePairing: (code: string) =>
     request<{ refused: boolean }>('POST', `${ADMIN}/pairing/${encode(code)}/refuse`),

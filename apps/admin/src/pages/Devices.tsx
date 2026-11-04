@@ -106,6 +106,8 @@ function PendingRequest(props: {
   const [open, setOpen] = useState(props.highlighted);
   const [workspaceId, setWorkspaceId] = useState('');
   const [name, setName] = useState('');
+  // Deliberately unset: the administrator must choose each time (no default).
+  const [allowMerge, setAllowMerge] = useState<boolean | null>(null);
   const [refusing, setRefusing] = useState(false);
   const approve = useAction();
   const ref = useRef<HTMLLIElement>(null);
@@ -116,7 +118,7 @@ function PendingRequest(props: {
 
   async function submit() {
     const result = await approve.run(() =>
-      api.approvePairing(request.code, chosen, name.trim() || null),
+      api.approvePairing(request.code, chosen, name.trim() || null, allowMerge!),
     );
     if (result) props.onDone();
   }
@@ -142,7 +144,7 @@ function PendingRequest(props: {
           className="mt-3 space-y-3"
           onSubmit={(event) => {
             event.preventDefault();
-            if (chosen) void submit();
+            if (chosen && allowMerge !== null) void submit();
           }}
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -173,9 +175,51 @@ function PendingRequest(props: {
               />
             </label>
           </div>
+          <fieldset className="space-y-2 text-sm text-slate-300">
+            <legend className="mb-1">
+              If this computer already has songs and run sheets of its own
+            </legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name={`merge-${request.code}`}
+                className="mt-1"
+                checked={allowMerge === true}
+                onChange={() => setAllowMerge(true)}
+              />
+              <span>
+                <span className="text-slate-100">Allow merging</span>
+                <span className="block text-xs text-slate-400">
+                  It may keep them and add them to the workspace, alongside the workspace’s own.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name={`merge-${request.code}`}
+                className="mt-1"
+                checked={allowMerge === false}
+                onChange={() => setAllowMerge(false)}
+              />
+              <span>
+                <span className="text-slate-100">Don’t allow merging</span>
+                <span className="block text-xs text-slate-400">
+                  They are replaced by the workspace’s copy, so the workspace receives nothing from
+                  it. A backup stays on the computer. A workspace with no content yet still takes
+                  this computer’s.
+                </span>
+              </span>
+            </label>
+          </fieldset>
           <ErrorText error={approve.error} />
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="primary" busy={approve.busy} disabled={!chosen}>
+            <Button
+              type="submit"
+              variant="primary"
+              busy={approve.busy}
+              disabled={!chosen || allowMerge === null}
+            >
               Approve
             </Button>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={approve.busy}>

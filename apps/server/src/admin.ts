@@ -363,23 +363,30 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       return { revoked };
     });
 
-    api.post<{ Params: { code: string }; Body: { workspaceId?: string; name?: string } }>(
-      '/api/v1/admin/pairing/:code/approve',
-      async (request, reply) => {
-        const workspaceId = String(request.body?.workspaceId ?? '');
-        if (!instance.getWorkspace(workspaceId)) {
-          return reply.code(400).send({ error: 'workspace-required' });
-        }
-        const device = instance.approvePairing(
-          request.params.code,
-          workspaceId,
-          typeof request.body?.name === 'string' ? request.body.name : null,
-          request.admin!.id,
-        );
-        if (!device) return reply.code(404).send({ error: 'not-pending' });
-        return { device: { id: device.id, name: device.name, workspaceId: device.workspaceId } };
-      },
-    );
+    api.post<{
+      Params: { code: string };
+      Body: { workspaceId?: string; name?: string; allowMerge?: boolean };
+    }>('/api/v1/admin/pairing/:code/approve', async (request, reply) => {
+      const workspaceId = String(request.body?.workspaceId ?? '');
+      if (!instance.getWorkspace(workspaceId)) {
+        return reply.code(400).send({ error: 'workspace-required' });
+      }
+      // Whether the computer may merge its own library is a choice the administrator makes
+      // each time, never a default.
+      const allowMerge = request.body?.allowMerge;
+      if (typeof allowMerge !== 'boolean') {
+        return reply.code(400).send({ error: 'merge-choice-required' });
+      }
+      const device = instance.approvePairing(
+        request.params.code,
+        workspaceId,
+        typeof request.body?.name === 'string' ? request.body.name : null,
+        request.admin!.id,
+        allowMerge,
+      );
+      if (!device) return reply.code(404).send({ error: 'not-pending' });
+      return { device: { id: device.id, name: device.name, workspaceId: device.workspaceId } };
+    });
 
     api.post<{ Params: { code: string } }>(
       '/api/v1/admin/pairing/:code/refuse',

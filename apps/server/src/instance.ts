@@ -369,6 +369,7 @@ export class Instance {
           deviceId: device.id,
           deviceToken: text(row.token),
           workspace: { id: workspace.id, name: workspace.name, contentId: workspace.contentId },
+          allowMerge: row.allow_merge !== 0,
         };
       }
     }
@@ -396,13 +397,16 @@ export class Instance {
 
   /**
    * Approves a pending request into a workspace. The device is named as the administrator
-   * chose, else as it proposed. Returns the device, or null when the code is not pending.
+   * chose, else as it proposed. `allowMerge` says whether it may keep its own songs and run
+   * sheets alongside the workspace's when it joins. Returns the device, or null when the code
+   * is not pending.
    */
   approvePairing(
     code: string,
     workspaceId: string,
     name: string | null,
     administratorId: string,
+    allowMerge: boolean,
   ): DeviceRow | null {
     this.sweepPairing();
     if (!this.getWorkspace(workspaceId)) throw new Error(`No workspace ${workspaceId}`);
@@ -419,10 +423,11 @@ export class Instance {
       );
       this.db
         .prepare(
-          `UPDATE pairing_request SET status = 'approved', device_id = ?, token = ?, decided_at = ?, decided_by = ?
+          `UPDATE pairing_request SET status = 'approved', device_id = ?, token = ?, decided_at = ?, decided_by = ?,
+             allow_merge = ?
            WHERE id = ?`,
         )
-        .run(device.id, token, this.now(), administratorId, text(row.id));
+        .run(device.id, token, this.now(), administratorId, allowMerge ? 1 : 0, text(row.id));
       return device;
     });
   }

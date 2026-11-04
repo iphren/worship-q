@@ -172,6 +172,11 @@ const MIGRATIONS: string[][] = [
     `UPDATE workspace SET library_types = '["songs","backgrounds","slides","websites"]'
      WHERE manage_library = 1`,
   ],
+  [
+    // Whether the approving administrator let the device merge its own content into the
+    // workspace when it joins (1) or only take the workspace's copy (0) (D29).
+    `ALTER TABLE pairing_request ADD COLUMN allow_merge INTEGER`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

@@ -304,15 +304,18 @@ building.
 2. With an administrator on the server, the computer shows an eight-character code and a QR
    code and waits. An administrator opens the admin app (or scans the QR code, which opens
    the request there after sign-in), checks the code and the computer's name, chooses the
-   workspace, and approves. The request lasts fifteen minutes. Without an administrator yet,
-   or on a server before phase 3, the computer asks for a connection code instead: create
+   workspace, chooses whether the computer may merge its own songs and run sheets into it
+   (there is no default), and approves. The request lasts fifteen minutes. Without an
+   administrator yet, or on a server before phase 3, the computer asks for a connection code
+   instead: create
    the workspace in the admin app or with `workspace create`, and enter the code it prints.
    An administrator can also turn a workspace's code on for a while, and the computer offers
    **I have a connection code instead**.
 3. The first computer of a workspace uploads its songs, run sheets and settings.
    A computer joining later chooses either **Keep both**, which merges its songs into the
-   workspace, or **Use the church's copy**, which replaces its own. Either way a backup is
-   saved first in the app's data folder, under `backups/`.
+   workspace, or **Use the church's copy**, which replaces its own. If the administrator who
+   approved its pairing did not allow merging, it is offered only **Use the church's copy**.
+   Either way a backup is saved first in the app's data folder, under `backups/`.
 
 Computers connected before phase 3 stay connected; the device list shows them as joined with
 a connection code.

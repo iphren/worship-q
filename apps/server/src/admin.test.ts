@@ -1100,11 +1100,21 @@ describe('pairing from the device’s side (D29)', () => {
         expiresAt: expect.any(String),
       },
     ]);
+    // Whether it may merge its own library is a choice the administrator must make.
+    const undecided = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/pairing/${code}/approve`,
+      headers: admin.headers,
+      payload: { workspaceId: workspace.id, name: 'Foyer' },
+    });
+    expect(undecided.statusCode).toBe(400);
+    expect(undecided.json()).toEqual({ error: 'merge-choice-required' });
+    expect((await poll()).json()).toEqual({ status: 'pending' });
     const approved = await app.inject({
       method: 'POST',
       url: `/api/v1/admin/pairing/${code.toLowerCase()}/approve`,
       headers: admin.headers,
-      payload: { workspaceId: workspace.id, name: 'Foyer' },
+      payload: { workspaceId: workspace.id, name: 'Foyer', allowMerge: false },
     });
     expect(approved.json().device).toMatchObject({ name: 'Foyer', workspaceId: workspace.id });
 
@@ -1113,6 +1123,7 @@ describe('pairing from the device’s side (D29)', () => {
       status: 'approved',
       deviceId: approved.json().device.id,
       workspace: { id: workspace.id, name: 'North' },
+      allowMerge: false,
     });
     // An answer lost on the way can be asked for again, until the device uses its token.
     expect((await poll()).json()).toEqual(result);
@@ -1195,7 +1206,7 @@ describe('pairing from the device’s side (D29)', () => {
       method: 'POST',
       url: `/api/v1/admin/pairing/${two.code}/approve`,
       headers: admin.headers,
-      payload: { workspaceId: instance.listWorkspaces()[0]!.id },
+      payload: { workspaceId: instance.listWorkspaces()[0]!.id, allowMerge: true },
     });
     expect(late.statusCode).toBe(404);
 
@@ -1242,7 +1253,7 @@ describe('pairing from the device’s side (D29)', () => {
       method: 'POST',
       url: `/api/v1/admin/pairing/${first[0].code}/approve`,
       headers: admin.headers,
-      payload: { workspaceId: workspace.id },
+      payload: { workspaceId: workspace.id, allowMerge: true },
     });
     expect((await ask('203.0.113.7')).statusCode).toBe(200);
 
