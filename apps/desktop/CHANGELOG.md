@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/iphren/worship-q/compare/v1.4.0...v1.4.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **desktop:** sign and notarize the Mac app with Developer ID ([416c5ff](https://github.com/iphren/worship-q/commit/416c5ff5cd7f18d47cf0856b5091a7c08e713d8f))
+* **server:** updates no longer fill the disk with Docker build cache ([ad1c442](https://github.com/iphren/worship-q/commit/ad1c4423d24f582cccb299287bc3008285dbfeda))
+
 ## [1.4.0](https://github.com/iphren/worship-q/compare/v1.3.0...v1.4.0) (2026-11-03)
 
 
