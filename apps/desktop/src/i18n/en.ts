@@ -294,7 +294,7 @@ export const en = {
   'church.code': 'Connection code',
   'church.codePlaceholder': 'ABCD-EFGH-JKLM',
   'church.deviceName': 'This computer’s name',
-  'church.deviceNameDefault': 'Presentation laptop',
+  'church.deviceNameDefault': 'Presentation computer',
   'church.connect': 'Connect',
   'church.connecting': 'Connecting…',
   'church.invalidCode':

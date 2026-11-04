@@ -12,6 +12,7 @@ import { useApp, useCloud } from '../app/context';
 import type { JoinPreview } from '../app/cloud';
 import { canPair, joinMethod } from '../app/joinMethod';
 import { t } from '../i18n';
+import { native } from '../platform/native';
 import { ConfirmDialog, Dialog } from './Dialog';
 
 function timeText(iso: string | null | undefined): string {
@@ -62,6 +63,16 @@ function ConnectForm() {
   const [error, setError] = useState<string | null>(null);
   const [join, setJoin] = useState<JoinPreview | null>(null);
   const [step, setStep] = useState<Step>({ kind: 'address' });
+
+  // Proposes the computer's own name, unless the operator already typed one.
+  useEffect(() => {
+    native
+      .computerName()
+      .then((computer) => {
+        if (computer) setName((n) => (n === t('church.deviceNameDefault') ? computer : n));
+      })
+      .catch(() => undefined);
+  }, []);
 
   const deviceName = () => name.trim() || t('church.deviceNameDefault');
   const failed = (e: unknown) =>

@@ -52,6 +52,8 @@ export const native = {
   uploadBackup: (server: string, token: string) => invoke<void>('upload_backup', { server, token }),
   /** Saves a backup in the app's data folder; returns its path. */
   backupBeforeJoin: () => invoke<string>('backup_before_join'),
+  /** This computer's name as its owner knows it; null when it cannot be found. */
+  computerName: () => invoke<string | null>('computer_name'),
   /** Makes `frame` what the subtitle overlay page, or the localhost slideshow page, shows. */
   publishOverlay: (frame: unknown, kind: OutputKind = 'subtitle') =>
     invoke<void>('overlay_publish', { frame: JSON.stringify(frame), kind }),

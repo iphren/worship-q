@@ -180,3 +180,22 @@ pub fn backup_before_join(data: State<'_, AppData>) -> Result<String, String> {
     export_to(&data, &path)?;
     Ok(path.to_string_lossy().into_owned())
 }
+
+/// This computer's name as its owner knows it, to propose when it connects to a church:
+/// the name in Sharing settings on macOS (“Pat’s MacBook Pro”), the computer name on Windows.
+/// None when it cannot be found.
+#[tauri::command(async)]
+pub fn computer_name() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    let name = std::process::Command::new("/usr/sbin/scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .and_then(|out| String::from_utf8(out.stdout).ok());
+    #[cfg(not(target_os = "macos"))]
+    let name = std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .ok();
+    name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty())
+}
