@@ -5,6 +5,7 @@ import {
   expiryText,
   formatBytes,
   formatDate,
+  groupDevicesByWorkspace,
   isPast,
   normalizePairingCode,
   onScreen,
@@ -258,6 +259,27 @@ describe('orderDevices', () => {
       device({ id: 'c', workspaceName: 'Main', name: 'Alpha' }),
     ]);
     expect(ordered.map((d) => d.id)).toEqual(['c', 'a', 'b', 'r2', 'r1']);
+  });
+
+  it('groups by workspace name, then orders each group by device name', () => {
+    const groups = groupDevicesByWorkspace([
+      device({ id: 'y', workspaceId: 'w2', workspaceName: 'Sutton', name: 'Ren Win' }),
+      device({ id: 'x', workspaceId: 'w2', workspaceName: 'Sutton', name: 'Iphren Air' }),
+      device({
+        id: 'r',
+        workspaceId: 'w3',
+        workspaceName: 'Bristol',
+        name: 'Old',
+        revokedAt: '2026-05-01T00:00:00Z',
+      }),
+      device({ id: 'm', workspaceId: 'w1', workspaceName: 'London', name: 'Mac mini' }),
+      device({ id: 'a', workspaceId: 'w1', workspaceName: 'London', name: 'Air' }),
+    ]);
+    expect(groups.map((g) => [g.workspaceName, g.devices.map((d) => d.id)])).toEqual([
+      ['Bristol', ['r']],
+      ['London', ['a', 'm']],
+      ['Sutton', ['x', 'y']],
+    ]);
   });
 });
 

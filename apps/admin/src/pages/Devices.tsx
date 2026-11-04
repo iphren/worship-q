@@ -1,7 +1,7 @@
 import type { AdminDevice, AdminPairingRequest, AdminWorkspace } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { expiryText, normalizePairingCode, orderDevices } from '../format';
+import { expiryText, groupDevicesByWorkspace, normalizePairingCode } from '../format';
 import {
   Badge,
   Button,
@@ -26,9 +26,10 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
   // Revoked devices are left out, except one revoked here, which stays until the page is left
   // so that the administrator sees the revocation happen.
   const [revokedHere, setRevokedHere] = useState<ReadonlySet<string>>(new Set());
-  const devices = orderDevices(
-    (list.data?.devices ?? []).filter((d) => d.revokedAt === null || revokedHere.has(d.id)),
+  const devices = (list.data?.devices ?? []).filter(
+    (d) => d.revokedAt === null || revokedHere.has(d.id),
   );
+  const groups = groupDevicesByWorkspace(devices);
   const pending = list.data?.pending ?? [];
   const wanted = pairCode ? normalizePairingCode(pairCode) : null;
   const wantedPending = wanted
@@ -77,21 +78,32 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
       <section>
         <SectionTitle>Computers and phones</SectionTitle>
         {list.data && devices.length === 0 && <Empty>No device has access to a workspace.</Empty>}
-        <ul className="space-y-2">
-          {devices.map((device) => (
-            <DeviceRow
-              key={device.id}
-              device={device}
-              onChanged={(next) => {
-                if (next.revokedAt !== null) setRevokedHere((ids) => new Set(ids).add(next.id));
-                list.setData((d) => ({
-                  ...d,
-                  devices: d.devices.map((x) => (x.id === next.id ? next : x)),
-                }));
-              }}
-            />
+        <div className="space-y-5">
+          {groups.map((group) => (
+            <div key={group.workspaceId}>
+              <h3 className="mb-2 text-sm font-semibold text-slate-300">
+                {group.workspaceName || 'Unnamed workspace'}
+              </h3>
+              <ul className="space-y-2">
+                {group.devices.map((device) => (
+                  <DeviceRow
+                    key={device.id}
+                    device={device}
+                    showWorkspace={false}
+                    onChanged={(next) => {
+                      if (next.revokedAt !== null)
+                        setRevokedHere((ids) => new Set(ids).add(next.id));
+                      list.setData((d) => ({
+                        ...d,
+                        devices: d.devices.map((x) => (x.id === next.id ? next : x)),
+                      }));
+                    }}
+                  />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     </div>
   );

@@ -264,6 +264,29 @@ export function orderDevices(devices: readonly AdminDevice[]): AdminDevice[] {
   });
 }
 
+export interface DeviceGroup {
+  workspaceId: string;
+  workspaceName: string;
+  devices: AdminDevice[];
+}
+
+/** Devices grouped by workspace, groups by workspace name, each group in `orderDevices` order. */
+export function groupDevicesByWorkspace(devices: readonly AdminDevice[]): DeviceGroup[] {
+  const groups = new Map<string, DeviceGroup>();
+  for (const device of orderDevices(devices)) {
+    let group = groups.get(device.workspaceId);
+    if (!group) {
+      group = { workspaceId: device.workspaceId, workspaceName: device.workspaceName, devices: [] };
+      groups.set(device.workspaceId, group);
+    }
+    group.devices.push(device);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      a.workspaceName.localeCompare(b.workspaceName) || a.workspaceId.localeCompare(b.workspaceId),
+  );
+}
+
 // ── Errors ─────────────────────────────────────────────────────────────────
 
 const ERROR_TEXT: Record<string, string> = {
