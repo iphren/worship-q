@@ -211,16 +211,18 @@ function ConnectForm() {
         </label>
       )}
       {step.kind === 'pairing' && (
-        <div className="ml-43 max-w-sm space-y-3 rounded-md border border-slate-700 bg-slate-800/60 p-3 text-sm">
-          <p>{t('church.pairingIntro')}</p>
-          <p className="text-center font-mono text-3xl tracking-[0.2em] text-white">
-            {step.pairing.code}
-          </p>
+        <div className="flex max-w-xl flex-wrap items-center gap-4 rounded-md border border-slate-700 bg-slate-800/60 p-3 text-sm">
           <QrCode value={step.pairing.url} />
-          <p className="text-xs text-slate-400">
-            {t('church.pairingWaiting')}{' '}
-            {t('church.pairingExpires', { time: timeText(step.pairing.expiresAt) })}
-          </p>
+          <div className="min-w-48 flex-1 space-y-2">
+            <p>{t('church.pairingIntro')}</p>
+            <p className="font-mono text-2xl whitespace-nowrap tracking-[0.15em] text-white">
+              {step.pairing.code}
+            </p>
+            <p className="text-xs text-slate-400">
+              {t('church.pairingWaiting')}{' '}
+              {t('church.pairingExpires', { time: timeText(step.pairing.expiresAt) })}
+            </p>
+          </div>
         </div>
       )}
       {step.kind === 'refused' && (
@@ -358,7 +360,7 @@ function QrCode(props: { value: string }) {
   }, [props.value]);
   return (
     <div
-      className="mx-auto w-40 rounded-md bg-white p-2"
+      className="w-36 shrink-0 rounded-md bg-white p-2"
       // The markup is generated locally from the pairing link.
       dangerouslySetInnerHTML={{ __html: svg }}
     />
