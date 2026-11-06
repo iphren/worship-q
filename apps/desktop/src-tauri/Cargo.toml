@@ -1,6 +1,6 @@
 [package]
 name = "worship-q"
-version = "1.4.1"
+version = "1.5.0"
 description = "Worship Q desktop app"
 edition = "2021"
 license = "MIT"

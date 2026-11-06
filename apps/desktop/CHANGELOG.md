@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.5.0](https://github.com/iphren/worship-q/compare/v1.4.1...v1.5.0) (2026-11-06)
+
+
+### Features
+
+* **admin:** group devices by workspace on the Devices page ([5d6d53b](https://github.com/iphren/worship-q/commit/5d6d53b6f3cf40cb557a0ac8099a95664f047152))
+* **desktop:** dev builds share the release build's keychain entry ([8d5f453](https://github.com/iphren/worship-q/commit/8d5f453e812be9bdb633bcb574dee249e43ac2c2))
+* **desktop:** mark the background tab the on-screen song is using ([c009d3c](https://github.com/iphren/worship-q/commit/c009d3c273a583510cece6da217fa664b9314d71))
+* **desktop:** pin library items to the top of the list ([d090bc2](https://github.com/iphren/worship-q/commit/d090bc217c60c432b00b33cd4e0162cde82f6797))
+* **desktop:** propose the computer's own name when connecting to a church ([13081c2](https://github.com/iphren/worship-q/commit/13081c226f73649f7e29ca50fbbcda9c4031b39a))
+* **desktop:** reorder settings and group text options ([ff51970](https://github.com/iphren/worship-q/commit/ff519708545307162fa53e9af47c944f0bd99329))
+* **desktop:** retry a failed sync or backup from the workspaces dialog ([c9781a3](https://github.com/iphren/worship-q/commit/c9781a3116c40d50c2f90927f0f7f2a0537fa0cc))
+* **desktop:** show church connection state on the workspace button ([d6e15c8](https://github.com/iphren/worship-q/commit/d6e15c825cbfba5b19394c272a88600809f9dd61))
+* **server:** administrators choose whether a pairing computer may merge its library ([45e1423](https://github.com/iphren/worship-q/commit/45e1423c6331fac00534d4328684099e010889d3))
+
+
+### Bug Fixes
+
+* "Don't allow merging" brings nothing, even to a workspace without content ([f2cc464](https://github.com/iphren/worship-q/commit/f2cc464cecac67acac852508beb49b0c5ec4532f))
+* **admin:** confirm an approved pairing instead of warning it expired ([04c53a0](https://github.com/iphren/worship-q/commit/04c53a027a3ec0bb2ccc9e65c8d929c91479e725))
+* **desktop:** clear church versions when taking the church's copy ([b5f330a](https://github.com/iphren/worship-q/commit/b5f330ad3c9e60bdcc8a0cce3be3dd078d0a2722))
+* **desktop:** highlight the open workspace's name instead of an "Open" label ([81cd388](https://github.com/iphren/worship-q/commit/81cd388b164ecd74124f029fb2feb813a5bfb440))
+* **desktop:** lay out the pairing code beside its QR code ([38f35d8](https://github.com/iphren/worship-q/commit/38f35d8ac30071fd65515099099dd976072e85d3))
+* **desktop:** use Credential Manager in Windows dev builds ([aca66b4](https://github.com/iphren/worship-q/commit/aca66b402d7d297c2f0c7b7c89f2b5ceb0b76156))
+* forget the church defaults when leaving the church ([c31c074](https://github.com/iphren/worship-q/commit/c31c07409cb4f31a78f167bd4a9736f2ef7a46d0))
+* keep hidden labels inside their scroll boxes ([ccc265a](https://github.com/iphren/worship-q/commit/ccc265a5f7a567be32860b41bf088cb89fa9272b))
+
 ## [1.4.1](https://github.com/iphren/worship-q/compare/v1.4.0...v1.4.1) (2026-11-04)
 
 
