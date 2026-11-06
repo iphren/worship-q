@@ -66,7 +66,7 @@ Operators want to control OBS from Worship Q: from the remote control on a phone
 | O9 | Take-over | Activating a link on another computer takes the state over silently; the previous computer's link deactivates itself. No notification. **Agreed.** |
 | O10 | Settings location | Address, favourites and active flag on the OBS computer, password in the keychain. Nothing on the server. **Proposed.** |
 | O11 | Transport | New message kinds on the existing coordinator, follower and phone channels, as protocol version 4 with the relay updated; the coordinator forwards without owning, and only to devices declaring the `obs` capability. **Proposed.** |
-| O12 | Setup help | Read port and password from obs-websocket's own settings file when possible; otherwise the operator pastes the password once. **Proposed; path to verify.** |
+| O12 | Setup help | Read port and password from obs-websocket's own settings file when possible; otherwise the operator pastes the password once. **Proposed; path verified on macOS and Windows.** |
 
 ## 6. Open questions
 
@@ -93,4 +93,4 @@ Checked against the obs-websocket protocol document (`docs/generated/protocol.md
 | Survives Worship Q restarts | Our side: link settings in the workspace folder and the password in the keychain, with automatic retry. Same pattern as the device token and the LAN connection today. |
 | Our client library | `tokio-tungstenite` with the `handshake` feature connects to `ws://` without TLS features; `sha2` is present; a `base64` crate is needed. |
 
-Checked in the code: the relay parses `toCoordinator` and `toFollower` with the protocol schemas and refuses unknown kinds, so the new messages need a relay change and a server update (O11). Confirmed on macOS by the [spike](spikes/obs.md) (6 November 2026): the plugin configuration folder for O12 and `SetCurrentProgramScene` under Studio Mode; the Windows folder is still to confirm. Tasks are in the [task breakdown](obs-control-task-breakdown.md).
+Checked in the code: the relay parses `toCoordinator` and `toFollower` with the protocol schemas and refuses unknown kinds, so the new messages need a relay change and a server update (O11). Confirmed on macOS and Windows by the [spike](spikes/obs.md) (6 November 2026): the plugin configuration folder for O12 and `SetCurrentProgramScene` under Studio Mode. Tasks are in the [task breakdown](obs-control-task-breakdown.md).
