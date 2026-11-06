@@ -269,197 +269,14 @@ export function SettingsPage() {
   return (
     <div className="flex h-full min-h-0 gap-4 p-4">
       <div ref={mainRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
-        <Section
-          title={t('settings.meetingDays')}
-          hint={t('settings.meetingDaysHint', { label: meetingDaysLabel(days) })}
-        >
-          <div className="flex flex-wrap gap-2">
-            {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-              <label
-                key={day}
-                className={`btn relative cursor-pointer ${days.includes(day) ? 'btn-primary' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={days.includes(day)}
-                  onChange={() => toggleDay(day)}
-                />
-                {weekdayName(day, 'short')}
-              </label>
-            ))}
-          </div>
-        </Section>
-
-        <Section title={t('settings.lyrics')}>
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.linesPerPiece')}</span>
-            <select
-              className="field w-24"
-              value={settings.linesPerPiece}
-              onChange={(e) =>
-                void session.updatePresentationSettings({ linesPerPiece: Number(e.target.value) })
-              }
-            >
-              {Array.from(
-                { length: MAX_LINES_PER_PIECE - MIN_LINES_PER_PIECE + 1 },
-                (_, i) => i + MIN_LINES_PER_PIECE,
-              ).map((count) => (
-                <option key={count} value={count}>
-                  {count}
-                </option>
-              ))}
-            </select>
-          </label>
-          {inheritance('linesPerPiece')}
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1 h-4 w-4"
-              checked={settings.wrapLongLines}
-              onChange={(e) =>
-                void session.updatePresentationSettings({ wrapLongLines: e.target.checked })
-              }
-            />
-            <span>
-              {t('settings.wrap')}
-              <span className="block text-xs text-slate-400">{t('settings.wrapHint')}</span>
-            </span>
-          </label>
-          {inheritance('wrapLongLines')}
-        </Section>
-
-        <Section title={t('settings.slideshow')}>
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.font')}</span>
-            <select
-              className="field max-w-sm"
-              value={profile.fontFamily ?? ''}
-              onChange={(e) =>
-                void session.updateOutputProfile({ fontFamily: e.target.value || null })
-              }
-            >
-              {fontOptions(profile.fontFamily, church.slideshowFontFamily)}
-            </select>
-          </label>
-          {missingCount > 0 && (
-            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
-              {t('settings.fontMissing', { count: missingCount })}
-            </p>
-          )}
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.scale')}</span>
-            <input
-              type="range"
-              className="max-w-sm flex-1"
-              min={MIN_SCALE * 100}
-              max={MAX_SCALE * 100}
-              step={5}
-              value={Math.round(profile.scale * 100)}
-              onChange={(e) =>
-                void session.updateOutputProfile({ scale: Number(e.target.value) / 100 })
-              }
-            />
-            <span className="w-12 text-right tabular-nums">{Math.round(profile.scale * 100)}%</span>
-          </label>
-          <p className="text-xs text-slate-400">{t('settings.scaleHint')}</p>
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1 h-4 w-4"
-              checked={profile.hideCursor}
-              onChange={(e) => void session.updateOutputProfile({ hideCursor: e.target.checked })}
-            />
-            <span>
-              {t('settings.hideCursor')}
-              <span className="block text-xs text-slate-400">{t('settings.hideCursorHint')}</span>
-            </span>
-          </label>
-        </Section>
-
-        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
-          <div>
-            <h3 className="label">{t('subtitle.title')}</h3>
-            <p className="mt-0.5 text-xs text-slate-400">{t('subtitle.hint')}</p>
-          </div>
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.font')}</span>
-            <select
-              className="field max-w-sm"
-              value={subtitleProfile.fontFamily ?? ''}
-              onChange={(e) =>
-                void session.updateOutputProfile({ fontFamily: e.target.value || null }, 'subtitle')
-              }
-            >
-              {fontOptions(subtitleProfile.fontFamily, church.subtitleFontFamily)}
-            </select>
-          </label>
-          <label className="flex items-center gap-3 text-sm">
-            <span className="w-40">{t('settings.scale')}</span>
-            <input
-              type="range"
-              className="max-w-sm flex-1"
-              min={MIN_SCALE * 100}
-              max={MAX_SCALE * 100}
-              step={5}
-              value={Math.round(subtitleProfile.scale * 100)}
-              onChange={(e) =>
-                void session.updateOutputProfile(
-                  { scale: Number(e.target.value) / 100 },
-                  'subtitle',
-                )
-              }
-            />
-            <span className="w-12 text-right tabular-nums">
-              {Math.round(subtitleProfile.scale * 100)}%
-            </span>
-          </label>
-
-          <div className="pt-2">
-            <h3 className="label">{t('outputs.local')}</h3>
-            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.localHint')}</p>
-          </div>
-          {overlay?.error ? (
-            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
-              {t('subtitle.unavailable', { error: overlay.error })}
-            </p>
-          ) : (
-            overlay && (
-              <div className="space-y-2 text-sm">
-                {[
-                  { label: t('outputs.kind.subtitle'), url: overlay.url },
-                  {
-                    label: t('outputs.kind.slideshow'),
-                    url: overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow'),
-                  },
-                ].map((page) => (
-                  <div key={page.url} className="flex items-center gap-2">
-                    <span className="w-32 shrink-0">{page.label}</span>
-                    <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
-                      {page.url}
-                    </code>
-                    <button
-                      className="btn btn-sm shrink-0 whitespace-nowrap"
-                      onClick={() => {
-                        void navigator.clipboard
-                          .writeText(page.url)
-                          .then(() => setCopied(page.url));
-                        window.setTimeout(() => setCopied(null), 1500);
-                      }}
-                    >
-                      {copied === page.url ? t('subtitle.copied') : t('subtitle.copy')}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-
-          <div className="pt-2">
-            <h3 className="label">{t('outputs.links')}</h3>
-            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.linksHint')}</p>
-          </div>
-          <OutputLinks />
+        <Section title={t('settings.about')}>
+          <p className="text-sm text-slate-300">
+            {t('app.name')} · {t('settings.version', { version })}
+          </p>
+          <UpdateStatusLine />
+          <p className="text-xs text-slate-400">
+            {t('settings.timezone', { timezone: session.workspace.timezone })}
+          </p>
         </Section>
 
         <Section
@@ -521,6 +338,199 @@ export function SettingsPage() {
           )}
         </Section>
 
+        <Section title={t('settings.lyrics')}>
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.linesPerPiece')}</span>
+            <select
+              className="field w-24"
+              value={settings.linesPerPiece}
+              onChange={(e) =>
+                void session.updatePresentationSettings({ linesPerPiece: Number(e.target.value) })
+              }
+            >
+              {Array.from(
+                { length: MAX_LINES_PER_PIECE - MIN_LINES_PER_PIECE + 1 },
+                (_, i) => i + MIN_LINES_PER_PIECE,
+              ).map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
+          </label>
+          {inheritance('linesPerPiece')}
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={settings.wrapLongLines}
+              onChange={(e) =>
+                void session.updatePresentationSettings({ wrapLongLines: e.target.checked })
+              }
+            />
+            <span>
+              {t('settings.wrap')}
+              <span className="block text-xs text-slate-400">{t('settings.wrapHint')}</span>
+            </span>
+          </label>
+          {inheritance('wrapLongLines')}
+        </Section>
+
+        <Section title={t('settings.text')}>
+          <h3 className="label">{t('settings.slideshow')}</h3>
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.font')}</span>
+            <select
+              className="field max-w-sm"
+              value={profile.fontFamily ?? ''}
+              onChange={(e) =>
+                void session.updateOutputProfile({ fontFamily: e.target.value || null })
+              }
+            >
+              {fontOptions(profile.fontFamily, church.slideshowFontFamily)}
+            </select>
+          </label>
+          {missingCount > 0 && (
+            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
+              {t('settings.fontMissing', { count: missingCount })}
+            </p>
+          )}
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.scale')}</span>
+            <input
+              type="range"
+              className="max-w-sm flex-1"
+              min={MIN_SCALE * 100}
+              max={MAX_SCALE * 100}
+              step={5}
+              value={Math.round(profile.scale * 100)}
+              onChange={(e) =>
+                void session.updateOutputProfile({ scale: Number(e.target.value) / 100 })
+              }
+            />
+            <span className="w-12 text-right tabular-nums">{Math.round(profile.scale * 100)}%</span>
+          </label>
+          <p className="text-xs text-slate-400">{t('settings.scaleHint')}</p>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={profile.hideCursor}
+              onChange={(e) => void session.updateOutputProfile({ hideCursor: e.target.checked })}
+            />
+            <span>
+              {t('settings.hideCursor')}
+              <span className="block text-xs text-slate-400">{t('settings.hideCursorHint')}</span>
+            </span>
+          </label>
+          <div className="pt-2">
+            <h3 className="label">{t('subtitle.title')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('subtitle.hint')}</p>
+          </div>
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.font')}</span>
+            <select
+              className="field max-w-sm"
+              value={subtitleProfile.fontFamily ?? ''}
+              onChange={(e) =>
+                void session.updateOutputProfile({ fontFamily: e.target.value || null }, 'subtitle')
+              }
+            >
+              {fontOptions(subtitleProfile.fontFamily, church.subtitleFontFamily)}
+            </select>
+          </label>
+          <label className="flex items-center gap-3 text-sm">
+            <span className="w-40">{t('settings.scale')}</span>
+            <input
+              type="range"
+              className="max-w-sm flex-1"
+              min={MIN_SCALE * 100}
+              max={MAX_SCALE * 100}
+              step={5}
+              value={Math.round(subtitleProfile.scale * 100)}
+              onChange={(e) =>
+                void session.updateOutputProfile(
+                  { scale: Number(e.target.value) / 100 },
+                  'subtitle',
+                )
+              }
+            />
+            <span className="w-12 text-right tabular-nums">
+              {Math.round(subtitleProfile.scale * 100)}%
+            </span>
+          </label>
+        </Section>
+
+        <Section title={t('outputs.title')} hint={t('outputs.hint')}>
+          <div>
+            <h3 className="label">{t('outputs.local')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.localHint')}</p>
+          </div>
+          {overlay?.error ? (
+            <p className="notice border-amber-500 bg-amber-900/30 text-amber-100">
+              {t('subtitle.unavailable', { error: overlay.error })}
+            </p>
+          ) : (
+            overlay && (
+              <div className="space-y-2 text-sm">
+                {[
+                  { label: t('outputs.kind.subtitle'), url: overlay.url },
+                  {
+                    label: t('outputs.kind.slideshow'),
+                    url: overlay.url.replace(/\/overlay\/subtitle$/, '/slideshow'),
+                  },
+                ].map((page) => (
+                  <div key={page.url} className="flex items-center gap-2">
+                    <span className="w-32 shrink-0">{page.label}</span>
+                    <code className="min-w-0 truncate rounded bg-slate-900 px-2 py-1 text-xs select-all">
+                      {page.url}
+                    </code>
+                    <button
+                      className="btn btn-sm shrink-0 whitespace-nowrap"
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(page.url)
+                          .then(() => setCopied(page.url));
+                        window.setTimeout(() => setCopied(null), 1500);
+                      }}
+                    >
+                      {copied === page.url ? t('subtitle.copied') : t('subtitle.copy')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          <div className="pt-2">
+            <h3 className="label">{t('outputs.links')}</h3>
+            <p className="mt-0.5 text-xs text-slate-400">{t('outputs.linksHint')}</p>
+          </div>
+          <OutputLinks />
+        </Section>
+
+        <Section
+          title={t('settings.meetingDays')}
+          hint={t('settings.meetingDaysHint', { label: meetingDaysLabel(days) })}
+        >
+          <div className="flex flex-wrap gap-2">
+            {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+              <label
+                key={day}
+                className={`btn relative cursor-pointer ${days.includes(day) ? 'btn-primary' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={days.includes(day)}
+                  onChange={() => toggleDay(day)}
+                />
+                {weekdayName(day, 'short')}
+              </label>
+            ))}
+          </div>
+        </Section>
+
         <Section title={t('workspaces.title')} hint={t('workspaces.hint')}>
           <WorkspaceList />
         </Section>
@@ -568,16 +578,6 @@ export function SettingsPage() {
               {message.text}
             </p>
           )}
-        </Section>
-
-        <Section title={t('settings.about')}>
-          <p className="text-sm text-slate-300">
-            {t('app.name')} · {t('settings.version', { version })}
-          </p>
-          <UpdateStatusLine />
-          <p className="text-xs text-slate-400">
-            {t('settings.timezone', { timezone: session.workspace.timezone })}
-          </p>
         </Section>
       </div>
 

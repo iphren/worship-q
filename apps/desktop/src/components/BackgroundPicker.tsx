@@ -1,5 +1,5 @@
 import type { BackgroundAsset, SongBackground } from '@worship-q/protocol';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { native } from '../platform/native';
@@ -19,6 +19,8 @@ export function BackgroundPicker(props: {
   const session = useSession();
   const backgrounds = useQuery(() => session.store.listBackgrounds(session.workspace.id), []);
   const [thumbs, setThumbs] = useState<Record<string, string | null>>({});
+  const gridRef = useRef<HTMLDivElement>(null);
+  const loaded = backgrounds != null;
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +33,16 @@ export function BackgroundPicker(props: {
       cancelled = true;
     };
   }, [backgrounds]);
+
+  // The grid scrolls on its own; once the list is in, bring the chosen background into view.
+  // Only the grid's own scroll position moves, never the page around it, and only the once,
+  // so choosing another background doesn't jump the list.
+  useEffect(() => {
+    const grid = gridRef.current;
+    const selected = grid?.querySelector<HTMLElement>('[data-selected]');
+    if (!grid || !selected) return;
+    grid.scrollTop = selected.offsetTop - (grid.clientHeight - selected.offsetHeight) / 2;
+  }, [loaded]);
 
   if (!backgrounds) return null;
 
@@ -45,80 +57,93 @@ export function BackgroundPicker(props: {
           onChange={(e) => props.onColor(e.target.value)}
         />
       </label>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
-        <button
-          type="button"
-          className={`flex aspect-video items-center justify-center rounded-md border-2 text-xs ${
-            props.assetId === null ? 'border-sky-400' : 'border-slate-600'
-          }`}
-          style={{ background: props.color }}
-          onClick={() => props.onAsset(null)}
-        >
-          <span className="rounded bg-black/60 px-1.5 py-0.5">{t('settings.backgroundNone')}</span>
-        </button>
-        {backgrounds.map((asset) => {
-          const url = thumbs[asset.id];
-          const selected = props.assetId === asset.id;
-          return (
-            <div
-              key={asset.id}
-              className={`relative aspect-video overflow-hidden rounded-md border-2 bg-black ${
-                selected ? 'border-sky-400' : 'border-slate-600'
-              }`}
-              // Videos play while the pointer is over them, and go back to the first frame after.
-              onMouseEnter={(e) =>
-                void e.currentTarget
-                  .querySelector('video')
-                  ?.play()
-                  .catch(() => {})
-              }
-              onMouseLeave={(e) => {
-                const video = e.currentTarget.querySelector('video');
-                if (!video) return;
-                video.pause();
-                video.currentTime = 0;
-              }}
-            >
-              <button
-                type="button"
-                className="absolute inset-0"
-                title={asset.originalName}
-                onClick={() => props.onAsset(asset.id)}
+      {/* The height limit sits on a wrapper: on the grid itself it would squash the rows. */}
+      <div ref={gridRef} className="relative max-h-72 overflow-y-auto pr-1">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
+          <button
+            type="button"
+            className={`flex aspect-video items-center justify-center rounded-md border-2 text-xs ${
+              props.assetId === null ? 'border-sky-400' : 'border-slate-600'
+            }`}
+            style={{ background: props.color }}
+            onClick={() => props.onAsset(null)}
+          >
+            <span className="rounded bg-black/60 px-1.5 py-0.5">
+              {t('settings.backgroundNone')}
+            </span>
+          </button>
+          {backgrounds.map((asset) => {
+            const url = thumbs[asset.id];
+            const selected = props.assetId === asset.id;
+            return (
+              <div
+                key={asset.id}
+                data-selected={selected || undefined}
+                className={`relative aspect-video overflow-hidden rounded-md border-2 bg-black ${
+                  selected ? 'border-sky-400' : 'border-slate-600'
+                }`}
+                // Videos play while the pointer is over them, and go back to the first frame after.
+                onMouseEnter={(e) =>
+                  void e.currentTarget
+                    .querySelector('video')
+                    ?.play()
+                    .catch(() => {})
+                }
+                onMouseLeave={(e) => {
+                  const video = e.currentTarget.querySelector('video');
+                  if (!video) return;
+                  video.pause();
+                  video.currentTime = 0;
+                }}
               >
-                {url && asset.kind === 'image' && (
-                  <img src={url} alt="" draggable={false} className="h-full w-full object-cover" />
-                )}
-                {url && asset.kind === 'video' && (
-                  <video
-                    src={url}
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                )}
-                {url === null && (
-                  <span className="text-xs text-amber-400">{t('settings.backgroundMissing')}</span>
-                )}
-              </button>
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/60 px-1.5 py-0.5 text-xs">
-                {selected ? `✓ ${t('settings.backgroundSelected')} · ` : ''}
-                {asset.originalName}
-              </span>
-              {props.onRemove && (
                 <button
                   type="button"
-                  className="absolute top-1 right-1 rounded bg-black/70 px-1.5 text-xs hover:bg-rose-700"
-                  title={t('common.remove')}
-                  onClick={() => props.onRemove!(asset)}
+                  className="absolute inset-0"
+                  title={asset.originalName}
+                  onClick={() => props.onAsset(asset.id)}
                 >
-                  ✕
+                  {url && asset.kind === 'image' && (
+                    <img
+                      src={url}
+                      alt=""
+                      draggable={false}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {url && asset.kind === 'video' && (
+                    <video
+                      src={url}
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                  {url === null && (
+                    <span className="text-xs text-amber-400">
+                      {t('settings.backgroundMissing')}
+                    </span>
+                  )}
                 </button>
-              )}
-            </div>
-          );
-        })}
+                <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/60 px-1.5 py-0.5 text-xs">
+                  {selected ? `✓ ${t('settings.backgroundSelected')} · ` : ''}
+                  {asset.originalName}
+                </span>
+                {props.onRemove && (
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 rounded bg-black/70 px-1.5 text-xs hover:bg-rose-700"
+                    title={t('common.remove')}
+                    onClick={() => props.onRemove!(asset)}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </>
   );

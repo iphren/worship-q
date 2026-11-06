@@ -202,6 +202,7 @@ export const en = {
   'settings.wrap': 'Wrap long lines',
   'settings.wrapHint':
     'A line too long for the screen is shown on two lines instead of shrinking the text.',
+  'settings.text': 'Text',
   'settings.slideshow': 'Slideshow',
   'settings.font': 'Font',
   'settings.fontDefault': 'System default',
