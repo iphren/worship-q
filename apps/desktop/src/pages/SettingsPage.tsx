@@ -277,7 +277,7 @@ export function SettingsPage() {
             {[0, 1, 2, 3, 4, 5, 6].map((day) => (
               <label
                 key={day}
-                className={`btn cursor-pointer ${days.includes(day) ? 'btn-primary' : ''}`}
+                className={`btn relative cursor-pointer ${days.includes(day) ? 'btn-primary' : ''}`}
               >
                 <input
                   type="checkbox"

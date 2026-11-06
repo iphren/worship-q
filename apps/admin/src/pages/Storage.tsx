@@ -159,7 +159,7 @@ function Table(props: { head: string[]; rows: string[][]; foot?: string[]; share
               <Fragment key={i}>
                 <th className={`pb-2 font-medium ${cell(i)}`}>{h}</th>
                 {shares && i === 0 && (
-                  <th className="px-4 pb-2 text-left font-medium">
+                  <th className="relative px-4 pb-2 text-left font-medium">
                     <span className="sr-only">Share of the total</span>
                   </th>
                 )}
@@ -210,7 +210,7 @@ function ShareBar({ share }: { share: number }) {
         ? 'Under 1% of the total'
         : `${Math.round(percent)}% of the total`;
   return (
-    <td className="w-full min-w-24 px-4 py-2" title={text}>
+    <td className="relative w-full min-w-24 px-4 py-2" title={text}>
       <div className="h-2 w-full rounded-full bg-slate-800">
         {share > 0 && (
           <div

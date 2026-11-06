@@ -6,7 +6,7 @@ import { useScrollMemory } from '../lib/scrollMemory';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
-import { DeckBadge } from './DeckBadge';
+import { DeckBadge, PinnedMark } from './DeckBadge';
 
 type Drag = { id: string; from: number; to: number; dy: number; step: number };
 
@@ -229,15 +229,7 @@ export function RunSheetEditor(props: {
                   <SongPeek song={song}>
                     <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
                       <span className="truncate">
-                        {showPins && pinned?.has(song.id) && (
-                          <span
-                            className="mr-1.5 inline-flex align-middle text-sky-400"
-                            title={t('library.pinned')}
-                          >
-                            <Icon name="pin" className="h-3 w-3" />
-                            <span className="sr-only">{t('library.pinned')}</span>
-                          </span>
-                        )}
+                        {showPins && pinned?.has(song.id) && <PinnedMark />}
                         <DeckBadge song={song} />
                         {song.title || t('songs.untitled')}
                       </span>
