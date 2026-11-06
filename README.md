@@ -110,7 +110,11 @@ folder, `workspaces/<id>/`, inside it. Every workspace folder holds:
 | `lan-cert.der`, `lan-key.der` | This workspace's certificate for venue-network connections                                                        |
 
 The church device token lives in the system keychain, under the service
-`com.worship-q.desktop`, rather than in the database. **Settings → Backup** saves a workspace's
+`com.worship-q.desktop`, rather than in the database. On macOS, `pnpm dev` signs the dev build
+with the first Developer ID it finds (or `WORSHIPQ_DEV_SIGNING_IDENTITY`) under the release
+identifier, so dev and release builds share that entry and connect as one computer. Without
+a Developer ID, or with `WORSHIPQ_DEV_SIGNING=0`, the dev build keeps the token in
+`dev-keychain.json` in the data folder instead. **Settings → Backup** saves a workspace's
 database and backgrounds as one `.worshipq` file and restores them from it.
 
 ## Local ports

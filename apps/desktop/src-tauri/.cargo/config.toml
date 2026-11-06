@@ -1,0 +1,4 @@
+# `cargo run` (and so `pnpm dev`) launches the app through this script on macOS, which
+# signs dev builds so they share the release build's keychain entries.
+[target.'cfg(target_os = "macos")']
+runner = "scripts/dev-runner.sh"
