@@ -20,12 +20,20 @@ import { useAction, useLoad } from '../useLoad';
 /** Pending requests are short-lived (fifteen minutes), so the page keeps itself fresh. */
 export const DEVICES_POLL_MS = 15_000;
 
+/** A request approved or refused on this page, kept until the page is left. */
+type Handled =
+  | { code: string; outcome: 'approved'; deviceName: string; workspaceId: string }
+  | { code: string; outcome: 'refused'; deviceName: string };
+
 export function DevicesPage({ pairCode }: { pairCode: string | null }) {
   const list = useLoad(() => api.devices(), [], DEVICES_POLL_MS);
   const workspaces = useLoad(() => api.workspaces(), []);
   // Revoked devices are left out, except one revoked here, which stays until the page is left
   // so that the administrator sees the revocation happen.
   const [revokedHere, setRevokedHere] = useState<ReadonlySet<string>>(new Set());
+  // Requests handled here leave the pending list; remembering them lets the page confirm the
+  // outcome instead of reporting the deep-linked code as expired.
+  const [handled, setHandled] = useState<readonly Handled[]>([]);
   const devices = (list.data?.devices ?? []).filter(
     (d) => d.revokedAt === null || revokedHere.has(d.id),
   );
@@ -35,6 +43,11 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
   const wantedPending = wanted
     ? pending.find((r) => normalizePairingCode(r.code) === wanted)
     : undefined;
+  const wantedHandled = wanted
+    ? handled.some((h) => normalizePairingCode(h.code) === wanted)
+    : false;
+  const workspaceName = (id: string) =>
+    workspaces.data?.workspaces.find((w) => w.id === id)?.name || 'its workspace';
 
   return (
     <div className="space-y-6">
@@ -43,7 +56,31 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
 
       <section>
         <SectionTitle>Pending requests</SectionTitle>
-        {wanted && list.data && !wantedPending && (
+        {handled.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {handled.map((h) => (
+              <Notice
+                key={h.code}
+                tone={h.outcome === 'approved' ? 'success' : 'info'}
+                onClose={() => setHandled((all) => all.filter((x) => x.code !== h.code))}
+              >
+                {h.outcome === 'approved' ? (
+                  <p>
+                    <strong>{h.deviceName}</strong> is paired and has joined{' '}
+                    <strong>{workspaceName(h.workspaceId)}</strong>. The computer finishes setting
+                    itself up; nothing more is needed here.
+                  </p>
+                ) : (
+                  <p>
+                    The request <strong>{h.code}</strong> from <strong>{h.deviceName}</strong> was
+                    refused.
+                  </p>
+                )}
+              </Notice>
+            ))}
+          </div>
+        )}
+        {wanted && list.data && !wantedPending && !wantedHandled && (
           <div className="mb-3">
             <Notice tone="warning">
               The request <strong>{pairCode}</strong> is no longer pending. Requests last fifteen
@@ -66,7 +103,8 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
               workspaces={workspaces.data?.workspaces ?? []}
               churchLibraryEmpty={list.data?.churchLibraryEmpty ?? false}
               highlighted={wantedPending?.code === request.code}
-              onDone={() => {
+              onDone={(outcome) => {
+                setHandled((all) => [...all.filter((h) => h.code !== outcome.code), outcome]);
                 list.reload();
                 workspaces.reload();
               }}
@@ -114,7 +152,7 @@ function PendingRequest(props: {
   workspaces: AdminWorkspace[];
   churchLibraryEmpty: boolean;
   highlighted: boolean;
-  onDone(): void;
+  onDone(outcome: Handled): void;
 }) {
   const { request, workspaces } = props;
   const [open, setOpen] = useState(props.highlighted);
@@ -135,7 +173,13 @@ function PendingRequest(props: {
     const result = await approve.run(() =>
       api.approvePairing(request.code, chosen, name.trim() || null, allowMerge!),
     );
-    if (result) props.onDone();
+    if (result)
+      props.onDone({
+        code: request.code,
+        outcome: 'approved',
+        deviceName: result.device.name || request.deviceName || 'The computer',
+        workspaceId: result.device.workspaceId,
+      });
   }
 
   return (
@@ -269,7 +313,11 @@ function PendingRequest(props: {
           onConfirm={async () => {
             await api.refusePairing(request.code);
             setRefusing(false);
-            props.onDone();
+            props.onDone({
+              code: request.code,
+              outcome: 'refused',
+              deviceName: request.deviceName || 'Unnamed computer',
+            });
           }}
         >
           <p>
