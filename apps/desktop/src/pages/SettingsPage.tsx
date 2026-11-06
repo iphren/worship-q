@@ -291,29 +291,40 @@ export function SettingsPage() {
         >
           {onScreen && (
             <div role="tablist" className="flex gap-1 border-b border-slate-700">
-              {(['workspace', 'song'] as const).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={backgroundTab === key}
-                  className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
-                    // Only the song's title gives way to a narrow window.
-                    key === 'workspace' ? 'shrink-0' : 'min-w-0 truncate'
-                  } ${
-                    backgroundTab === key
-                      ? 'border-sky-500 text-slate-100'
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
-                  }`}
-                  onClick={() => setBackgroundTab(key)}
-                >
-                  {key === 'workspace'
-                    ? t('settings.backgroundWorkspace')
-                    : t('settings.songBackground', {
-                        title: onScreen.title || t('songs.untitled'),
-                      })}
-                </button>
-              ))}
+              {(['workspace', 'song'] as const).map((key) => {
+                // The background the song on screen is shown on now: its own, or the workspace's.
+                const inUse = (key === 'song') === Boolean(onScreen.background);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={backgroundTab === key}
+                    title={inUse ? t('settings.backgroundInUse') : undefined}
+                    className={`relative -mb-px flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                      // Only the song's title gives way to a narrow window.
+                      key === 'workspace' ? 'shrink-0' : 'min-w-0'
+                    } ${
+                      backgroundTab === key
+                        ? 'border-sky-500 text-slate-100'
+                        : 'border-transparent text-slate-400 hover:text-slate-200'
+                    }`}
+                    onClick={() => setBackgroundTab(key)}
+                  >
+                    {inUse && (
+                      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                    )}
+                    <span className="min-w-0 truncate">
+                      {key === 'workspace'
+                        ? t('settings.backgroundWorkspace')
+                        : t('settings.songBackground', {
+                            title: onScreen.title || t('songs.untitled'),
+                          })}
+                    </span>
+                    {inUse && <span className="sr-only">{t('settings.backgroundInUse')}</span>}
+                  </button>
+                );
+              })}
             </div>
           )}
           {backgroundTab === 'song' && onScreen ? (

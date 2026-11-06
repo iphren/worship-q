@@ -224,6 +224,7 @@ export const en = {
   'settings.backgroundWorkspace': 'Workspace',
   'settings.backgroundWorkspaceHint': 'Shown behind every song that has no background of its own.',
   'settings.songBackground': 'Song · {title}',
+  'settings.backgroundInUse': 'In use on screen now',
   'settings.songBackgroundHint': 'The song on screen now. Changes are saved with the song.',
   'settings.backup': 'Backup',
   'settings.backupHint':
