@@ -4,12 +4,14 @@
  * reach this one.
  *
  * Everything here is optional. Without a connection the app works exactly as before, and
- * losing the connection never interrupts a presentation.
+ * losing the connection never interrupts a presentation. That includes this computer's OBS
+ * link: its own controls work without one, and are shared with the workspace with one.
  */
 import { getVersion } from '@tauri-apps/api/app';
 import {
   DeckSchema,
   deckLyrics,
+  OBS_PROTOCOL_VERSION,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   type Capabilities,
@@ -40,6 +42,8 @@ import { native, type LanCredential, type LanStatus } from '../platform/native';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
+import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
+import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
 
@@ -96,8 +100,19 @@ export interface JoinPreview {
   allowMerge: boolean;
 }
 
+/** The native OBS link (`src-tauri/src/obs.rs`). */
+const obsNative: ObsNative = {
+  connect: native.obsConnect,
+  disconnect: native.obsDisconnect,
+  request: native.obsRequest,
+  readConfig: native.obsReadConfig,
+  listen: native.onObs,
+};
+
 export class CloudController {
   readonly host: RemoteHost;
+  /** The workspace's OBS state on this desktop (OBS control plan). */
+  readonly obs: ObsShare;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
   private state: SyncState | null = null;
@@ -138,6 +153,11 @@ export class CloudController {
       () => this.state?.deviceId ?? null,
     );
     this.client = this.makeClient();
+    this.obs = new ObsShare({
+      deviceId: () => this.state?.deviceId ?? '',
+      deviceName: () => this.state?.deviceName ?? 'This computer',
+    });
+    shareObsWithPhones(this.obs, this.host);
     this.status_ = {
       sync: { kind: 'disconnected' },
       relay: { kind: 'off' },
@@ -223,6 +243,7 @@ export class CloudController {
       const before = this.protocolVersion;
       await this.negotiate(server);
       if (this.protocolVersion !== before) {
+        this.link?.capabilitiesChanged();
         await this.sync();
         // The hello carries the version; a fresh connection says the new one.
         this.relay?.reconnect();
@@ -266,6 +287,8 @@ export class CloudController {
     });
     this.timers.push(window.setInterval(() => void this.sync(), SYNC_EVERY_MS));
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
+    // Before anything that needs the church: the OBS computer's controls work without it.
+    await this.startObs().catch(console.error);
     if (!this.connected) return;
     await this.checkFonts();
     if (this.state?.server) await this.negotiate(this.state.server);
@@ -289,7 +312,37 @@ export class CloudController {
     this.lanTransport?.close();
     this.lanHost?.stop();
     this.link?.stop();
+    this.obs.localLink?.stop();
+    this.obs.stop();
     this.host.dispose();
+  }
+
+  /**
+   * This computer's OBS link, for this workspace (O10): settings in this computer's storage,
+   * the password in the keychain beside the device token.
+   */
+  private async startObs(): Promise<void> {
+    const folder = this.workspaceFolder ?? this.session.workspace.id;
+    const account = obsKeychainAccount(folder);
+    const link = new ObsLink({
+      native: obsNative,
+      settings: obsSettingsStore(
+        () => (typeof localStorage === 'undefined' ? null : localStorage),
+        folder,
+      ),
+      secrets: {
+        get: () => native.keychainGet(account),
+        set: (password) => native.keychainSet(account, password),
+        delete: () => native.keychainDelete(account),
+      },
+    });
+    this.obs.setLink(link);
+    await link.start();
+  }
+
+  /** The church server relays OBS messages: it speaks protocol 4 (M2.9). */
+  private obsSupported(): boolean {
+    return this.protocolVersion >= OBS_PROTOCOL_VERSION;
   }
 
   // ── Credentials (decision D23) ───────────────────────────────────────────
@@ -673,6 +726,7 @@ export class CloudController {
       media: true,
       transparency: true,
       missingFonts: this.missingFonts,
+      obs: this.obsSupported(),
     };
   }
 
@@ -723,6 +777,8 @@ export class CloudController {
         }
       },
       backup,
+      obs: this.obs,
+      obsSupported: () => this.obsSupported(),
       grantsRegistered: {
         get: async () => (await this.syncStore.getState()).grantsRegisteredAt !== null,
         set: async () => {

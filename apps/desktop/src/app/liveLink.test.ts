@@ -7,6 +7,7 @@ import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
 import {
   PROTOCOL_VERSION,
   type DesktopToRelay,
+  type HostToRemote,
   type LiveSnapshot,
   type RelayToDesktop,
   type WorkspaceGrant,
@@ -18,6 +19,9 @@ import { migrate, Store, SyncStore } from '@worship-q/store';
 import { openNodeDriver } from '@worship-q/store/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveLink, type LiveBackupApi } from './liveLink';
+import { ObsLink, obsSettingsStore } from './obs';
+import { answerEverything, FakeNative, memoryStorage } from './obs.testing';
+import { ObsShare, shareObsWithPhones } from './obsShare';
 
 const SUNDAY = '2026-10-11';
 
@@ -82,6 +86,10 @@ async function desktop(
     driver?: ReturnType<typeof openNodeDriver>;
     /** The driver belongs to an earlier desktop, which closes it. */
     reuse?: boolean;
+    /** A version 4 desktop that takes OBS messages, with a fake OBS on its computer. */
+    obs?: boolean;
+    /** Whether the church server relays OBS messages (protocol 4). */
+    obsSupported?: () => boolean;
   } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
@@ -100,13 +108,47 @@ async function desktop(
   );
   let registered = false;
   const sync = new SyncStore(store);
-  /** Everything the desktop sent to the relay. */
+  /** Everything the desktop sent to the relay, and received from it. */
   const sent: DesktopToRelay[] = [];
+  const received: RelayToDesktop[] = [];
+
+  // OBS on this computer, as the app sets it up (cloud.ts), with the native core faked.
+  const obsNative = new FakeNative();
+  answerEverything(obsNative);
+  obsNative.answers.set('SetCurrentProgramScene', () => null);
+  obsNative.answers.set('GetSourceScreenshot', () => ({
+    imageData: 'data:image/webp;base64,UklGRoY=',
+  }));
+  const obsLink = new ObsLink({
+    native: obsNative,
+    settings: obsSettingsStore(() => memoryStorage(), deviceId),
+    secrets: { get: async () => null, set: async () => undefined, delete: async () => undefined },
+    now: time.ms,
+    delay: (ms) => new Promise((done) => setTimeout(done, ms / 100)),
+  });
+  const obs = options.obs
+    ? new ObsShare({ deviceId: () => deviceId, deviceName: () => name, now: time.ms })
+    : null;
+  if (obs) {
+    obs.setLink(obsLink);
+    await obsLink.start();
+    shareObsWithPhones(obs, host);
+  }
+  const capabilities = () => ({
+    roles: ['coordinator' as const],
+    appVersion: 'test',
+    fonts: true,
+    screens: true,
+    media: true,
+    transparency: true,
+    ...(options.obs ? { obs: options.obsSupported?.() ?? true } : {}),
+  });
 
   let handlers: ReturnType<Relay['desktop']> | null = null;
   const socket: Socket = {
     send: (data) => {
       const message = JSON.parse(data) as RelayToDesktop;
+      received.push(message);
       // The desktop sees relay messages a moment later, as over a network.
       setTimeout(() => {
         if (message.type === 'message') void host.message(message.from, message.data);
@@ -121,14 +163,9 @@ async function desktop(
     host,
     deviceId: () => deviceId,
     deviceName: () => name,
-    capabilities: () => ({
-      roles: ['coordinator'],
-      appVersion: 'test',
-      fonts: true,
-      screens: true,
-      media: true,
-      transparency: true,
-    }),
+    capabilities,
+    obs,
+    obsSupported: options.obsSupported,
     send: (message: DesktopToRelay) => {
       sent.push(message);
       handlers?.message(JSON.stringify(message));
@@ -160,14 +197,7 @@ async function desktop(
         protocolVersion: PROTOCOL_VERSION,
         token,
         role: options.role,
-        capabilities: {
-          roles: ['coordinator'],
-          appVersion: 'test',
-          fonts: true,
-          screens: true,
-          media: true,
-          transparency: true,
-        },
+        capabilities: capabilities(),
         live: link.presence(),
       } satisfies DesktopToRelay),
     );
@@ -180,10 +210,34 @@ async function desktop(
   connect();
   cleanups.push(() => {
     link.stop();
+    obs?.stop();
+    obsLink.stop();
     host.dispose();
     if (!options.reuse) driver.close();
   });
-  return { session, host, link, store, driver, connect, disconnect, deviceId, token, sent };
+  /** Turns the OBS link on and has OBS answer, as when OBS is running on this computer. */
+  const obsOn = async () => {
+    await obsLink.activate();
+    obsNative.status({ state: 'connected', obsVersion: '33.0.1' });
+    await settle();
+  };
+  return {
+    session,
+    host,
+    link,
+    store,
+    driver,
+    connect,
+    disconnect,
+    deviceId,
+    token,
+    sent,
+    received,
+    obs: obs!,
+    obsLink,
+    obsNative,
+    obsOn,
+  };
 }
 
 async function venue(options: { backup?: boolean } = {}) {
@@ -804,5 +858,225 @@ describe('viewer mode (M3)', () => {
     viewer.link.claim();
     await settle();
     expect(viewer.link.status.role).toBe('viewer');
+  });
+});
+
+describe('OBS control across the workspace (OBS plan M2)', () => {
+  /** A coordinator, a follower, and the streaming laptop as a viewer running OBS. */
+  async function church(options: { obsSupported?: () => boolean; oldDesktop?: boolean } = {}) {
+    const time = clock();
+    const dir = directory();
+    const relay = new Relay(dir, time.ms);
+    const opts = { obs: true, obsSupported: options.obsSupported };
+    const a = await desktop('Projector', time, relay, dir, null, opts);
+    const b = await desktop('Laptop', time, relay, dir, null, opts);
+    const s = await desktop('Streaming', time, relay, dir, null, { ...opts, role: 'viewer' });
+    const old = options.oldDesktop ? await desktop('Old', time, relay, dir, null) : null;
+    await settle();
+    return { time, relay, a, b, s, old };
+  }
+
+  const obsTo = (d: { received: RelayToDesktop[] }) =>
+    d.received.filter(
+      (m) => m.type === 'peer' && String((m.data as { type?: string })?.type).startsWith('obs'),
+    );
+
+  it('shows every desktop the OBS state of a viewer that runs OBS, and nothing before', async () => {
+    const { a, b, s } = await church();
+    expect(a.link.status.role).toBe('coordinator');
+    expect(s.link.status.role).toBe('viewer');
+    expect(a.obs.view.state).toBeNull();
+    expect(b.obs.view.state).toBeNull();
+    await s.obsOn();
+    for (const d of [a, b]) {
+      expect(d.obs.view).toMatchObject({
+        local: false,
+        reachable: true,
+        state: { ownerName: 'Streaming', status: 'connected', currentScene: 'Lyrics' },
+      });
+    }
+    expect(s.obs.view).toMatchObject({ local: true, state: { currentScene: 'Lyrics' } });
+    // A change made in OBS itself reaches everyone.
+    s.obsNative.event('CurrentProgramSceneChanged', { sceneName: 'Camera' });
+    await settle();
+    expect(b.obs.view.state?.currentScene).toBe('Camera');
+  });
+
+  it('carries a command from any desktop to OBS and answers the one that asked', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    // From a follower, through the coordinator.
+    expect(await b.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
+    // From the coordinator itself.
+    s.obsNative.answers.set('StartStream', () => {
+      throw { code: 500, comment: 'running' };
+    });
+    expect(await a.obs.command({ type: 'startStream' })).toEqual({ ok: true });
+    s.obsNative.answers.set('StopRecord', () => {
+      throw { code: 702, comment: 'Recording is busy' };
+    });
+    expect(await b.obs.command({ type: 'stopRecord' })).toEqual({
+      ok: false,
+      code: 702,
+      error: 'Recording is busy',
+    });
+    expect(s.obsNative.asked.map((r) => r.type)).toEqual(
+      expect.arrayContaining(['SetCurrentProgramScene', 'StartStream', 'StopRecord']),
+    );
+  });
+
+  it('works when the coordinator itself runs OBS', async () => {
+    const { a, b, s } = await church();
+    await a.obsOn();
+    expect(b.obs.view.state?.ownerName).toBe('Projector');
+    expect(s.obs.view.state?.ownerName).toBe('Projector');
+    expect(await s.obs.command({ type: 'setScene', scene: 'Blank' })).toEqual({ ok: true });
+    expect(a.obsNative.asked.at(-1)).toMatchObject({
+      type: 'SetCurrentProgramScene',
+      data: { sceneName: 'Blank' },
+    });
+  });
+
+  it('sends an older desktop no OBS message at all', async () => {
+    const { s, old } = await church({ oldDesktop: true });
+    await s.obsOn();
+    s.obsNative.event('CurrentProgramSceneChanged', { sceneName: 'Camera' });
+    await settle();
+    expect(obsTo(old!)).toEqual([]);
+  });
+
+  it('hands OBS to a later activation and turns the earlier link off silently (O9)', async () => {
+    const { time, a, b, s } = await church();
+    await s.obsOn();
+    time.advance(60_000);
+    await b.obsOn();
+    expect(s.obsLink.view.settings.active).toBe(false);
+    expect(s.obs.view).toMatchObject({ local: false, takenOverBy: 'Laptop' });
+    expect(a.obs.view.state?.ownerName).toBe('Laptop');
+    expect(s.obs.view.state?.ownerName).toBe('Laptop');
+    expect(s.obsNative.disconnects).toBe(1);
+    // Taking it back is one switch, and the other turns off in turn.
+    time.advance(60_000);
+    await s.obsOn();
+    expect(b.obsLink.view.settings.active).toBe(false);
+    expect(a.obs.view.state?.ownerName).toBe('Streaming');
+    expect(s.obs.view.takenOverBy).toBeNull();
+  });
+
+  it('removes the controls everywhere when the OBS computer turns its link off or leaves', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    await s.obsLink.deactivate();
+    await settle();
+    expect(a.obs.view.state).toBeNull();
+    expect(b.obs.view.state).toBeNull();
+    await s.obsOn();
+    expect(b.obs.view.state).not.toBeNull();
+    s.disconnect();
+    await settle();
+    expect(a.obs.view.state).toBeNull();
+    expect(b.obs.view.state).toBeNull();
+    // Back: shared again without anyone touching anything.
+    s.connect();
+    await settle();
+    expect(b.obs.view.state?.ownerName).toBe('Streaming');
+  });
+
+  it('fails a command whose OBS computer left before answering', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    // OBS has not answered StartRecord yet when its computer leaves.
+    const asked = b.obs.command({ type: 'startRecord' });
+    await settle();
+    s.disconnect();
+    expect(await asked).toEqual({ ok: false, error: 'owner-left' });
+    expect(a.obs.view.state).toBeNull();
+  });
+
+  it('keeps the OBS computer’s own controls, and says why nothing is shared, against an older server (M2.9)', async () => {
+    const { a, s } = await church({ obsSupported: () => false });
+    await s.obsOn();
+    expect(s.obs.view).toMatchObject({ local: true, sharingBlocked: true });
+    expect(await s.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
+    expect(a.obs.view.state).toBeNull();
+    expect(s.sent.some((m) => m.type === 'toCoordinator' && m.data.type.startsWith('obs'))).toBe(
+      false,
+    );
+  });
+
+  it('keeps OBS shared through a coordinator handover', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    b.link.claim();
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    expect(a.obs.view.state?.ownerName).toBe('Streaming');
+    expect(b.obs.view.state?.ownerName).toBe('Streaming');
+    expect(await a.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
+  });
+
+  it('takes monitor images only while some desktop watches, and delivers them to it alone (M5)', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    const shots = () => s.obsNative.count('GetSourceScreenshot');
+    expect(shots()).toBe(0);
+    b.obs.setWatchingHere(true);
+    await settle();
+    expect(shots()).toBeGreaterThan(0);
+    expect(b.obs.image?.image).toBe('data:image/webp;base64,UklGRoY=');
+    expect(a.obs.image).toBeNull();
+    b.obs.setWatchingHere(false);
+    await settle();
+    const after = shots();
+    await settle();
+    expect(shots()).toBe(after);
+  });
+
+  it('stops the monitor images when the watching desktop leaves without saying so', async () => {
+    const { b, s } = await church();
+    await s.obsOn();
+    b.obs.setWatchingHere(true);
+    await settle();
+    b.disconnect();
+    await settle();
+    const after = s.obsNative.count('GetSourceScreenshot');
+    await settle();
+    expect(s.obsNative.count('GetSourceScreenshot')).toBe(after);
+  });
+
+  it('gives a phone on a desktop without OBS the OBS view and its commands (M2.8)', async () => {
+    const { b, s } = await church();
+    await s.obsOn();
+    const phone: HostToRemote[] = [];
+    b.host.attach({ send: (_to, data) => phone.push(data), drop: () => undefined });
+    const invite = b.host.invite();
+    await b.host.message('phone-1', {
+      type: 'hello',
+      protocolVersion: PROTOCOL_VERSION,
+      name: 'Sam',
+      invite,
+    });
+    await b.host.approve('phone-1');
+    await settle();
+    const toPhone = () => phone;
+    const view = toPhone()
+      .filter((m) => m.type === 'view')
+      .at(-1);
+    expect(view).toMatchObject({ view: { obs: { ownerName: 'Streaming', reachable: true } } });
+    await b.host.message('phone-1', {
+      type: 'obsCommand',
+      id: 'p1',
+      command: { type: 'setScene', scene: 'Camera' },
+    });
+    expect(toPhone().at(-1)).toEqual({ type: 'obsAck', id: 'p1', ok: true });
+    s.obsNative.event('CurrentProgramSceneChanged', { sceneName: 'Camera' });
+    await settle();
+    expect(
+      toPhone()
+        .filter((m) => m.type === 'view')
+        .at(-1),
+    ).toMatchObject({
+      view: { obs: { currentScene: 'Camera' } },
+    });
   });
 });

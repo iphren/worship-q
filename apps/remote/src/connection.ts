@@ -12,8 +12,12 @@
  * tried when the browser has accepted it; otherwise the relay is used and the page says so.
  */
 import {
+  MIN_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   type HostToRemote,
+  type ObsCommand,
+  type ObsResult,
+  type ObsSnapshot,
   type RelayToRemote,
   type RemoteCommand,
   type RemoteSongResult,
@@ -61,6 +65,19 @@ export class RemoteConnection {
   readonly lan: { addresses: string[]; port: number; fingerprint: string } | null;
   /** How the phone is connected: on the venue network, or through the church server. */
   via: 'lan' | 'relay' = 'relay';
+  /**
+   * The version said in the hello. The page comes with the server, so it can be newer than
+   * the desktop it reaches, which then asks it to update; it steps down while the desktop
+   * still accepts what it needs, as desktops do with servers (D26).
+   */
+  private helloVersion = PROTOCOL_VERSION;
+  private readonly obsAsks = new Map<string, (result: ObsResult) => void>();
+  private obsImage_: (ObsSnapshot & { receivedAt: number }) | null = null;
+  /** The OBS screen is open; said again on every connection, as desktops forget it. */
+  private obsWatching = false;
+  /** When the last view arrived, for OBS timers, which it gives as of sending. */
+  viewReceivedAt = 0;
+  private readonly imageListeners = new Set<() => void>();
 
   constructor(location: Location) {
     const query = new URLSearchParams(location.search);
@@ -123,7 +140,7 @@ export class RemoteConnection {
       socket.send(
         JSON.stringify({
           type: 'hello',
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: this.helloVersion,
           workspace: this.workspace,
           name: this.name,
           grant: storage(this.grantKey) ?? undefined,
@@ -160,6 +177,8 @@ export class RemoteConnection {
       this.socket = null;
       for (const resolve of this.searches.values()) resolve([]);
       this.searches.clear();
+      for (const resolve of this.obsAsks.values()) resolve({ ok: false, error: 'not-connected' });
+      this.obsAsks.clear();
       // Closing a dead connection can take long to finish, so this does not wait for it.
       socket.close();
       if (this.stopped) return;
@@ -175,6 +194,14 @@ export class RemoteConnection {
   private receive(message: HostToRemote | RelayToRemote): void {
     switch (message.type) {
       case 'update-needed':
+        if (this.helloVersion > MIN_PROTOCOL_VERSION && this.socket) {
+          this.helloVersion--;
+          this.attempt = 0;
+          // Says hello again at the older version; `lost` reconnects straight away.
+          const socket = this.socket;
+          socket.close();
+          return;
+        }
         return this.set({ kind: 'update-needed' });
       case 'unavailable':
         if (message.reason === 'reconnect') {
@@ -196,6 +223,8 @@ export class RemoteConnection {
         this.invite = null;
         history.replaceState(null, '', location.pathname + location.search);
         this.attempt = 0;
+        if (this.obsWatching)
+          this.socket?.send(JSON.stringify({ type: 'obsWatch', watching: true }));
         return this.set({
           kind: 'live',
           view: this.state_.kind === 'live' ? this.state_.view : null,
@@ -205,14 +234,65 @@ export class RemoteConnection {
         return this.set({ kind: 'denied', reason: message.reason });
       case 'view':
         this.attempt = 0;
+        this.viewReceivedAt = Date.now();
         return this.set({ kind: 'live', view: message.view });
       case 'searchResults':
         this.searches.get(message.id)?.(message.songs);
         this.searches.delete(message.id);
         return;
+      case 'obsAck': {
+        const resolve = this.obsAsks.get(message.id);
+        this.obsAsks.delete(message.id);
+        resolve?.({
+          ok: message.ok,
+          ...(message.code !== undefined ? { code: message.code } : {}),
+          ...(message.error !== undefined ? { error: message.error } : {}),
+        });
+        return;
+      }
+      case 'obsSnapshot':
+        this.obsImage_ = { image: message.image, takenAt: message.takenAt, receivedAt: Date.now() };
+        for (const listener of [...this.imageListeners]) listener();
+        return;
       case 'ack':
       case 'pong':
         return;
+    }
+  }
+
+  /** The latest live monitor image, while the OBS screen is open (M4.2, M5.2). */
+  get obsImage(): (ObsSnapshot & { receivedAt: number }) | null {
+    return this.obsImage_;
+  }
+
+  subscribeImage = (listener: () => void) => {
+    this.imageListeners.add(listener);
+    return () => this.imageListeners.delete(listener);
+  };
+
+  /** Sends a command for OBS; resolves with the answer, or a failure after ten seconds. */
+  obsCommand(command: ObsCommand): Promise<ObsResult> {
+    if (!this.connected) return Promise.resolve({ ok: false, error: 'not-connected' });
+    const id = this.newId();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.obsAsks.delete(id);
+        resolve({ ok: false, error: 'timeout' });
+      }, 10_000);
+      this.obsAsks.set(id, (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      });
+      this.socket!.send(JSON.stringify({ type: 'obsCommand', id, command }));
+    });
+  }
+
+  /** The OBS screen opened or closed: images are sent while it is open (M5.1). */
+  obsWatch(watching: boolean): void {
+    this.obsWatching = watching;
+    if (!watching) this.obsImage_ = null;
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'obsWatch', watching }));
     }
   }
 

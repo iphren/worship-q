@@ -234,3 +234,111 @@ async function sha(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
+
+describe('OBS on phones (OBS plan M2.8)', () => {
+  const idle = { active: false, phase: null, durationMs: null, paused: false };
+  const obsView = {
+    status: 'connected' as const,
+    ownerName: 'Streaming laptop',
+    reachable: true,
+    scenes: ['Lyrics', 'Camera'],
+    currentScene: 'Lyrics',
+    favourites: ['Lyrics', 'Camera'] as [string, string],
+    stream: idle,
+    record: idle,
+    virtualCam: idle,
+  };
+
+  function fakeObs() {
+    const fake = {
+      commands: [] as unknown[],
+      watching: [] as boolean[],
+      current: obsView as typeof obsView | null,
+      view: () => fake.current,
+      command: async (command: unknown) => {
+        fake.commands.push(command);
+        return { ok: false, code: 600, error: 'No such scene' };
+      },
+      watch: (on: boolean) => fake.watching.push(on),
+    };
+    host.setObs({ view: fake.view, command: fake.command, watching: fake.watch });
+    return fake;
+  }
+
+  const views = (connection: string) =>
+    sent.filter((e) => e.to === connection && e.message.type === 'view').map((e) => e.message);
+
+  it('shows phones OBS in their view, and nothing where there is none', async () => {
+    await approved('p1');
+    expect(views('p1').at(-1)).toMatchObject({ view: { obs: null } });
+    const fake = fakeObs();
+    await new Promise((done) => setTimeout(done, 120));
+    expect(views('p1').at(-1)).toMatchObject({ view: { obs: { ownerName: 'Streaming laptop' } } });
+    fake.current = null;
+    host.obsChanged();
+    await new Promise((done) => setTimeout(done, 120));
+    expect(views('p1').at(-1)).toMatchObject({ view: { obs: null } });
+  });
+
+  it('passes an approved phone’s command on and answers it with OBS’s reply', async () => {
+    const fake = fakeObs();
+    await approved('p1');
+    await host.message('p1', {
+      type: 'obsCommand',
+      id: 'o1',
+      command: { type: 'setScene', scene: 'Gone' },
+    });
+    expect(fake.commands).toEqual([{ type: 'setScene', scene: 'Gone' }]);
+    expect(lastTo('p1')).toEqual({
+      type: 'obsAck',
+      id: 'o1',
+      ok: false,
+      code: 600,
+      error: 'No such scene',
+    });
+  });
+
+  it('ignores a phone that was not approved, and answers no-obs where there is none', async () => {
+    const fake = fakeObs();
+    await host.message('stranger', {
+      type: 'obsCommand',
+      id: 'x',
+      command: { type: 'startStream' },
+    });
+    expect(fake.commands).toEqual([]);
+    host.setObs(null);
+    await approved('p1');
+    await host.message('p1', { type: 'obsCommand', id: 'o2', command: { type: 'startStream' } });
+    expect(lastTo('p1')).toEqual({ type: 'obsAck', id: 'o2', ok: false, error: 'no-obs' });
+  });
+
+  it('counts phones watching the monitor, and sends images to those only', async () => {
+    const fake = fakeObs();
+    await approved('p1');
+    await approved('p2', 'Alex');
+    await host.message('p1', { type: 'obsWatch', watching: true });
+    await host.message('p2', { type: 'obsWatch', watching: true });
+    expect(fake.watching).toEqual([true]);
+    host.obsSnapshot({ image: 'data:image/webp;base64,AAAA', takenAt: 't' });
+    await host.message('p2', { type: 'obsWatch', watching: false });
+    host.obsSnapshot({ image: 'data:image/webp;base64,BBBB', takenAt: 't2' });
+    const images = sent.filter((e) => e.message.type === 'obsSnapshot').map((e) => e.to);
+    expect(images).toEqual(['p1', 'p2', 'p1']);
+    expect(fake.watching).toEqual([true]);
+  });
+
+  it('stops counting a watching phone that leaves or loses its approval', async () => {
+    const fake = fakeObs();
+    await approved('p1');
+    await host.message('p1', { type: 'obsWatch', watching: true });
+    host.left('p1');
+    expect(fake.watching).toEqual([true, false]);
+    await approved('p2', 'Alex');
+    await host.message('p2', { type: 'obsWatch', watching: true });
+    await host.disconnectAll();
+    expect(fake.watching).toEqual([true, false, true, false]);
+    // A stranger cannot make the OBS computer take screenshots.
+    await host.message('stranger', { type: 'obsWatch', watching: true });
+    expect(fake.watching).toEqual([true, false, true, false]);
+  });
+});

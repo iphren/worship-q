@@ -1,7 +1,7 @@
 //! Native core of the Worship Q desktop app.
 //!
 //! Kept deliberately small (decision D12): windows, files, fonts, the database, file
-//! transfers and the localhost overlay page. All presentation, planning and
+//! transfers, the localhost overlay page, venue-network connections and the OBS link. All presentation, planning and
 //! synchronization logic lives in the shared TypeScript packages.
 
 mod cloud;
@@ -10,6 +10,7 @@ mod files;
 mod fonts;
 mod keychain;
 mod lan;
+mod obs;
 mod output;
 mod overlay;
 mod workspaces;
@@ -53,6 +54,7 @@ pub fn run() {
             app.manage(overlay::Overlay::new());
             overlay::start(app.handle());
             app.manage(lan::Lan::new(app.handle().clone()));
+            app.manage(obs::Obs::new(app.handle().clone()));
             Ok(())
         })
         .on_page_load(|webview, payload| {
@@ -61,6 +63,9 @@ pub fn run() {
             if webview.label() == "main" && payload.event() == PageLoadEvent::Started {
                 if let Some(lan) = webview.try_state::<lan::Lan>() {
                     lan.reset();
+                }
+                if let Some(obs) = webview.try_state::<obs::Obs>() {
+                    obs.reset();
                 }
             }
         })
@@ -119,6 +124,11 @@ pub fn run() {
             lan::lan_browse,
             lan::lan_connect,
             lan::lan_disconnect,
+            obs::obs_connect,
+            obs::obs_disconnect,
+            obs::obs_request,
+            obs::obs_status,
+            obs::obs_read_config,
             workspaces::list_workspaces,
             workspaces::add_workspace,
             workspaces::switch_workspace,

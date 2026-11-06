@@ -1,7 +1,7 @@
 # Worship Q — OBS Control Task Breakdown
 
 **Drafted:** 5 November 2026  
-**Status:** Draft for review. Not scheduled.  
+**Status:** M0–M5 implemented on the `obs-control` branch, 6 November 2026; M5.3 and M6 wait for the walkthrough. Evidence and the changes made to this breakdown along the way are in the [acceptance record](acceptance/obs-control.md).  
 **Source:** [OBS Control Plan](obs-control-plan.md), referred to here as "the plan", and the code at version 1.4.1. Decisions (O1–O12) are the plan's.
 
 ## 1. How to read this
@@ -20,7 +20,7 @@ Every task that changes business logic carries unit tests in its package, and ev
 | Desktop relay client and church connection | `apps/desktop/src/app/cloud.ts`, `transport.ts` |
 | Desktop LAN client and server wiring | `apps/desktop/src/app/lan.ts`, `src-tauri/src/lan.rs` |
 | Per-computer settings outside the workspace databases (viewer mode) | `apps/desktop/src/app/deviceSettings.ts` |
-| Per-workspace settings on this computer | `setting` table, `packages/store` |
+| Per-workspace settings on this computer | `setting` table, `packages/store` (synchronized with the server, so the OBS link's settings are kept beside viewer mode instead: `apps/desktop/src/app/obs.ts`) |
 | Keychain | `src-tauri/src/keychain.rs`, `apps/desktop/src/platform/native.ts` |
 | Relay: validates and routes `toCoordinator` and `toFollower` | `packages/relay/src/index.ts`, hosted by `apps/server` |
 | Remote-control host: builds the phone's `RemoteView`, forwards phone commands | `packages/remote/src/index.ts` (`RemoteHost`) |
@@ -41,7 +41,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/obs.md`.
 
 | # | Task | Where | Done when |
 | --- | --- | --- | --- |
-| M0.1 | Connect from the Tauri core to OBS on the same computer with `tokio-tungstenite` over `ws://`, complete `Hello`/`Identify` with and without a password, and call `GetVersion` | `src-tauri` | Both macOS and Windows connect to OBS 28 and to the current OBS; the `supportedImageFormats` list is recorded |
+| M0.1 | Connect from the Tauri core to OBS on the same computer with `tokio-tungstenite` over `ws://`, complete `Hello`/`Identify` with and without a password, and call `GetVersion` | `src-tauri` | Both macOS and Windows connect to the current OBS (OBS 28 dropped: the current OBS is assumed); the `supportedImageFormats` list is recorded |
 | M0.2 | Screenshot cost: `GetSourceScreenshot` of the current program scene as JPEG at 320 pixels wide and three compression qualities, measured for byte size and round-trip time at one per second for a minute | spike notes | Sizes and timings recorded; a format and quality are chosen for O6 |
 | M0.3 | Studio Mode: what `SetCurrentProgramScene` does while Studio Mode is on, and which event follows | spike notes | Recorded; the plan's open question is answered |
 | M0.4 | obs-websocket's `config.json`: its folder on macOS and Windows, and whether the file is readable while OBS runs | spike notes | Paths recorded, or O12 is dropped |

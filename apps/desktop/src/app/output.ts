@@ -57,6 +57,8 @@ export class OutputController {
     windowed: false,
     error: null,
   };
+  /** The OBS switch button, for its shortcut in the slideshow window (OBS plan M3.6). */
+  obsSwitch: (() => unknown) | null = null;
   /** The monitor the operator picked in the list since the app opened. */
   private picked: MonitorIdentity | null = null;
   private readonly listeners = new Set<() => void>();
@@ -90,6 +92,8 @@ export class OutputController {
     this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.close()));
     this.cleanup.push(
       await listen<PresentAction>(ACTION_EVENT, (event) => {
+        // The OBS switch works from the slideshow window too, live or not.
+        if (event.payload === 'obs-switch') return void this.obsSwitch?.();
         if (this.session.isLive) runPresentAction(this.session, event.payload);
       }),
     );

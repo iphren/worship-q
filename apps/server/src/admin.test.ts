@@ -174,7 +174,11 @@ describe('sign-in (D27, D28)', () => {
     expect((await app.inject({ method: 'GET', url: '/auth/login' })).statusCode).toBe(503);
     expect(instance.hasAdministrators()).toBe(false);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ pairing: true, admin: false, protocolVersion: 3 });
+    expect(info.json()).toMatchObject({
+      pairing: true,
+      admin: false,
+      protocolVersion: PROTOCOL_VERSION,
+    });
   });
 
   it('refuses a subject that does not match the one bound at first sign-in', async () => {

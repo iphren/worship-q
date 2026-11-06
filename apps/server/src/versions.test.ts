@@ -130,6 +130,23 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
+  it('gives a version 3 device what a version 4 device gets, after the OBS protocol bump', async () => {
+    const { app, headers, b1 } = await setup();
+    const pull = (protocol: number) =>
+      app.inject({
+        method: 'GET',
+        url: '/api/v1/sync/pull?since=0',
+        headers: headers(b1.token, protocol),
+      });
+    const three = await pull(3);
+    const four = await pull(4);
+    expect(PROTOCOL_VERSION).toBe(4);
+    expect(three.statusCode).toBe(200);
+    expect(three.json().records).toEqual(four.json().records);
+    const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
+    expect(info.json()).toMatchObject({ protocolVersion: 4, minProtocolVersion: 2 });
+  });
+
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {
     const { app, headers, c, a } = await setup();
     const pulled = await app.inject({

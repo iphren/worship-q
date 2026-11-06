@@ -1,7 +1,7 @@
 # Worship Q — OBS Control Plan
 
 **Drafted:** 5 November 2026  
-**Status:** Feature request recorded; design reviewed with the project owner; feasibility checked against the obs-websocket protocol and source; tasks in the [task breakdown](obs-control-task-breakdown.md). Not scheduled.  
+**Status:** Feature request recorded; design reviewed with the project owner; feasibility checked against the obs-websocket protocol and source; tasks in the [task breakdown](obs-control-task-breakdown.md). Implemented on the `obs-control` branch, 6 November 2026; walkthrough pending ([acceptance record](acceptance/obs-control.md)).  
 **Source:** operator request of 5 November 2026; [Requirements and Architecture](worship-q-requirements-and-architecture.md) §§9–11 and §13 (OBS as an overlay consumer, client roles, stable output endpoints); [Phase 2 Plan](phase-2-plan.md) D14–D25 (coordinator, followers, LAN, relay, phones); the code at version 1.4.1; the obs-websocket 5 protocol document and source (see §7).
 
 ## 1. Where the implementation stands
@@ -56,7 +56,7 @@ Operators want to control OBS from Worship Q: from the remote control on a phone
 | # | Topic | Decision |
 | --- | --- | --- |
 | O1 | Which computer talks to OBS | The desktop on the same computer as OBS, in any role including viewer only. It holds the connection and relays for the workspace. **Agreed.** |
-| O2 | Protocol | obs-websocket 5 (included with OBS Studio 28.0.0 and later, default port 4455, authentication optional on the OBS side). Earlier OBS versions are not supported. **Proposed.** |
+| O2 | Protocol | obs-websocket 5 as included with the current OBS Studio (default port 4455, authentication optional on the OBS side); tested with OBS 33.0.1. OBS 28 to 32 are assumed to work, as the requests used are all from obs-websocket 5.0, but are not tested; earlier OBS versions are not supported. **Agreed.** |
 | O3 | Controls in scope | Scene switching, streaming, recording, virtual camera. Black-out and Fade to Black are left out; no source, audio or transition control. **Agreed.** |
 | O4 | Switch button | Toggles between two scenes chosen on the OBS computer's settings page. On the main controls of the desktop and the phone. **Agreed.** |
 | O5 | Visibility | OBS controls, monitor and status appear on every desktop and phone of the workspace only while a desktop of the workspace has an active link. **Agreed.** |
@@ -64,7 +64,7 @@ Operators want to control OBS from Worship Q: from the remote control on a phone
 | O7 | Startup order | OBS and Worship Q may start in either order; the desktop keeps retrying. **Agreed.** |
 | O8 | One OBS state per workspace | A separate state like the live state, at most one per workspace, owned by the computer with the active link. **Agreed.** |
 | O9 | Take-over | Activating a link on another computer takes the state over silently; the previous computer's link deactivates itself. No notification. **Agreed.** |
-| O10 | Settings location | Address, favourites and active flag on the OBS computer, password in the keychain. Nothing on the server. **Proposed.** |
+| O10 | Settings location | Address, favourites and active flag on the OBS computer, per workspace, in the app's own storage beside viewer mode (the workspace's `setting` table is synchronized, so not there); password in the keychain. Nothing on the server. **Agreed.** |
 | O11 | Transport | New message kinds on the existing coordinator, follower and phone channels, as protocol version 4 with the relay updated; the coordinator forwards without owning, and only to devices declaring the `obs` capability. **Proposed.** |
 | O12 | Setup help | Read port and password from obs-websocket's own settings file when possible; otherwise the operator pastes the password once. **Proposed; path verified on macOS and Windows.** |
 

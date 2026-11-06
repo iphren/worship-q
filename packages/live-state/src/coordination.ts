@@ -175,6 +175,10 @@ export class Coordinator {
         case 'capabilities':
           this.host.capabilities?.(from, message.capabilities);
           return { outbound: [] };
+        default:
+          // OBS messages (protocol version 4) are the host's, through `ObsHub`, and never
+          // wait behind live commands; anything else is not this coordinator's to answer.
+          return { outbound: [] };
       }
     });
   }
@@ -261,6 +265,10 @@ export class Follower {
         return [{ kind: 'grantList', grants: message.grants }];
       case 'notice':
         return [{ kind: 'notice', origin: message.origin, change: message.change }];
+      default:
+        // OBS messages are handled beside the live state (`ObsHub`); an unknown kind is
+        // ignored, so a newer coordinator's additions do not break this follower.
+        return [];
     }
   }
 }

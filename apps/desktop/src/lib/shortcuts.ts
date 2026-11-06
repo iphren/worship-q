@@ -23,6 +23,8 @@ export type PresentAction =
   | 'toggle-blank'
   /** Takes the slide off the screen, staying live. */
   | 'clear'
+  /** The OBS switch button (OBS control plan O4, M3.6); does nothing without OBS. */
+  | 'obs-switch'
   /** A slide of the browsed or presented item by its position, counted from zero. */
   | { slide: number };
 
@@ -62,6 +64,8 @@ export function presentAction(event: KeyPress): PresentAction | null {
       return 'toggle-blank';
     case 'Delete':
       return 'clear';
+    case '/':
+      return 'obs-switch';
   }
   const key = event.key.toLowerCase();
   const slide = key.length === 1 ? SLIDE_KEYS.indexOf(key) : -1;
@@ -81,9 +85,20 @@ export interface PresentControls {
   playSlide(slide: number): Promise<unknown>;
 }
 
-export function runPresentAction(session: PresentControls, action: PresentAction): void {
+/** Actions that are not the session's. */
+export interface PresentExtras {
+  obsSwitch?(): unknown;
+}
+
+export function runPresentAction(
+  session: PresentControls,
+  action: PresentAction,
+  extras: PresentExtras = {},
+): void {
   if (typeof action === 'object') return void session.playSlide(action.slide);
   switch (action) {
+    case 'obs-switch':
+      return void extras.obsSwitch?.();
     case 'slide-next':
       return void session.stepInItem(1);
     case 'slide-previous':

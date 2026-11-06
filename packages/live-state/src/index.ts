@@ -353,3 +353,4 @@ export function songsInLiveState(state: LiveState): Set<string> {
 }
 
 export * from './coordination';
+export * from './obs';

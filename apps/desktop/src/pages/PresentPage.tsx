@@ -1,10 +1,11 @@
 import { nextMeetingDate } from '@worship-q/calendar';
 import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { useCloud, useQuery, useSession } from '../app/context';
+import { useCloud, useObs, useQuery, useSession } from '../app/context';
 import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
+import { ObsMenu, ObsPanel, ObsSection, ObsSwitchButton, useObsShortcut } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
@@ -65,6 +66,7 @@ function isTyping(target: EventTarget | null): boolean {
 export function PresentPage() {
   const session = useSession();
   const status = useOutputStatus();
+  useObsShortcut();
   const outputPanel = (
     <section className="panel p-3">
       <h2 className="label">{t('output.title')}</h2>
@@ -90,7 +92,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
   const entries = view && view.date === liveDate ? view.entries : [];
   return (
     <div className="flex h-full min-h-0 gap-3 overflow-hidden p-4">
-      <aside className="flex w-80 shrink-0 flex-col gap-3">
+      <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto">
         <section className="panel space-y-2 p-3">
           <h2 className="label">{t('viewer.title')}</h2>
           <p className="text-sm text-slate-300">
@@ -102,6 +104,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
           <SlidePreview />
         </section>
         {props.outputPanel}
+        <ObsSection watch />
       </aside>
       <main className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
         {!session.isLive && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
@@ -180,6 +183,7 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
           </div>
         </div>
         {props.outputPanel}
+        <ObsSection watch />
       </div>
     </div>
   );
@@ -192,6 +196,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [panelTab, setPanelTab] = useState(lastPanelTab);
+  const obsShared = useObs();
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
@@ -226,7 +231,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
       const action = presentAction(event);
-      if (!action) return;
+      // The OBS shortcut is the page's own (`useObsShortcut`), live or not.
+      if (!action || action === 'obs-switch') return;
       follow();
       runPresentAction(session, action);
       event.preventDefault();
@@ -403,6 +409,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   >
                     <Icon name="clear" />
                   </button>
+                  <ObsSwitchButton compact />
+                  <ObsMenu />
                   <OutputPanel compact />
                 </div>
               }
@@ -450,12 +458,25 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   >
                     {t('present.clear')} <KeyHint>Del</KeyHint>
                   </button>
+                  <ObsSwitchButton />
                 </div>
-                <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
+                <p className="text-center text-xs text-slate-500">
+                  {obsShared.state ? t('present.shortcutsObs') : t('present.shortcuts')}
+                </p>
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
                 {props.outputPanel}
               </div>
+              {obsShared.state && (
+                <section className="panel space-y-2 p-3">
+                  <h2 className="label">
+                    {obsShared.local
+                      ? t('obs.panel')
+                      : t('obs.panelTitle', { name: obsShared.state.ownerName })}
+                  </h2>
+                  <ObsPanel watch={panelTab === 'slideshow' && !obsShared.local} />
+                </section>
+              )}
             </div>
           </div>
         </aside>

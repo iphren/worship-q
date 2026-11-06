@@ -724,6 +724,86 @@ describe('one live state across desktops (M1.7)', () => {
   });
 });
 
+describe('OBS control through the relay (OBS plan M2.5)', () => {
+  const idle = { active: false, phase: null, durationMs: null, paused: false };
+  const obsState = (ownerId: string) => ({
+    ownerId,
+    ownerName: 'Streaming',
+    activatedAt: '2026-11-08T09:00:00.000Z',
+    revision: 1,
+    active: true,
+    status: 'connected' as const,
+    scenes: ['Lyrics', 'Camera'],
+    currentScene: 'Lyrics',
+    favourites: ['Lyrics', 'Camera'] as [string, string],
+    stream: idle,
+    record: idle,
+    virtualCam: idle,
+  });
+
+  it('carries the OBS computer’s state to the coordinator, a viewer’s included', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Projector', { withHost: false });
+    const streaming = desktop('Streaming', { withHost: false, role: 'viewer' });
+    const data: FollowerToCoordinator = { type: 'obsState', state: obsState(streaming.deviceId) };
+    streaming.say({ type: 'toCoordinator', data });
+    expect(a.socket.last()).toEqual({ type: 'peer', from: streaming.deviceId, data });
+  });
+
+  it('delivers OBS messages addressed to one device to that device only', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Projector', { withHost: false });
+    const b = desktop('Laptop', { withHost: false });
+    const c = desktop('Old desktop', { withHost: false });
+    const before = c.socket.received.length;
+    const image: CoordinatorToFollower = {
+      type: 'obsSnapshot',
+      image: 'data:image/webp;base64,UklGRoY=',
+      takenAt: '2026-11-08T09:00:01.000Z',
+    };
+    a.say({ type: 'toFollower', to: b.deviceId, data: image });
+    expect(b.socket.last()).toEqual({ type: 'peer', from: a.deviceId, data: image });
+    expect(c.socket.received).toHaveLength(before);
+    a.say({
+      type: 'toFollower',
+      to: b.deviceId,
+      data: { type: 'obsCommand', id: 'o1', command: { type: 'setScene', scene: 'Camera' } },
+    });
+    expect(b.socket.last()).toMatchObject({ data: { type: 'obsCommand', id: 'o1' } });
+  });
+
+  it('keeps OBS messages from browser output pages, which only ever see snapshots', async () => {
+    const { desktop, instance, workspace, output } = await setup();
+    const a = desktop('Projector', { withHost: false });
+    const link = instance.createOutputLink(workspace.id, 'slideshow', 'Foyer');
+    const page = output(link.token);
+    const before = page.socket.received.length;
+    a.say({ type: 'toFollower', data: { type: 'obsState', state: obsState(a.deviceId) } });
+    expect(page.socket.received).toHaveLength(before);
+  });
+
+  it('refuses a malformed OBS message and says why', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const { desktop } = await setup();
+      const a = desktop('Projector', { withHost: false });
+      const b = desktop('Laptop', { withHost: false });
+      const before = a.socket.received.length;
+      b.say({
+        type: 'toCoordinator',
+        data: { type: 'obsSnapshot', image: 'javascript:alert(1)', takenAt: 't' },
+      } as never);
+      expect(a.socket.received).toHaveLength(before);
+      expect(warn).toHaveBeenCalledWith(
+        'Refused a malformed message to the coordinator',
+        expect.objectContaining({ from: b.deviceId }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 describe('phones on every operator device (M2.5, M2.8)', () => {
   it('routes a phone to the desktop whose invitation it holds', async () => {
     const { desktop, phone } = await setup();

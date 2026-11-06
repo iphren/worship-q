@@ -106,7 +106,29 @@ code asks for control and shows a four-digit code; approve it when the code matc
 phone then works with every computer of the workspace until someone chooses **Disconnect**
 or **Disconnect all**.
 
-## Browser outputs and connected devices
+## OBS
+
+Worship Q can switch scenes, stream and record in OBS for you, from any computer of the
+workspace and from phones.
+
+**Once, on the computer OBS runs on.** In OBS, open **Tools → WebSocket Server Settings**,
+tick **Enable WebSocket server** and click **Apply**. Then in Worship Q, open **Settings →
+OBS** and turn on **Control OBS on this computer**. Worship Q reads OBS's password itself when
+it can; if it says a password is needed, click **Show Connect Info** in OBS and copy the
+password into Settings. Choose the two scenes of the **Switch button**, for example your
+lyrics scene and your camera scene. This computer can be a viewer.
+
+**During the service.** On the Present page, the ⇄ button switches between the two scenes
+(or press `/`), and the camera button opens OBS: every scene, **Stream**, **Record**,
+**Virtual camera**, and a small picture of what is on the stream. Phones have the same in a
+row above their buttons. The dot shows the connection: green connected, amber connecting,
+grey OBS not running, red refused. Stopping the stream or a recording asks first.
+
+OBS and Worship Q can be opened in either order. If another computer turns on its own OBS
+link, it takes over and this one turns off; turn it on again to take it back. Turning the link
+off removes the OBS controls everywhere.
+
+
 
 **Settings → Browser outputs** makes a link that shows the slideshow or the subtitle overlay
 in any browser, or in OBS on a computer without Worship Q. Copy the link when it is made; it
