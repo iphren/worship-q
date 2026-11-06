@@ -39,8 +39,18 @@ export function WorkspaceList() {
   const [removing, setRemoving] = useState<WorkspaceEntry | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const joined = Boolean(useCloud().state?.joinedAt);
+  const status = useCloud();
+  const joined = Boolean(status.state?.joinedAt);
   const showing = output.windowed || output.decision.kind === 'open';
+  const [retrying, setRetrying] = useState(false);
+  // A failed sync or backup can be tried again from here, without a trip to Settings.
+  const retry = !problem
+    ? null
+    : status.sync.kind === 'error'
+      ? { label: t('church.syncNow'), run: () => cloud.sync() }
+      : status.backup.kind === 'failed'
+        ? { label: t('church.backupNow'), run: () => cloud.backupNow() }
+        : null;
 
   const nameOf = (entry: WorkspaceEntry) =>
     entry.active ? currentName : entry.name || t('workspaces.unnamed');
@@ -99,6 +109,20 @@ export function WorkspaceList() {
                     onClick={() => setConnecting(true)}
                   >
                     {t('workspaces.connect')}
+                  </button>
+                )}
+                {retry && (
+                  <button
+                    className="btn btn-sm px-2"
+                    disabled={busy || retrying}
+                    title={retry.label}
+                    aria-label={retry.label}
+                    onClick={() => {
+                      setRetrying(true);
+                      void retry.run().finally(() => setRetrying(false));
+                    }}
+                  >
+                    <Icon name="sync" className={`h-4 w-4 ${retrying ? 'animate-spin' : ''}`} />
                   </button>
                 )}
                 {problem && (
