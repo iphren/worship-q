@@ -142,7 +142,7 @@ The server update is the only deployment step, and it changes nothing for a work
 
 | Risk | Task | Mitigation |
 | --- | --- | --- |
-| Studio Mode changes what scene switching does | M0.3 | Recorded in the spike; if `SetCurrentProgramScene` only sets the preview, the owner follows with `TriggerStudioModeTransition` |
+| Studio Mode changes what scene switching does | M0.3 | **Resolved** ([spike](spikes/obs.md#m03--studio-mode)): `SetCurrentProgramScene` transitions program directly with Studio Mode on; nothing more needed |
 | obs-websocket's settings file is unreadable or moves between OBS versions | M0.4, M3.2 | O12 is a convenience; the guidance in M3.1 stands on its own |
 | Screenshot traffic through the relay strains the venue's upload | M0.2, M5.3 | Watch-gated loop from the start; rate setting and on-demand mode if measured too high |
 | Two owners after a partition | M1.6, M2.3 | Later `activatedAt` wins everywhere, same rule on every device; the coordinator drops the older state |

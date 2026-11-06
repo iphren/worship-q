@@ -73,7 +73,7 @@ Operators want to control OBS from Worship Q: from the remote control on a phone
 - Should the live monitor also appear outside the panel, for example beside the slide preview on the Present page, for operators who want to watch the stream while driving slides?
 - Should the switch button's two scenes be the only quick action, or should a small number of favourite scenes be allowed, with the two-scene toggle as the default?
 - Does the phone's main screen have room for the switch button without crowding slide navigation, or does it belong in a second row that appears only with OBS?
-- Studio Mode: whether `SetCurrentProgramScene` transitions directly while Studio Mode is on in OBS, or whether the preview scene must be set and a transition triggered. The protocol document does not say; to confirm on a real OBS.
+- ~~Studio Mode: whether `SetCurrentProgramScene` transitions directly while Studio Mode is on.~~ Answered by the [spike](spikes/obs.md): it does, with the current transition, and leaves the preview alone.
 
 ## 7. Feasibility check (5 November 2026)
 
@@ -93,4 +93,4 @@ Checked against the obs-websocket protocol document (`docs/generated/protocol.md
 | Survives Worship Q restarts | Our side: link settings in the workspace folder and the password in the keychain, with automatic retry. Same pattern as the device token and the LAN connection today. |
 | Our client library | `tokio-tungstenite` with the `handshake` feature connects to `ws://` without TLS features; `sha2` is present; a `base64` crate is needed. |
 
-Checked in the code: the relay parses `toCoordinator` and `toFollower` with the protocol schemas and refuses unknown kinds, so the new messages need a relay change and a server update (O11). Still to confirm on hardware: the plugin configuration folder per platform for O12, and `SetCurrentProgramScene` under Studio Mode. Tasks are in the [task breakdown](obs-control-task-breakdown.md).
+Checked in the code: the relay parses `toCoordinator` and `toFollower` with the protocol schemas and refuses unknown kinds, so the new messages need a relay change and a server update (O11). Confirmed on macOS by the [spike](spikes/obs.md) (6 November 2026): the plugin configuration folder for O12 and `SetCurrentProgramScene` under Studio Mode; the Windows folder is still to confirm. Tasks are in the [task breakdown](obs-control-task-breakdown.md).
