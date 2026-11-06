@@ -274,7 +274,6 @@ export const en = {
     'Each workspace keeps its own songs, run sheets, settings and church connection. Switching reopens Worship Q.',
   'workspaces.unnamed': 'New workspace',
   'workspaces.local': 'Not connected',
-  'workspaces.current': 'Open',
   'workspaces.connect': 'Connect…',
   'workspaces.switch': 'Switch',
   'workspaces.add': 'Add workspace',

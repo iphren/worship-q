@@ -89,7 +89,12 @@ export function WorkspaceList() {
         {workspaces.map((entry) => (
           <li key={entry.id} className="flex items-center gap-3 px-3 py-2">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{nameOf(entry)}</p>
+              <p
+                className={`truncate font-medium ${entry.active ? 'text-emerald-300' : ''}`}
+                aria-current={entry.active ? 'true' : undefined}
+              >
+                {nameOf(entry)}
+              </p>
               <p className="truncate text-xs text-slate-400">
                 {entry.server ? entry.server.replace(/^https?:\/\//, '') : t('workspaces.local')}
               </p>
@@ -134,7 +139,6 @@ export function WorkspaceList() {
                     {t('church.disconnect')}
                   </button>
                 )}
-                <span className="text-xs text-emerald-300">{t('workspaces.current')}</span>
               </>
             ) : (
               <>
