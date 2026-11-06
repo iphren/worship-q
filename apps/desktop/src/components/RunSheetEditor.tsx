@@ -43,6 +43,8 @@ export function RunSheetEditor(props: {
         : Promise.resolve([]),
     [search, editable, idle],
   );
+  const pinned = useQuery(() => session.store.pinnedSongIds(session.workspace.id), []);
+  const showPins = search.trim() === '';
   const saved = view?.date === date ? view.entries : [];
   // A dropped item shows in its new place straight away, until the reloaded view replaces it.
   const [moved, setMoved] = useState<{ view: typeof view; ids: string[] } | null>(null);
@@ -227,6 +229,15 @@ export function RunSheetEditor(props: {
                   <SongPeek song={song}>
                     <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
                       <span className="truncate">
+                        {showPins && pinned?.has(song.id) && (
+                          <span
+                            className="mr-1.5 inline-flex align-middle text-sky-400"
+                            title={t('library.pinned')}
+                          >
+                            <Icon name="pin" className="h-3 w-3" />
+                            <span className="sr-only">{t('library.pinned')}</span>
+                          </span>
+                        )}
                         <DeckBadge song={song} />
                         {song.title || t('songs.untitled')}
                       </span>

@@ -1032,6 +1032,11 @@ export class Session {
     return this.mutate(() => this.store.removeSong(id));
   }
 
+  /** Pins a song to the top of the library, or unpins it, for the whole workspace. */
+  setSongPinned(id: string, pinned: boolean): Promise<void> {
+    return this.mutate(() => this.store.setSongPinned(this.workspace_.id, id, pinned));
+  }
+
   /**
    * On a song with two versions, chooses which one this workspace presents (D32). If the
    * song is on screen, the presented position follows into the chosen version's lyrics, as

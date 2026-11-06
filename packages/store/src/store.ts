@@ -299,6 +299,10 @@ function songBackgroundStatement(
   };
 }
 
+/** The setting that pins a song to the top of the library for the whole workspace. */
+export const songPinKey = (songId: string) => `songPin.${songId}`;
+const SONG_PIN_PREFIX = songPinKey('');
+
 export type CopyMode = 'append' | 'replace';
 
 /** Data access for one local database. Every write in the app goes through here. */
@@ -685,6 +689,34 @@ export class Store {
     ]);
   }
 
+  /** The songs pinned to the top of the workspace's library. */
+  async pinnedSongIds(workspaceId: string): Promise<Set<string>> {
+    const rows = await this.db.select<{ key: string; value: string }>(
+      `SELECT key, value FROM setting WHERE workspace_id = ? AND substr(key, 1, ?) = ?`,
+      [workspaceId, SONG_PIN_PREFIX.length, SONG_PIN_PREFIX],
+    );
+    return new Set(
+      rows
+        .filter((row) => json<unknown>(row.value, false) === true)
+        .map((row) => row.key.slice(SONG_PIN_PREFIX.length)),
+    );
+  }
+
+  /**
+   * Pins a song to the top of the library, or unpins it, for the whole workspace. Unpinning
+   * keeps the setting as false, so the change reaches the other computers.
+   */
+  async setSongPinned(workspaceId: string, songId: string, pinned: boolean): Promise<void> {
+    await this.db.batch([
+      {
+        sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
+              ON CONFLICT (workspace_id, key) DO UPDATE
+              SET value = excluded.value, revision = setting.revision + 1, updated_at = excluded.updated_at`,
+        params: [workspaceId, songPinKey(songId), JSON.stringify(pinned), this.env.now()],
+      },
+    ]);
+  }
+
   /** Any song by identifier, including one removed from the library, as the workspace presents it. */
   async getSong(id: string): Promise<Song | null> {
     const rows = await this.db.select<Row>(`${SONG_SELECT} WHERE song.id = ?`, [id]);
@@ -694,7 +726,8 @@ export class Store {
   /**
    * Songs in the library. With a search, every term must match the title or the lyrics by
    * Chinese characters in either script, by sound, by pinyin or by pinyin initials; songs are
-   * ordered by how well they match (see `rankSong`), then by title.
+   * ordered by how well they match (see `rankSong`), then by title. Without a search, pinned
+   * songs come first.
    */
   async listSongs(workspaceId: string, search = ''): Promise<Song[]> {
     const terms = parseQuery(search);
@@ -732,7 +765,13 @@ export class Store {
         a.song.title.localeCompare(b.song.title, undefined, { sensitivity: 'accent' }) ||
         a.song.createdAt.localeCompare(b.song.createdAt),
     );
-    if (terms.length === 0) return songs.map(({ song }) => song);
+    if (terms.length === 0) {
+      const pinned = await this.pinnedSongIds(workspaceId);
+      return [
+        ...songs.filter(({ song }) => pinned.has(song.id)),
+        ...songs.filter(({ song }) => !pinned.has(song.id)),
+      ].map(({ song }) => song);
+    }
     return songs
       .map(({ song, row }) => ({ song, rank: rankSong(terms, toSongKeys(row)) ?? Infinity }))
       .sort((a, b) => a.rank - b.rank)

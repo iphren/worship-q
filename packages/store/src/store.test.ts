@@ -21,7 +21,7 @@ import {
   SCHEMA_VERSION,
   schemaVersion,
 } from './migrations';
-import { songBackgroundKey, Store } from './store';
+import { songBackgroundKey, songPinKey, Store } from './store';
 import { SyncStore } from './sync';
 import {
   createTestEnv,
@@ -628,6 +628,47 @@ describe('song backgrounds, the workspace’s choice', () => {
     const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
     await new SyncStore(other.store).applyRemote(otherWorkspace, [record]);
     expect(await other.store.getSongBackgroundSetting(otherWorkspace, song.id)).toEqual(sea);
+    other.driver.close();
+  });
+});
+
+describe('pinned songs', () => {
+  const titles = async (search = '') =>
+    (await store.listSongs(workspaceId, search)).map((song) => song.title);
+
+  it('lists pinned songs first, each group by title, when nothing is searched', async () => {
+    const ids: Record<string, string> = {};
+    for (const title of ['Alpha', 'Bravo', 'Charlie', 'Delta'])
+      ids[title] = (await store.createSong(workspaceId, { title })).id;
+    await store.setSongPinned(workspaceId, ids.Delta!, true);
+    await store.setSongPinned(workspaceId, ids.Bravo!, true);
+    expect(await titles()).toEqual(['Bravo', 'Delta', 'Alpha', 'Charlie']);
+    expect(await store.pinnedSongIds(workspaceId)).toEqual(new Set([ids.Bravo, ids.Delta]));
+
+    env.advance(1000);
+    await store.setSongPinned(workspaceId, ids.Delta!, false);
+    expect(await titles()).toEqual(['Bravo', 'Alpha', 'Charlie', 'Delta']);
+    expect(await store.pinnedSongIds(workspaceId)).toEqual(new Set([ids.Bravo]));
+  });
+
+  it('orders a search by how well songs match, not by pins', async () => {
+    await store.createSong(workspaceId, { title: 'Grace' });
+    const other = await store.createSong(workspaceId, { title: 'Amazing grace' });
+    await store.setSongPinned(workspaceId, other.id, true);
+    expect(await titles('grace')).toEqual(['Grace', 'Amazing grace']);
+  });
+
+  it('synchronizes a pin as a setting', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Notices' });
+    await store.setSongPinned(workspaceId, song.id, true);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.key === songPinKey(song.id))!;
+    expect(record).toMatchObject({ kind: 'setting', data: { value: true } });
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, [record]);
+    expect(await other.store.pinnedSongIds(otherWorkspace)).toEqual(new Set([song.id]));
     other.driver.close();
   });
 });

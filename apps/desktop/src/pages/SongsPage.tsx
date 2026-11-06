@@ -3,6 +3,7 @@ import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
+import { Icon } from '../components/Icon';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
@@ -37,8 +38,19 @@ export function SongsPage() {
     const timer = setTimeout(() => setAdded(null), 2000);
     return () => clearTimeout(timer);
   }, [added]);
-  const library = useQuery(() => session.store.listSongs(session.workspace.id, search), [search]);
-  const songs = library?.filter((song) => kindOf(song) === kind);
+  const library = useQuery(async () => {
+    const workspaceId = session.workspace.id;
+    return {
+      songs: await session.store.listSongs(workspaceId, search),
+      pinned: await session.store.pinnedSongIds(workspaceId),
+    };
+  }, [search]);
+  const songs = library?.songs.filter((song) => kindOf(song) === kind);
+  const pinned = library?.pinned ?? new Set<string>();
+  // Pinned items lead the list only when nothing is searched; a line ends their group.
+  const lastPinned = search.trim()
+    ? -1
+    : (songs?.findLastIndex((song) => pinned.has(song.id)) ?? -1);
   const listRef = useRef<HTMLUListElement>(null);
   useScrollMemory(listRef, `songs:${kind}:${search}`);
 
@@ -122,20 +134,48 @@ export function SongsPage() {
                 : t(`library.${kind}Empty`)}
             </li>
           )}
-          {songs?.map((song) => (
-            <li key={song.id}>
-              <SongPeek song={song}>
-                <button
-                  className={`w-full truncate rounded-md px-2 py-1.5 text-left text-sm ${
-                    song.id === editing?.song?.id ? 'bg-sky-900/60' : 'hover:bg-slate-700'
-                  }`}
-                  onClick={() => select(song)}
-                >
-                  {song.title || t('songs.untitled')}
-                </button>
-              </SongPeek>
-            </li>
-          ))}
+          {songs?.map((song, index) => {
+            const isPinned = pinned.has(song.id);
+            return (
+              <li
+                key={song.id}
+                className={
+                  index === lastPinned && index < songs.length - 1
+                    ? 'mb-1 border-b border-slate-700 pb-1'
+                    : undefined
+                }
+              >
+                <SongPeek song={song}>
+                  <div
+                    className={`group flex items-center rounded-md ${
+                      song.id === editing?.song?.id ? 'bg-sky-900/60' : 'hover:bg-slate-700'
+                    }`}
+                  >
+                    <button
+                      className="min-w-0 flex-1 truncate px-2 py-1.5 text-left text-sm"
+                      onClick={() => select(song)}
+                    >
+                      {song.title || t('songs.untitled')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`mr-1 shrink-0 rounded p-1 hover:bg-slate-600 hover:text-slate-100 focus-visible:opacity-100 ${
+                        isPinned
+                          ? 'text-sky-400'
+                          : 'text-slate-400 opacity-0 group-hover:opacity-100'
+                      }`}
+                      aria-label={t(isPinned ? 'library.unpin' : 'library.pin')}
+                      aria-pressed={isPinned}
+                      title={t(isPinned ? 'library.unpin' : 'library.pin')}
+                      onClick={() => void session.setSongPinned(song.id, !isPinned)}
+                    >
+                      <Icon name="pin" className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </SongPeek>
+              </li>
+            );
+          })}
         </ul>
       </aside>
 
