@@ -255,6 +255,8 @@ export class CloudController {
     this.appVersion = await getVersion().catch(() => '');
     await this.protectCredentials();
     this.update({ state: this.state, sync: this.client.status });
+    // A computer that left its church before the defaults were forgotten on leaving.
+    if (!this.state?.deviceToken) await this.session.store.dropChurchSettings();
     // Edits made here are sent shortly after; content applied from the instance is not.
     this.session.subscribe(() => {
       if (this.syncing || !this.connected) return;

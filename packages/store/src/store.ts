@@ -1079,6 +1079,40 @@ export class Store {
     ]);
   }
 
+  /**
+   * Forgets the church defaults, after leaving the church. What the workspace took from them
+   * becomes its own choice, so nothing on screen changes.
+   */
+  async dropChurchSettings(): Promise<void> {
+    const church = await this.getChurchSettings();
+    const workspace = await this.getWorkspace();
+    if (workspace) {
+      const own = await this.getWorkspaceSettings(workspace.id);
+      const patch: Partial<PresentationSettings> = {};
+      if (own.linesPerPiece === undefined && church.linesPerPiece !== undefined) {
+        patch.linesPerPiece = church.linesPerPiece;
+      }
+      if (own.wrapLongLines === undefined && church.wrapLongLines !== undefined) {
+        patch.wrapLongLines = church.wrapLongLines;
+      }
+      if (Object.keys(patch).length > 0) {
+        await this.updatePresentationSettings(workspace.id, patch);
+      }
+      const fonts = [
+        ['slideshow', church.slideshowFontFamily],
+        ['subtitle', church.subtitleFontFamily],
+      ] as const;
+      for (const [kind, font] of fonts) {
+        if (!font) continue;
+        const profile = await this.getOutputProfile(workspace.id, kind);
+        if (!profile.fontFamily) {
+          await this.updateOutputProfile(workspace.id, { fontFamily: font }, kind);
+        }
+      }
+    }
+    await this.db.batch([{ sql: 'DELETE FROM church_setting' }]);
+  }
+
   // ── Backgrounds ──────────────────────────────────────────────────────────
 
   /** Records a background whose file has already been copied into the app's storage. */

@@ -171,10 +171,14 @@ export class SyncStore {
     return this.getState();
   }
 
-  /** Forgets the connection; the workspace's content stays on this device. */
+  /**
+   * Forgets the connection; the workspace's content stays on this device, and the church's
+   * defaults it used stay as its own settings.
+   */
   async forget(): Promise<void> {
     this.memoryToken = null;
     await this.db.batch([{ sql: 'DELETE FROM sync_state' }]);
+    await this.store.dropChurchSettings();
   }
 
   // ── Reading local changes ────────────────────────────────────────────────

@@ -807,6 +807,25 @@ describe('presentation settings', () => {
     ]);
     expect((await store.getPresentationSettings(workspaceId)).linesPerPiece).toBe(2);
   });
+
+  it('keep what the church gave, as the workspace’s own, when leaving the church', async () => {
+    await store.setChurchSettings({
+      linesPerPiece: 3,
+      wrapLongLines: false,
+      slideshowFontFamily: 'Church Sans',
+      subtitleFontFamily: 'Church Serif',
+    });
+    await store.updatePresentationSettings(workspaceId, { wrapLongLines: true });
+    await store.updateOutputProfile(workspaceId, { fontFamily: 'Own Font' });
+    await store.dropChurchSettings();
+    expect(await store.getChurchSettings()).toEqual({});
+    expect(await store.getWorkspaceSettings(workspaceId)).toEqual({
+      linesPerPiece: 3,
+      wrapLongLines: true,
+    });
+    expect((await store.getOutputProfile(workspaceId)).fontFamily).toBe('Own Font');
+    expect((await store.getOutputProfile(workspaceId, 'subtitle')).fontFamily).toBe('Church Serif');
+  });
 });
 
 describe('backgrounds and output profile', () => {
