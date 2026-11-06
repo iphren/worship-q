@@ -1,8 +1,11 @@
 //! The system keychain, for the church device token (decision D23): Keychain on macOS,
 //! Credential Manager on Windows. Each workspace on this computer has its own entry.
 //!
-//! Debug builds (`pnpm dev`) share the release build's entries when they are launched
-//! signed: on macOS, `scripts/dev-runner.sh` signs them with a Developer ID under the
+//! On Windows, debug builds (`pnpm dev`) always share the release build's entries:
+//! Credential Manager keys them by name only, not by the program that wrote them.
+//!
+//! On macOS, debug builds share the release build's entries when they are launched
+//! signed: `scripts/dev-runner.sh` signs them with a Developer ID under the
 //! release identifier, so the keychain takes them for the same app, and sets
 //! `WORSHIPQ_SYSTEM_KEYCHAIN`. Otherwise every rebuild would be a new, ad-hoc signed binary
 //! that macOS no longer recognises, and the keychain would ask for the login password again
@@ -69,9 +72,11 @@ mod file {
 
     type Secrets = BTreeMap<String, String>;
 
-    /// Whether this run uses the system keychain: the dev runner signed it.
+    /// Whether this run uses the system keychain: always on Windows, where Credential
+    /// Manager does not tie entries to the binary that wrote them; elsewhere only when
+    /// the dev runner signed it.
     pub fn bypassed() -> bool {
-        std::env::var_os("WORSHIPQ_SYSTEM_KEYCHAIN").is_some()
+        cfg!(windows) || std::env::var_os("WORSHIPQ_SYSTEM_KEYCHAIN").is_some()
     }
 
     fn path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -137,8 +142,9 @@ pub fn keychain_get(app: AppHandle, account: String) -> Result<Option<String>, S
         if !file::bypassed() {
             return file::get(&app, &account);
         }
-        // A signed dev run: a token an unsigned one kept in the file moves into the
-        // keychain, where the release build finds it too. The keychain's own entry wins.
+        // A dev run on the system keychain (signed on macOS, any on Windows): a token an
+        // earlier run kept in the file moves into the keychain, where the release build
+        // finds it too. The keychain's own entry wins.
         if let Some(secret) = system::get(&account)? {
             return Ok(Some(secret));
         }
