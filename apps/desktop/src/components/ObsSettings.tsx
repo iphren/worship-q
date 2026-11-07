@@ -47,6 +47,8 @@ export function ObsSettings() {
   const [address, setAddress] = useState(view?.settings.address ?? DEFAULT_OBS_ADDRESS);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  /** What Auto detect found last, shown under it. */
+  const [detected, setDetected] = useState<'found' | 'missing' | null>(null);
 
   useEffect(() => {
     if (view) setAddress(view.settings.address);
@@ -125,6 +127,25 @@ export function ObsSettings() {
         </div>
       )}
 
+      <div className="flex items-center gap-3">
+        <button
+          className="btn btn-sm shrink-0 whitespace-nowrap"
+          disabled={busy}
+          onClick={() =>
+            void run(async () => setDetected((await link.useObsSettings()) ? 'found' : 'missing'))
+          }
+        >
+          {t('obs.autoDetect')}
+        </button>
+        <span className={`text-xs ${detected === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
+          {detected === 'found'
+            ? t('obs.autoDetectFound')
+            : detected === 'missing'
+              ? t('obs.autoDetectMissing')
+              : t('obs.autoDetectHint')}
+        </span>
+      </div>
+
       <div className="grid grid-cols-[7rem_1fr] items-start gap-x-3 gap-y-3">
         <label className="pt-1.5" htmlFor="obs-address">
           {t('obs.address')}
@@ -162,7 +183,9 @@ export function ObsSettings() {
               type="password"
               className="field min-w-0 flex-1"
               autoComplete="off"
-              placeholder={t('obs.passwordPlaceholder')}
+              placeholder={
+                view.hasPassword ? t('obs.passwordPlaceholderSaved') : t('obs.passwordPlaceholder')
+              }
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
@@ -191,19 +214,6 @@ export function ObsSettings() {
           )}
         </div>
       </div>
-
-      {config && (
-        <div className="flex items-center gap-3">
-          <button
-            className="btn btn-sm"
-            disabled={busy}
-            onClick={() => void run(() => link.useObsSettings())}
-          >
-            {t('obs.useObsSettings')}
-          </button>
-          <span className="text-xs text-slate-400">{t('obs.useObsSettingsHint')}</span>
-        </div>
-      )}
 
       {!connected && (
         <div className="rounded-md border border-slate-700 bg-slate-900/50 p-3">
