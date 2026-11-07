@@ -131,25 +131,11 @@ export function ObsSwitchButton(props: { small?: boolean }) {
 type ObsOutputKind = (typeof OUTPUTS)[number]['kind'];
 
 const OUTPUTS = [
-  {
-    kind: 'stream',
-    label: 'obs.stream',
-    short: 'obs.stream',
-    start: 'startStream',
-    stop: 'stopStream',
-  },
-  {
-    kind: 'record',
-    label: 'obs.record',
-    short: 'obs.record',
-    start: 'startRecord',
-    stop: 'stopRecord',
-  },
+  { kind: 'stream', label: 'obs.stream', start: 'startStream', stop: 'stopStream' },
+  { kind: 'record', label: 'obs.record', start: 'startRecord', stop: 'stopRecord' },
   {
     kind: 'virtualCam',
     label: 'obs.virtualCam',
-    /** For the narrow lights beside the monitor. */
-    short: 'obs.virtualCamShort',
     start: 'startVirtualCam',
     stop: 'stopVirtualCam',
   },
@@ -169,8 +155,12 @@ function outputText(output: ObsOutput, elapsed: number | null): string {
   return parts.join(' · ');
 }
 
-/** The OBS panel (M3.4): scenes, outputs, status and the live monitor. */
-export function ObsPanel(props: { watch: boolean }) {
+/**
+ * The OBS panel (M3.4): scenes, outputs, status and the live monitor. With `fill` it takes the
+ * height it is given: every scene listed, scrolling only when they do not fit, and the outputs
+ * at the bottom.
+ */
+export function ObsPanel(props: { watch: boolean; fill?: boolean }) {
   const { cloud } = useApp();
   const shared = useObs();
   const action = useObsAction();
@@ -189,7 +179,7 @@ export function ObsPanel(props: { watch: boolean }) {
   const usable = state.status === 'connected' && shared.reachable;
 
   return (
-    <div className="space-y-3 text-sm">
+    <div className={`text-sm ${props.fill ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3'}`}>
       <div className="flex items-center gap-2">
         <ObsStatusDot shared={shared} />
         <span className="min-w-0 flex-1 truncate text-slate-300">{obsStatusText(shared)}</span>
@@ -200,12 +190,12 @@ export function ObsPanel(props: { watch: boolean }) {
 
       {props.watch && <ObsMonitor now={now} usable={usable} />}
 
-      <div>
+      <div className={props.fill ? 'flex min-h-0 flex-1 flex-col' : ''}>
         <h3 className="label mb-1">{t('obs.scenes')}</h3>
         {state.scenes.length === 0 ? (
           <p className="text-xs text-slate-500">{t('obs.scenesWhenConnected')}</p>
         ) : (
-          <ul className="max-h-48 space-y-1 overflow-auto">
+          <ul className={`space-y-1 overflow-auto ${props.fill ? 'min-h-0' : 'max-h-48'}`}>
             {state.scenes.map((scene) => {
               const live = scene === state.currentScene;
               return (
@@ -234,7 +224,7 @@ export function ObsPanel(props: { watch: boolean }) {
         )}
       </div>
 
-      <div className="space-y-1.5">
+      <div className={`space-y-1.5 ${props.fill ? 'border-t border-slate-700 pt-3' : ''}`}>
         {OUTPUTS.map(({ kind, label, start, stop }) => {
           const output = state[kind];
           const elapsed = outputElapsed(output, shared.receivedAt, now);
@@ -352,7 +342,7 @@ export function ObsLiveMonitor() {
       </div>
       <div className="w-36 min-w-0 shrink">
         <ul className="space-y-2.5 text-xs">
-          {OUTPUTS.map(({ kind, short }) => {
+          {OUTPUTS.map(({ kind, label }) => {
             const output = state[kind];
             const elapsed = outputElapsed(output, shared.receivedAt, now);
             return (
@@ -362,7 +352,7 @@ export function ObsLiveMonitor() {
                   className={`h-2 w-2 rounded-full ${outputDot(kind, output.active)}`}
                   aria-hidden="true"
                 />
-                <span className="truncate">{t(short)}</span>
+                <span className="truncate">{t(label)}</span>
                 <span className="col-start-2 truncate text-slate-400 tabular-nums">
                   {outputText(output, elapsed)}
                 </span>

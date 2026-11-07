@@ -530,7 +530,6 @@ export const en = {
   'obs.stream': 'Stream',
   'obs.record': 'Record',
   'obs.virtualCam': 'Virtual camera',
-  'obs.virtualCamShort': 'Virtual cam',
   'obs.start': 'Start',
   'obs.stop': 'Stop',
   'obs.on': 'On',

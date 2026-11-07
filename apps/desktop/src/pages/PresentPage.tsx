@@ -478,7 +478,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           {obsShared.state && (
             <div
               role="tabpanel"
-              className={`min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto ${panelTab === 'obs' ? 'flex' : 'hidden'}`}
+              className={`min-h-0 flex-1 flex-col gap-2 ${panelTab === 'obs' ? 'flex' : 'hidden'}`}
             >
               {!obsShared.local && (
                 <h2 className="label">
@@ -487,7 +487,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               )}
               <ObsSwitchButton />
               {/* The monitor is above the slide column instead. */}
-              <ObsPanel watch={false} />
+              <ObsPanel watch={false} fill />
             </div>
           )}
         </aside>
