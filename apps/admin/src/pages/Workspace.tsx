@@ -691,66 +691,73 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
         </Fact>
       </dl>
 
-      {obs.snapshot && (
-        <figure className="max-w-xl">
-          <img
-            src={obs.snapshot.image}
-            alt={`OBS program: ${state.currentScene ?? 'scene'}`}
-            className={`aspect-video w-full rounded-lg bg-black object-contain ${stale ? 'opacity-60' : ''}`}
-          />
-          <figcaption className="pt-1 text-xs text-slate-400">
-            Program, taken {formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs))} ago. A new
-            image comes every {OBS_REPORT_EVERY_MS / 1000} seconds and soon after the scene changes.
-          </figcaption>
-        </figure>
-      )}
-
-      <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="sm:w-1/2">
-          <h3 className="mb-1 font-semibold text-slate-100">Outputs</h3>
-          <ul className={`space-y-1 ${stale ? 'opacity-60' : ''}`}>
-            {OBS_OUTPUTS.map(({ kind, label }) => {
-              const output = state[kind];
-              const elapsed = stale ? null : outputElapsed(output, arrived, now);
-              return (
-                <li
-                  key={kind}
-                  className="flex items-center gap-3 rounded-lg bg-slate-900 px-3 py-1.5"
-                >
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
-                  />
-                  <span className="flex-1 font-medium text-slate-100">{label}</span>
-                  <span className="text-slate-300 tabular-nums">
-                    {obsOutputText(output, elapsed)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-        <div className="min-w-0 sm:w-1/2">
-          <h3 className="mb-1 font-semibold text-slate-100">Scenes</h3>
-          {state.scenes.length === 0 ? (
-            <p className="text-slate-400">The scenes show while OBS is connected.</p>
-          ) : (
-            <ol className="space-y-1">
-              {state.scenes.map((scene) => {
-                const live = scene === state.currentScene;
-                return (
-                  <li
-                    key={scene}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
-                      live ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{scene}</span>
-                    {live && <Badge tone="live">Live</Badge>}
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+      {/* Alone in a column the monitor and outputs take the full width; beside the scenes,
+          when the card is wide enough for both, they take a share of it that grows to a cap,
+          as the presentation's previews do. */}
+      <div className="@container">
+        <div className="flex flex-col gap-6 @2xl:flex-row @2xl:items-start">
+          <div className="w-full shrink-0 space-y-4 @2xl:w-[45%] @2xl:max-w-xl">
+            {obs.snapshot && (
+              <figure>
+                <img
+                  src={obs.snapshot.image}
+                  alt={`OBS program: ${state.currentScene ?? 'scene'}`}
+                  className={`aspect-video w-full rounded-lg bg-black object-contain ${stale ? 'opacity-60' : ''}`}
+                />
+                <figcaption className="pt-1 text-xs text-slate-400">
+                  Program, taken {formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs))} ago.
+                  A new image comes every {OBS_REPORT_EVERY_MS / 1000} seconds and soon after the
+                  scene changes.
+                </figcaption>
+              </figure>
+            )}
+            <div>
+              <h3 className="mb-1 font-semibold text-slate-100">Outputs</h3>
+              <ul className={`space-y-1 ${stale ? 'opacity-60' : ''}`}>
+                {OBS_OUTPUTS.map(({ kind, label }) => {
+                  const output = state[kind];
+                  const elapsed = stale ? null : outputElapsed(output, arrived, now);
+                  return (
+                    <li
+                      key={kind}
+                      className="flex items-center gap-3 rounded-lg bg-slate-900 px-3 py-1.5"
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
+                      />
+                      <span className="flex-1 font-medium text-slate-100">{label}</span>
+                      <span className="text-slate-300 tabular-nums">
+                        {obsOutputText(output, elapsed)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-1 font-semibold text-slate-100">Scenes</h3>
+            {state.scenes.length === 0 ? (
+              <p className="text-slate-400">The scenes show while OBS is connected.</p>
+            ) : (
+              <ol className="space-y-1">
+                {state.scenes.map((scene) => {
+                  const live = scene === state.currentScene;
+                  return (
+                    <li
+                      key={scene}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+                        live ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{scene}</span>
+                      {live && <Badge tone="live">Live</Badge>}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
     </div>
