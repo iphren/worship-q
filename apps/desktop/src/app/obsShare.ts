@@ -267,9 +267,13 @@ export class ObsShare {
     this.refresh();
   }
 
-  /** The connection to the coordinator went away; what was shown stays, unusable. */
+  /**
+   * The connection went away; what was shown stays, unusable. A coordinator keeps forwarding:
+   * the relay gives it the role back on reconnecting, without it becoming coordinator anew,
+   * and it stops only when the role goes elsewhere (`stopCoordinating`).
+   */
   disconnected(): void {
-    if (this.role === 'coordinator') this.stopCoordinating();
+    if (this.role === 'coordinator') return this.refresh();
     this.role = 'alone';
     this.coordinatorId = null;
     this.watchedElsewhere = false;

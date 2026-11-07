@@ -1044,6 +1044,26 @@ describe('OBS control across the workspace (OBS plan M2)', () => {
     expect(s.obsNative.count('GetSourceScreenshot')).toBe(after);
   });
 
+  it('keeps forwarding OBS after the coordinator’s own connection drops and comes back', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    expect(a.link.status.role).toBe('coordinator');
+    // Streaming fills the venue's upload; the coordinator's relay connection drops a moment.
+    a.disconnect();
+    await settle();
+    a.connect();
+    await settle();
+    expect(a.link.status.role).toBe('coordinator');
+    expect(a.obs.view.state?.ownerName).toBe('Streaming');
+    expect(b.obs.view.state?.ownerName).toBe('Streaming');
+    s.obsNative.event('CurrentProgramSceneChanged', { sceneName: 'Camera' });
+    await settle();
+    expect(a.obs.view.state?.currentScene).toBe('Camera');
+    expect(b.obs.view.state?.currentScene).toBe('Camera');
+    expect(await a.obs.command({ type: 'setScene', scene: 'Blank' })).toEqual({ ok: true });
+    expect(await b.obs.command({ type: 'setScene', scene: 'Lyrics' })).toEqual({ ok: true });
+  });
+
   it('gives a phone on a desktop without OBS the OBS view and its commands (M2.8)', async () => {
     const { b, s } = await church();
     await s.obsOn();
