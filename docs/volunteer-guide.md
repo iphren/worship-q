@@ -122,7 +122,7 @@ lyrics scene and your camera scene. This computer can be a viewer.
 is on the stream sits above the slides, with the switch button beside it and whether
 **Stream**, **Record** and **Virtual camera** are on. The **OBS** tab beside **Run sheet** and
 **Slideshow** has every scene and starts and stops **Stream**, **Record** and **Virtual
-camera**. Phones have the same in a row above their buttons. The dot shows the connection: green connected, amber connecting,
+camera**. Phones have the same in a row under the run sheet title. The dot shows the connection: green connected, amber connecting,
 grey OBS not running, red refused. Stopping the stream or a recording asks first.
 
 OBS and Worship Q can be opened in either order. If another computer turns on its own OBS
