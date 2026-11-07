@@ -119,7 +119,10 @@ function Live({ view }: { view: RemoteView | null }) {
   // away from what this phone is about to tap.
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
-  const [mode, setMode] = useState<'present' | 'edit' | 'add' | 'obs'>('present');
+  const [mode, setMode] = useState<'present' | 'edit' | 'add'>('present');
+  // The OBS screen opens over whichever of the others was showing, which stays as it was
+  // underneath (its search, its scroll) and comes back when the screen closes.
+  const [obsOpen, setObsOpen] = useState(false);
   // The run sheet's items when the search opened; those added since are marked afterwards.
   const [before, setBefore] = useState<ReadonlySet<string> | null>(null);
   const connected = connection.connected;
@@ -156,8 +159,8 @@ function Live({ view }: { view: RemoteView | null }) {
   // The OBS screen closes by itself when OBS stops being shared (O5).
   const hasObs = !!view?.obs;
   useEffect(() => {
-    if (!hasObs && mode === 'obs') setMode('present');
-  }, [hasObs, mode]);
+    if (!hasObs) setObsOpen(false);
+  }, [hasObs]);
 
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
@@ -169,6 +172,7 @@ function Live({ view }: { view: RemoteView | null }) {
   function openSearch() {
     if (mode !== 'add') setBefore(new Set(view!.items.map((item) => item.itemId)));
     setMode('add');
+    setObsOpen(false);
   }
 
   return (
@@ -191,15 +195,8 @@ function Live({ view }: { view: RemoteView | null }) {
           >
             {connected ? 'Connected' : 'Reconnecting…'}
           </span>
-          {mode === 'obs' && (
-            <button
-              className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white"
-              onClick={() => setMode('present')}
-            >
-              Done
-            </button>
-          )}
-          {(canEdit || editing) && mode !== 'obs' && (
+          {/* The OBS screen closes from the OBS button under the header instead. */}
+          {(canEdit || editing) && !obsOpen && (
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
                 editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
@@ -219,8 +216,8 @@ function Live({ view }: { view: RemoteView | null }) {
         <ObsRow
           obs={view.obs}
           connected={connected}
-          open={mode === 'obs'}
-          onToggle={() => setMode(mode === 'obs' ? 'present' : 'obs')}
+          open={obsOpen}
+          onToggle={() => setObsOpen(!obsOpen)}
         />
       )}
 
@@ -230,119 +227,129 @@ function Live({ view }: { view: RemoteView | null }) {
         </p>
       )}
 
-      {mode === 'obs' && view.obs ? (
-        <ObsScreen obs={view.obs} connected={connected} />
-      ) : mode === 'add' ? (
-        <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
-      ) : mode === 'edit' ? (
-        <EditRunSheet
-          view={view}
-          connected={connected && canEdit}
-          before={before}
-          onAdd={openSearch}
-        />
-      ) : (
-        <div className="relative min-h-0 flex-1">
-          <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
-            {view.items.length === 0 && (
-              <p className="p-6 text-center text-sm text-slate-400">
-                The run sheet has no items yet.
-              </p>
-            )}
-            {view.items.map((item) => (
-              <section key={item.itemId}>
-                <h2 className="mb-3 px-1 text-xl font-semibold text-white">
-                  {item.title || 'Untitled'}
-                </h2>
-                <div
-                  className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+      {/* The OBS screen covers the others rather than replacing them, so they keep their
+          search and scroll position underneath. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
+          {mode === 'add' ? (
+            <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
+          ) : mode === 'edit' ? (
+            <EditRunSheet
+              view={view}
+              connected={connected && canEdit}
+              before={before}
+              onAdd={openSearch}
+            />
+          ) : (
+            <div className="relative min-h-0 flex-1">
+              <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
+                {view.items.length === 0 && (
+                  <p className="p-6 text-center text-sm text-slate-400">
+                    The run sheet has no items yet.
+                  </p>
+                )}
+                {view.items.map((item) => (
+                  <section key={item.itemId}>
+                    <h2 className="mb-3 px-1 text-xl font-semibold text-white">
+                      {item.title || 'Untitled'}
+                    </h2>
+                    <div
+                      className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+                    >
+                      {item.pieces.map((piece) => {
+                        const active =
+                          view.presented?.itemId === item.itemId &&
+                          view.presented.pieceId === piece.id;
+                        // Where the item left off; not on the item on screen or a one-slide item.
+                        const lastShown =
+                          item.pieces.length > 1 &&
+                          view.presented?.itemId !== item.itemId &&
+                          view.lastShown?.[item.itemId] === piece.id;
+                        return (
+                          <button
+                            key={piece.id}
+                            ref={active ? activeRef : undefined}
+                            disabled={!connected}
+                            onClick={() =>
+                              connection.send({
+                                type: 'playPiece',
+                                itemId: item.itemId,
+                                pieceId: piece.id,
+                              })
+                            }
+                            className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                              active
+                                ? view.blank
+                                  ? 'border-amber-400 bg-amber-900/50'
+                                  : 'border-emerald-500 bg-emerald-900/50 text-white'
+                                : // Alternate styles by block, as on the desktop.
+                                  (piece.block ?? 0) % 2 === 0
+                                  ? 'border-slate-700 bg-slate-900'
+                                  : 'border-sky-700 bg-sky-900/60'
+                            }`}
+                          >
+                            {lastShown && (
+                              <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
+                                Last shown
+                              </span>
+                            )}
+                            {piece.thumbnail ? (
+                              <img
+                                src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                                alt={piece.lines.join(' ')}
+                                loading="lazy"
+                                // Hold the slide's space before the image loads, so a scroll to the
+                                // presented slide is not thrown short by thumbnails loading on the way.
+                                className="block aspect-video w-full rounded object-contain"
+                              />
+                            ) : (
+                              piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
+                            )}
+                          </button>
+                        );
+                      })}
+                      {item.pieces.length === 0 && (
+                        <p className="px-1 text-xs text-slate-500">This item has no content.</p>
+                      )}
+                    </div>
+                  </section>
+                ))}
+              </main>
+              {view.presented && !activeInView && (
+                <button
+                  aria-label="Go to current slide"
+                  onClick={() =>
+                    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                  }
+                  className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                    view.blank
+                      ? 'border-amber-400 text-amber-300'
+                      : 'border-emerald-500 text-emerald-300'
+                  }`}
                 >
-                  {item.pieces.map((piece) => {
-                    const active =
-                      view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
-                    // Where the item left off; not on the item on screen or a one-slide item.
-                    const lastShown =
-                      item.pieces.length > 1 &&
-                      view.presented?.itemId !== item.itemId &&
-                      view.lastShown?.[item.itemId] === piece.id;
-                    return (
-                      <button
-                        key={piece.id}
-                        ref={active ? activeRef : undefined}
-                        disabled={!connected}
-                        onClick={() =>
-                          connection.send({
-                            type: 'playPiece',
-                            itemId: item.itemId,
-                            pieceId: piece.id,
-                          })
-                        }
-                        className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
-                          active
-                            ? view.blank
-                              ? 'border-amber-400 bg-amber-900/50'
-                              : 'border-emerald-500 bg-emerald-900/50 text-white'
-                            : // Alternate styles by block, as on the desktop.
-                              (piece.block ?? 0) % 2 === 0
-                              ? 'border-slate-700 bg-slate-900'
-                              : 'border-sky-700 bg-sky-900/60'
-                        }`}
-                      >
-                        {lastShown && (
-                          <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
-                            Last shown
-                          </span>
-                        )}
-                        {piece.thumbnail ? (
-                          <img
-                            src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
-                            alt={piece.lines.join(' ')}
-                            loading="lazy"
-                            // Hold the slide's space before the image loads, so a scroll to the
-                            // presented slide is not thrown short by thumbnails loading on the way.
-                            className="block aspect-video w-full rounded object-contain"
-                          />
-                        ) : (
-                          piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
-                        )}
-                      </button>
-                    );
-                  })}
-                  {item.pieces.length === 0 && (
-                    <p className="px-1 text-xs text-slate-500">This item has no content.</p>
-                  )}
-                </div>
-              </section>
-            ))}
-          </main>
-          {view.presented && !activeInView && (
-            <button
-              aria-label="Go to current slide"
-              onClick={() =>
-                activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-              }
-              className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
-                view.blank
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-emerald-500 text-emerald-300'
-              }`}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <circle cx="12" cy="12" r="7" />
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-              </svg>
-            </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <circle cx="12" cy="12" r="7" />
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                  </svg>
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
+        {obsOpen && view.obs && (
+          <div className="absolute inset-0 z-20 flex flex-col bg-slate-950">
+            <ObsScreen obs={view.obs} connected={connected} />
+          </div>
+        )}
+      </div>
 
       <LiveLine view={view} />
 
@@ -372,7 +379,7 @@ function Live({ view }: { view: RemoteView | null }) {
         </button>
         {canEdit && (
           <button
-            className={`${control} ${mode === 'add' ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
+            className={`${control} ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
             disabled={!connected}
             onClick={openSearch}
           >
