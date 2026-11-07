@@ -74,7 +74,7 @@ desktop and a phone, over the LAN and over the relay, on macOS and Windows.
 | The scene list is in the same order as OBS's Scenes dock | |
 | Scene changed in OBS itself: every device shows it within a second | |
 | Scene renamed in OBS: the favourite follows | |
-| Stream, Record and Virtual camera started and stopped from a follower and from the phone; timers count; Stop asks first | |
+| Stream, Record and Camera (the virtual camera) started and stopped from a follower and from the phone; timers count; Stop asks first | |
 | Studio Mode on in OBS: switching changes program, preview untouched | |
 | Live monitor on the desktop panel and on the phone; stale age shown when the OBS computer drops; closing every panel stops the screenshot requests in OBS's log | |
 | Upload through the relay per watching device on the venue connection (M5.3) | |

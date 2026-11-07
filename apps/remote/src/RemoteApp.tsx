@@ -853,7 +853,7 @@ function useNow(ms: number): number {
 const OUTPUTS = [
   { kind: 'stream', label: 'Stream', start: 'startStream', stop: 'stopStream' },
   { kind: 'record', label: 'Record', start: 'startRecord', stop: 'stopRecord' },
-  { kind: 'virtualCam', label: 'Virtual camera', start: 'startVirtualCam', stop: 'stopVirtualCam' },
+  { kind: 'virtualCam', label: 'Camera', start: 'startVirtualCam', stop: 'stopVirtualCam' },
 ] as const;
 
 function outputText(output: ObsOutput, elapsed: number | null): string {
