@@ -5,7 +5,7 @@ import { useCloud, useObs, useQuery, useSession } from '../app/context';
 import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
-import { ObsLiveMonitor, ObsPanel, ObsSection, ObsSwitchButton } from '../components/Obs';
+import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
@@ -485,9 +485,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   {t('obs.panelTitle', { name: obsShared.state.ownerName })}
                 </h2>
               )}
-              <ObsSwitchButton />
               {/* The monitor is above the slide column instead. */}
-              <ObsPanel watch={false} fill />
+              <ObsPanel watch={false} fill switchButton />
             </div>
           )}
         </aside>

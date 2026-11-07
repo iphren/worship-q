@@ -155,11 +155,11 @@ function outputText(output: ObsOutput, elapsed: number | null): string {
 }
 
 /**
- * The OBS panel (M3.4): scenes, outputs, status and the live monitor. With `fill` it takes the
- * height it is given: every scene listed, scrolling only when they do not fit, and the outputs
- * at the bottom.
+ * The OBS panel (M3.4): from the top, the switch button (with `switchButton`), the live monitor,
+ * outputs, scenes and status. With `fill` it takes the height it is given: every scene listed,
+ * scrolling only when they do not fit, and the status at the bottom.
  */
-export function ObsPanel(props: { watch: boolean; fill?: boolean }) {
+export function ObsPanel(props: { watch: boolean; fill?: boolean; switchButton?: boolean }) {
   const { cloud } = useApp();
   const shared = useObs();
   const action = useObsAction();
@@ -179,15 +179,40 @@ export function ObsPanel(props: { watch: boolean; fill?: boolean }) {
 
   return (
     <div className={`text-sm ${props.fill ? 'flex min-h-0 flex-1 flex-col gap-3' : 'space-y-3'}`}>
-      <div className="flex items-center gap-2">
-        <ObsStatusDot shared={shared} />
-        <span className="min-w-0 flex-1 truncate text-slate-300">{obsStatusText(shared)}</span>
-        {!shared.local && (
-          <span className="truncate text-xs text-slate-500">{state.ownerName}</span>
-        )}
-      </div>
+      {props.switchButton && <ObsSwitchButton />}
 
       {props.watch && <ObsMonitor now={now} usable={usable} />}
+
+      <div className={`space-y-1.5 ${props.fill ? 'border-b border-slate-700 pb-3' : ''}`}>
+        {OUTPUTS.map(({ kind, label, start, stop }) => {
+          const output = state[kind];
+          const elapsed = outputElapsed(output, shared.receivedAt, now);
+          const running = output.active && output.phase !== 'stopping';
+          return (
+            <div key={kind} className="flex items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${outputDot(kind, output.active)}`}
+                aria-hidden="true"
+              />
+              <span className="w-28 shrink-0">{t(label)}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-slate-400 tabular-nums">
+                {outputText(output, elapsed)}
+              </span>
+              <button
+                className={`btn btn-sm w-16 shrink-0 ${running ? 'btn-danger' : ''}`}
+                disabled={!usable || action.busy || output.phase !== null}
+                onClick={() => {
+                  if (!running) return void action.command({ type: start });
+                  if (stop === 'stopVirtualCam') return void action.command({ type: stop });
+                  setConfirm(stop);
+                }}
+              >
+                {running ? t('obs.stop') : t('obs.start')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
 
       <div className={props.fill ? 'flex min-h-0 flex-1 flex-col' : ''}>
         <h3 className="label mb-1">{t('obs.scenes')}</h3>
@@ -223,38 +248,17 @@ export function ObsPanel(props: { watch: boolean; fill?: boolean }) {
         )}
       </div>
 
-      <div className={`space-y-1.5 ${props.fill ? 'border-t border-slate-700 pt-3' : ''}`}>
-        {OUTPUTS.map(({ kind, label, start, stop }) => {
-          const output = state[kind];
-          const elapsed = outputElapsed(output, shared.receivedAt, now);
-          const running = output.active && output.phase !== 'stopping';
-          return (
-            <div key={kind} className="flex items-center gap-2">
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full ${outputDot(kind, output.active)}`}
-                aria-hidden="true"
-              />
-              <span className="w-28 shrink-0">{t(label)}</span>
-              <span className="min-w-0 flex-1 truncate text-xs text-slate-400 tabular-nums">
-                {outputText(output, elapsed)}
-              </span>
-              <button
-                className={`btn btn-sm w-16 shrink-0 ${running ? 'btn-danger' : ''}`}
-                disabled={!usable || action.busy || output.phase !== null}
-                onClick={() => {
-                  if (!running) return void action.command({ type: start });
-                  if (stop === 'stopVirtualCam') return void action.command({ type: stop });
-                  setConfirm(stop);
-                }}
-              >
-                {running ? t('obs.stop') : t('obs.start')}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}
+
+      <div
+        className={`flex items-center gap-2 ${props.fill ? 'border-t border-slate-700 pt-3' : ''}`}
+      >
+        <ObsStatusDot shared={shared} />
+        <span className="min-w-0 flex-1 truncate text-slate-300">{obsStatusText(shared)}</span>
+        {!shared.local && (
+          <span className="truncate text-xs text-slate-500">{state.ownerName}</span>
+        )}
+      </div>
 
       {confirm && (
         <ConfirmDialog
@@ -393,8 +397,7 @@ export function ObsSection(props: { watch: boolean }) {
       <h2 className="label">
         {shared.local ? t('obs.panel') : t('obs.panelTitle', { name: shared.state.ownerName })}
       </h2>
-      <ObsSwitchButton />
-      <ObsPanel watch={props.watch && !shared.local} />
+      <ObsPanel watch={props.watch && !shared.local} switchButton />
     </section>
   );
 }
