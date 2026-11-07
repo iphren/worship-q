@@ -567,6 +567,19 @@ describe('the live monitor (M5.1)', () => {
     expect(snapshots).toHaveLength(1);
   });
 
+  it('takes one image when asked, for the report to the server, with nobody watching', async () => {
+    const { native, link, snapshots, tick } = await connected();
+    native.answers.set('GetSourceScreenshot', () => ({ imageData: image }));
+    expect((await link.takeSnapshot())?.image).toBe(image);
+    await tick();
+    // It goes to the caller only, and starts no watching loop.
+    expect(native.count('GetSourceScreenshot')).toBe(1);
+    expect(snapshots).toEqual([]);
+    native.status({ state: 'not-running' });
+    expect(await link.takeSnapshot()).toBeNull();
+    expect(native.count('GetSourceScreenshot')).toBe(1);
+  });
+
   it('waits while OBS switches scene collection', async () => {
     const { native, link, tick } = await connected();
     native.answers.set('GetSourceScreenshot', () => ({ imageData: image }));

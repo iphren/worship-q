@@ -15,6 +15,7 @@ import {
   ROLE_LABEL,
   expiryText,
   formatDate,
+  formatAge,
   formatDateTime,
   isPast,
   LIBRARY_TYPE_LABELS,
@@ -689,6 +690,20 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
           </span>
         </Fact>
       </dl>
+
+      {obs.snapshot && (
+        <figure className="max-w-xl">
+          <img
+            src={obs.snapshot.image}
+            alt={`OBS program: ${state.currentScene ?? 'scene'}`}
+            className={`aspect-video w-full rounded-lg bg-black object-contain ${stale ? 'opacity-60' : ''}`}
+          />
+          <figcaption className="pt-1 text-xs text-slate-400">
+            Program, taken {formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs))} ago. A new
+            image comes every {OBS_REPORT_EVERY_MS / 1000} seconds and soon after the scene changes.
+          </figcaption>
+        </figure>
+      )}
 
       <div className="flex flex-col gap-6 sm:flex-row">
         <div className="sm:w-1/2">

@@ -1351,8 +1351,38 @@ describe('OBS state for the admin app', () => {
         owner: { deviceId: mac.device.id, name: 'OBS Mac', connected: false },
         receivedAt: '2026-11-02T09:00:00.000Z',
         ageMs: 4000,
+        snapshot: null,
       },
     });
+  });
+
+  it('keeps the latest image of the program across the reports that carry none', async () => {
+    const { app, enroll, report, view, time } = await obsSetup();
+    const mac = enroll('OBS Mac');
+    const snapshot = { image: 'data:image/jpeg;base64,AAAA', takenAt: '2026-11-01T00:00:00.000Z' };
+    const put = (state: ObsState, image: unknown) =>
+      app.inject({
+        method: 'PUT',
+        url: '/api/v1/obs',
+        headers: mac.headers,
+        payload: { state, snapshot: image },
+      });
+    expect((await put(obsState(mac.device.id), snapshot)).statusCode).toBe(200);
+    time.advance(3000);
+    await report(mac.headers, obsState(mac.device.id, { currentScene: 'Slides' }));
+    time.advance(2000);
+    const got = (await view()).obs!;
+    expect(got.state.currentScene).toBe('Slides');
+    expect(got.ageMs).toBe(2000);
+    // Its age is from when it arrived here, whatever the OBS computer's clock said.
+    expect(got.snapshot).toEqual({ ...snapshot, ageMs: 5000 });
+    // Only an image is accepted.
+    const bad = { image: 'javascript:alert(1)', takenAt: snapshot.takenAt };
+    expect((await put(obsState(mac.device.id), bad)).statusCode).toBe(400);
+    // Another computer taking over starts without the first one's image.
+    const pc = enroll('OBS PC');
+    await report(pc.headers, obsState(pc.device.id, { activatedAt: '2026-11-02T08:00:00.000Z' }));
+    expect((await view()).obs?.snapshot).toBeNull();
   });
 
   it('refuses a state for another computer’s link, or one that does not read', async () => {

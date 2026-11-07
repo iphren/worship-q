@@ -310,6 +310,13 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
             },
             receivedAt: report.receivedAt,
             ageMs: Math.max(0, Date.parse(instance.now()) - Date.parse(report.receivedAt)),
+            snapshot:
+              report.snapshot && report.snapshotAt
+                ? {
+                    ...report.snapshot,
+                    ageMs: Math.max(0, Date.parse(instance.now()) - Date.parse(report.snapshotAt)),
+                  }
+                : null,
           },
         } satisfies AdminObsView;
       },

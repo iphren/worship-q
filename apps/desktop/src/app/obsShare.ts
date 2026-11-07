@@ -444,6 +444,11 @@ export class ObsShare {
     };
   }
 
+  /** One image of this computer's OBS program, for the report to the church server. */
+  takeSnapshot(): Promise<ObsSnapshot | null> {
+    return this.link?.takeSnapshot() ?? Promise.resolve(null);
+  }
+
   /** Publishes this link's state when it changed, or again on a new connection. */
   private publish(again: boolean): void {
     const link = this.link;

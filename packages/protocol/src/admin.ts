@@ -3,7 +3,7 @@
  * `/api/v1/admin/` and `/auth/`, are authenticated by the administrator's session cookie
  * rather than a device token, and are refused without the `ADMIN_HEADER` (decision D35).
  */
-import type { ObsState } from './obs';
+import type { ObsSnapshot, ObsState } from './obs';
 import type { BackgroundKind, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
 
@@ -116,6 +116,11 @@ export interface AdminObsView {
     receivedAt: string;
     /** How long ago it arrived, on the server's clock, so the browser's clock does not matter. */
     ageMs: number;
+    /**
+     * The latest image of the program, taken with each heartbeat and soon after the scene
+     * changes; null until one arrives.
+     */
+    snapshot: (ObsSnapshot & { ageMs: number }) | null;
   } | null;
 }
 

@@ -761,9 +761,28 @@ export class ObsLink {
   }
 
   private async shoot(): Promise<void> {
-    const scene = this.view_.currentScene;
-    if (!scene || this.collectionChanging) return;
     const generation = this.generation;
+    const snapshot = await this.capture();
+    if (!snapshot || generation !== this.generation || !this.canShoot()) return;
+    for (const listener of [...this.snapshotListeners]) listener(snapshot);
+  }
+
+  /**
+   * One image of the scene on program, whether or not anyone watches the monitor, for the
+   * report to the church server (`ObsReporter`). Null while OBS is not connected.
+   */
+  async takeSnapshot(): Promise<ObsSnapshot | null> {
+    const { settings, link, ready } = this.view_;
+    if (this.stopped || !settings.active || link.state !== 'connected' || !ready) return null;
+    const generation = this.generation;
+    const snapshot = await this.capture();
+    return generation === this.generation ? snapshot : null;
+  }
+
+  /** Asks OBS for an image of the scene on program. */
+  private async capture(): Promise<ObsSnapshot | null> {
+    const scene = this.view_.currentScene;
+    if (!scene || this.collectionChanging) return null;
     const format = this.imageFormat;
     try {
       const result = await this.deps.native.request<{ imageData?: unknown }>(
@@ -775,16 +794,15 @@ export class ObsLink {
           imageCompressionQuality: SNAPSHOT_QUALITY,
         },
       );
-      if (generation !== this.generation || !this.canShoot()) return;
       const snapshot = ObsSnapshotSchema.safeParse({
         image: result?.imageData,
         takenAt: new Date(this.now()).toISOString(),
       });
-      if (!snapshot.success) return;
-      for (const listener of [...this.snapshotListeners]) listener(snapshot.data);
+      return snapshot.success ? snapshot.data : null;
     } catch (raw) {
       // A format OBS turned down this time is not asked for again.
       if (format === 'webp' && requestError(raw).code > 0) this.imageFormat = 'jpg';
+      return null;
     }
   }
 }

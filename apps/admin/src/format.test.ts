@@ -4,6 +4,7 @@ import {
   errorText,
   expiryText,
   formatBytes,
+  formatAge,
   formatDate,
   formatDuration,
   groupDevicesByWorkspace,
@@ -300,6 +301,12 @@ describe('errorText', () => {
 
 describe('OBS outputs', () => {
   const output = { active: true, phase: null, durationMs: 0, paused: false } as const;
+
+  it('formats an image’s age', () => {
+    expect(formatAge(4_400)).toBe('4 s');
+    expect(formatAge(125_000)).toBe('2 min');
+    expect(formatAge(7_300_000)).toBe('2 h');
+  });
 
   it('formats running times', () => {
     expect(formatDuration(0)).toBe('0:00');

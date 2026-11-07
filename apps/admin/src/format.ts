@@ -344,6 +344,14 @@ export function formatDuration(ms: number): string {
   return h > 0 ? `${h}:${two(m)}:${two(total % 60)}` : `${m}:${two(total % 60)}`;
 }
 
+/** A short age: “5 s”, “2 min”, “1 h”. */
+export function formatAge(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
+  return `${Math.floor(seconds / 3600)} h`;
+}
+
 /** What a stream, recording or virtual camera is doing, as the phone says it. */
 export function obsOutputText(output: ObsOutput, elapsedMs: number | null): string {
   if (output.phase === 'starting') return 'Starting…';

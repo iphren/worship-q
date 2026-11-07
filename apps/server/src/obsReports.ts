@@ -7,7 +7,7 @@
  * them after a restart.
  */
 import { newerObsState } from '@worship-q/live-state';
-import type { ObsState } from '@worship-q/protocol';
+import type { ObsSnapshot, ObsState } from '@worship-q/protocol';
 
 export interface ObsReport {
   state: ObsState;
@@ -15,6 +15,13 @@ export interface ObsReport {
   deviceId: string;
   /** When it arrived, on the server's clock. */
   receivedAt: string;
+  /**
+   * The latest image of the program, from this owner's heartbeats; kept across the reports
+   * between them, which carry none.
+   */
+  snapshot: ObsSnapshot | null;
+  /** When the image arrived, on the server's clock; its `takenAt` is the OBS computer's. */
+  snapshotAt: string | null;
 }
 
 export class ObsReports {
@@ -27,12 +34,24 @@ export class ObsReports {
    * state. The same computer's report always replaces its last one: its revisions start
    * again when the app restarts. Returns whether it was kept.
    */
-  put(workspaceId: string, deviceId: string, state: ObsState): boolean {
+  put(
+    workspaceId: string,
+    deviceId: string,
+    state: ObsState,
+    snapshot: ObsSnapshot | null = null,
+  ): boolean {
     const current = this.reports.get(workspaceId);
-    if (current && current.state.ownerId !== state.ownerId) {
-      if (!newerObsState(state, current.state)) return false;
-    }
-    this.reports.set(workspaceId, { state, deviceId, receivedAt: this.now() });
+    const sameOwner = current?.state.ownerId === state.ownerId;
+    if (current && !sameOwner && !newerObsState(state, current.state)) return false;
+    const now = this.now();
+    const kept = sameOwner ? current : null;
+    this.reports.set(workspaceId, {
+      state,
+      deviceId,
+      receivedAt: now,
+      snapshot: snapshot ?? kept?.snapshot ?? null,
+      snapshotAt: snapshot ? now : (kept?.snapshotAt ?? null),
+    });
     return true;
   }
 

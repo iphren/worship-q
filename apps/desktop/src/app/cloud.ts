@@ -759,8 +759,10 @@ export class CloudController {
     this.obsReporter?.stop();
     this.obsReporter = new ObsReporter({
       state: () => this.obs.ownState(),
+      snapshot: () => this.obs.takeSnapshot(),
       subscribe: this.obs.subscribe,
-      put: (state) => this.call('PUT', '/api/v1/obs', { state }).then(() => undefined),
+      put: (state, snapshot) =>
+        this.call('PUT', '/api/v1/obs', { state, snapshot }).then(() => undefined),
     });
     const backup: LiveBackupApi = {
       put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>

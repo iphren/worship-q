@@ -20,6 +20,7 @@ import {
   isCompatibleProtocol,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
+  ObsSnapshotSchema,
   ObsStateSchema,
   OutputKindSchema,
   PROTOCOL_HEADER,
@@ -334,14 +335,17 @@ export async function buildServer(config: ServerConfig) {
 
     /** The OBS computer's own state, kept for the admin app; see `ObsReports`. */
     api.put('/api/v1/obs', async (request, reply) => {
-      const parsed = z.object({ state: ObsStateSchema }).safeParse(request.body);
+      const parsed = z
+        .object({ state: ObsStateSchema, snapshot: ObsSnapshotSchema.nullish() })
+        .safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: 'invalid-state' });
       const device = request.device!;
       // A computer speaks only for its own OBS link.
       if (parsed.data.state.ownerId !== device.id) {
         return reply.code(403).send({ error: 'not-owner' });
       }
-      return { stored: obsReports.put(device.workspaceId, device.id, parsed.data.state) };
+      const { state, snapshot } = parsed.data;
+      return { stored: obsReports.put(device.workspaceId, device.id, state, snapshot ?? null) };
     });
 
     // ── Browser output links (D22) ─────────────────────────────────────────
