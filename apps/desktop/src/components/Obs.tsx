@@ -119,8 +119,7 @@ export function ObsSwitchButton(props: { small?: boolean }) {
         disabled={!usable || action.busy}
         onClick={() => void action.switchScene()}
       >
-        {/* Ringed so an amber or green light still shows on the yellow. */}
-        <ObsStatusDot shared={shared} className="ring-2 ring-slate-900" />
+        <ObsStatusDot shared={shared} />
         <span className="min-w-0 truncate">{label}</span>
       </button>
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}

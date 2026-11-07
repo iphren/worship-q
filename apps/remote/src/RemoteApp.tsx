@@ -760,7 +760,7 @@ function obsStatusText(obs: RemoteObsView): string {
   }
 }
 
-function ObsDot({ obs, className = '' }: { obs: RemoteObsView; className?: string }) {
+function ObsDot({ obs }: { obs: RemoteObsView }) {
   const color = !obs.reachable
     ? 'bg-slate-500'
     : obs.status === 'connected'
@@ -770,9 +770,7 @@ function ObsDot({ obs, className = '' }: { obs: RemoteObsView; className?: strin
         : obs.status === 'connecting'
           ? 'bg-amber-400'
           : 'bg-slate-500';
-  return (
-    <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${color} ${className}`} />
-  );
+  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />;
 }
 
 /** Runs one OBS command at a time, keeping its failure to show for a while. */
@@ -811,12 +809,11 @@ function ObsRow(props: {
     <div className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND}`}>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
-          className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-500 py-1.5 text-sm font-semibold text-slate-900 active:scale-[0.98] disabled:opacity-40"
+          className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
           disabled={!usable || !target || command.pending}
           onClick={() => target && void command.run({ type: 'setScene', scene: target })}
         >
-          {/* Ringed so an amber or green light still shows on the yellow. */}
-          <ObsDot obs={obs} className="ring-2 ring-slate-900" />
+          <ObsDot obs={obs} />
           <span className="truncate">
             {target ? `⇄ ${target}` : 'Choose scenes on the OBS computer'}
           </span>

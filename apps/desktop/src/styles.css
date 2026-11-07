@@ -80,7 +80,7 @@ textarea {
   }
   /* The OBS switch button, wherever it is. */
   .btn-switch {
-    @apply border-yellow-400 bg-yellow-500 text-slate-900 hover:bg-yellow-400;
+    @apply border-yellow-700 bg-yellow-800 text-yellow-50 hover:bg-yellow-700;
   }
   .btn-danger {
     @apply border-rose-500 bg-rose-700 hover:bg-rose-600;
