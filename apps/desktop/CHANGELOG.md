@@ -1,5 +1,55 @@
 # Changelog
 
+## [2.0.0](https://github.com/iphren/worship-q/compare/v1.4.1...v2.0.0) (2026-11-07)
+
+
+### Features
+
+* **admin:** group devices by workspace on the Devices page ([5d6d53b](https://github.com/iphren/worship-q/commit/5d6d53b6f3cf40cb557a0ac8099a95664f047152))
+* **admin:** OBS monitor and outputs beside the scenes on wide screens ([61a71c8](https://github.com/iphren/worship-q/commit/61a71c8f8b41e3cc372e5650edf071833adfdbeb))
+* call OBS's virtual camera just Camera ([feaa215](https://github.com/iphren/worship-q/commit/feaa21524028aca5fa9b506b13a03993d9338253))
+* control OBS from every desktop and phone of the workspace ([1af1a06](https://github.com/iphren/worship-q/commit/1af1a0628f7792fda96cb932fced3044dd5cff62))
+* darken the OBS switch button and drop its status light's ring ([48e4459](https://github.com/iphren/worship-q/commit/48e4459488cff95a77a2cddea0484efde1f0bc29))
+* **desktop:** dev builds share the release build's keychain entry ([8d5f453](https://github.com/iphren/worship-q/commit/8d5f453e812be9bdb633bcb574dee249e43ac2c2))
+* **desktop:** give OBS its own tab and a monitor bar on the Present page ([965eb3d](https://github.com/iphren/worship-q/commit/965eb3d34a7a7ff5d02ea8df9cc6c91e03bf60ae))
+* **desktop:** list every scene in the OBS tab, outputs at the bottom ([37ce77d](https://github.com/iphren/worship-q/commit/37ce77d1044662ef68ec34564d75e8bfdcf9f82a))
+* **desktop:** mark the background tab the on-screen song is using ([c009d3c](https://github.com/iphren/worship-q/commit/c009d3c273a583510cece6da217fa664b9314d71))
+* **desktop:** order the OBS panel switch, outputs, scenes, then status ([f0fef9e](https://github.com/iphren/worship-q/commit/f0fef9e84dff4b943ebcf5a22860f4d95258001b))
+* **desktop:** pin library items to the top of the list ([d090bc2](https://github.com/iphren/worship-q/commit/d090bc217c60c432b00b33cd4e0162cde82f6797))
+* **desktop:** propose the computer's own name when connecting to a church ([13081c2](https://github.com/iphren/worship-q/commit/13081c226f73649f7e29ca50fbbcda9c4031b39a))
+* **desktop:** put Auto detect first in Settings -&gt; OBS ([f003fed](https://github.com/iphren/worship-q/commit/f003fed045404cbb462b7a5294d6a2bfb65dc293))
+* **desktop:** reorder settings and group text options ([ff51970](https://github.com/iphren/worship-q/commit/ff519708545307162fa53e9af47c944f0bd99329))
+* **desktop:** retry a failed sync or backup from the workspaces dialog ([c9781a3](https://github.com/iphren/worship-q/commit/c9781a3116c40d50c2f90927f0f7f2a0537fa0cc))
+* **desktop:** show church connection state on the workspace button ([d6e15c8](https://github.com/iphren/worship-q/commit/d6e15c825cbfba5b19394c272a88600809f9dd61))
+* log why phone and desktop connections close ([a3dd489](https://github.com/iphren/worship-q/commit/a3dd4891c262f717e29df7f1d490ea0c6b93d7d3))
+* make the OBS monitor's refresh bar grey on the desktop and remote ([66078e0](https://github.com/iphren/worship-q/commit/66078e0860fa3f42e150bf9ec91917f1c447d93a))
+* make the OBS switch button yellow on the desktop and remote ([51cf4bb](https://github.com/iphren/worship-q/commit/51cf4bb15ec5c3d49c66a7dcf352f483bb87c03b))
+* **server:** administrators choose whether a pairing computer may merge its library ([45e1423](https://github.com/iphren/worship-q/commit/45e1423c6331fac00534d4328684099e010889d3))
+* sharper, slower OBS monitor with a sweeping refresh bar ([7c1e00e](https://github.com/iphren/worship-q/commit/7c1e00e0143871d2f244b6306071e9aca9185a67))
+* show a picture of OBS's program on the admin page ([138627e](https://github.com/iphren/worship-q/commit/138627e9e0593d7af2ca76dbafc3c641ede962e8))
+* show the workspace's OBS state on the admin page ([fa8e98b](https://github.com/iphren/worship-q/commit/fa8e98bb53206aa4cb756b144a78548f345c37f5))
+
+
+### Bug Fixes
+
+* "Don't allow merging" brings nothing, even to a workspace without content ([f2cc464](https://github.com/iphren/worship-q/commit/f2cc464cecac67acac852508beb49b0c5ec4532f))
+* **admin:** confirm an approved pairing instead of warning it expired ([04c53a0](https://github.com/iphren/worship-q/commit/04c53a027a3ec0bb2ccc9e65c8d929c91479e725))
+* **desktop:** clear church versions when taking the church's copy ([b5f330a](https://github.com/iphren/worship-q/commit/b5f330ad3c9e60bdcc8a0cce3be3dd078d0a2722))
+* **desktop:** highlight the open workspace's name instead of an "Open" label ([81cd388](https://github.com/iphren/worship-q/commit/81cd388b164ecd74124f029fb2feb813a5bfb440))
+* **desktop:** keep forwarding OBS when the coordinator reconnects ([672475c](https://github.com/iphren/worship-q/commit/672475c7ef5d3c97fbed75bddcc8f1c689d469b0))
+* **desktop:** lay out the pairing code beside its QR code ([38f35d8](https://github.com/iphren/worship-q/commit/38f35d8ac30071fd65515099099dd976072e85d3))
+* **desktop:** notice a server updated while the app runs ([ef661ad](https://github.com/iphren/worship-q/commit/ef661ad3fbce002a3b142fdcc72b304a4af1720d))
+* **desktop:** send the OBS state again when the coordinator lacks it ([2ceff16](https://github.com/iphren/worship-q/commit/2ceff16558e6e712878e71d10bf3b56c45e66421))
+* **desktop:** use Credential Manager in Windows dev builds ([aca66b4](https://github.com/iphren/worship-q/commit/aca66b402d7d297c2f0c7b7c89f2b5ceb0b76156))
+* forget the church defaults when leaving the church ([c31c074](https://github.com/iphren/worship-q/commit/c31c07409cb4f31a78f167bd4a9736f2ef7a46d0))
+* keep hidden labels inside their scroll boxes ([ccc265a](https://github.com/iphren/worship-q/commit/ccc265a5f7a567be32860b41bf088cb89fa9272b))
+* show the OBS connection problem on the switch button before the scene hint ([d53c436](https://github.com/iphren/worship-q/commit/d53c436297aad7e332c0c1577a2f12f649a47e82))
+
+
+### Miscellaneous Chores
+
+* release 2.0.0 ([29c8b6e](https://github.com/iphren/worship-q/commit/29c8b6e956fe3968e01eec20c6adca0ffe1cf811))
+
 ## [1.4.1](https://github.com/iphren/worship-q/compare/v1.4.0...v1.4.1) (2026-11-04)
 
 
