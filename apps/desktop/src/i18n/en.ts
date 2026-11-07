@@ -24,6 +24,7 @@ export const en = {
   'common.remove': 'Remove',
   'common.close': 'Close',
   'common.today': 'Today',
+  'common.searchShortcut': 'Press / to search',
 
   'library.songs': 'Songs',
   'library.slides': 'Slides',
@@ -170,7 +171,6 @@ export const en = {
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
   'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
-  'present.shortcutsObs': '← → song · 1 2 3… jump · ⌫ hide lyrics · / switch OBS scene',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 
@@ -523,7 +523,6 @@ export const en = {
   'obs.switch': 'Switch OBS scene',
   'obs.switchTo': 'Switch to {scene}',
   'obs.switchNone': 'Choose the switch button’s scenes in Settings → OBS',
-  'obs.shortcut': 'Shortcut: /',
   'obs.panel': 'OBS',
   'obs.panelTitle': 'OBS · {name}',
   'obs.scenes': 'Scenes',
@@ -531,6 +530,7 @@ export const en = {
   'obs.stream': 'Stream',
   'obs.record': 'Record',
   'obs.virtualCam': 'Virtual camera',
+  'obs.virtualCamShort': 'Virtual cam',
   'obs.start': 'Start',
   'obs.stop': 'Stop',
   'obs.on': 'On',

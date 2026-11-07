@@ -3,7 +3,7 @@
  * button, the status indicator and the OBS panel. Nothing here is shown unless a computer of
  * the workspace has an active OBS link (O5).
  */
-import { liveFavourite, outputElapsed, switchTarget } from '@worship-q/live-state';
+import { outputElapsed, switchTarget } from '@worship-q/live-state';
 import {
   OBS_ERRORS,
   type ObsCommand,
@@ -103,67 +103,63 @@ function useObsAction() {
  * The switch button (O4): shows which favourite is live and switches to the other. Shown only
  * while OBS is shared (O5); disabled, but kept in place, while OBS is not connected.
  */
-export function ObsSwitchButton(props: { compact?: boolean }) {
+export function ObsSwitchButton(props: { small?: boolean }) {
   const shared = useObs();
   const action = useObsAction();
   const state = shared.state;
   if (!state) return null;
   const target = switchTarget(state);
-  const live = liveFavourite(state);
   const usable = state.status === 'connected' && shared.reachable && target !== null;
   const label = target ? t('obs.switchTo', { scene: target }) : t('obs.switchNone');
-  const title = [label, obsStatusText(shared), action.error, t('obs.shortcut')]
-    .filter(Boolean)
-    .join('\n');
-  if (props.compact) {
-    return (
-      <button
-        className={`btn relative px-0 py-2 ${live !== null ? 'border-sky-500' : ''} ${action.error ? 'ring-2 ring-rose-500' : ''}`}
-        title={title}
-        aria-label={label}
-        disabled={!usable || action.busy}
-        onClick={() => void action.switchScene()}
-      >
-        <Icon name="switch" />
-        <ObsStatusDot shared={shared} className="absolute top-1 right-1" />
-      </button>
-    );
-  }
+  const title = [label, obsStatusText(shared), action.error].filter(Boolean).join('\n');
   return (
     <div className="col-span-2 space-y-1">
       <button
-        className="btn w-full justify-center gap-2"
+        className={`btn w-full justify-center ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
         title={title}
         disabled={!usable || action.busy}
         onClick={() => void action.switchScene()}
       >
         <ObsStatusDot shared={shared} />
-        <span className="truncate">{label}</span>
-        <KeyHint>/</KeyHint>
+        <span className="min-w-0 truncate">{label}</span>
       </button>
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}
     </div>
   );
 }
 
-function KeyHint(props: { children: ReactNode }) {
-  return (
-    <kbd className="rounded border border-slate-600 px-1 text-[10px] text-slate-400">
-      {props.children}
-    </kbd>
-  );
-}
+type ObsOutputKind = (typeof OUTPUTS)[number]['kind'];
 
 const OUTPUTS = [
-  { kind: 'stream', label: 'obs.stream', start: 'startStream', stop: 'stopStream' },
-  { kind: 'record', label: 'obs.record', start: 'startRecord', stop: 'stopRecord' },
+  {
+    kind: 'stream',
+    label: 'obs.stream',
+    short: 'obs.stream',
+    start: 'startStream',
+    stop: 'stopStream',
+  },
+  {
+    kind: 'record',
+    label: 'obs.record',
+    short: 'obs.record',
+    start: 'startRecord',
+    stop: 'stopRecord',
+  },
   {
     kind: 'virtualCam',
     label: 'obs.virtualCam',
+    /** For the narrow lights beside the monitor. */
+    short: 'obs.virtualCamShort',
     start: 'startVirtualCam',
     stop: 'stopVirtualCam',
   },
 ] as const;
+
+/** The colour of an output's light: red while live to the world, blue for the camera. */
+function outputDot(kind: ObsOutputKind, active: boolean): string {
+  if (!active) return 'bg-slate-600';
+  return kind === 'virtualCam' ? 'bg-sky-400' : 'bg-rose-500';
+}
 
 function outputText(output: ObsOutput, elapsed: number | null): string {
   if (output.phase) return t(`obs.phase.${output.phase}`);
@@ -246,7 +242,7 @@ export function ObsPanel(props: { watch: boolean }) {
           return (
             <div key={kind} className="flex items-center gap-2">
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${output.active ? (kind === 'virtualCam' ? 'bg-sky-400' : 'bg-rose-500') : 'bg-slate-600'}`}
+                className={`h-2 w-2 shrink-0 rounded-full ${outputDot(kind, output.active)}`}
                 aria-hidden="true"
               />
               <span className="w-28 shrink-0">{t(label)}</span>
@@ -291,11 +287,15 @@ export function ObsPanel(props: { watch: boolean }) {
   );
 }
 
-/** The live monitor (O6, M5.2): the latest image, its age shown once it is stale. */
-function ObsMonitor(props: { now: number; usable: boolean }) {
+/**
+ * The live monitor (O6, M5.2): the latest image, its age shown once it is stale. `caption`
+ * takes the place of the "Program" label, the age then shown over the image.
+ */
+function ObsMonitor(props: { now: number; usable: boolean; caption?: ReactNode }) {
   const image = useObsImage();
   const age = image ? props.now - image.receivedAt : null;
   const stale = age !== null && age > STALE_MS;
+  const staleText = t('obs.monitorStale', { seconds: Math.round((age ?? 0) / 1000) });
   return (
     <figure className="space-y-1">
       <div className="relative aspect-video overflow-hidden rounded-md bg-black">
@@ -310,95 +310,74 @@ function ObsMonitor(props: { now: number; usable: boolean }) {
             {props.usable ? t('obs.monitorWaiting') : ''}
           </p>
         )}
-      </div>
-      <figcaption className="flex justify-between text-xs text-slate-500">
-        <span>{t('obs.monitor')}</span>
-        {stale && (
-          <span className="text-amber-300">
-            {t('obs.monitorStale', { seconds: Math.round((age ?? 0) / 1000) })}
+        {stale && props.caption && (
+          <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 text-[10px] text-amber-300">
+            {staleText}
           </span>
         )}
-      </figcaption>
+      </div>
+      {props.caption ? (
+        <figcaption>{props.caption}</figcaption>
+      ) : (
+        <figcaption className="flex justify-between text-xs text-slate-500">
+          <span>{t('obs.monitor')}</span>
+          {stale && <span className="text-amber-300">{staleText}</span>}
+        </figcaption>
+      )}
     </figure>
   );
 }
 
-/** The panel behind one toolbar button; it opens upwards, over the page, like the screen menu. */
-export function ObsMenu() {
+/**
+ * The live monitor above the slide column on the Present page, shown while OBS is connected,
+ * on the OBS computer too, with the switch button and the outputs' lights beside it.
+ */
+export function ObsLiveMonitor() {
+  const { cloud } = useApp();
   const shared = useObs();
-  const [open, setOpen] = useState(false);
-  const holder = useRef<HTMLDivElement>(null);
-
+  const connected = shared.state?.status === 'connected';
+  const now = useNow(1000, connected);
   useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      // A confirmation dialog belongs to the menu even though it is drawn elsewhere.
-      const target = event.target as Element;
-      if (!holder.current?.contains(target) && !target.closest('[data-dialog]')) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !document.querySelector('[data-dialog]')) setOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  if (!shared.state) return null;
-  const title = shared.local
-    ? t('obs.panel')
-    : t('obs.panelTitle', { name: shared.state.ownerName });
+    if (!connected) return;
+    return cloud.obs.watchHere();
+  }, [cloud, connected]);
+  if (!connected || !shared.state) return null;
+  const state = shared.state;
   return (
-    <div ref={holder} className="relative flex flex-col">
-      <button
-        className={`btn relative px-0 py-2 ${open ? 'bg-slate-600' : ''}`}
-        title={`${title}\n${obsStatusText(shared)}`}
-        aria-label={title}
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Icon name="camera" />
-        <ObsStatusDot shared={shared} className="absolute top-1 right-1" />
-      </button>
-      {open && (
-        <div className="panel absolute right-0 bottom-full z-20 mb-2 w-80 space-y-2 bg-slate-800 p-3 shadow-xl">
-          <h2 className="label">{title}</h2>
-          <ObsPanel watch />
-        </div>
-      )}
+    // Drawn as a panel, like the side panel, to set it apart from the slides below.
+    <div className="panel flex items-start gap-3 overflow-hidden p-3">
+      {/* Both sides give way in a narrow window, the switch button's label truncating. */}
+      <div className="w-72 min-w-28 shrink">
+        <ObsMonitor now={now} usable={shared.reachable} caption={<ObsSwitchButton small />} />
+      </div>
+      <div className="w-36 min-w-0 shrink">
+        <ul className="space-y-2.5 text-xs">
+          {OUTPUTS.map(({ kind, short }) => {
+            const output = state[kind];
+            const elapsed = outputElapsed(output, shared.receivedAt, now);
+            return (
+              // The state goes under the name, both lined up after the light.
+              <li key={kind} className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${outputDot(kind, output.active)}`}
+                  aria-hidden="true"
+                />
+                <span className="truncate">{t(short)}</span>
+                <span className="col-start-2 truncate text-slate-400 tabular-nums">
+                  {outputText(output, elapsed)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
 
 /**
- * The OBS switch button's shortcut on the Present page (M3.6). Typing in a field or a dialog
- * being open leaves the key alone.
- */
-export function useObsShortcut(): void {
-  const { cloud } = useApp();
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      if (target?.isContentEditable || document.querySelector('[data-dialog]')) return;
-      if (!cloud.obs.view.state) return;
-      event.preventDefault();
-      void cloud.obs.switchScene();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [cloud]);
-}
-
-/**
  * OBS beside the output controls: the switch button and the panel (M3.3, M3.4). The monitor
- * is left out on the OBS computer itself, where OBS is on screen anyway; the camera button's
- * panel shows it there on request.
+ * is left out on the OBS computer itself, where OBS is on screen anyway.
  */
 export function ObsSection(props: { watch: boolean }) {
   const shared = useObs();

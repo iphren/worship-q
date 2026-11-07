@@ -118,10 +118,11 @@ it can; if it says a password is needed, click **Show Connect Info** in OBS and 
 password into Settings. Choose the two scenes of the **Switch button**, for example your
 lyrics scene and your camera scene. This computer can be a viewer.
 
-**During the service.** On the Present page, the ⇄ button switches between the two scenes
-(or press `/`), and the camera button opens OBS: every scene, **Stream**, **Record**,
-**Virtual camera**, and a small picture of what is on the stream. Phones have the same in a
-row above their buttons. The dot shows the connection: green connected, amber connecting,
+**During the service.** On the Present page, while OBS is connected, a small picture of what
+is on the stream sits above the slides, with the switch button beside it and whether
+**Stream**, **Record** and **Virtual camera** are on. The **OBS** tab beside **Run sheet** and
+**Slideshow** has every scene and starts and stops **Stream**, **Record** and **Virtual
+camera**. Phones have the same in a row above their buttons. The dot shows the connection: green connected, amber connecting,
 grey OBS not running, red refused. Stopping the stream or a recording asks first.
 
 OBS and Worship Q can be opened in either order. If another computer turns on its own OBS

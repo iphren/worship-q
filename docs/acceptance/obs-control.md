@@ -56,7 +56,6 @@ walkthrough with real equipment (M6.1), which is still to do.
   working with desktops that have not updated yet.
 - **Stopping.** Stopping the stream or a recording asks for confirmation on the desktop and a
   second tap on the phone.
-- **Shortcut.** `/` switches the scene, on the Present page and in the slideshow window.
 
 ## Walkthrough (M6.1)
 
@@ -72,7 +71,6 @@ desktop and a phone, over the LAN and over the relay, on macOS and Windows.
 | OBS quit and reopened: Not running, then Connected; controls disabled meanwhile on every device | |
 | The laptop rebooted: link back on its own | |
 | Favourites chosen; the switch button on the coordinator, the follower and the phone switches between them, and from a third scene to the first | |
-| `/` switches the scene, also from the slideshow window | |
 | The scene list is in the same order as OBS's Scenes dock | |
 | Scene changed in OBS itself: every device shows it within a second | |
 | Scene renamed in OBS: the favourite follows | |

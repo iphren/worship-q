@@ -25,9 +25,8 @@ describe('presentAction', () => {
     expect(press('Delete')).toBe('clear');
   });
 
-  it('switches the OBS scene with slash, which is no slide key (OBS plan M3.6)', () => {
-    expect(press('/')).toBe('obs-switch');
-    expect(press('/', { metaKey: true })).toBeNull();
+  it('leaves slash to the search shortcut: it is no slide key', () => {
+    expect(press('/')).toBeNull();
   });
 
   it('moves through the whole run sheet with page down and up, and space', () => {
@@ -88,26 +87,5 @@ describe('slideKeyLabel', () => {
     expect(slideKeyLabel(10)).toBe('Q');
     expect(slideKeyLabel(35)).toBe('M');
     expect(slideKeyLabel(36)).toBeNull();
-  });
-});
-
-describe('the OBS switch shortcut (OBS plan M3.6)', () => {
-  const session = {
-    live: { blank: false },
-    stepInItem: async () => undefined,
-    browseItem: async () => undefined,
-    next: async () => undefined,
-    previous: async () => undefined,
-    unblankOrNext: async () => undefined,
-    setBlank: async () => undefined,
-    clear: async () => undefined,
-    playSlide: async () => undefined,
-  };
-
-  it('switches the scene where OBS is available, and does nothing elsewhere', () => {
-    let switched = 0;
-    runPresentAction(session, 'obs-switch', { obsSwitch: () => switched++ });
-    expect(switched).toBe(1);
-    expect(() => runPresentAction(session, 'obs-switch')).not.toThrow();
   });
 });

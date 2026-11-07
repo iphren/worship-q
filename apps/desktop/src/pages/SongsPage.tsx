@@ -8,6 +8,7 @@ import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
+import { useSearchShortcut } from '../lib/searchShortcut';
 
 /** The library is listed in three tabs: ordinary songs, imported slide decks and websites. */
 type Kind = 'songs' | 'slides' | 'web';
@@ -27,6 +28,8 @@ export function SongsPage() {
   const session = useSession();
   const [kind, setKind] = useState<Kind>('songs');
   const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchShortcut(searchRef);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState<{ song: Song | null; website?: boolean } | null>(null);
@@ -115,6 +118,7 @@ export function SongsPage() {
           </button>
         )}
         <input
+          ref={searchRef}
           className="field"
           type="search"
           autoCorrect="off"
@@ -122,7 +126,7 @@ export function SongsPage() {
           autoComplete="off"
           spellCheck={false}
           placeholder={t(`library.${kind}Search`)}
-          title={t(`library.${kind}SearchHint`)}
+          title={`${t(`library.${kind}SearchHint`)}\n${t('common.searchShortcut')}`}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

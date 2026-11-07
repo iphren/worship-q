@@ -35,7 +35,6 @@ export async function boot(): Promise<Booted> {
   const output = new OutputController(session);
   await output.start();
   const cloud = new CloudController(session, output);
-  output.obsSwitch = () => cloud.obs.switchScene();
   // The app opens without waiting for the network.
   void cloud.start().catch(console.error);
   const updates = new UpdateController(output);
