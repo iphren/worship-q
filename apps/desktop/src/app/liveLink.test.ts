@@ -1030,11 +1030,16 @@ describe('OBS control across the workspace (OBS plan M2)', () => {
     await s.obsOn();
     // The OBS computer's state reaches the laptop while it is still taking the role.
     b.link.claim();
-    await settle();
-    await settle();
-    expect(b.link.status.role).toBe('coordinator');
-    expect(b.obs.view.state?.ownerName).toBe('Streaming');
-    expect(a.obs.view.state?.ownerName).toBe('Streaming');
+    // The laptop's start takes 300 ms of real time, so wait for the outcome rather than a
+    // fixed time that a slow CI runner can overrun.
+    await vi.waitFor(
+      () => {
+        expect(b.link.status.role).toBe('coordinator');
+        expect(b.obs.view.state?.ownerName).toBe('Streaming');
+        expect(a.obs.view.state?.ownerName).toBe('Streaming');
+      },
+      { timeout: 3000, interval: 25 },
+    );
     expect(await a.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
   });
 
