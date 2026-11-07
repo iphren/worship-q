@@ -815,7 +815,12 @@ function ObsRow(props: {
         >
           <ObsDot obs={obs} />
           <span className="truncate">
-            {target ? `⇄ ${target}` : 'Choose scenes on the OBS computer'}
+            {/* While OBS is not connected, that is the problem to show, not the scenes. */}
+            {!obs.reachable || obs.status !== 'connected'
+              ? obsStatusText(obs)
+              : target
+                ? `⇄ ${target}`
+                : 'Choose scenes on the OBS computer'}
           </span>
         </button>
         <button

@@ -108,9 +108,15 @@ export function ObsSwitchButton(props: { small?: boolean }) {
   const state = shared.state;
   if (!state) return null;
   const target = switchTarget(state);
-  const usable = state.status === 'connected' && shared.reachable && target !== null;
-  const label = target ? t('obs.switchTo', { scene: target }) : t('obs.switchNone');
-  const title = [label, obsStatusText(shared), action.error].filter(Boolean).join('\n');
+  const linked = state.status === 'connected' && shared.reachable;
+  const usable = linked && target !== null;
+  // While OBS is not connected, that is the problem to show, not the scenes.
+  const label = !linked
+    ? obsStatusText(shared)
+    : target
+      ? t('obs.switchTo', { scene: target })
+      : t('obs.switchNone');
+  const title = [label, linked && obsStatusText(shared), action.error].filter(Boolean).join('\n');
   return (
     <div className="col-span-2 space-y-1">
       <button
