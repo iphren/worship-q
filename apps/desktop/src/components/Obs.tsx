@@ -114,12 +114,13 @@ export function ObsSwitchButton(props: { small?: boolean }) {
   return (
     <div className="col-span-2 space-y-1">
       <button
-        className={`btn w-full justify-center ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
+        className={`btn btn-switch w-full justify-center ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
         title={title}
         disabled={!usable || action.busy}
         onClick={() => void action.switchScene()}
       >
-        <ObsStatusDot shared={shared} />
+        {/* Ringed so an amber or green light still shows on the yellow. */}
+        <ObsStatusDot shared={shared} className="ring-2 ring-slate-900" />
         <span className="min-w-0 truncate">{label}</span>
       </button>
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}

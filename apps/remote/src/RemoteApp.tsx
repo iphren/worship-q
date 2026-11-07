@@ -1,7 +1,6 @@
 import {
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
-  liveFavourite,
   outputElapsed,
   switchTarget,
   type ObsCommand,
@@ -761,7 +760,7 @@ function obsStatusText(obs: RemoteObsView): string {
   }
 }
 
-function ObsDot({ obs }: { obs: RemoteObsView }) {
+function ObsDot({ obs, className = '' }: { obs: RemoteObsView; className?: string }) {
   const color = !obs.reachable
     ? 'bg-slate-500'
     : obs.status === 'connected'
@@ -771,7 +770,9 @@ function ObsDot({ obs }: { obs: RemoteObsView }) {
         : obs.status === 'connecting'
           ? 'bg-amber-400'
           : 'bg-slate-500';
-  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />;
+  return (
+    <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${color} ${className}`} />
+  );
 }
 
 /** Runs one OBS command at a time, keeping its failure to show for a while. */
@@ -805,19 +806,17 @@ function ObsRow(props: {
   const { obs } = props;
   const command = useObsCommand();
   const target = switchTarget(obs);
-  const live = liveFavourite(obs);
   const usable = props.connected && obs.reachable && obs.status === 'connected';
   return (
     <div className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND}`}>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
-          className={`flex min-w-0 items-center justify-center gap-2 rounded-lg py-1.5 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 ${
-            live !== null ? 'bg-sky-900 text-sky-100' : 'bg-slate-800'
-          }`}
+          className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-500 py-1.5 text-sm font-semibold text-slate-900 active:scale-[0.98] disabled:opacity-40"
           disabled={!usable || !target || command.pending}
           onClick={() => target && void command.run({ type: 'setScene', scene: target })}
         >
-          <ObsDot obs={obs} />
+          {/* Ringed so an amber or green light still shows on the yellow. */}
+          <ObsDot obs={obs} className="ring-2 ring-slate-900" />
           <span className="truncate">
             {target ? `⇄ ${target}` : 'Choose scenes on the OBS computer'}
           </span>
