@@ -741,7 +741,7 @@ const OBS_ERROR_TEXT: Record<string, string> = {
 };
 
 /** Behind the OBS bar and the OBS screen alike, set apart from the home page and run sheet. */
-const OBS_BACKGROUND = 'bg-red-950';
+const OBS_BACKGROUND = 'bg-neutral-800';
 
 function obsError(result: ObsResult): string {
   return (result.error && OBS_ERROR_TEXT[result.error]) || `OBS: ${result.error ?? result.code}`;
