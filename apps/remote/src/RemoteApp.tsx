@@ -345,7 +345,7 @@ function Live({ view }: { view: RemoteView | null }) {
           )}
         </div>
         {obsOpen && view.obs && (
-          <div className="absolute inset-0 z-20 flex flex-col bg-slate-950">
+          <div className={`absolute inset-0 z-20 flex flex-col ${OBS_BACKGROUND}`}>
             <ObsScreen obs={view.obs} connected={connected} />
           </div>
         )}
@@ -740,6 +740,9 @@ const OBS_ERROR_TEXT: Record<string, string> = {
   'owner-left': 'The OBS computer left before answering.',
 };
 
+/** Behind the OBS bar and the OBS screen alike, set apart from the home page and run sheet. */
+const OBS_BACKGROUND = 'bg-teal-950';
+
 function obsError(result: ObsResult): string {
   return (result.error && OBS_ERROR_TEXT[result.error]) || `OBS: ${result.error ?? result.code}`;
 }
@@ -805,7 +808,7 @@ function ObsRow(props: {
   const live = liveFavourite(obs);
   const usable = props.connected && obs.reachable && obs.status === 'connected';
   return (
-    <div className="border-b border-slate-800 bg-slate-950 px-3 py-1.5">
+    <div className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND}`}>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
           className={`flex min-w-0 items-center justify-center gap-2 rounded-lg py-1.5 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 ${
