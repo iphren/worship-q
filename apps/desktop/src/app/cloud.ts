@@ -253,6 +253,25 @@ export class CloudController {
     }
   }
 
+  /**
+   * Asks the instance its version again when the relay connection reopens, which it does
+   * after every server restart, so a server updated while this app runs is noticed without
+   * waiting for a refusal: an updated server still accepts the older version, so none comes
+   * (D26; OBS control M2.9). An unreachable instance leaves the version as it was.
+   */
+  private async recheckProtocol(): Promise<void> {
+    const server = this.state?.server;
+    if (!server || this.renegotiating) return;
+    const { protocol, info } = await negotiate(server);
+    if (!info || server !== this.state?.server) return;
+    this.update({ server: info });
+    if (protocol === this.protocolVersion) return;
+    this.protocolVersion = protocol;
+    this.link?.capabilitiesChanged();
+    // The hello carries the version and the capabilities; a fresh connection says the new ones.
+    this.relay?.reconnect();
+  }
+
   /** A request to the instance with this device's token and the protocol version. */
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
     const { server, deviceToken } = this.state ?? {};
@@ -862,6 +881,7 @@ export class CloudController {
           // settled the role already: back to this device, or to an older live state (D14).
           this.offlineCoordinator = false;
           this.transports?.opened(kind);
+          void this.recheckProtocol();
         },
         close: (kind) => {
           this.host.detach();
