@@ -8,7 +8,9 @@ import {
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   type AdminLiveView,
+  type AdminObsView,
   type LiveSnapshot,
+  type ObsState,
 } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import { buildServer } from './app';
@@ -1287,4 +1289,105 @@ describe('pairing from the device’s side (D29)', () => {
     instance.setCodesEnabled(workspace.id, true);
     expect((await enroll(code)).statusCode).toBe(200);
   }, 15_000);
+});
+
+describe('OBS state for the admin app', () => {
+  const idle = { active: false, phase: null, durationMs: null, paused: false } as const;
+  const obsState = (ownerId: string, patch: Partial<ObsState> = {}): ObsState => ({
+    ownerId,
+    ownerName: 'OBS Mac',
+    activatedAt: '2026-11-01T10:00:00.000Z',
+    revision: 5,
+    active: true,
+    status: 'connected',
+    scenes: ['Camera', 'Slides'],
+    currentScene: 'Camera',
+    favourites: ['Camera', 'Slides'],
+    stream: { active: true, phase: null, durationMs: 60_000, paused: false },
+    record: idle,
+    virtualCam: idle,
+    ...patch,
+  });
+
+  async function obsSetup() {
+    const context = await setup({ administrators: ['pat@example.org'] });
+    const { app, instance, signIn } = context;
+    const { headers: adminHeaders } = await signIn('pat@example.org');
+    const { workspace, code } = instance.createWorkspace('North');
+    instance.setCodesEnabled(workspace.id, true);
+    const enroll = (name: string) => {
+      const { token, device } = instance.enroll(code, name)!;
+      const headers = {
+        authorization: `Bearer ${token}`,
+        [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
+        'content-type': 'application/json',
+      };
+      return { device, headers };
+    };
+    const report = (headers: Record<string, string>, state: unknown) =>
+      app.inject({ method: 'PUT', url: '/api/v1/obs', headers, payload: { state } });
+    const view = async () =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: `/api/v1/admin/workspaces/${workspace.id}/obs`,
+          headers: adminHeaders,
+        })
+      ).json<AdminObsView>();
+    return { ...context, workspace, enroll, report, view };
+  }
+
+  it('gives the admin app what the OBS computer last reported, and how long ago', async () => {
+    const { enroll, report, view, time } = await obsSetup();
+    expect(await view()).toEqual({ obs: null });
+    const mac = enroll('OBS Mac');
+    const put = await report(mac.headers, obsState(mac.device.id));
+    expect(put.statusCode).toBe(200);
+    expect(put.json()).toEqual({ stored: true });
+    time.advance(4000);
+    expect(await view()).toEqual({
+      obs: {
+        state: obsState(mac.device.id),
+        owner: { deviceId: mac.device.id, name: 'OBS Mac', connected: false },
+        receivedAt: '2026-11-02T09:00:00.000Z',
+        ageMs: 4000,
+      },
+    });
+  });
+
+  it('refuses a state for another computer’s link, or one that does not read', async () => {
+    const { enroll, report, view } = await obsSetup();
+    const mac = enroll('OBS Mac');
+    const other = enroll('Projector');
+    expect((await report(mac.headers, obsState(other.device.id))).statusCode).toBe(403);
+    expect((await report(mac.headers, { ownerId: mac.device.id })).statusCode).toBe(400);
+    expect(await view()).toEqual({ obs: null });
+  });
+
+  it('takes the same computer’s report even with a lower revision, as after a restart', async () => {
+    const { enroll, report, view } = await obsSetup();
+    const mac = enroll('OBS Mac');
+    await report(mac.headers, obsState(mac.device.id, { revision: 9 }));
+    await report(mac.headers, obsState(mac.device.id, { revision: 1, currentScene: 'Slides' }));
+    expect((await view()).obs?.state.currentScene).toBe('Slides');
+    // Turned off: kept, so the admin app says so.
+    await report(mac.headers, obsState(mac.device.id, { active: false }));
+    expect((await view()).obs?.state.active).toBe(false);
+  });
+
+  it('keeps the later activation when two computers report', async () => {
+    const { enroll, report, view } = await obsSetup();
+    const mac = enroll('OBS Mac');
+    const pc = enroll('OBS PC');
+    await report(mac.headers, obsState(mac.device.id));
+    const older = obsState(pc.device.id, { activatedAt: '2026-10-01T10:00:00.000Z' });
+    expect((await report(pc.headers, older)).json()).toEqual({ stored: false });
+    expect((await view()).obs?.owner.deviceId).toBe(mac.device.id);
+    // A link turned off never takes it from an active one.
+    const off = obsState(pc.device.id, { activatedAt: '2026-11-02T08:00:00.000Z', active: false });
+    expect((await report(pc.headers, off)).json()).toEqual({ stored: false });
+    const later = obsState(pc.device.id, { activatedAt: '2026-11-02T08:00:00.000Z' });
+    expect((await report(pc.headers, later)).json()).toEqual({ stored: true });
+    expect((await view()).obs?.owner).toMatchObject({ deviceId: pc.device.id, name: 'OBS PC' });
+  });
 });

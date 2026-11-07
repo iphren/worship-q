@@ -18,6 +18,7 @@ import {
   type AdminLibraryItem,
   type AdminLiveView,
   type AdminMe,
+  type AdminObsView,
   type AdminWorkspace,
   type LibraryKind,
 } from '@worship-q/protocol';
@@ -26,6 +27,7 @@ import { parseQuery, rankSong, songKeys, type SongKeys } from '@worship-q/search
 import { z } from 'zod';
 import { churchFilesDir, findFile, moveFilesToChurch } from './files';
 import { formatPairingCode, type AdministratorRow, type Instance } from './instance';
+import type { ObsReports } from './obsReports';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
 import { storageReport } from './storage';
@@ -35,6 +37,8 @@ export const SESSION_COOKIE = 'wq_admin';
 export interface AdminConfig {
   instance: Instance;
   relay: Relay;
+  /** The OBS state each workspace's OBS computer last reported. */
+  obsReports: ObsReports;
   /** Null when sign-in is not configured; the routes then say so. */
   oidc: OidcClient | null;
   dataDir: string;
@@ -78,7 +82,7 @@ export function safeReturnTo(value: unknown): string {
 }
 
 export async function registerAdminRoutes(app: FastifyInstance, config: AdminConfig) {
-  const { instance, relay, oidc } = config;
+  const { instance, relay, obsReports, oidc } = config;
 
   // ── Sign-in (D27, D28) ───────────────────────────────────────────────────
 
@@ -283,6 +287,31 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           relay.contentChangedAll('');
         }
         return { workspace: workspaceView(instance.getWorkspace(workspace.id)!), moved };
+      },
+    );
+
+    /** The workspace's OBS state as its OBS computer last reported it. */
+    api.get<{ Params: { id: string } }>(
+      '/api/v1/admin/workspaces/:id/obs',
+      async (request, reply) => {
+        const workspace = instance.getWorkspace(request.params.id);
+        if (!workspace) return reply.code(404).send({ error: 'not-found' });
+        reply.header('cache-control', 'no-store');
+        const report = obsReports.get(workspace.id);
+        if (!report) return { obs: null } satisfies AdminObsView;
+        const peer = relay.peers(workspace.id).find((p) => p.deviceId === report.deviceId);
+        return {
+          obs: {
+            state: report.state,
+            owner: {
+              deviceId: report.deviceId,
+              name: peer?.name ?? instance.getDevice(report.deviceId)?.name ?? null,
+              connected: peer !== undefined,
+            },
+            receivedAt: report.receivedAt,
+            ageMs: Math.max(0, Date.parse(instance.now()) - Date.parse(report.receivedAt)),
+          },
+        } satisfies AdminObsView;
       },
     );
 

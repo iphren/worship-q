@@ -9,6 +9,8 @@ import {
   type ConnectedDevice,
   type LibraryType,
   type LiveSnapshot,
+  type ObsConnection,
+  type ObsOutput,
 } from '@worship-q/protocol';
 
 // ── Church Library types ───────────────────────────────────────────────────
@@ -321,4 +323,33 @@ export function errorText(code: string, status?: number): string {
   if (known) return known;
   if (status !== undefined && status >= 500) return `The server had a problem (${code}).`;
   return `Something went wrong (${code}).`;
+}
+
+// ── OBS ────────────────────────────────────────────────────────────────────
+
+/** The OBS computer's connection to OBS, in words. */
+export const OBS_STATUS_LABEL: Record<ObsConnection, string> = {
+  connected: 'OBS connected',
+  connecting: 'Connecting to OBS…',
+  'not-running': 'OBS not running',
+  refused: 'OBS refused the password',
+};
+
+/** A running time as `m:ss`, or `h:mm:ss` from an hour. */
+export function formatDuration(ms: number): string {
+  const total = Math.floor(Math.max(0, ms) / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${two(m)}:${two(total % 60)}` : `${m}:${two(total % 60)}`;
+}
+
+/** What a stream, recording or virtual camera is doing, as the phone says it. */
+export function obsOutputText(output: ObsOutput, elapsedMs: number | null): string {
+  if (output.phase === 'starting') return 'Starting…';
+  if (output.phase === 'stopping') return 'Stopping…';
+  if (output.phase === 'reconnecting') return 'Reconnecting…';
+  if (!output.active) return 'Off';
+  const time = elapsedMs !== null ? formatDuration(elapsedMs) : 'On';
+  return output.paused ? `${time} · Paused` : time;
 }

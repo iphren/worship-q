@@ -20,6 +20,7 @@ import {
   isCompatibleProtocol,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
+  ObsStateSchema,
   OutputKindSchema,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
@@ -42,6 +43,7 @@ import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
 import { sendFile } from './ranges';
 import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
+import { ObsReports } from './obsReports';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { Relay } from '@worship-q/relay';
@@ -98,6 +100,7 @@ export async function buildServer(config: ServerConfig) {
   const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message), {
     note: (message, detail) => app.log.info(detail, message),
   });
+  const obsReports = new ObsReports(instance.now);
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   for (const email of config.administrators ?? []) {
@@ -325,6 +328,20 @@ export async function buildServer(config: ServerConfig) {
     api.get('/api/v1/live', async (request) => {
       const live = instance.getLive(request.device!.workspaceId);
       return live ?? { snapshot: null, grants: [], deviceId: null, updatedAt: null };
+    });
+
+    // ── OBS state for the admin app ────────────────────────────────────────
+
+    /** The OBS computer's own state, kept for the admin app; see `ObsReports`. */
+    api.put('/api/v1/obs', async (request, reply) => {
+      const parsed = z.object({ state: ObsStateSchema }).safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-state' });
+      const device = request.device!;
+      // A computer speaks only for its own OBS link.
+      if (parsed.data.state.ownerId !== device.id) {
+        return reply.code(403).send({ error: 'not-owner' });
+      }
+      return { stored: obsReports.put(device.workspaceId, device.id, parsed.data.state) };
     });
 
     // ── Browser output links (D22) ─────────────────────────────────────────
@@ -636,6 +653,7 @@ export async function buildServer(config: ServerConfig) {
   await registerAdminRoutes(app, {
     instance,
     relay,
+    obsReports,
     oidc: config.oidc ?? null,
     dataDir: config.dataDir,
     name: config.name,

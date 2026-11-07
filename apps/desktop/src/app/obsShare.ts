@@ -428,6 +428,22 @@ export class ObsShare {
     ]);
   }
 
+  /**
+   * This computer's own OBS state with its durations as of now, also while its link is off,
+   * for the report to the church server (`ObsReporter`). Null when this computer has never
+   * turned its link on, or before it joined a workspace.
+   */
+  ownState(): ObsState | null {
+    const local = this.link?.localState();
+    if (!local || !this.self) return null;
+    return {
+      ...local,
+      ownerId: this.self,
+      ownerName: this.deps.deviceName(),
+      revision: this.revision,
+    };
+  }
+
   /** Publishes this link's state when it changed, or again on a new connection. */
   private publish(again: boolean): void {
     const link = this.link;

@@ -12,6 +12,7 @@ import {
   type AdminLibraryPlan,
   type AdminLibraryUsage,
   type AdminLiveView,
+  type AdminObsView,
   type AdminMe,
   type AdminPairingRequest,
   type AdminStorage,
@@ -110,6 +111,7 @@ export const api = {
       { types },
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
+  obs: (id: string) => request<AdminObsView>('GET', `${ADMIN}/workspaces/${encode(id)}/obs`),
   /** Where the browser loads a workspace's file from; the session cookie admits it. */
   workspaceFileUrl: (id: string, name: string) =>
     `${ADMIN}/workspaces/${encode(id)}/files/${encode(name)}`,

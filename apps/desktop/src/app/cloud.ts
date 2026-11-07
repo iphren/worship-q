@@ -43,6 +43,7 @@ import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
 import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
+import { ObsReporter } from './obsReport';
 import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
@@ -121,6 +122,8 @@ export class CloudController {
   private link: LiveLink | null = null;
   private transports: TransportSwitch | null = null;
   private relay: RelayTransport | null = null;
+  /** Tells the church server this computer's OBS state, for the admin app. */
+  private obsReporter: ObsReporter | null = null;
   private lanHost: LanHost | null = null;
   private lanTransport: LanTransport | null = null;
   private lan: LanStatus | null = null;
@@ -331,6 +334,7 @@ export class CloudController {
     this.lanTransport?.close();
     this.lanHost?.stop();
     this.link?.stop();
+    this.obsReporter?.stop();
     this.obs.localLink?.stop();
     this.obs.stop();
     this.host.dispose();
@@ -752,6 +756,12 @@ export class CloudController {
   // ── The shared live state ────────────────────────────────────────────────
 
   private async startLive(): Promise<void> {
+    this.obsReporter?.stop();
+    this.obsReporter = new ObsReporter({
+      state: () => this.obs.ownState(),
+      subscribe: this.obs.subscribe,
+      put: (state) => this.call('PUT', '/api/v1/obs', { state }).then(() => undefined),
+    });
     const backup: LiveBackupApi = {
       put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
         this.call('PUT', '/api/v1/live', { snapshot, grants }).then(() => undefined),

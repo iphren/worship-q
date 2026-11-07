@@ -5,9 +5,11 @@ import {
   expiryText,
   formatBytes,
   formatDate,
+  formatDuration,
   groupDevicesByWorkspace,
   isPast,
   normalizePairingCode,
+  obsOutputText,
   onScreen,
   orderDevices,
   parseRoute,
@@ -293,5 +295,24 @@ describe('errorText', () => {
   it('still names an unknown code', () => {
     expect(errorText('weird-thing')).toBe('Something went wrong (weird-thing).');
     expect(errorText('http-502', 502)).toBe('The server had a problem (http-502).');
+  });
+});
+
+describe('OBS outputs', () => {
+  const output = { active: true, phase: null, durationMs: 0, paused: false } as const;
+
+  it('formats running times', () => {
+    expect(formatDuration(0)).toBe('0:00');
+    expect(formatDuration(65_400)).toBe('1:05');
+    expect(formatDuration(3_725_000)).toBe('1:02:05');
+  });
+
+  it('says what an output is doing, as the phone does', () => {
+    expect(obsOutputText({ ...output, active: false, durationMs: null }, null)).toBe('Off');
+    expect(obsOutputText({ ...output, phase: 'starting' }, 0)).toBe('Starting…');
+    expect(obsOutputText({ ...output, phase: 'reconnecting' }, 5000)).toBe('Reconnecting…');
+    expect(obsOutputText(output, 61_000)).toBe('1:01');
+    expect(obsOutputText({ ...output, paused: true }, 61_000)).toBe('1:01 · Paused');
+    expect(obsOutputText({ ...output, durationMs: null }, null)).toBe('On');
   });
 });
