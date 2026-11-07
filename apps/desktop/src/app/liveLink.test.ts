@@ -90,6 +90,8 @@ async function desktop(
     obs?: boolean;
     /** Whether the church server relays OBS messages (protocol 4). */
     obsSupported?: () => boolean;
+    /** Taking the coordinator role waits this long, as on a server far away. */
+    slowStart?: number;
   } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
@@ -173,7 +175,10 @@ async function desktop(
     backup,
     grantsRegistered: {
       get: async () => registered,
-      set: async () => void (registered = true),
+      set: async () => {
+        if (options.slowStart) await new Promise((done) => setTimeout(done, options.slowStart));
+        registered = true;
+      },
     },
     // Kept in the desktop's own database, so it lasts across a restart on the same one.
     revisions: {
@@ -863,13 +868,18 @@ describe('viewer mode (M3)', () => {
 
 describe('OBS control across the workspace (OBS plan M2)', () => {
   /** A coordinator, a follower, and the streaming laptop as a viewer running OBS. */
-  async function church(options: { obsSupported?: () => boolean; oldDesktop?: boolean } = {}) {
+  async function church(
+    options: { obsSupported?: () => boolean; oldDesktop?: boolean; slowLaptop?: boolean } = {},
+  ) {
     const time = clock();
     const dir = directory();
     const relay = new Relay(dir, time.ms);
     const opts = { obs: true, obsSupported: options.obsSupported };
     const a = await desktop('Projector', time, relay, dir, null, opts);
-    const b = await desktop('Laptop', time, relay, dir, null, opts);
+    const b = await desktop('Laptop', time, relay, dir, null, {
+      ...opts,
+      slowStart: options.slowLaptop ? 300 : undefined,
+    });
     const s = await desktop('Streaming', time, relay, dir, null, { ...opts, role: 'viewer' });
     const old = options.oldDesktop ? await desktop('Old', time, relay, dir, null) : null;
     await settle();
@@ -1012,6 +1022,19 @@ describe('OBS control across the workspace (OBS plan M2)', () => {
     expect(b.link.status.role).toBe('coordinator');
     expect(a.obs.view.state?.ownerName).toBe('Streaming');
     expect(b.obs.view.state?.ownerName).toBe('Streaming');
+    expect(await a.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
+  });
+
+  it('shows OBS on a coordinator that took a while to take the role', async () => {
+    const { a, b, s } = await church({ slowLaptop: true });
+    await s.obsOn();
+    // The OBS computer's state reaches the laptop while it is still taking the role.
+    b.link.claim();
+    await settle();
+    await settle();
+    expect(b.link.status.role).toBe('coordinator');
+    expect(b.obs.view.state?.ownerName).toBe('Streaming');
+    expect(a.obs.view.state?.ownerName).toBe('Streaming');
     expect(await a.obs.command({ type: 'setScene', scene: 'Camera' })).toEqual({ ok: true });
   });
 

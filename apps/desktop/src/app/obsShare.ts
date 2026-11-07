@@ -326,6 +326,17 @@ export class ObsShare {
           this.forgetRemote();
           break;
         }
+        if (
+          this.localActive() &&
+          this.published?.active &&
+          (!state?.active || !newerObsState(state, this.published))
+        ) {
+          // The coordinator lacks this link's state, or holds an older activation instead: what
+          // was sent before was lost, for example while it was still taking the role. Sent again.
+          this.forgetRemote();
+          this.publish(true);
+          break;
+        }
         this.remote = state;
         this.remoteFrom = this.coordinatorId;
         this.remoteAt = this.now();
