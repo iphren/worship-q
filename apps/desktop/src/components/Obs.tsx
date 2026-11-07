@@ -331,7 +331,7 @@ function ObsMonitor(props: { now: number; usable: boolean; caption?: ReactNode }
 function RefreshBar(props: { durationMs: number }) {
   return (
     <span
-      className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-0.5 w-1/3 bg-sky-400/80"
+      className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-0.5 w-1/3 bg-neutral-400/80"
       style={{ animationDuration: `${props.durationMs}ms` }}
       aria-hidden="true"
     />

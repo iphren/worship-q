@@ -913,7 +913,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
           {image && !stale && (
             <span
               key={image.receivedAt}
-              className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-sky-400/80"
+              className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-neutral-400/80"
               style={{ animationDuration: `${OBS_SNAPSHOT_EVERY_MS}ms` }}
               aria-hidden="true"
             />
