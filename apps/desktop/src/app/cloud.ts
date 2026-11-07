@@ -1041,12 +1041,21 @@ class RelayTransport implements Transport {
     // the instance would no longer pass messages to it.
     let answered = true;
     let ticked = Date.now();
+    const openedAt = Date.now();
+    let lastMessageAt = openedAt;
     const heartbeat = window.setInterval(() => {
       const now = Date.now();
       // A late timer means the computer slept for long enough to be dropped.
       const slept = now - ticked > RELAY_PING_MS * 2;
       ticked = now;
-      if (slept || !answered) return lost();
+      if (slept || !answered) {
+        console.warn('[relay] Gave up on the connection', {
+          cause: slept ? 'slept' : 'unanswered ping',
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        });
+        return lost();
+      }
       answered = false;
       this.send({ type: 'ping' });
     }, RELAY_PING_MS);
@@ -1054,6 +1063,7 @@ class RelayTransport implements Transport {
       if (this.socket !== socket) return;
       const message = JSON.parse(String(event.data)) as RelayToDesktop;
       answered = true;
+      lastMessageAt = Date.now();
       switch (message.type) {
         case 'pong':
           return;
@@ -1091,6 +1101,16 @@ class RelayTransport implements Transport {
       const delay = RELAY_RETRY_MS[Math.min(this.attempt++, RELAY_RETRY_MS.length - 1)]!;
       this.timer = window.setTimeout(() => this.connect(), delay);
     };
-    socket.onclose = lost;
+    socket.onclose = (event) => {
+      console.warn('[relay] Connection closed', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        afterGivingUp: this.socket !== socket,
+        openForMs: Date.now() - openedAt,
+        sinceLastMessageMs: Date.now() - lastMessageAt,
+      });
+      lost();
+    };
   }
 }

@@ -57,6 +57,8 @@ export interface RelayOptions {
    * presenting, each unaware of the other.
    */
   claims?: boolean;
+  /** Where desktops arriving and leaving are noted, to trace dropped connections. */
+  note?: (message: string, detail: Record<string, unknown>) => void;
 }
 
 /**
@@ -461,6 +463,13 @@ export class Relay {
           };
           workspaceId = device.workspaceId;
           const room = this.room(workspaceId);
+          this.options.note?.('Desktop connected', {
+            workspaceId,
+            deviceId: device.id,
+            name: device.name,
+            role: desktop.role,
+            replacing: [...room.desktops].some((old) => old.deviceId === device.id),
+          });
           // The same device connecting again, for example after the computer slept, before
           // its old connection timed out here: the new connection takes over everything.
           for (const old of room.desktops) {
@@ -581,6 +590,16 @@ export class Relay {
         if (!desktop || !workspaceId) return;
         const room = this.room(workspaceId);
         if (!room.desktops.delete(desktop)) return;
+        const phones = [...room.remotes.values()].filter((r) => r.desktop === desktop).length;
+        this.options.note?.('Desktop left; its phones are told to reconnect', {
+          workspaceId,
+          deviceId: desktop.deviceId,
+          name: desktop.name,
+          coordinator: room.coordinator === desktop,
+          phones,
+          openForMs: this.now() - desktop.connectedAt,
+          sinceLastMessageMs: this.now() - desktop.lastSeenAt,
+        });
         // Its phones come back with their grants and are routed to the coordinator (M2.8).
         for (const remote of room.remotes.values()) {
           if (remote.desktop !== desktop) continue;

@@ -95,7 +95,9 @@ declare module 'fastify' {
 export async function buildServer(config: ServerConfig) {
   const { instance } = config;
   // `app` is made below; the relay only warns once connections arrive, by when it exists.
-  const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message));
+  const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message), {
+    note: (message, detail) => app.log.info(detail, message),
+  });
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   for (const email of config.administrators ?? []) {
@@ -528,33 +530,66 @@ export async function buildServer(config: ServerConfig) {
 
   // ── Live connections ─────────────────────────────────────────────────────
 
-  const keepAlive = (socket: import('ws').WebSocket) => {
+  /**
+   * Pings the socket and ends it when a ping goes unanswered. Every closing is logged with
+   * its code, so a dropped phone or desktop can be traced to the side that dropped it.
+   */
+  const keepAlive = (
+    socket: import('ws').WebSocket,
+    kind: string,
+    request: import('fastify').FastifyRequest,
+  ) => {
+    const openedAt = Date.now();
+    let lastMessageAt = openedAt;
     let alive = true;
+    let terminated = false;
     socket.on('pong', () => (alive = true));
+    socket.on('message', () => (lastMessageAt = Date.now()));
     const timer = setInterval(() => {
-      if (!alive) return socket.terminate();
+      if (!alive) {
+        terminated = true;
+        return socket.terminate();
+      }
       alive = false;
       socket.ping();
     }, PING_MS);
-    socket.on('close', () => clearInterval(timer));
+    socket.on('error', (error) =>
+      app.log.info({ kind, ip: request.ip, error: error.message }, 'WebSocket error'),
+    );
+    socket.on('close', (code, reason) => {
+      clearInterval(timer);
+      const now = Date.now();
+      app.log.info(
+        {
+          kind,
+          ip: request.ip,
+          code,
+          reason: reason.toString(),
+          unansweredPing: terminated,
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        },
+        'WebSocket closed',
+      );
+    });
   };
 
-  app.get('/api/v1/coordinator', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/coordinator', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'coordinator', request);
     const handlers = relay.desktop(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());
   });
 
-  app.get('/api/v1/remote', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/remote', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'remote', request);
     const handlers = relay.remote(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());
   });
 
-  app.get('/api/v1/output', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/output', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'output', request);
     const handlers = relay.output(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());

@@ -152,18 +152,28 @@ export class RemoteConnection {
     let answered = true;
     let answers = false;
     let ticked = Date.now();
+    const openedAt = ticked;
+    let lastMessageAt = ticked;
     const heartbeat = setInterval(() => {
       const now = Date.now();
       // A late timer means the phone slept for long enough to be dropped.
       const slept = now - ticked > PING_MS * 2;
       ticked = now;
       // Instances that never answer pings predate them and are not held to it.
-      if (slept || (answers && !answered)) return lost();
+      if (slept || (answers && !answered)) {
+        console.warn('[remote] Gave up on the connection', {
+          cause: slept ? 'slept' : 'unanswered ping',
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        });
+        return lost();
+      }
       answered = false;
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
     }, PING_MS);
     socket.onmessage = (event) => {
       if (this.socket !== socket) return;
+      lastMessageAt = Date.now();
       const message = JSON.parse(String(event.data)) as HostToRemote | RelayToRemote;
       if (message.type === 'pong') {
         answered = answers = true;
@@ -188,7 +198,17 @@ export class RemoteConnection {
       const delay = RETRY_MS[Math.min(this.attempt++, RETRY_MS.length - 1)]!;
       this.timer = setTimeout(() => this.open(), delay);
     };
-    socket.onclose = lost;
+    socket.onclose = (event) => {
+      console.warn('[remote] Connection closed', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        afterGivingUp: this.socket !== socket,
+        openForMs: Date.now() - openedAt,
+        sinceLastMessageMs: Date.now() - lastMessageAt,
+      });
+      lost();
+    };
   }
 
   private receive(message: HostToRemote | RelayToRemote): void {
@@ -205,6 +225,7 @@ export class RemoteConnection {
         return this.set({ kind: 'update-needed' });
       case 'unavailable':
         if (message.reason === 'reconnect') {
+          console.warn('[remote] The computer this phone used left the server');
           // The computer this phone used went away; the grant is accepted elsewhere (M2.8).
           if (this.state_.kind === 'live') {
             this.set({ kind: 'live', view: this.state_.view, reconnecting: true });
