@@ -6,7 +6,6 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "release-as": "2.0.0",
       "package-name": "worship-q",
       "changelog-path": "apps/desktop/CHANGELOG.md",
       "bump-minor-pre-major": true,
