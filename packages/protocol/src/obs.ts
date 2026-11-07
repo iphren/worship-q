@@ -97,6 +97,18 @@ export const ObsResultSchema = z.object({
 });
 export type ObsResult = z.infer<typeof ObsResultSchema>;
 
+/**
+ * How often the OBS computer takes a live monitor image while anyone watches (O6): rarely
+ * enough to leave OBS's rendering alone. Monitors count down to the next image with it.
+ */
+export const OBS_SNAPSHOT_EVERY_MS = 3000;
+
+/**
+ * A monitor image older than this is shown as stale (M5.2): one image missed, with time to
+ * travel.
+ */
+export const OBS_SNAPSHOT_STALE_MS = OBS_SNAPSHOT_EVERY_MS * 2.5;
+
 /** One image of the program output, for the live monitor (O6). */
 export const ObsSnapshotSchema = z.object({
   /** A small image as a data URL; nothing else is ever put in an image's address. */

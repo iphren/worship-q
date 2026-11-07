@@ -520,7 +520,7 @@ describe('the live monitor (M5.1)', () => {
     expect(native.asked.find((a) => a.type === 'GetSourceScreenshot')?.data).toEqual({
       sourceName: 'Lyrics',
       imageFormat: 'webp',
-      imageWidth: 320,
+      imageWidth: 576,
       imageCompressionQuality: 50,
     });
     await tick();

@@ -6,6 +6,8 @@
 import { outputElapsed, switchTarget } from '@worship-q/live-state';
 import {
   OBS_ERRORS,
+  OBS_SNAPSHOT_EVERY_MS,
+  OBS_SNAPSHOT_STALE_MS,
   type ObsCommand,
   type ObsConnection,
   type ObsOutput,
@@ -17,9 +19,6 @@ import type { ObsShared } from '../app/obsShare';
 import { t, type MessageKey } from '../i18n';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
-
-/** A monitor image older than this is shown as stale (M5.2). */
-const STALE_MS = 3000;
 
 export function obsErrorText(result: ObsResult): string {
   const known = Object.values(OBS_ERRORS) as string[];
@@ -284,7 +283,7 @@ export function ObsPanel(props: { watch: boolean; fill?: boolean }) {
 function ObsMonitor(props: { now: number; usable: boolean; caption?: ReactNode }) {
   const image = useObsImage();
   const age = image ? props.now - image.receivedAt : null;
-  const stale = age !== null && age > STALE_MS;
+  const stale = age !== null && age > OBS_SNAPSHOT_STALE_MS;
   const staleText = t('obs.monitorStale', { seconds: Math.round((age ?? 0) / 1000) });
   return (
     <figure className="space-y-1">
@@ -299,6 +298,9 @@ function ObsMonitor(props: { now: number; usable: boolean; caption?: ReactNode }
           <p className="flex h-full items-center justify-center text-xs text-slate-500">
             {props.usable ? t('obs.monitorWaiting') : ''}
           </p>
+        )}
+        {image && !stale && (
+          <RefreshBar key={image.receivedAt} durationMs={OBS_SNAPSHOT_EVERY_MS} />
         )}
         {stale && props.caption && (
           <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 text-[10px] text-amber-300">
@@ -315,6 +317,20 @@ function ObsMonitor(props: { now: number; usable: boolean; caption?: ReactNode }
         </figcaption>
       )}
     </figure>
+  );
+}
+
+/**
+ * Sweeps along the monitor's bottom edge, in from the left and out to the right, between one
+ * image and the next; each image starts it again.
+ */
+function RefreshBar(props: { durationMs: number }) {
+  return (
+    <span
+      className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-0.5 w-1/3 bg-sky-400/80"
+      style={{ animationDuration: `${props.durationMs}ms` }}
+      aria-hidden="true"
+    />
   );
 }
 

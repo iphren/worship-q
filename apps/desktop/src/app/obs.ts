@@ -13,6 +13,7 @@
  */
 import {
   OBS_ERRORS,
+  OBS_SNAPSHOT_EVERY_MS,
   ObsSnapshotSchema,
   type ObsCommand,
   type ObsConnection,
@@ -28,9 +29,13 @@ export type { ObsConfigFile, ObsLinkStatus, ObsRequestError } from '../platform/
 
 /** The address OBS's WebSocket server has unless changed in OBS. */
 export const DEFAULT_OBS_ADDRESS = 'localhost:4455';
-/** One image of the program output a second while someone watches (O6, spike M0.2). */
-export const SNAPSHOT_EVERY_MS = 1000;
-export const SNAPSHOT_WIDTH = 320;
+/**
+ * An image of the program output every three seconds while someone watches (O6, spike M0.2),
+ * wide enough to stay sharp in the Present page's monitor (288 CSS pixels, 576 on a Retina
+ * screen).
+ */
+export const SNAPSHOT_EVERY_MS = OBS_SNAPSHOT_EVERY_MS;
+export const SNAPSHOT_WIDTH = 576;
 export const SNAPSHOT_QUALITY = 50;
 
 /** obs-websocket's codes for an output already in the state asked for. */
@@ -735,8 +740,9 @@ export class ObsLink {
   }
 
   /**
-   * Takes one image a second while anyone watches and stops when nobody does, so OBS is
-   * not asked for screenshots nobody sees. One request at a time, never overlapping.
+   * Takes an image every `SNAPSHOT_EVERY_MS` while anyone watches and stops when nobody does,
+   * so OBS is not asked for screenshots nobody sees. One request at a time, never overlapping;
+   * the time a request takes counts towards the wait for the next.
    */
   private maybeShoot(): void {
     if (this.shooting || !this.canShoot()) return;
@@ -744,8 +750,9 @@ export class ObsLink {
     void (async () => {
       try {
         while (this.canShoot()) {
+          const started = this.now();
           await this.shoot();
-          await this.delay(SNAPSHOT_EVERY_MS);
+          await this.delay(Math.max(0, SNAPSHOT_EVERY_MS - (this.now() - started)));
         }
       } finally {
         this.shooting = false;

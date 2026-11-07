@@ -1,4 +1,6 @@
 import {
+  OBS_SNAPSHOT_EVERY_MS,
+  OBS_SNAPSHOT_STALE_MS,
   liveFavourite,
   outputElapsed,
   switchTarget,
@@ -877,7 +879,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
   }, [confirming]);
 
   const age = image ? now - image.receivedAt : null;
-  const stale = age !== null && age > 3000;
+  const stale = age !== null && age > OBS_SNAPSHOT_STALE_MS;
 
   return (
     <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
@@ -899,6 +901,15 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
             <p className="flex h-full items-center justify-center text-xs text-slate-500">
               {usable ? 'Waiting for an image…' : ''}
             </p>
+          )}
+          {/* Sweeps in from the left and out to the right between images. */}
+          {image && !stale && (
+            <span
+              key={image.receivedAt}
+              className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-sky-400/80"
+              style={{ animationDuration: `${OBS_SNAPSHOT_EVERY_MS}ms` }}
+              aria-hidden="true"
+            />
           )}
         </div>
         {stale && (

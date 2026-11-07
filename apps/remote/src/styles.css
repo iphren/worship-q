@@ -20,3 +20,25 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
+
+/*
+ * Slides a bar a third as wide as its holder in from beyond the left edge and out beyond the
+ * right one over its animation duration, for the OBS monitor's next image. Starting and ending
+ * out of sight, it never seems to jump back.
+ */
+.monitor-refresh {
+  animation-name: monitor-refresh;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes monitor-refresh {
+  /* In its own widths: just beyond the left edge, then just beyond the right edge of a holder
+     three times as wide. */
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
