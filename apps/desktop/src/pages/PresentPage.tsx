@@ -1,10 +1,11 @@
 import { nextMeetingDate } from '@worship-q/calendar';
 import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
-import { useCloud, useQuery, useSession } from '../app/context';
+import { useCloud, useObs, useQuery, useSession } from '../app/context';
 import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
+import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
@@ -17,7 +18,7 @@ import { DeckBadge } from '../components/DeckBadge';
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
 
-type PanelTab = 'runSheet' | 'slideshow';
+type PanelTab = 'runSheet' | 'slideshow' | 'obs';
 
 /** The tab of the side panel last shown, kept while the app is open. */
 let lastPanelTab: PanelTab = 'runSheet';
@@ -90,7 +91,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
   const entries = view && view.date === liveDate ? view.entries : [];
   return (
     <div className="flex h-full min-h-0 gap-3 overflow-hidden p-4">
-      <aside className="flex w-80 shrink-0 flex-col gap-3">
+      <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto">
         <section className="panel space-y-2 p-3">
           <h2 className="label">{t('viewer.title')}</h2>
           <p className="text-sm text-slate-300">
@@ -102,6 +103,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
           <SlidePreview />
         </section>
         {props.outputPanel}
+        <ObsSection watch />
       </aside>
       <main className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
         {!session.isLive && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
@@ -180,6 +182,7 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
           </div>
         </div>
         {props.outputPanel}
+        <ObsSection watch />
       </div>
     </div>
   );
@@ -191,7 +194,13 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const live = session.live!;
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [panelTab, setPanelTab] = useState(lastPanelTab);
+  const [chosenTab, setChosenTab] = useState(lastPanelTab);
+  const obsShared = useObs();
+  // The OBS tab comes and goes with OBS; while it is gone, the run sheet shows in its place.
+  const panelTab = chosenTab === 'obs' && !obsShared.state ? 'runSheet' : chosenTab;
+  const panelTabs: PanelTab[] = obsShared.state
+    ? ['runSheet', 'slideshow', 'obs']
+    : ['runSheet', 'slideshow'];
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
@@ -331,7 +340,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-80 shrink-0 flex-col p-3">
           <div role="tablist" className="mb-3 flex gap-1 border-b border-slate-700">
-            {(['runSheet', 'slideshow'] as const).map((key) => (
+            {panelTabs.map((key) => (
               <button
                 key={key}
                 type="button"
@@ -344,10 +353,14 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                 }`}
                 onClick={() => {
                   lastPanelTab = key;
-                  setPanelTab(key);
+                  setChosenTab(key);
                 }}
               >
-                {key === 'runSheet' ? t('runSheet.tab') : t('present.preview')}
+                {key === 'runSheet'
+                  ? t('runSheet.tab')
+                  : key === 'slideshow'
+                    ? t('present.preview')
+                    : t('obs.panel')}
               </button>
             ))}
           </div>
@@ -362,6 +375,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
               onSelectItem={showItem}
               searchOnly
+              onRevealSearch={() => {
+                lastPanelTab = 'runSheet';
+                setChosenTab('runSheet');
+              }}
               footer={
                 <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
                   <button
@@ -458,97 +475,115 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               </div>
             </div>
           </div>
+          {obsShared.state && (
+            <div
+              role="tabpanel"
+              className={`min-h-0 flex-1 flex-col gap-2 ${panelTab === 'obs' ? 'flex' : 'hidden'}`}
+            >
+              {!obsShared.local && (
+                <h2 className="label">
+                  {t('obs.panelTitle', { name: obsShared.state.ownerName })}
+                </h2>
+              )}
+              {/* The monitor is above the slide column instead. */}
+              <ObsPanel watch={false} fill switchButton />
+            </div>
+          )}
         </aside>
 
-        <main ref={slidesRef} className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
-          {view && entries.length === 0 && (
-            <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
-          )}
-          {entries.map((entry, index) => (
-            <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
-              <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
-                <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
-                  <span className="mr-2 text-slate-400">{index + 1}</span>
-                  <DeckBadge song={entry.song} />
-                  {entry.song.title || t('songs.untitled')}
-                </h3>
-                {entry.song.removedAt && (
-                  <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
-                )}
-                <span className="flex-1" />
-                {!entry.song.removedAt && (
-                  <button
-                    className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
-                    onClick={() => setEditingSong(entry.song)}
-                  >
-                    ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
-                  </button>
-                )}
-              </header>
-              {entry.pieces.length === 0 && (
-                <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
-              )}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-                {entry.pieces.map((piece, pieceIndex) => {
-                  const keyLabel = entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
-                  const active =
-                    presented?.itemId === entry.item.id && presented.pieceId === piece.id;
-                  return (
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <ObsLiveMonitor />
+          <main ref={slidesRef} className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
+            {view && entries.length === 0 && (
+              <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
+            )}
+            {entries.map((entry, index) => (
+              <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
+                <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
+                  <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
+                    <span className="mr-2 text-slate-400">{index + 1}</span>
+                    <DeckBadge song={entry.song} />
+                    {entry.song.title || t('songs.untitled')}
+                  </h3>
+                  {entry.song.removedAt && (
+                    <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
+                  )}
+                  <span className="flex-1" />
+                  {!entry.song.removedAt && (
                     <button
-                      key={piece.id}
-                      ref={active ? activeRef : undefined}
-                      onClick={() => {
-                        if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
-                        follow();
-                        void session.play(entry.item.id, piece.id);
-                      }}
-                      className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
-                        active
-                          ? live.blank
-                            ? 'border-amber-400 bg-amber-900/30'
-                            : 'border-emerald-500 bg-emerald-900/40'
-                          : // Alternate styles by block so slides from one block read as a group.
-                            piece.blockIndex % 2 === 0
-                            ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
-                            : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
-                      } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                      className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
+                      onClick={() => setEditingSong(entry.song)}
                     >
-                      {keyLabel && (
-                        <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
-                          {keyLabel}
-                        </kbd>
-                      )}
-                      {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
-                      {piece.image && entry.song.deck ? (
-                        <SlideImage
-                          image={piece.image}
-                          className="w-full rounded-sm"
-                          style={{
-                            aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
-                          }}
-                        />
-                      ) : (
-                        piece.lines.map((line) => (
-                          <span key={line.id} className="block truncate whitespace-pre">
-                            {line.text}
-                          </span>
-                        ))
-                      )}
+                      ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
                     </button>
-                  );
-                })}
-              </div>
-              {/* Last, so it paints over the slides. */}
-              {flash?.itemId === entry.item.id && (
-                <div
-                  key={flash.count}
-                  className="item-flash pointer-events-none absolute inset-0 rounded-md"
-                  onAnimationEnd={() => setFlash(null)}
-                />
-              )}
-            </section>
-          ))}
-        </main>
+                  )}
+                </header>
+                {entry.pieces.length === 0 && (
+                  <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
+                )}
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
+                  {entry.pieces.map((piece, pieceIndex) => {
+                    const keyLabel =
+                      entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
+                    const active =
+                      presented?.itemId === entry.item.id && presented.pieceId === piece.id;
+                    return (
+                      <button
+                        key={piece.id}
+                        ref={active ? activeRef : undefined}
+                        onClick={() => {
+                          if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
+                          follow();
+                          void session.play(entry.item.id, piece.id);
+                        }}
+                        className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
+                          active
+                            ? live.blank
+                              ? 'border-amber-400 bg-amber-900/30'
+                              : 'border-emerald-500 bg-emerald-900/40'
+                            : // Alternate styles by block so slides from one block read as a group.
+                              piece.blockIndex % 2 === 0
+                              ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                              : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
+                        } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                      >
+                        {keyLabel && (
+                          <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
+                            {keyLabel}
+                          </kbd>
+                        )}
+                        {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
+                        {piece.image && entry.song.deck ? (
+                          <SlideImage
+                            image={piece.image}
+                            className="w-full rounded-sm"
+                            style={{
+                              aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
+                            }}
+                          />
+                        ) : (
+                          piece.lines.map((line) => (
+                            <span key={line.id} className="block truncate whitespace-pre">
+                              {line.text}
+                            </span>
+                          ))
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Last, so it paints over the slides. */}
+                {flash?.itemId === entry.item.id && (
+                  <div
+                    key={flash.count}
+                    className="item-flash pointer-events-none absolute inset-0 rounded-md"
+                    onAnimationEnd={() => setFlash(null)}
+                  />
+                )}
+              </section>
+            ))}
+          </main>
+        </div>
         {presented && !activeInView && (
           <button
             className={`absolute right-8 bottom-8 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${

@@ -14,6 +14,8 @@ import {
   Coordinator,
   CoordinatorWatch,
   Follower,
+  isObsDown,
+  isObsUp,
   resolveCoordinators,
   type SnapshotBody,
 } from '@worship-q/live-state';
@@ -35,6 +37,7 @@ import {
 } from '@worship-q/protocol';
 import type { RemoteHost } from '@worship-q/remote';
 import type { RunSheetChange, Session } from '@worship-q/session';
+import type { ObsShare } from './obsShare';
 
 /** Snapshots are sent at most this often; a burst of changes is sent together. */
 const PUBLISH_DELAY_MS = 100;
@@ -91,6 +94,10 @@ export interface LiveLinkDeps {
    * one it sent before, so after a restart numbering carries on past this.
    */
   revisions: { get(): Promise<number>; reserve(ceiling: number): Promise<void> } | null;
+  /** The workspace's OBS state on this desktop (OBS control plan M2.6); absent in tests. */
+  obs?: ObsShare | null;
+  /** The church server speaks protocol 4 and relays OBS messages (M2.9). */
+  obsSupported?: () => boolean;
   newId?: () => string;
   now?: () => number;
 }
@@ -163,6 +170,37 @@ export class LiveLink {
       },
     });
     this.watchTimer = setInterval(() => this.checkCoordinator(), WATCH_EVERY_MS);
+    deps.obs?.attach({
+      toCoordinator: (message) => this.toCoordinator(message),
+      toFollower: (to, message) => this.deps.send({ type: 'toFollower', to, data: message }),
+      sharing: () => this.obsSharing(),
+      serverSupports: () => this.deps.obsSupported?.() ?? true,
+    });
+  }
+
+  /**
+   * Whether OBS messages may go out (O11): the server relays them, and the coordinator, when
+   * it is another desktop, said it takes them. An older one would only refuse them.
+   */
+  private obsSharing(): boolean {
+    if (!(this.deps.obsSupported?.() ?? true)) return false;
+    if (this.coordinator) return true;
+    const coordinator = [...this.status_.peers, ...this.lanPeers].find(
+      (peer) => peer.deviceId === this.followingId,
+    );
+    return coordinator?.capabilities?.obs === true;
+  }
+
+  /** As coordinator: the connected desktops that take OBS messages, this one included. */
+  private obsAudience(): string[] {
+    const me = this.deps.deviceId();
+    const audience = new Set<string>([me]);
+    for (const peer of [...this.status_.peers, ...this.lanPeers]) {
+      if (peer.role === 'output' || peer.deviceId === me) continue;
+      const capabilities = this.followerCapabilities.get(peer.deviceId) ?? peer.capabilities;
+      if (capabilities?.obs === true) audience.add(peer.deviceId);
+    }
+    return [...audience];
   }
 
   get status(): LiveStatus {
@@ -253,6 +291,7 @@ export class LiveLink {
     this.forwards.clear();
     this.deps.session.follow(null);
     this.deps.host.setCoordination(null);
+    this.deps.obs?.attach(null);
   }
 
   // ── The transport ────────────────────────────────────────────────────────
@@ -267,6 +306,7 @@ export class LiveLink {
     this.update({ transport: null, peers: [] });
     this.watch.announce(null, this.now());
     this.followingId = null;
+    this.deps.obs?.disconnected();
   }
 
   /** A message from the relay about roles, or from another desktop. */
@@ -356,8 +396,13 @@ export class LiveLink {
         phones: host.connected.map(({ grantId, name }) => ({ grantId, name })),
       });
       void this.registerEarlierGrants();
+      // After the capabilities, which have the coordinator send the OBS state it holds.
+      this.deps.obs?.becomeFollower(coordinatorId);
     }
-    if (!coordinatorId) this.followingId = null;
+    if (!coordinatorId) {
+      this.followingId = null;
+      this.deps.obs?.disconnected();
+    }
   }
 
   private sendCommand(command: OperatorCommand): void {
@@ -474,6 +519,8 @@ export class LiveLink {
         capabilities: (from, capabilities) => {
           this.followerCapabilities.set(from, capabilities);
           this.refreshDevices();
+          // Said on every connection: the device is told the OBS state again.
+          if (capabilities.obs) this.deps.obs?.greet(from);
         },
       },
       { startRevision, publishOnApply: false },
@@ -486,6 +533,7 @@ export class LiveLink {
       phones: () => this.refreshDevices(),
     });
     this.update({ role: 'coordinator', coordinatorId: deviceId, coordinatorLost: false });
+    this.deps.obs?.becomeCoordinator(this.obsAudience());
     this.unsubscribe = session.subscribe(() => this.schedulePublish());
     this.aliveTimer = setInterval(() => {
       if (this.coordinator)
@@ -497,6 +545,7 @@ export class LiveLink {
   }
 
   private stopCoordinating(): void {
+    if (this.coordinator) this.deps.obs?.stopCoordinating();
     this.coordinator = null;
     this.unsubscribe?.();
     this.unsubscribe = null;
@@ -684,6 +733,7 @@ export class LiveLink {
     }
     this.update({ devices, fontWarnings: warnings });
     this.schedulePublish();
+    this.deps.obs?.setAudience(this.obsAudience());
   }
 
   // ── Messages from other desktops ─────────────────────────────────────────
@@ -693,6 +743,8 @@ export class LiveLink {
     if (this.coordinator) {
       const message = FollowerToCoordinatorSchema.safeParse(data);
       if (!message.success) return this.anotherCoordinator(data);
+      // OBS is beside the live state: never queued behind a live command (O11).
+      if (isObsUp(message.data)) return this.deps.obs?.fromFollower(from, message.data);
       const received = await this.coordinator.receive(from, message.data);
       if (received.adopt) {
         await this.deps.session.adoptSnapshot(received.adopt);
@@ -709,6 +761,7 @@ export class LiveLink {
       console.warn('Refused a message from the coordinator', message.error.issues);
       return;
     }
+    if (isObsDown(message.data)) return this.deps.obs?.fromCoordinator(message.data);
     if (message.data.type === 'snapshot' || message.data.type === 'alive')
       this.watch.heard(this.now());
     for (const event of this.follower.receive(message.data)) {

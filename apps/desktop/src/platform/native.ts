@@ -108,7 +108,50 @@ export const native = {
       listen<{ id: string; data: string }>('lan-message', (e) => handlers.message(e.payload)),
       listen<{ id: string; reason: string | null }>('lan-close', (e) => handlers.close(e.payload)),
     ]).then((stops) => () => stops.forEach((stop) => stop())),
+
+  // ── OBS (OBS control plan, M1) ─────────────────────────────────────────
+  /** Keeps connecting to OBS at `address` until disconnected; replaces any earlier link. */
+  obsConnect: (address: string, password: string | null) =>
+    invoke<void>('obs_connect', { address, password }),
+  obsDisconnect: () => invoke<void>('obs_disconnect'),
+  /** One request to OBS; rejects with an `ObsRequestError`. */
+  obsRequest: <T>(requestType: string, requestData?: unknown) =>
+    invoke<T>('obs_request', { requestType, requestData: requestData ?? null }),
+  obsStatus: () => invoke<ObsLinkStatus>('obs_status'),
+  /** obs-websocket's own settings on this computer, when readable (decision O12). */
+  obsReadConfig: () => invoke<ObsConfigFile | null>('obs_read_config'),
+  onObs: (handlers: {
+    status(status: ObsLinkStatus): void;
+    event(eventType: string, eventData: unknown): void;
+  }): Promise<UnlistenFn> =>
+    Promise.all([
+      listen<ObsLinkStatus>('obs-status', (e) => handlers.status(e.payload)),
+      listen<{ eventType: string; eventData: unknown }>('obs-event', (e) =>
+        handlers.event(e.payload.eventType, e.payload.eventData),
+      ),
+    ]).then((stops) => () => stops.forEach((stop) => stop())),
 };
+
+/** The native OBS link's status (`src-tauri/src/obs.rs`). */
+export interface ObsLinkStatus {
+  state: 'off' | 'not-running' | 'connecting' | 'connected' | 'refused';
+  refusal?: 'authentication' | 'password-required' | 'other';
+  message?: string;
+  obsVersion?: string;
+}
+
+/** A request OBS refused, or one that could not be made: OBS's code, or -1 to -3. */
+export interface ObsRequestError {
+  code: number;
+  comment: string | null;
+}
+
+export interface ObsConfigFile {
+  serverEnabled: boolean;
+  serverPort: number;
+  authRequired: boolean;
+  serverPassword: string;
+}
 
 export interface LanStatus {
   fingerprint: string;

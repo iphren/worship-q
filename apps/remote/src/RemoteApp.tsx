@@ -1,4 +1,15 @@
-import type { RemoteSongResult, RemoteView } from '@worship-q/protocol';
+import {
+  OBS_SNAPSHOT_EVERY_MS,
+  OBS_SNAPSHOT_STALE_MS,
+  outputElapsed,
+  switchTarget,
+  type ObsCommand,
+  type ObsOutput,
+  type ObsResult,
+  type RemoteObsView,
+  type RemoteSongResult,
+  type RemoteView,
+} from '@worship-q/protocol';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { RemoteConnection } from './connection';
 
@@ -108,6 +119,9 @@ function Live({ view }: { view: RemoteView | null }) {
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
   const [mode, setMode] = useState<'present' | 'edit' | 'add'>('present');
+  // The OBS screen opens over whichever of the others was showing, which stays as it was
+  // underneath (its search, its scroll) and comes back when the screen closes.
+  const [obsOpen, setObsOpen] = useState(false);
   // The run sheet's items when the search opened; those added since are marked afterwards.
   const [before, setBefore] = useState<ReadonlySet<string> | null>(null);
   const connected = connection.connected;
@@ -141,9 +155,15 @@ function Live({ view }: { view: RemoteView | null }) {
     connection.send({ type });
   }
 
+  // The OBS screen closes by itself when OBS stops being shared (O5).
+  const hasObs = !!view?.obs;
+  useEffect(() => {
+    if (!hasObs) setObsOpen(false);
+  }, [hasObs]);
+
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
-  const editing = mode !== 'present';
+  const editing = mode === 'edit' || mode === 'add';
   const control = `rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40 ${
     canEdit ? 'text-base' : 'text-lg'
   }`;
@@ -151,6 +171,7 @@ function Live({ view }: { view: RemoteView | null }) {
   function openSearch() {
     if (mode !== 'add') setBefore(new Set(view!.items.map((item) => item.itemId)));
     setMode('add');
+    setObsOpen(false);
   }
 
   return (
@@ -173,7 +194,8 @@ function Live({ view }: { view: RemoteView | null }) {
           >
             {connected ? 'Connected' : 'Reconnecting…'}
           </span>
-          {(canEdit || editing) && (
+          {/* The OBS screen closes from the OBS button under the header instead. */}
+          {(canEdit || editing) && !obsOpen && (
             <button
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
                 editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
@@ -189,123 +211,144 @@ function Live({ view }: { view: RemoteView | null }) {
         </div>
       </header>
 
+      {view.obs && (
+        <ObsRow
+          obs={view.obs}
+          connected={connected}
+          open={obsOpen}
+          onToggle={() => setObsOpen(!obsOpen)}
+        />
+      )}
+
       {view.previousContent && (
         <p className="border-b border-amber-700 bg-amber-900/40 px-4 py-2 text-xs text-amber-100">
           Still presenting previous content until you choose a slide.
         </p>
       )}
 
-      {mode === 'add' ? (
-        <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
-      ) : mode === 'edit' ? (
-        <EditRunSheet
-          view={view}
-          connected={connected && canEdit}
-          before={before}
-          onAdd={openSearch}
-        />
-      ) : (
-        <div className="relative min-h-0 flex-1">
-          <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
-            {view.items.length === 0 && (
-              <p className="p-6 text-center text-sm text-slate-400">
-                The run sheet has no items yet.
-              </p>
-            )}
-            {view.items.map((item) => (
-              <section key={item.itemId}>
-                <h2 className="mb-3 px-1 text-xl font-semibold text-white">
-                  {item.title || 'Untitled'}
-                </h2>
-                <div
-                  className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+      {/* The OBS screen covers the others rather than replacing them, so they keep their
+          search and scroll position underneath. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
+          {mode === 'add' ? (
+            <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
+          ) : mode === 'edit' ? (
+            <EditRunSheet
+              view={view}
+              connected={connected && canEdit}
+              before={before}
+              onAdd={openSearch}
+            />
+          ) : (
+            <div className="relative min-h-0 flex-1">
+              <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
+                {view.items.length === 0 && (
+                  <p className="p-6 text-center text-sm text-slate-400">
+                    The run sheet has no items yet.
+                  </p>
+                )}
+                {view.items.map((item) => (
+                  <section key={item.itemId}>
+                    <h2 className="mb-3 px-1 text-xl font-semibold text-white">
+                      {item.title || 'Untitled'}
+                    </h2>
+                    <div
+                      className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
+                    >
+                      {item.pieces.map((piece) => {
+                        const active =
+                          view.presented?.itemId === item.itemId &&
+                          view.presented.pieceId === piece.id;
+                        // Where the item left off; not on the item on screen or a one-slide item.
+                        const lastShown =
+                          item.pieces.length > 1 &&
+                          view.presented?.itemId !== item.itemId &&
+                          view.lastShown?.[item.itemId] === piece.id;
+                        return (
+                          <button
+                            key={piece.id}
+                            ref={active ? activeRef : undefined}
+                            disabled={!connected}
+                            onClick={() =>
+                              connection.send({
+                                type: 'playPiece',
+                                itemId: item.itemId,
+                                pieceId: piece.id,
+                              })
+                            }
+                            className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                              active
+                                ? view.blank
+                                  ? 'border-amber-400 bg-amber-900/50'
+                                  : 'border-emerald-500 bg-emerald-900/50 text-white'
+                                : // Alternate styles by block, as on the desktop.
+                                  (piece.block ?? 0) % 2 === 0
+                                  ? 'border-slate-700 bg-slate-900'
+                                  : 'border-sky-700 bg-sky-900/60'
+                            }`}
+                          >
+                            {lastShown && (
+                              <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
+                                Last shown
+                              </span>
+                            )}
+                            {piece.thumbnail ? (
+                              <img
+                                src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                                alt={piece.lines.join(' ')}
+                                loading="lazy"
+                                // Hold the slide's space before the image loads, so a scroll to the
+                                // presented slide is not thrown short by thumbnails loading on the way.
+                                className="block aspect-video w-full rounded object-contain"
+                              />
+                            ) : (
+                              piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
+                            )}
+                          </button>
+                        );
+                      })}
+                      {item.pieces.length === 0 && (
+                        <p className="px-1 text-xs text-slate-500">This item has no content.</p>
+                      )}
+                    </div>
+                  </section>
+                ))}
+              </main>
+              {view.presented && !activeInView && (
+                <button
+                  aria-label="Go to current slide"
+                  onClick={() =>
+                    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                  }
+                  className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                    view.blank
+                      ? 'border-amber-400 text-amber-300'
+                      : 'border-emerald-500 text-emerald-300'
+                  }`}
                 >
-                  {item.pieces.map((piece) => {
-                    const active =
-                      view.presented?.itemId === item.itemId && view.presented.pieceId === piece.id;
-                    // Where the item left off; not on the item on screen or a one-slide item.
-                    const lastShown =
-                      item.pieces.length > 1 &&
-                      view.presented?.itemId !== item.itemId &&
-                      view.lastShown?.[item.itemId] === piece.id;
-                    return (
-                      <button
-                        key={piece.id}
-                        ref={active ? activeRef : undefined}
-                        disabled={!connected}
-                        onClick={() =>
-                          connection.send({
-                            type: 'playPiece',
-                            itemId: item.itemId,
-                            pieceId: piece.id,
-                          })
-                        }
-                        className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
-                          active
-                            ? view.blank
-                              ? 'border-amber-400 bg-amber-900/50'
-                              : 'border-emerald-500 bg-emerald-900/50 text-white'
-                            : // Alternate styles by block, as on the desktop.
-                              (piece.block ?? 0) % 2 === 0
-                              ? 'border-slate-700 bg-slate-900'
-                              : 'border-sky-700 bg-sky-900/60'
-                        }`}
-                      >
-                        {lastShown && (
-                          <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
-                            Last shown
-                          </span>
-                        )}
-                        {piece.thumbnail ? (
-                          <img
-                            src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
-                            alt={piece.lines.join(' ')}
-                            loading="lazy"
-                            // Hold the slide's space before the image loads, so a scroll to the
-                            // presented slide is not thrown short by thumbnails loading on the way.
-                            className="block aspect-video w-full rounded object-contain"
-                          />
-                        ) : (
-                          piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
-                        )}
-                      </button>
-                    );
-                  })}
-                  {item.pieces.length === 0 && (
-                    <p className="px-1 text-xs text-slate-500">This item has no content.</p>
-                  )}
-                </div>
-              </section>
-            ))}
-          </main>
-          {view.presented && !activeInView && (
-            <button
-              aria-label="Go to current slide"
-              onClick={() =>
-                activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-              }
-              className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
-                view.blank
-                  ? 'border-amber-400 text-amber-300'
-                  : 'border-emerald-500 text-emerald-300'
-              }`}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                className="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <circle cx="12" cy="12" r="7" />
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-              </svg>
-            </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  >
+                    <circle cx="12" cy="12" r="7" />
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                  </svg>
+                </button>
+              )}
+            </div>
           )}
         </div>
-      )}
+        {obsOpen && view.obs && (
+          <div className={`absolute inset-0 z-20 flex flex-col ${OBS_BACKGROUND}`}>
+            <ObsScreen obs={view.obs} connected={connected} />
+          </div>
+        )}
+      </div>
 
       <LiveLine view={view} />
 
@@ -335,7 +378,7 @@ function Live({ view }: { view: RemoteView | null }) {
         </button>
         {canEdit && (
           <button
-            className={`${control} ${mode === 'add' ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
+            className={`${control} ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
             disabled={!connected}
             onClick={openSearch}
           >
@@ -685,4 +728,278 @@ function runSheetName(date: string): string {
       new Date(`${date}T00:00:00Z`),
     );
   return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
+}
+
+// ── OBS (OBS control plan M4, M5.2) ─────────────────────────────────────────
+
+const OBS_ERROR_TEXT: Record<string, string> = {
+  'no-obs': 'No computer controls OBS.',
+  'not-connected': 'OBS is not connected.',
+  timeout: 'OBS did not answer.',
+  'owner-left': 'The OBS computer left before answering.',
+};
+
+/** Behind the OBS bar and the OBS screen alike, set apart from the home page and run sheet. */
+const OBS_BACKGROUND = 'bg-neutral-800';
+
+function obsError(result: ObsResult): string {
+  return (result.error && OBS_ERROR_TEXT[result.error]) || `OBS: ${result.error ?? result.code}`;
+}
+
+function obsStatusText(obs: RemoteObsView): string {
+  if (!obs.reachable) return 'OBS cannot be reached from here';
+  switch (obs.status) {
+    case 'connected':
+      return 'OBS connected';
+    case 'connecting':
+      return 'Connecting to OBS…';
+    case 'not-running':
+      return 'OBS is not running';
+    case 'refused':
+      return 'OBS refused the connection';
+  }
+}
+
+function ObsDot({ obs }: { obs: RemoteObsView }) {
+  const color = !obs.reachable
+    ? 'bg-slate-500'
+    : obs.status === 'connected'
+      ? 'bg-emerald-400'
+      : obs.status === 'refused'
+        ? 'bg-rose-500'
+        : obs.status === 'connecting'
+          ? 'bg-amber-400'
+          : 'bg-slate-500';
+  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />;
+}
+
+/** Runs one OBS command at a time, keeping its failure to show for a while. */
+function useObsCommand() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (command: ObsCommand) => {
+    setPending(true);
+    setError(null);
+    const result = await connection.obsCommand(command);
+    setPending(false);
+    if (!result.ok) {
+      setError(obsError(result));
+      setTimeout(() => setError(null), 6000);
+    }
+  };
+  return { pending, error, run };
+}
+
+/**
+ * The switch button (O4) in a slim row of its own under the header, which exists only while
+ * OBS is shared, so the slide controls keep their places; with the way to the OBS screen
+ * beside it.
+ */
+function ObsRow(props: {
+  obs: RemoteObsView;
+  connected: boolean;
+  open: boolean;
+  onToggle(): void;
+}) {
+  const { obs } = props;
+  const command = useObsCommand();
+  const target = switchTarget(obs);
+  const usable = props.connected && obs.reachable && obs.status === 'connected';
+  return (
+    <div className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND}`}>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <button
+          className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
+          disabled={!usable || !target || command.pending}
+          onClick={() => target && void command.run({ type: 'setScene', scene: target })}
+        >
+          <ObsDot obs={obs} />
+          <span className="truncate">
+            {/* While OBS is not connected, that is the problem to show, not the scenes. */}
+            {!obs.reachable || obs.status !== 'connected'
+              ? obsStatusText(obs)
+              : target
+                ? `⇄ ${target}`
+                : 'Choose scenes on the OBS computer'}
+          </span>
+        </button>
+        <button
+          className={`rounded-lg px-4 py-1.5 text-sm font-semibold active:scale-[0.98] ${
+            props.open ? 'bg-sky-600 text-white' : 'bg-slate-800'
+          }`}
+          onClick={props.onToggle}
+        >
+          OBS
+        </button>
+      </div>
+      {command.error && <p className="pt-1 text-xs text-rose-300">{command.error}</p>}
+    </div>
+  );
+}
+
+function formatDuration(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const two = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${two(m)}:${two(total % 60)}` : `${m}:${two(total % 60)}`;
+}
+
+function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(timer);
+  }, [ms]);
+  return now;
+}
+
+const OUTPUTS = [
+  { kind: 'stream', label: 'Stream', start: 'startStream', stop: 'stopStream' },
+  { kind: 'record', label: 'Record', start: 'startRecord', stop: 'stopRecord' },
+  { kind: 'virtualCam', label: 'Camera', start: 'startVirtualCam', stop: 'stopVirtualCam' },
+] as const;
+
+function outputText(output: ObsOutput, elapsed: number | null): string {
+  if (output.phase === 'starting') return 'Starting…';
+  if (output.phase === 'stopping') return 'Stopping…';
+  if (output.phase === 'reconnecting') return 'Reconnecting…';
+  if (!output.active) return 'Off';
+  const time = elapsed !== null ? formatDuration(elapsed) : 'On';
+  return output.paused ? `${time} · Paused` : time;
+}
+
+/** The OBS screen (M4.2): the live monitor, the scenes and the outputs. */
+function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
+  const { obs } = props;
+  const command = useObsCommand();
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const image = useSyncExternalStore(connection.subscribeImage, () => connection.obsImage);
+  const now = useNow(1000);
+  const usable = props.connected && obs.reachable && obs.status === 'connected';
+
+  // Images come only while this screen is open (O6).
+  useEffect(() => {
+    connection.obsWatch(true);
+    return () => connection.obsWatch(false);
+  }, []);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(null), 4000);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
+  const age = image ? now - image.receivedAt : null;
+  const stale = age !== null && age > OBS_SNAPSHOT_STALE_MS;
+
+  return (
+    <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <div className="flex items-center gap-2 text-sm text-slate-300">
+        <ObsDot obs={obs} />
+        <span className="flex-1 truncate">{obsStatusText(obs)}</span>
+        <span className="truncate text-xs text-slate-500">{obs.ownerName}</span>
+      </div>
+
+      <figure>
+        <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+          {image ? (
+            <img
+              src={image.image}
+              alt="Program"
+              className={`h-full w-full object-contain ${stale ? 'opacity-50' : ''}`}
+            />
+          ) : (
+            <p className="flex h-full items-center justify-center text-xs text-slate-500">
+              {usable ? 'Waiting for an image…' : ''}
+            </p>
+          )}
+          {/* Sweeps in from the left and out to the right between images. */}
+          {image && !stale && (
+            <span
+              key={image.receivedAt}
+              className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-neutral-400/80"
+              style={{ animationDuration: `${OBS_SNAPSHOT_EVERY_MS}ms` }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+        {stale && (
+          <figcaption className="pt-1 text-right text-xs text-amber-300">
+            From {Math.round((age ?? 0) / 1000)} s ago
+          </figcaption>
+        )}
+      </figure>
+
+      <section className="space-y-2">
+        {OUTPUTS.map(({ kind, label, start, stop }) => {
+          const output = obs[kind];
+          const running = output.active && output.phase !== 'stopping';
+          const elapsed = outputElapsed(output, connection.viewReceivedAt, now);
+          // Stopping a stream or recording asks for a second tap; the camera does not.
+          const needsConfirm = kind !== 'virtualCam';
+          return (
+            <div
+              key={kind}
+              className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
+              />
+              <span className="flex-1">
+                <span className="block font-medium">{label}</span>
+                <span className="block text-xs text-slate-400 tabular-nums">
+                  {outputText(output, elapsed)}
+                </span>
+              </span>
+              <button
+                className={`rounded-lg px-4 py-2 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 ${
+                  running ? 'bg-rose-700 text-white' : 'bg-slate-700'
+                }`}
+                disabled={!usable || command.pending || output.phase !== null}
+                onClick={() => {
+                  if (!running) return void command.run({ type: start });
+                  if (needsConfirm && confirming !== kind) return setConfirming(kind);
+                  setConfirming(null);
+                  void command.run({ type: stop });
+                }}
+              >
+                {running ? (confirming === kind ? 'Tap to stop' : 'Stop') : 'Start'}
+              </button>
+            </div>
+          );
+        })}
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+          Scenes
+        </h2>
+        {obs.scenes.length === 0 && (
+          <p className="text-sm text-slate-500">The scenes appear once OBS is connected.</p>
+        )}
+        <ul className="space-y-2">
+          {obs.scenes.map((scene) => {
+            const live = scene === obs.currentScene;
+            return (
+              <li key={scene}>
+                <button
+                  className={`flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left active:scale-[0.99] disabled:opacity-60 ${
+                    live ? 'border-emerald-500 bg-emerald-900/40' : 'border-slate-800 bg-slate-900'
+                  }`}
+                  disabled={!usable || command.pending || live}
+                  onClick={() => void command.run({ type: 'setScene', scene })}
+                >
+                  <span className="min-w-0 flex-1 truncate">{scene}</span>
+                  {live && <span className="text-xs font-semibold text-emerald-300">Live</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {command.error && <p className="text-sm text-rose-300">{command.error}</p>}
+    </main>
+  );
 }

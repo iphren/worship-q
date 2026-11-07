@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CapabilitiesSchema,
   cleanSongFields,
+  CoordinatorToFollowerSchema,
+  FollowerToCoordinatorSchema,
+  OBS_PROTOCOL_VERSION,
+  ObsStateSchema,
+  RemoteToHostSchema,
   invalidSongFields,
   maxSongYear,
   MIN_PROTOCOL_VERSION,
@@ -117,8 +123,119 @@ describe('speaking an older server’s version (D26)', () => {
     expect(negotiateProtocol(2.5)).toBe(PROTOCOL_VERSION);
   });
 
-  it('keeps version 3 at least one above the oldest accepted, so negotiation has a range', () => {
+  it('keeps this version at least one above the oldest accepted, so negotiation has a range', () => {
     expect(PROTOCOL_VERSION).toBeGreaterThan(MIN_PROTOCOL_VERSION);
+  });
+
+  it('speaks version 3 to a server not yet updated for OBS control', () => {
+    expect(PROTOCOL_VERSION).toBe(4);
+    expect(negotiateProtocol(3)).toBe(3);
+    expect(negotiateProtocol(3)).toBeLessThan(OBS_PROTOCOL_VERSION);
+  });
+});
+
+describe('OBS messages (protocol version 4)', () => {
+  const idle = { active: false, phase: null, durationMs: null, paused: false };
+  const state = {
+    ownerId: 'dev-a',
+    ownerName: 'Streaming laptop',
+    activatedAt: '2026-11-08T09:00:00.000Z',
+    revision: 3,
+    active: true,
+    status: 'connected',
+    scenes: ['Lyrics', '场景 2'],
+    currentScene: 'Lyrics',
+    favourites: ['Lyrics', null],
+    stream: { active: true, phase: null, durationMs: 61_000, paused: false },
+    record: idle,
+    virtualCam: idle,
+  };
+
+  it('reads the OBS state both ways', () => {
+    expect(ObsStateSchema.parse(state)).toEqual(state);
+    expect(FollowerToCoordinatorSchema.parse({ type: 'obsState', state }).type).toBe('obsState');
+    expect(CoordinatorToFollowerSchema.parse({ type: 'obsState', state: null })).toEqual({
+      type: 'obsState',
+      state: null,
+    });
+  });
+
+  it('rejects a malformed state', () => {
+    const bad = (patch: Record<string, unknown>) =>
+      ObsStateSchema.safeParse({ ...state, ...patch }).success;
+    expect(bad({ status: 'streaming' })).toBe(false);
+    expect(bad({ scenes: [''] })).toBe(false);
+    expect(bad({ favourites: ['Lyrics'] })).toBe(false);
+    expect(bad({ revision: -1 })).toBe(false);
+    expect(bad({ stream: { active: true } })).toBe(false);
+    expect(bad({ ownerId: '' })).toBe(false);
+  });
+
+  it('takes commands that name the state wanted, never a toggle', () => {
+    const command = (c: unknown) =>
+      FollowerToCoordinatorSchema.safeParse({ type: 'obsCommand', id: 'c1', command: c }).success;
+    expect(command({ type: 'setScene', scene: 'Camera' })).toBe(true);
+    expect(command({ type: 'startStream' })).toBe(true);
+    expect(command({ type: 'stopVirtualCam' })).toBe(true);
+    expect(command({ type: 'toggleStream' })).toBe(false);
+    expect(command({ type: 'setScene', scene: '' })).toBe(false);
+    expect(
+      RemoteToHostSchema.safeParse({
+        type: 'obsCommand',
+        id: 'p1',
+        command: { type: 'stopRecord' },
+      }).success,
+    ).toBe(true);
+    expect(RemoteToHostSchema.safeParse({ type: 'obsWatch', watching: true }).success).toBe(true);
+  });
+
+  it('carries answers with OBS’s code and comment', () => {
+    expect(
+      CoordinatorToFollowerSchema.parse({
+        type: 'obsAck',
+        id: 'c1',
+        ok: false,
+        code: 500,
+        error: 'Output already running',
+      }),
+    ).toMatchObject({ code: 500 });
+    expect(
+      FollowerToCoordinatorSchema.safeParse({ type: 'obsAck', id: 'c1', ok: 'yes' }).success,
+    ).toBe(false);
+  });
+
+  it('takes only small images as monitor snapshots, never another kind of address', () => {
+    const snapshot = (image: string) =>
+      CoordinatorToFollowerSchema.safeParse({ type: 'obsSnapshot', image, takenAt: 't' }).success;
+    expect(snapshot('data:image/webp;base64,UklGRoY=')).toBe(true);
+    expect(snapshot('data:image/jpg;base64,/9j/4AAQ')).toBe(true);
+    expect(snapshot('javascript:alert(1)')).toBe(false);
+    expect(snapshot('data:text/html;base64,PHNjcmlwdD4=')).toBe(false);
+    expect(snapshot('data:image/svg+xml;base64,PHN2Zz4=')).toBe(false);
+    expect(snapshot('data:image/webp;base64,AAAA" onerror="x')).toBe(false);
+    expect(snapshot(`data:image/webp;base64,${'A'.repeat(800_000)}`)).toBe(false);
+  });
+
+  it('still reads every version 3 message, with capabilities lacking `obs`', () => {
+    const capabilities = { roles: ['coordinator'], appVersion: '1.4.1' };
+    expect(CapabilitiesSchema.parse(capabilities).obs).toBeUndefined();
+    expect(CapabilitiesSchema.parse({ ...capabilities, obs: true }).obs).toBe(true);
+    for (const message of [
+      {
+        type: 'command',
+        id: 'c',
+        origin: { kind: 'operator', deviceId: 'd', name: 'n' },
+        command: { type: 'next' },
+      },
+      { type: 'resync', have: 0 },
+      { type: 'capabilities', capabilities },
+      { type: 'phones', phones: [] },
+    ]) {
+      expect(FollowerToCoordinatorSchema.safeParse(message).success).toBe(true);
+    }
+    expect(CoordinatorToFollowerSchema.safeParse({ type: 'alive', revision: 4 }).success).toBe(
+      true,
+    );
   });
 });
 

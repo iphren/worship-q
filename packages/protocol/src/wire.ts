@@ -8,6 +8,15 @@
  */
 import { z } from 'zod';
 import {
+  ObsCommandSchema,
+  ObsResultSchema,
+  ObsSnapshotSchema,
+  ObsStateSchema,
+  type ObsResult,
+  type ObsSnapshot,
+  type RemoteObsView,
+} from './obs';
+import {
   LiveStateSchema,
   RecordOriginSchema,
   type BackgroundKind,
@@ -22,9 +31,11 @@ import {
  * where they come from (`origin`, `shadow`), devices pair with an administrator's approval,
  * and a workspace's song record may choose the church's version (`useChurchVersion`). The
  * live-state protocol is unchanged, so version 2 and 3 desktops present together, and each
- * side speaks the other's version when it is older (decision D26).
+ * side speaks the other's version when it is older (decision D26). Version 4 adds OBS control
+ * (`./obs`): new message kinds that the relay must know before it passes them on, sent only
+ * to devices declaring the `obs` capability, so version 3 desktops are untouched.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -100,6 +111,11 @@ export const CapabilitiesSchema = z.object({
    * can warn. Omitted by devices that cannot tell.
    */
   missingFonts: z.array(z.string().max(100)).max(10).optional(),
+  /**
+   * Takes OBS messages (protocol version 4). Absent from older devices, and stripped by an
+   * older relay, which knows only the fields above: either way, nothing is sent to it.
+   */
+  obs: z.boolean().optional(),
 });
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
@@ -337,6 +353,14 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
   }),
   /** Answered by the relay, so a phone notices a connection lost while it slept. */
   z.object({ type: z.literal('ping') }),
+  /** A command for OBS (protocol version 4), answered with `obsAck`. */
+  z.object({
+    type: z.literal('obsCommand'),
+    id: z.string().min(1).max(100),
+    command: ObsCommandSchema,
+  }),
+  /** The phone's OBS screen opened or closed: send it the live monitor's images, or stop. */
+  z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
 ]);
 export type RemoteToHost = z.infer<typeof RemoteToHostSchema>;
 
@@ -384,6 +408,8 @@ export interface RemoteView {
   blank: boolean;
   /** True when the live run sheet can be edited; desktops before it was added leave it out. */
   editable?: boolean;
+  /** OBS, when a device of the workspace has an active OBS link; absent from older desktops. */
+  obs?: RemoteObsView | null;
 }
 
 /** From the desktop to a remote controller. */
@@ -395,7 +421,9 @@ export type HostToRemote =
   | { type: 'denied'; reason: 'denied' | 'invalid-invite' | 'revoked' }
   | { type: 'view'; view: RemoteView }
   | { type: 'ack'; id: string; applied: boolean }
-  | { type: 'searchResults'; id: string; songs: RemoteSongResult[] };
+  | { type: 'searchResults'; id: string; songs: RemoteSongResult[] }
+  | ({ type: 'obsAck'; id: string } & ObsResult)
+  | ({ type: 'obsSnapshot' } & ObsSnapshot);
 
 /** From the instance to a remote controller, about the connection itself. */
 export type RelayToRemote =
@@ -521,6 +549,23 @@ export const FollowerToCoordinatorSchema = z.discriminatedUnion('type', [
     phones: z.array(z.object({ grantId: z.string(), name: z.string() })),
   }),
   z.object({ type: z.literal('capabilities'), capabilities: CapabilitiesSchema }),
+  // OBS control (protocol version 4; see `./obs`).
+  /** From the OBS computer: its OBS state, and once its link is turned off, the last one. */
+  z.object({ type: z.literal('obsState'), state: ObsStateSchema }),
+  /** A command for OBS, to be forwarded to the OBS computer. */
+  z.object({
+    type: z.literal('obsCommand'),
+    id: z.string().min(1).max(100),
+    command: ObsCommandSchema,
+  }),
+  /** From the OBS computer: the answer to a forwarded command. */
+  z
+    .object({ type: z.literal('obsAck'), id: z.string().min(1).max(100) })
+    .extend(ObsResultSchema.shape),
+  /** This device shows the live monitor, or stopped showing it. */
+  z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
+  /** From the OBS computer: an image for the devices showing the live monitor. */
+  z.object({ type: z.literal('obsSnapshot') }).extend(ObsSnapshotSchema.shape),
 ]);
 export type FollowerToCoordinator = z.infer<typeof FollowerToCoordinatorSchema>;
 
@@ -545,6 +590,23 @@ export const CoordinatorToFollowerSchema = z.discriminatedUnion('type', [
       toIndex: z.number().int().min(0).optional(),
     }),
   }),
+  // OBS control (protocol version 4), only to devices declaring the `obs` capability.
+  /** The workspace's OBS state; null when no device has an active OBS link. */
+  z.object({ type: z.literal('obsState'), state: ObsStateSchema.nullable() }),
+  /** To the OBS computer: a command from another device. */
+  z.object({
+    type: z.literal('obsCommand'),
+    id: z.string().min(1).max(100),
+    command: ObsCommandSchema,
+  }),
+  /** To the device that asked: the answer to its command. */
+  z
+    .object({ type: z.literal('obsAck'), id: z.string().min(1).max(100) })
+    .extend(ObsResultSchema.shape),
+  /** To the OBS computer: whether any other device is showing the live monitor. */
+  z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
+  /** To the devices showing the live monitor. */
+  z.object({ type: z.literal('obsSnapshot') }).extend(ObsSnapshotSchema.shape),
 ]);
 export type CoordinatorToFollower = z.infer<typeof CoordinatorToFollowerSchema>;
 

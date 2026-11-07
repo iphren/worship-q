@@ -437,7 +437,17 @@ pull after the desktop update is a full one, so every song learns where it came 
 workspace of a few thousand songs takes under a minute. Every enrollment, device token, phone
 approval, output link and viewer setting is kept; no computer re-pairs.
 
-## Known limits of this version
+## Updating for OBS control (protocol version 4)
+
+OBS control raises the protocol version to 4 and keeps accepting versions 2 and 3; there is
+nothing to configure. The server only passes the new OBS messages on, and refuses them before
+version 4, so updating it is the one step needed for the OBS computer's controls to reach the
+other computers and phones. Until then the OBS computer's own controls work and its Settings
+says a server update is needed. Desktops update themselves as usual; a desktop still on
+version 3 presents as before and is sent no OBS messages, and phones step down to its version
+so they keep working with it. A workspace without OBS sees nothing new.
+
+
 
 - When two computers edit the same song or the same date's run sheet before synchronizing,
   the later edit wins. Earlier song versions are kept in the song's history.

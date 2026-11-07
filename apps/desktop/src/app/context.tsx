@@ -9,6 +9,8 @@ import {
   type DependencyList,
 } from 'react';
 import type { CloudController, CloudStatus } from './cloud';
+import type { ObsLinkView } from './obs';
+import type { ObsMonitorImage, ObsShared } from './obsShare';
 import type { OutputController } from './output';
 import type { UpdateController, UpdateStatus } from './update';
 
@@ -50,6 +52,35 @@ export function useCloud(): CloudStatus {
 export function useUpdates(): UpdateStatus {
   const { updates } = useApp();
   return useSyncExternalStore(updates.subscribe, () => updates.status);
+}
+
+/** The workspace's OBS state as this desktop shows it (OBS control plan). */
+export function useObs(): ObsShared {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.obs.subscribe, () => cloud.obs.view);
+}
+
+/** This computer's OBS link, for Settings → OBS; null until it has started. */
+export function useObsLink(): ObsLinkView | null {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.obs.subscribeLink, () => cloud.obs.localLink?.view ?? null);
+}
+
+/** The latest live monitor image while a panel here shows it. */
+export function useObsImage(): ObsMonitorImage | null {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.obs.subscribeImage, () => cloud.obs.image);
+}
+
+/** The time now, refreshed every `ms` while `on`, for timers. */
+export function useNow(ms = 1000, on = true): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    const timer = window.setInterval(() => setNow(Date.now()), ms);
+    return () => window.clearInterval(timer);
+  }, [ms, on]);
+  return now;
 }
 
 /** Remote-control requests and controllers, re-rendering the caller when they change. */

@@ -19,6 +19,7 @@ import { ChurchConnection } from '../components/ChurchConnection';
 import { ConnectedDevices } from '../components/ConnectedDevices';
 import { ViewerModeDialog } from '../components/LiveRole';
 import { ConfirmDialog } from '../components/Dialog';
+import { ObsSettings } from '../components/ObsSettings';
 import { OutputLinks } from '../components/OutputLinks';
 import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
@@ -518,6 +519,10 @@ export function SettingsPage() {
             <p className="mt-0.5 text-xs text-slate-400">{t('outputs.linksHint')}</p>
           </div>
           <OutputLinks />
+        </Section>
+
+        <Section title={t('obs.title')} hint={t('obs.hint')}>
+          <ObsSettings />
         </Section>
 
         <Section

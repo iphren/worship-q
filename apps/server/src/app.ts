@@ -20,6 +20,8 @@ import {
   isCompatibleProtocol,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
+  ObsSnapshotSchema,
+  ObsStateSchema,
   OutputKindSchema,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
@@ -42,6 +44,7 @@ import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
 import { sendFile } from './ranges';
 import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
+import { ObsReports } from './obsReports';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { Relay } from '@worship-q/relay';
@@ -95,7 +98,10 @@ declare module 'fastify' {
 export async function buildServer(config: ServerConfig) {
   const { instance } = config;
   // `app` is made below; the relay only warns once connections arrive, by when it exists.
-  const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message));
+  const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message), {
+    note: (message, detail) => app.log.info(detail, message),
+  });
+  const obsReports = new ObsReports(instance.now);
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   for (const email of config.administrators ?? []) {
@@ -325,6 +331,23 @@ export async function buildServer(config: ServerConfig) {
       return live ?? { snapshot: null, grants: [], deviceId: null, updatedAt: null };
     });
 
+    // ── OBS state for the admin app ────────────────────────────────────────
+
+    /** The OBS computer's own state, kept for the admin app; see `ObsReports`. */
+    api.put('/api/v1/obs', async (request, reply) => {
+      const parsed = z
+        .object({ state: ObsStateSchema, snapshot: ObsSnapshotSchema.nullish() })
+        .safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-state' });
+      const device = request.device!;
+      // A computer speaks only for its own OBS link.
+      if (parsed.data.state.ownerId !== device.id) {
+        return reply.code(403).send({ error: 'not-owner' });
+      }
+      const { state, snapshot } = parsed.data;
+      return { stored: obsReports.put(device.workspaceId, device.id, state, snapshot ?? null) };
+    });
+
     // ── Browser output links (D22) ─────────────────────────────────────────
 
     const outputUrl = (request: FastifyRequest, kind: string, token: string) =>
@@ -528,33 +551,66 @@ export async function buildServer(config: ServerConfig) {
 
   // ── Live connections ─────────────────────────────────────────────────────
 
-  const keepAlive = (socket: import('ws').WebSocket) => {
+  /**
+   * Pings the socket and ends it when a ping goes unanswered. Every closing is logged with
+   * its code, so a dropped phone or desktop can be traced to the side that dropped it.
+   */
+  const keepAlive = (
+    socket: import('ws').WebSocket,
+    kind: string,
+    request: import('fastify').FastifyRequest,
+  ) => {
+    const openedAt = Date.now();
+    let lastMessageAt = openedAt;
     let alive = true;
+    let terminated = false;
     socket.on('pong', () => (alive = true));
+    socket.on('message', () => (lastMessageAt = Date.now()));
     const timer = setInterval(() => {
-      if (!alive) return socket.terminate();
+      if (!alive) {
+        terminated = true;
+        return socket.terminate();
+      }
       alive = false;
       socket.ping();
     }, PING_MS);
-    socket.on('close', () => clearInterval(timer));
+    socket.on('error', (error) =>
+      app.log.info({ kind, ip: request.ip, error: error.message }, 'WebSocket error'),
+    );
+    socket.on('close', (code, reason) => {
+      clearInterval(timer);
+      const now = Date.now();
+      app.log.info(
+        {
+          kind,
+          ip: request.ip,
+          code,
+          reason: reason.toString(),
+          unansweredPing: terminated,
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        },
+        'WebSocket closed',
+      );
+    });
   };
 
-  app.get('/api/v1/coordinator', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/coordinator', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'coordinator', request);
     const handlers = relay.desktop(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());
   });
 
-  app.get('/api/v1/remote', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/remote', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'remote', request);
     const handlers = relay.remote(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());
   });
 
-  app.get('/api/v1/output', { websocket: true }, (socket) => {
-    keepAlive(socket);
+  app.get('/api/v1/output', { websocket: true }, (socket, request) => {
+    keepAlive(socket, 'output', request);
     const handlers = relay.output(socket);
     socket.on('message', (raw) => handlers.message(raw));
     socket.on('close', () => handlers.close());
@@ -601,6 +657,7 @@ export async function buildServer(config: ServerConfig) {
   await registerAdminRoutes(app, {
     instance,
     relay,
+    obsReports,
     oidc: config.oidc ?? null,
     dataDir: config.dataDir,
     name: config.name,

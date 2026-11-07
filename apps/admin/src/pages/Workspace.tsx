@@ -1,23 +1,29 @@
 import {
   LIBRARY_TYPES,
+  OBS_REPORT_EVERY_MS,
+  outputElapsed,
   type AdminLibraryPlan,
   type AdminLiveView,
+  type AdminObsView,
   type AdminWorkspace,
   type LibraryType,
 } from '@worship-q/protocol';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import {
   CONNECTION_LABEL,
   ROLE_LABEL,
   expiryText,
   formatDate,
+  formatAge,
   formatDateTime,
   isPast,
   LIBRARY_TYPE_LABELS,
   LIBRARY_TYPE_NOUNS,
   libraryTypeList,
   managedLabel,
+  OBS_STATUS_LABEL,
+  obsOutputText,
   onScreen,
   orderDevices,
   routePath,
@@ -85,6 +91,7 @@ export function WorkspacePage({ id }: { id: string }) {
       <Header workspace={workspace} onChanged={replace} />
       <ErrorText error={list.error} />
       <LiveSection id={id} />
+      <ObsSection id={id} />
       <DevicesSection id={id} onRevoked={list.reload} />
       <CodeSection workspace={workspace} onChanged={replace} />
       <LibrarySection workspace={workspace} onChanged={replace} />
@@ -605,6 +612,165 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
       </div>
     </div>
   );
+}
+
+// ── OBS ──────────────────────────────────────────────────────────────────────
+
+/** A report older than this missed two heartbeats: the OBS computer has gone quiet. */
+const OBS_STALE_MS = OBS_REPORT_EVERY_MS * 2.5;
+
+const OBS_OUTPUTS = [
+  { kind: 'stream', label: 'Stream' },
+  { kind: 'record', label: 'Record' },
+  { kind: 'virtualCam', label: 'Camera' },
+] as const;
+
+/** The workspace's OBS state, as its OBS computer last reported it. Hidden when none has. */
+function ObsSection({ id }: { id: string }) {
+  const loaded = useLoad(() => api.obs(id), [id], LIVE_POLL_MS);
+  const obs = loaded.data?.obs ?? null;
+  if (!obs) return null;
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          obs.state.active ? (
+            <Badge tone={obs.state.status === 'connected' ? 'live' : 'warn'}>
+              {OBS_STATUS_LABEL[obs.state.status]}
+            </Badge>
+          ) : (
+            <Badge>Off</Badge>
+          )
+        }
+      >
+        OBS
+      </SectionTitle>
+      <ErrorText error={loaded.error} className="mb-2" />
+      <ObsView obs={obs} />
+    </Card>
+  );
+}
+
+function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
+  const { state, owner } = obs;
+  // When the report arrived, on this browser's clock; the timers count on from there.
+  const [arrived, setArrived] = useState(() => Date.now() - obs.ageMs);
+  useEffect(() => setArrived(Date.now() - obs.ageMs), [obs]);
+  const now = useNow(1000);
+  const stale = now - arrived > OBS_STALE_MS;
+  const computer = (
+    <Fact label="OBS computer">
+      {owner.name ?? state.ownerName ?? 'Unnamed computer'}{' '}
+      {owner.connected ? (
+        <Badge tone="live">Connected</Badge>
+      ) : (
+        <span className="text-slate-400">· not connected</span>
+      )}
+    </Fact>
+  );
+  if (!state.active) {
+    return (
+      <div className="text-sm">
+        <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{computer}</dl>
+        <p className="mt-3 text-slate-400">
+          OBS control is turned off on this computer. Last heard <When iso={obs.receivedAt} />.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y divide-slate-800 text-sm *:py-6 *:first:pt-0 *:last:pb-0">
+      <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        {computer}
+        <Fact label="On program">{state.currentScene ?? '—'}</Fact>
+        <Fact label="Last report">
+          <span className={stale ? 'text-amber-300' : ''}>
+            <When iso={obs.receivedAt} />
+            {stale && ' · the OBS computer has stopped reporting'}
+          </span>
+        </Fact>
+      </dl>
+
+      {/* Alone in a column the monitor and outputs take the full width; beside the scenes,
+          when the card is wide enough for both, they take a share of it that grows to a cap,
+          as the presentation's previews do. */}
+      <div className="@container">
+        <div className="flex flex-col gap-6 @2xl:flex-row @2xl:items-start">
+          <div className="w-full shrink-0 space-y-4 @2xl:w-[45%] @2xl:max-w-xl">
+            {obs.snapshot && (
+              <figure>
+                <img
+                  src={obs.snapshot.image}
+                  alt={`OBS program: ${state.currentScene ?? 'scene'}`}
+                  className={`aspect-video w-full rounded-lg bg-black object-contain ${stale ? 'opacity-60' : ''}`}
+                />
+                <figcaption className="pt-1 text-xs text-slate-400">
+                  Program, taken {formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs))} ago.
+                  A new image comes every {OBS_REPORT_EVERY_MS / 1000} seconds and soon after the
+                  scene changes.
+                </figcaption>
+              </figure>
+            )}
+            <div>
+              <h3 className="mb-1 font-semibold text-slate-100">Outputs</h3>
+              <ul className={`space-y-1 ${stale ? 'opacity-60' : ''}`}>
+                {OBS_OUTPUTS.map(({ kind, label }) => {
+                  const output = state[kind];
+                  const elapsed = stale ? null : outputElapsed(output, arrived, now);
+                  return (
+                    <li
+                      key={kind}
+                      className="flex items-center gap-3 rounded-lg bg-slate-900 px-3 py-1.5"
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
+                      />
+                      <span className="flex-1 font-medium text-slate-100">{label}</span>
+                      <span className="text-slate-300 tabular-nums">
+                        {obsOutputText(output, elapsed)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-1 font-semibold text-slate-100">Scenes</h3>
+            {state.scenes.length === 0 ? (
+              <p className="text-slate-400">The scenes show while OBS is connected.</p>
+            ) : (
+              <ol className="space-y-1">
+                {state.scenes.map((scene) => {
+                  const live = scene === state.currentScene;
+                  return (
+                    <li
+                      key={scene}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${
+                        live ? 'bg-emerald-900/50 text-white' : 'text-slate-300'
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{scene}</span>
+                      {live && <Badge tone="live">Live</Badge>}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(timer);
+  }, [ms]);
+  return now;
 }
 
 function Fact(props: { label: string; children: ReactNode }) {

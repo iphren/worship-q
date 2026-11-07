@@ -1,12 +1,13 @@
 import { PROTOCOL_VERSION, type RelayToDesktop } from '@worship-q/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { native } from '../platform/native';
-import { chooseCoordinator, LanTransport, type KnownPeer } from './lan';
+import { chooseCoordinator, LanHost, LanTransport, type KnownPeer } from './lan';
 
 /** The native core's LAN side, with what it found and the connections it makes scripted. */
 interface FakeNative {
   calls: string[];
   found: unknown[];
+  sent: { id: string; data: string }[];
   /** How the next connection completes; null connects straight away. */
   connect: (() => Promise<string>) | null;
   handlers: () => {
@@ -21,6 +22,7 @@ vi.mock('../platform/native', () => {
   const fake = {
     calls: [] as string[],
     found: [] as unknown[],
+    sent: [] as { id: string; data: string }[],
     connect: null as (() => Promise<string>) | null,
     handlers: () => handlers,
     onLan: async (given: unknown) => {
@@ -35,7 +37,11 @@ vi.mock('../platform/native', () => {
     lanDisconnect: async (id: string) => {
       fake.calls.push(`disconnect ${id}`);
     },
-    lanSend: async () => undefined,
+    lanSend: async (id: string, data: string) => void fake.sent.push({ id, data }),
+    lanServe: async () => undefined,
+    lanStopServing: async () => undefined,
+    lanAdvertise: async () => undefined,
+    lanDrop: async () => undefined,
   };
   return { native: fake };
 });
@@ -193,5 +199,67 @@ describe('following the coordinator on the LAN (D14, D21)', () => {
     expect(lan.open).toBe(false);
     lan.close();
     fake.connect = null;
+  });
+});
+
+describe('OBS messages on the venue network (OBS plan M2.7)', () => {
+  const fake = native as unknown as FakeNative;
+  const capabilities = {
+    roles: ['coordinator' as const],
+    appVersion: 'test',
+    fonts: true,
+    screens: true,
+    media: true,
+    transparency: true,
+    obs: true,
+  };
+
+  it('carries them between the coordinator and a follower on the LAN unchanged', async () => {
+    const heard: RelayToDesktop[] = [];
+    const host = new LanHost({
+      workspaceId: () => 'ws',
+      deviceId: () => 'A',
+      deviceName: () => 'Projector',
+      hello: () => ({ type: 'hello', protocolVersion: PROTOCOL_VERSION, token: '', capabilities }),
+      onMessage: (message) => heard.push(message),
+    });
+    await host.start();
+    await host.setCoordinating(true);
+    fake.handlers().open({
+      kind: 'desktop',
+      id: 'x1',
+      deviceId: 'S',
+      name: 'Streaming',
+      hello: { protocolVersion: PROTOCOL_VERSION, capabilities, role: 'viewer' },
+    });
+    expect(host.peers.find((peer) => peer.deviceId === 'S')?.capabilities?.obs).toBe(true);
+
+    const idle = { active: false, phase: null, durationMs: null, paused: false };
+    const state = {
+      ownerId: 'S',
+      ownerName: 'Streaming',
+      activatedAt: '2026-11-08T09:00:00.000Z',
+      revision: 1,
+      active: true,
+      status: 'connected',
+      scenes: ['Lyrics'],
+      currentScene: 'Lyrics',
+      favourites: ['Lyrics', null],
+      stream: idle,
+      record: idle,
+      virtualCam: idle,
+    };
+    fake.handlers().message({
+      id: 'x1',
+      data: JSON.stringify({ type: 'toCoordinator', data: { type: 'obsState', state } }),
+    });
+    expect(heard.at(-1)).toEqual({ type: 'peer', from: 'S', data: { type: 'obsState', state } });
+
+    const image = { type: 'obsSnapshot', image: 'data:image/webp;base64,UklGRoY=', takenAt: 't' };
+    host.send({ type: 'toFollower', to: 'S', data: image as never });
+    await new Promise((done) => setTimeout(done, 5));
+    expect(JSON.parse(fake.sent.at(-1)!.data)).toEqual({ type: 'peer', from: 'A', data: image });
+    expect(fake.sent.at(-1)!.id).toBe('x1');
+    host.stop();
   });
 });

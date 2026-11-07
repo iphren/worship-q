@@ -25,6 +25,10 @@ describe('presentAction', () => {
     expect(press('Delete')).toBe('clear');
   });
 
+  it('leaves slash to the search shortcut: it is no slide key', () => {
+    expect(press('/')).toBeNull();
+  });
+
   it('moves through the whole run sheet with page down and up, and space', () => {
     expect(press('PageDown')).toBe('next');
     expect(press('PageUp')).toBe('previous');

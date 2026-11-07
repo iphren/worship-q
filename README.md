@@ -8,15 +8,16 @@ share one presentation.
 
 ## Documentation
 
-| For                     | Document                                                                                                                                                         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Volunteers              | [Volunteer guide](docs/volunteer-guide.md)                                                                                                                       |
-| Whoever runs the server | [Church server deployment](docs/server-deployment.md)                                                                                                            |
-| Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                 |
-| Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                 |
-| Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md) |
-| Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                              |
-| Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                 |
+| For                     | Document                                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Volunteers              | [Volunteer guide](docs/volunteer-guide.md)                                                                                                                               |
+| Whoever runs the server | [Church server deployment](docs/server-deployment.md)                                                                                                                    |
+| Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                         |
+| Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                         |
+| Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md)         |
+| Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                                      |
+| Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                         |
+| OBS control             | [Plan](docs/obs-control-plan.md), [task breakdown](docs/obs-control-task-breakdown.md), [acceptance record](docs/acceptance/obs-control.md), [spike](docs/spikes/obs.md) |
 
 ## Develop
 
@@ -89,6 +90,7 @@ The Rust core handles only these:
 - the localhost pages
 - the system keychain
 - venue-network connections
+- the connection to OBS on this computer
 
 Everything else is TypeScript and is unit-tested without running the app.
 

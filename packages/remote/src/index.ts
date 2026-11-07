@@ -16,9 +16,14 @@
 import {
   isCompatibleProtocol,
   isRemoteEdit,
+  OBS_ERRORS,
   RemoteToHostSchema,
   type CommandOrigin,
   type HostToRemote,
+  type ObsCommand,
+  type ObsResult,
+  type ObsSnapshot,
+  type RemoteObsView,
   type RemoteCommand,
   type RemoteSongResult,
   type RemoteView,
@@ -74,6 +79,17 @@ export interface RemoteCoordination {
   revokeGrant(id: string | null): void;
   /** Tells the coordinator which phones are connected through this device. */
   phones(phones: { grantId: string; name: string }[]): void;
+}
+
+/**
+ * OBS for phones (OBS control plan M2.8, M4): what they are shown, where their commands go,
+ * and whether any of them shows the live monitor. Absent where OBS is not available.
+ */
+export interface RemoteObs {
+  view(): RemoteObsView | null;
+  command(command: ObsCommand): Promise<ObsResult>;
+  /** Whether any phone connected here shows the live monitor. */
+  watching(watching: boolean): void;
 }
 
 /** How long an invitation in a QR code or link stays valid. */
@@ -174,6 +190,9 @@ export class RemoteHost {
   private unsubscribe: (() => void) | null = null;
   private version_ = 0;
   private coordination: RemoteCoordination | null = null;
+  private obs: RemoteObs | null = null;
+  /** Phones showing the live monitor, by connection. */
+  private readonly obsWatchers = new Set<string>();
 
   constructor(
     private readonly session: Session,
@@ -187,6 +206,33 @@ export class RemoteHost {
   setCoordination(coordination: RemoteCoordination | null): void {
     this.coordination = coordination;
     this.reportPhones();
+  }
+
+  /** Gives phones OBS, or takes it away. */
+  setObs(obs: RemoteObs | null): void {
+    this.obs = obs;
+    this.obsWatchers.clear();
+    this.scheduleView();
+  }
+
+  /** OBS's state changed: phones are sent their view again. */
+  obsChanged(): void {
+    this.scheduleView();
+  }
+
+  /** A live monitor image, for the phones showing the monitor. */
+  obsSnapshot(snapshot: ObsSnapshot): void {
+    for (const connection of this.obsWatchers) {
+      this.link?.send(connection, { type: 'obsSnapshot', ...snapshot });
+    }
+  }
+
+  private setObsWatching(connection: string, watching: boolean): void {
+    const before = this.obsWatchers.size > 0;
+    if (watching && this.controllers.has(connection)) this.obsWatchers.add(connection);
+    else this.obsWatchers.delete(connection);
+    const after = this.obsWatchers.size > 0;
+    if (before !== after) this.obs?.watching(after);
   }
 
   private reportPhones(): void {
@@ -274,6 +320,10 @@ export class RemoteHost {
     this.link = null;
     this.requests.clear();
     this.controllers.clear();
+    if (this.obsWatchers.size > 0) {
+      this.obsWatchers.clear();
+      this.obs?.watching(false);
+    }
     this.reportPhones();
     this.changed();
   }
@@ -378,6 +428,13 @@ export class RemoteHost {
         songs: songs.map(remoteSongResult),
       });
     }
+    if (message.type === 'obsCommand') {
+      const result = this.obs
+        ? await this.obs.command(message.command)
+        : { ok: false, error: OBS_ERRORS.noObs };
+      return link.send(from, { type: 'obsAck', id: message.id, ...result });
+    }
+    if (message.type === 'obsWatch') return this.setObsWatching(from, message.watching);
     if (message.type !== 'command') return;
     const { command } = message;
     let applied: boolean;
@@ -401,6 +458,7 @@ export class RemoteHost {
   }
 
   left(from: string): void {
+    this.setObsWatching(from, false);
     const had = this.requests.delete(from) || this.controllers.delete(from);
     if (had) {
       this.reportPhones();
@@ -436,6 +494,7 @@ export class RemoteHost {
     for (const [connection, controller] of this.controllers) {
       if (listed.has(controller.grantId)) continue;
       this.controllers.delete(connection);
+      this.setObsWatching(connection, false);
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
       changed = true;
@@ -490,6 +549,7 @@ export class RemoteHost {
     for (const [connection, controller] of this.controllers) {
       if (controller.grantId !== grantId) continue;
       this.controllers.delete(connection);
+      this.setObsWatching(connection, false);
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
     }
@@ -507,6 +567,7 @@ export class RemoteHost {
     for (const connection of this.controllers.keys()) {
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
+      this.setObsWatching(connection, false);
     }
     this.controllers.clear();
     this.reportPhones();
@@ -515,8 +576,9 @@ export class RemoteHost {
 
   // ── The view sent to controllers ─────────────────────────────────────────
 
-  private view(): Promise<RemoteView> {
-    return buildRemoteView(this.session, this.workspaceName());
+  private async view(): Promise<RemoteView> {
+    const view = await buildRemoteView(this.session, this.workspaceName());
+    return { ...view, obs: this.obs?.view() ?? null };
   }
 
   private scheduleView(): void {

@@ -3,6 +3,7 @@ import { useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
+import { useSearchShortcut } from '../lib/searchShortcut';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
@@ -28,12 +29,16 @@ export function RunSheetEditor(props: {
   searchOnly?: boolean;
   /** Kept at the bottom, under the song search. */
   footer?: ReactNode;
+  /** Shows the song search for its `/` shortcut when it is on a tab that is not shown. */
+  onRevealSearch?: () => void;
 }) {
   const { onSelectItem } = props;
   const session = useSession();
   const { date } = props;
   const editable = session.canEdit(date);
   const [search, setSearch] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSearchShortcut(searchRef, props.onRevealSearch);
   const idle = props.searchOnly === true && search.trim() === '';
   const view = useQuery(() => session.viewDate(date), [date]);
   const songs = useQuery(
@@ -209,6 +214,7 @@ export function RunSheetEditor(props: {
           className={`flex flex-col gap-1 border-t border-slate-700 pt-3 ${idle ? '' : 'min-h-40 flex-1'}`}
         >
           <input
+            ref={searchRef}
             className="field"
             type="search"
             autoCorrect="off"
@@ -216,6 +222,7 @@ export function RunSheetEditor(props: {
             autoComplete="off"
             spellCheck={false}
             placeholder={t('runSheet.addSong')}
+            title={t('common.searchShortcut')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

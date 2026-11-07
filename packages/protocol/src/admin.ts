@@ -3,6 +3,7 @@
  * `/api/v1/admin/` and `/auth/`, are authenticated by the administrator's session cookie
  * rather than a device token, and are refused without the `ADMIN_HEADER` (decision D35).
  */
+import type { ObsSnapshot, ObsState } from './obs';
 import type { BackgroundKind, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
 
@@ -102,6 +103,29 @@ export type AdminLiveView =
       /** The file of the presented song's own background, when it has one. */
       songBackground: { kind: BackgroundKind; fileName: string } | null;
     };
+
+/**
+ * `GET /api/v1/admin/workspaces/:id/obs`: the workspace's OBS state as its OBS computer last
+ * reported it (`PUT /api/v1/obs`), or null when none has since the server started.
+ */
+export interface AdminObsView {
+  obs: {
+    state: ObsState;
+    owner: { deviceId: string; name: string | null; connected: boolean };
+    /** When the report arrived. */
+    receivedAt: string;
+    /** How long ago it arrived, on the server's clock, so the browser's clock does not matter. */
+    ageMs: number;
+    /**
+     * The latest image of the program, taken with each heartbeat and soon after the scene
+     * changes; null until one arrives.
+     */
+    snapshot: (ObsSnapshot & { ageMs: number }) | null;
+  } | null;
+}
+
+/** The OBS computer reports its state at least this often while its link is on. */
+export const OBS_REPORT_EVERY_MS = 30_000;
 
 export type LibraryKind = Extract<SyncKind, 'song' | 'background'>;
 

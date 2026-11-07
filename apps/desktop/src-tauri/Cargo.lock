@@ -5503,6 +5503,7 @@ name = "worship-q"
 version = "1.4.1"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "fontdb",
  "futures-util",
  "if-addrs",

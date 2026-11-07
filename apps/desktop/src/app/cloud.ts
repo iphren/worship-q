@@ -4,12 +4,14 @@
  * reach this one.
  *
  * Everything here is optional. Without a connection the app works exactly as before, and
- * losing the connection never interrupts a presentation.
+ * losing the connection never interrupts a presentation. That includes this computer's OBS
+ * link: its own controls work without one, and are shared with the workspace with one.
  */
 import { getVersion } from '@tauri-apps/api/app';
 import {
   DeckSchema,
   deckLyrics,
+  OBS_PROTOCOL_VERSION,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   type Capabilities,
@@ -40,6 +42,9 @@ import { native, type LanCredential, type LanStatus } from '../platform/native';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
+import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
+import { ObsReporter } from './obsReport';
+import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
 
@@ -96,8 +101,19 @@ export interface JoinPreview {
   allowMerge: boolean;
 }
 
+/** The native OBS link (`src-tauri/src/obs.rs`). */
+const obsNative: ObsNative = {
+  connect: native.obsConnect,
+  disconnect: native.obsDisconnect,
+  request: native.obsRequest,
+  readConfig: native.obsReadConfig,
+  listen: native.onObs,
+};
+
 export class CloudController {
   readonly host: RemoteHost;
+  /** The workspace's OBS state on this desktop (OBS control plan). */
+  readonly obs: ObsShare;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
   private state: SyncState | null = null;
@@ -106,6 +122,8 @@ export class CloudController {
   private link: LiveLink | null = null;
   private transports: TransportSwitch | null = null;
   private relay: RelayTransport | null = null;
+  /** Tells the church server this computer's OBS state, for the admin app. */
+  private obsReporter: ObsReporter | null = null;
   private lanHost: LanHost | null = null;
   private lanTransport: LanTransport | null = null;
   private lan: LanStatus | null = null;
@@ -138,6 +156,11 @@ export class CloudController {
       () => this.state?.deviceId ?? null,
     );
     this.client = this.makeClient();
+    this.obs = new ObsShare({
+      deviceId: () => this.state?.deviceId ?? '',
+      deviceName: () => this.state?.deviceName ?? 'This computer',
+    });
+    shareObsWithPhones(this.obs, this.host);
     this.status_ = {
       sync: { kind: 'disconnected' },
       relay: { kind: 'off' },
@@ -223,6 +246,7 @@ export class CloudController {
       const before = this.protocolVersion;
       await this.negotiate(server);
       if (this.protocolVersion !== before) {
+        this.link?.capabilitiesChanged();
         await this.sync();
         // The hello carries the version; a fresh connection says the new one.
         this.relay?.reconnect();
@@ -230,6 +254,25 @@ export class CloudController {
     } finally {
       this.renegotiating = false;
     }
+  }
+
+  /**
+   * Asks the instance its version again when the relay connection reopens, which it does
+   * after every server restart, so a server updated while this app runs is noticed without
+   * waiting for a refusal: an updated server still accepts the older version, so none comes
+   * (D26; OBS control M2.9). An unreachable instance leaves the version as it was.
+   */
+  private async recheckProtocol(): Promise<void> {
+    const server = this.state?.server;
+    if (!server || this.renegotiating) return;
+    const { protocol, info } = await negotiate(server);
+    if (!info || server !== this.state?.server) return;
+    this.update({ server: info });
+    if (protocol === this.protocolVersion) return;
+    this.protocolVersion = protocol;
+    this.link?.capabilitiesChanged();
+    // The hello carries the version and the capabilities; a fresh connection says the new ones.
+    this.relay?.reconnect();
   }
 
   /** A request to the instance with this device's token and the protocol version. */
@@ -266,6 +309,8 @@ export class CloudController {
     });
     this.timers.push(window.setInterval(() => void this.sync(), SYNC_EVERY_MS));
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
+    // Before anything that needs the church: the OBS computer's controls work without it.
+    await this.startObs().catch(console.error);
     if (!this.connected) return;
     await this.checkFonts();
     if (this.state?.server) await this.negotiate(this.state.server);
@@ -289,7 +334,38 @@ export class CloudController {
     this.lanTransport?.close();
     this.lanHost?.stop();
     this.link?.stop();
+    this.obsReporter?.stop();
+    this.obs.localLink?.stop();
+    this.obs.stop();
     this.host.dispose();
+  }
+
+  /**
+   * This computer's OBS link, for this workspace (O10): settings in this computer's storage,
+   * the password in the keychain beside the device token.
+   */
+  private async startObs(): Promise<void> {
+    const folder = this.workspaceFolder ?? this.session.workspace.id;
+    const account = obsKeychainAccount(folder);
+    const link = new ObsLink({
+      native: obsNative,
+      settings: obsSettingsStore(
+        () => (typeof localStorage === 'undefined' ? null : localStorage),
+        folder,
+      ),
+      secrets: {
+        get: () => native.keychainGet(account),
+        set: (password) => native.keychainSet(account, password),
+        delete: () => native.keychainDelete(account),
+      },
+    });
+    this.obs.setLink(link);
+    await link.start();
+  }
+
+  /** The church server relays OBS messages: it speaks protocol 4 (M2.9). */
+  private obsSupported(): boolean {
+    return this.protocolVersion >= OBS_PROTOCOL_VERSION;
   }
 
   // ── Credentials (decision D23) ───────────────────────────────────────────
@@ -673,12 +749,21 @@ export class CloudController {
       media: true,
       transparency: true,
       missingFonts: this.missingFonts,
+      obs: this.obsSupported(),
     };
   }
 
   // ── The shared live state ────────────────────────────────────────────────
 
   private async startLive(): Promise<void> {
+    this.obsReporter?.stop();
+    this.obsReporter = new ObsReporter({
+      state: () => this.obs.ownState(),
+      snapshot: () => this.obs.takeSnapshot(),
+      subscribe: this.obs.subscribe,
+      put: (state, snapshot) =>
+        this.call('PUT', '/api/v1/obs', { state, snapshot }).then(() => undefined),
+    });
     const backup: LiveBackupApi = {
       put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
         this.call('PUT', '/api/v1/live', { snapshot, grants }).then(() => undefined),
@@ -723,6 +808,8 @@ export class CloudController {
         }
       },
       backup,
+      obs: this.obs,
+      obsSupported: () => this.obsSupported(),
       grantsRegistered: {
         get: async () => (await this.syncStore.getState()).grantsRegisteredAt !== null,
         set: async () => {
@@ -806,6 +893,7 @@ export class CloudController {
           // settled the role already: back to this device, or to an older live state (D14).
           this.offlineCoordinator = false;
           this.transports?.opened(kind);
+          void this.recheckProtocol();
         },
         close: (kind) => {
           this.host.detach();
@@ -965,12 +1053,21 @@ class RelayTransport implements Transport {
     // the instance would no longer pass messages to it.
     let answered = true;
     let ticked = Date.now();
+    const openedAt = Date.now();
+    let lastMessageAt = openedAt;
     const heartbeat = window.setInterval(() => {
       const now = Date.now();
       // A late timer means the computer slept for long enough to be dropped.
       const slept = now - ticked > RELAY_PING_MS * 2;
       ticked = now;
-      if (slept || !answered) return lost();
+      if (slept || !answered) {
+        console.warn('[relay] Gave up on the connection', {
+          cause: slept ? 'slept' : 'unanswered ping',
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        });
+        return lost();
+      }
       answered = false;
       this.send({ type: 'ping' });
     }, RELAY_PING_MS);
@@ -978,6 +1075,7 @@ class RelayTransport implements Transport {
       if (this.socket !== socket) return;
       const message = JSON.parse(String(event.data)) as RelayToDesktop;
       answered = true;
+      lastMessageAt = Date.now();
       switch (message.type) {
         case 'pong':
           return;
@@ -1015,6 +1113,16 @@ class RelayTransport implements Transport {
       const delay = RELAY_RETRY_MS[Math.min(this.attempt++, RELAY_RETRY_MS.length - 1)]!;
       this.timer = window.setTimeout(() => this.connect(), delay);
     };
-    socket.onclose = lost;
+    socket.onclose = (event) => {
+      console.warn('[relay] Connection closed', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        afterGivingUp: this.socket !== socket,
+        openForMs: Date.now() - openedAt,
+        sinceLastMessageMs: Date.now() - lastMessageAt,
+      });
+      lost();
+    };
   }
 }

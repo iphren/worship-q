@@ -1,7 +1,7 @@
 # Worship Q — Requirements and Architecture
 
 **Consolidated:** 6 October 2026  
-**Updated:** 10 October 2026  
+**Updated:** 5 November 2026  
 **Status:** Open-source project requirements and proposed architecture; implementation design pending.
 
 ## 1. Purpose and decision status
@@ -727,6 +727,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | True mobile external-display presentation | Later/platform-dependent |
 | Automatic coordinator failover | Deferred; not promised for v1 |
 | Live audio broadcast to remote operators and controllers | Later; see below |
+| OBS control from the workspace's desktops and remote controls | Later; see below and [OBS Control Plan](obs-control-plan.md) |
 | Voice recognition with automatic slide switching | Later; see below |
 
 ### Future improvements noted
@@ -734,6 +735,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 These ideas are recorded for later consideration. They are not part of the proposed first release and have no agreed design.
 
 - **Live audio broadcast to remote operators and controllers.** One device at the venue captures the live service audio and broadcasts it with near-zero latency to other operator devices and approved remote controllers. An operator or controller at home could then follow the service by ear and switch slides in time, without being in the room. Transport (for example WebRTC), latency targets, audio source selection, bandwidth over the cloud relay, and permissions remain open.
+- **OBS control.** The desktop on the streaming computer connects to the local OBS WebSocket server, in any role including viewer only, and owns a separate OBS state for the workspace, one at most, like the live state. Every desktop and remote control of the workspace gains a one-button switch between two chosen scenes, an OBS control panel (scenes, streaming, recording, virtual camera), a live monitor of the program output and a connection indicator, shown only while a desktop of the workspace has an active link. Requested 5 November 2026; detailed in the [OBS Control Plan](obs-control-plan.md).
 - **Voice recognition and automatic slide switching.** Recognize the sung or spoken lyrics from the live audio and advance to the matching slide automatically, with operators able to override at any time. Recognition approach (on-device or service-based), language coverage, matching against the live run sheet, confidence thresholds, and how it interacts with manual control remain open.
 
 

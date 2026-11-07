@@ -191,6 +191,7 @@ Unchanged from the phase 2 plan, with additions found here.
 - Conflict review for concurrent and offline edits, and merging run sheets for the same date on join (G14, G21).
 - Linux desktop build (G18).
 - Live audio broadcast and voice recognition (spec §17).
+- OBS control from every desktop and remote control of the workspace, through the streaming computer's desktop app ([OBS Control Plan](obs-control-plan.md), requested 5 November 2026).
 - Record SQLite as the server database in the spec (G19).
 - Several OIDC providers per instance, and fine-grained operator permissions (spec §4 open decisions).
 - Copying a workspace's song into the Church Library from the admin app, without a review queue, should a church ask for it after D33.
