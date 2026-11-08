@@ -55,9 +55,12 @@ declare module 'fastify' {
 
 const KIND = z.enum(['song', 'background']);
 
-/** Names of Church Library files the admin app may show: backgrounds and slide images. */
+/**
+ * Names of Church Library files the admin app may show: backgrounds, slide images and
+ * videos. Deck originals are not among them.
+ */
 const LIBRARY_FILE =
-  /^(?:[A-Za-z0-9-]{1,80}\.(?:jpg|jpeg|png|mp4)|deck-[0-9a-f-]{36}-\d{3,}(?:-t)?\.jpg)$/i;
+  /^(?:(?![A-Za-z0-9-]*-original\.)[A-Za-z0-9-]{1,80}\.(?:jpg|jpeg|png|mp4)|deck-[0-9a-f-]{36}-\d{3,}(?:-t)?\.jpg|video-[0-9a-f-]{36}\.(?:mp4|m4v|mov|webm))$/i;
 
 /** The session token in the request's cookies, if any. */
 export function sessionToken(request: FastifyRequest): string {

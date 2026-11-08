@@ -903,6 +903,27 @@ describe('the Church Library (D34, D37)', () => {
         },
       }),
       song('s3', { title: 'Bible', website: { url: 'https://bible.example.org/' } }),
+      song('s4', {
+        title: 'Opening clip',
+        video: {
+          file: 'video-00000000-0000-4000-8000-000000000004.mp4',
+          source: 'Welcome.mp4',
+          width: 1920,
+          height: 1080,
+          durationSeconds: 30,
+          bytes: 1000,
+        },
+      }),
+      song('s5', {
+        title: 'Photo',
+        deck: {
+          source: 'Photo.jpg',
+          kind: 'image',
+          width: 16,
+          height: 9,
+          pages: [{ image, slide: 1, step: 0, text: [] }],
+        },
+      }),
       {
         kind: 'background',
         id: 'b1',
@@ -922,6 +943,8 @@ describe('the Church Library (D34, D37)', () => {
       ['s1', 'lyrics'],
       ['s2', 'deck'],
       ['s3', 'website'],
+      ['s4', 'videoItem'],
+      ['s5', 'imageItem'],
     ]);
     expect((await list('/api/v1/admin/library/background'))[0]).toMatchObject({ type: 'video' });
     // By pinyin initials, by words of the lyrics, and by the website's address.
@@ -942,6 +965,14 @@ describe('the Church Library (D34, D37)', () => {
     });
     expect(await content('/api/v1/admin/library/song/s3')).toMatchObject({
       websiteUrl: 'https://bible.example.org/',
+    });
+    expect(await content('/api/v1/admin/library/song/s4')).toEqual({
+      type: 'videoItem',
+      fileName: 'video-00000000-0000-4000-8000-000000000004.mp4',
+    });
+    expect(await content('/api/v1/admin/library/song/s5')).toMatchObject({
+      type: 'imageItem',
+      deck: { pages: [{ image }] },
     });
     expect(await content('/api/v1/admin/library/background/b1')).toEqual({
       type: 'video',

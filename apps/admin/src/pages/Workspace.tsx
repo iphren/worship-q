@@ -411,7 +411,7 @@ function PlanView({ plan }: { plan: AdminLibraryPlan }) {
   return (
     <div className="space-y-3">
       <PlanGroup title="Songs that become the church's" items={plan.songs} />
-      <PlanGroup title="Slides that become the church's" items={plan.slides} />
+      <PlanGroup title="Media that become the church's" items={plan.slides} />
       <PlanGroup title="Websites that become the church's" items={plan.websites} />
       <PlanGroup title="Backgrounds that become the church's" items={plan.backgrounds} />
       {promoted.length > 0 && (

@@ -1829,6 +1829,10 @@ function contentOf(kind: LibraryKind, row: Record<string, SqlValue>): AdminLibra
   if (type === 'image' || type === 'video') {
     return { type, fileName: String(data.fileName ?? '') };
   }
+  if (type === 'videoItem') {
+    const video = data.video as { file?: unknown } | null | undefined;
+    return { type, fileName: typeof video?.file === 'string' ? video.file : '' };
+  }
   const str = (value: unknown) => (typeof value === 'string' ? value : '');
   const deck = data.deck as
     { width?: unknown; height?: unknown; pages?: Record<string, unknown>[] } | null | undefined;
@@ -1841,7 +1845,7 @@ function contentOf(kind: LibraryKind, row: Record<string, SqlValue>): AdminLibra
     ccli: typeof data.ccli === 'string' ? data.ccli : null,
     year: typeof data.year === 'number' ? data.year : null,
     deck:
-      type === 'deck' && deck
+      (type === 'deck' || type === 'imageItem') && deck
         ? {
             width: Number(deck.width) || 16,
             height: Number(deck.height) || 9,
@@ -1864,6 +1868,7 @@ function libraryItem(
 ): Omit<AdminLibraryItem, 'fromWorkspace' | 'deletedBy'> {
   const data = JSON.parse(text(row.data)) as Record<string, unknown>;
   const deck = data.deck as { source?: unknown } | null | undefined;
+  const video = data.video as { source?: unknown } | null | undefined;
   return {
     kind,
     id: text(row.id),
@@ -1877,7 +1882,9 @@ function libraryItem(
         ? String(data.fileName ?? '') || null
         : deck && typeof deck.source === 'string'
           ? deck.source
-          : null,
+          : video && typeof video.source === 'string'
+            ? video.source
+            : null,
     type: libraryType(kind, data),
   };
 }
@@ -1885,7 +1892,8 @@ function libraryItem(
 /** A song by what it shows, or a background by its file. */
 function libraryType(kind: LibraryKind, data: Record<string, unknown>): AdminLibraryItem['type'] {
   if (kind === 'background') return data.kind === 'video' ? 'video' : 'image';
-  if (data.deck) return 'deck';
+  if (data.video) return 'videoItem';
+  if (data.deck) return (data.deck as { kind?: unknown }).kind === 'image' ? 'imageItem' : 'deck';
   if (data.website) return 'website';
   return 'lyrics';
 }
