@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.1.0](https://github.com/iphren/worship-q/compare/v2.0.0...v2.1.0) (2026-11-08)
+
+
+### Features
+
+* **admin:** call the slides library type Media, with image and video items ([b556ffb](https://github.com/iphren/worship-q/commit/b556ffb7120bc65ca06b9698281b16c3f29feebd))
+* browser slideshow pages play video sound, asking for a click where the browser requires one ([61428af](https://github.com/iphren/worship-q/commit/61428af30753c0f6eea14bc5915b1d6c3d8101ac))
+* **desktop:** choose where video sound plays, and the audio input ([285cb23](https://github.com/iphren/worship-q/commit/285cb23faa2b69257ba322e1eb3e62912821f6f1))
+* **desktop:** colour item badges by kind ([a6b1a73](https://github.com/iphren/worship-q/commit/a6b1a73685d3ec4157a7f61218f3484b73f969f7))
+* **desktop:** fetch videos for upcoming run sheets, and control a live video ([b0b8c0f](https://github.com/iphren/worship-q/commit/b0b8c0f2d6d42711a8dae102cb549b0e8a382ced))
+* **desktop:** media in run sheets, by button and by dropping, and an item menu ([c97e988](https://github.com/iphren/worship-q/commit/c97e988fdf5610b5471c6c7f61323f189af7b5f4))
+* **desktop:** media uploads with progress, and the Media tab ([0e89329](https://github.com/iphren/worship-q/commit/0e89329965a14929b06b797ea900d1926c8ae849))
+* **desktop:** play video items on the localhost slideshow page ([53d6d36](https://github.com/iphren/worship-q/commit/53d6d3685ba89203d6530904bf7d7686ea1657da))
+* **live-state:** video playback with remembered positions, Autoplay and blank ([54ad0f3](https://github.com/iphren/worship-q/commit/54ad0f3f393752f52ef3614ff0716172c8cd97cb))
+* present video items on the slideshow, browser outputs and phones ([b5c5b0d](https://github.com/iphren/worship-q/commit/b5c5b0df50585de5cb84bc8646dab61c39557de0))
+* **server:** images, videos, limits, originals and reconvert ([243376b](https://github.com/iphren/worship-q/commit/243376bcf3373f868ec416d78b8e28db1d5f55b9))
+* **server:** protocol 5 keeps videos from older desktops, and counts video files ([c36d716](https://github.com/iphren/worship-q/commit/c36d71677399cc5238eff67a1035ffe695f7dc43))
+* **session:** add a song after a chosen run sheet item ([c987d40](https://github.com/iphren/worship-q/commit/c987d408b96740b183ecfb6b5dd82bc7828cbea4))
+* **session:** followers play videos on the coordinator's clock ([bb40e5d](https://github.com/iphren/worship-q/commit/bb40e5d00ec2f76a5bc1817c8c467d5fa7f3c32c))
+* video songs and image decks in the records and local store ([bcef95d](https://github.com/iphren/worship-q/commit/bcef95d30a233f6428c3d6d22453ca40fbb1cfbb))
+
+
+### Bug Fixes
+
+* **desktop:** draw item menus over the window so a scrolling list neither hides nor scrolls them ([fe1c61d](https://github.com/iphren/worship-q/commit/fe1c61d8021431157cf92942b4786ebd5d7004ab))
+* **desktop:** in development, the localhost pages always come from Vite ([963afb8](https://github.com/iphren/worship-q/commit/963afb8a02184dd402c1607f58dc65c7bdf8a31f))
+* **desktop:** one Edit button on the Live page's items ([24cbd91](https://github.com/iphren/worship-q/commit/24cbd915b956c7099db7ea120a233a0e35f4a5c2))
+* **desktop:** the video control bar under the Live page's slides ([65f943e](https://github.com/iphren/worship-q/commit/65f943ecd80e2b7d3051b1f5b76e7ee2824020b1))
+
 ## [2.0.0](https://github.com/iphren/worship-q/compare/v1.4.1...v2.0.0) (2026-11-07)
 
 
