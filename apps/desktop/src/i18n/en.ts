@@ -171,6 +171,7 @@ export const en = {
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
   'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
+  'present.videoShortcuts': 'Video: Space play/pause · ← → 10 s · ↑ ↓ item',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 
@@ -615,6 +616,18 @@ export const en = {
   'media.downloadFailed': 'Could not download the original: {message}',
   'media.downloading': 'Downloading… {percent}%',
   'media.saveFirst': 'Save your changes first.',
+  'video.waiting': 'Waiting to download to this computer',
+  'video.downloading': 'Downloading to this computer… {percent}%',
+  'video.fetchFailed': 'Could not download: {message}',
+  'video.notReady': 'Not on this computer yet',
+  'video.notDownloaded':
+    'This video is not downloaded yet, so the slideshow shows black. Connect to the church server to download it.',
+  'video.controls': 'Video controls',
+  'video.play': 'Play',
+  'video.pause': 'Pause',
+  'video.back': 'Back 10 seconds',
+  'video.forward': 'Forward 10 seconds',
+  'video.position': 'Position',
   'media.addTitle': 'Add slides, PDFs, images or videos',
   'media.dialogName': 'Slides, PDFs, images and videos',
 } as const;

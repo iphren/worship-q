@@ -1,7 +1,7 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ACTION_EVENT, CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
 import { presentAction } from '../lib/shortcuts';
 import { native } from '../platform/native';
@@ -9,6 +9,9 @@ import { native } from '../platform/native';
 /** The slideshow window: draws whatever frame the operator window last sent. */
 export function OutputApp() {
   const [frame, setFrame] = useState<OutputFrame>(EMPTY_FRAME);
+  // A video item is live: the keys play, pause and move through it (M6.5).
+  const videoLive = useRef(false);
+  videoLive.current = !!frame.video;
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
@@ -24,7 +27,7 @@ export function OutputApp() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') return void emit(CLOSE_REQUEST_EVENT);
       // The operator window owns the presentation; this window only passes the keys on.
-      const action = presentAction(event);
+      const action = presentAction(event, { video: !!videoLive.current });
       if (!action) return;
       event.preventDefault();
       void emit(ACTION_EVENT, action);

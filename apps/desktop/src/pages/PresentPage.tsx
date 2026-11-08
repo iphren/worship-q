@@ -9,9 +9,10 @@ import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../component
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { isLyrics, ItemEditDialog } from '../components/ItemEditDialog';
+import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
-import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
+import { presentAction, runPresentAction, slideKeyLabel, videoKeys } from '../lib/shortcuts';
 import { DeckBadge } from '../components/DeckBadge';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
@@ -213,6 +214,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
   const entries = view?.date === liveDate ? view.entries : [];
+  // The video the control bar is for, when a video item is live (M6.4).
+  const presentedVideoFile =
+    entries.find((entry) => entry.item.id === session.video?.itemId)?.song.video?.file ?? null;
   // The item the slide keys act on: the one moved to with left and right, else the presented
   // one, or the first before anything is.
   const browsedItemId = entries.some((entry) => entry.item.id === session.browsedItemId)
@@ -228,7 +232,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
-      const action = presentAction(event);
+      const action = presentAction(event, { video: videoKeys(session) });
       if (!action) return;
       follow();
       runPresentAction(session, action);
@@ -462,7 +466,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     {t('present.clear')} <KeyHint>Del</KeyHint>
                   </button>
                 </div>
-                <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
+                <p className="text-center text-xs text-slate-500">
+                  {t(videoKeys(session) ? 'present.videoShortcuts' : 'present.shortcuts')}
+                </p>
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
                 {props.outputPanel}
@@ -487,6 +493,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <ObsLiveMonitor />
+          <VideoControls file={presentedVideoFile} />
           <main ref={slidesRef} className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
             {view && entries.length === 0 && (
               <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
@@ -547,7 +554,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           </kbd>
                         )}
                         {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
-                        {piece.image && entry.song.deck ? (
+                        {entry.song.video ? (
+                          <VideoTile video={entry.song.video} />
+                        ) : piece.image && entry.song.deck ? (
                           <SlideImage
                             image={piece.image}
                             className="w-full rounded-sm"

@@ -18,6 +18,7 @@ import { SlideImage } from './SlideImage';
 import { MediaActions } from './MediaActions';
 import { songMediaKind } from '../app/media';
 import { native } from '../platform/native';
+import { formatDuration } from '@worship-q/session';
 import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
@@ -504,15 +505,6 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
       </div>
     </form>
   );
-}
-
-/** Seconds as `m:ss`, or `h:mm:ss` from an hour. */
-export function formatDuration(seconds: number): string {
-  const whole = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(whole / 3600);
-  const m = Math.floor((whole % 3600) / 60);
-  const s = String(whole % 60).padStart(2, '0');
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
 }
 
 /** Bytes in MB with one decimal. */

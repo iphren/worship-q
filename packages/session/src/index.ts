@@ -677,6 +677,11 @@ export class Session {
     return 'applied';
   }
 
+  /** Presents the first piece of the next or previous run sheet item. */
+  presentItem(by: 1 | -1): Promise<boolean> {
+    return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
+  }
+
   /** The presented video item's playback, when a video item is presented (U21). */
   get video(): LiveState['video'] {
     return this.isLive ? (this.live_?.video ?? null) : null;

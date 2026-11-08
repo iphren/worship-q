@@ -843,6 +843,28 @@ export class Store {
     return rows.map((row) => row.date);
   }
 
+  /**
+   * The videos of run sheets dated `from` or later, each with the earliest such date, earliest
+   * first (U8). A song removed from the library still counts, as its run sheets present it.
+   */
+  async videosFrom(workspaceId: string, from: IsoDate): Promise<{ file: string; date: IsoDate }[]> {
+    const rows = await this.db.select<{ song_id: string; date: string }>(
+      `SELECT run_sheet_item.song_id AS song_id, MIN(run_sheet.date) AS date FROM run_sheet_item
+       JOIN run_sheet ON run_sheet.id = run_sheet_item.run_sheet_id
+       WHERE run_sheet.workspace_id = ? AND run_sheet.date >= ?
+       GROUP BY run_sheet_item.song_id ORDER BY date`,
+      [workspaceId, from],
+    );
+    const earliest = new Map<string, IsoDate>();
+    for (const row of rows) {
+      const file = (await this.getSong(row.song_id))?.video?.file;
+      if (file && !earliest.has(file)) earliest.set(file, row.date);
+    }
+    return [...earliest]
+      .map(([file, date]) => ({ file, date }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   // ── Run sheets ───────────────────────────────────────────────────────────
 
   async getRunSheet(id: string): Promise<RunSheet | null> {

@@ -678,6 +678,28 @@ describe('media items (media uploads plan)', () => {
     other.driver.close();
   });
 
+  it('lists the videos of run sheets from a date, each at its earliest date', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    const other = await store.createSong(workspaceId, {
+      title: 'Outro',
+      video: { ...video, file: 'video-1f8fad5b-d9cb-469f-a165-70867728950e.mp4' },
+    });
+    const hymn = await store.createSong(workspaceId, { title: 'Hymn' });
+    for (const [date, ids] of [
+      ['2026-11-01', [song.id]],
+      ['2026-11-15', [other.id, song.id, hymn.id]],
+      ['2026-11-08', [song.id]],
+    ] as const) {
+      const sheet = await store.ensureRunSheet(workspaceId, date);
+      for (const id of ids) await store.addItem(sheet.id, id);
+    }
+    await store.removeSong(other.id);
+    expect(await store.videosFrom(workspaceId, '2026-11-08')).toEqual([
+      { file: video.file, date: '2026-11-08' },
+      { file: 'video-1f8fad5b-d9cb-469f-a165-70867728950e.mp4', date: '2026-11-15' },
+    ]);
+  });
+
   it('applies a remote image deck and asks for its image', async () => {
     const deck = {
       source: 'Photo.jpg',

@@ -16,6 +16,7 @@ import {
   useUploads,
 } from './UploadProgress';
 import { KindBadge } from './DeckBadge';
+import { VideoCopyState } from './VideoStatus';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';
 import { ConfirmDialog } from './Dialog';
@@ -319,6 +320,7 @@ export function RunSheetEditor(props: {
                   {entry.song.removedAt && (
                     <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                   )}
+                  {entry.song.video && <VideoCopyState file={entry.song.video.file} />}
                   {versions.map((upload) => (
                     <span key={upload.id} className="mt-1 block">
                       <UploadBar upload={upload} compact={upload.stage.kind === 'uploading'} />

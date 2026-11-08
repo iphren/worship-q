@@ -43,6 +43,7 @@ import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
 import { mediaOffer, type MediaOffer } from './media';
 import { MediaUploads, type UploadDeps, type UploadTarget } from './uploads';
+import { VideoCache, type VideoCacheDeps } from './videoCache';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
 import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
@@ -119,6 +120,9 @@ export class CloudController {
   readonly obs: ObsShare;
   /** Media being uploaded from this computer; they carry on across pages (U16). */
   readonly uploads: MediaUploads;
+  /** This computer's copies of the videos of upcoming run sheets (U8, U9). */
+  readonly videos: VideoCache;
+  private videoTimer: number | undefined;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
   private state: SyncState | null = null;
@@ -161,6 +165,14 @@ export class CloudController {
     );
     this.client = this.makeClient();
     this.uploads = new MediaUploads(this.uploadDeps());
+    this.videos = new VideoCache(this.videoCacheDeps());
+    let readyVideos = 0;
+    this.videos.subscribe(() => {
+      // A copy that arrived may be the one on screen.
+      const ready = [...this.videos.statuses.values()].filter((s) => s.kind === 'ready').length;
+      if (ready > readyVideos) this.output.fileArrived();
+      readyVideos = ready;
+    });
     this.obs = new ObsShare({
       deviceId: () => this.state?.deviceId ?? '',
       deviceName: () => this.state?.deviceName ?? 'This computer',
@@ -305,6 +317,9 @@ export class CloudController {
     this.update({ state: this.state, sync: this.client.status });
     // A computer that left its church before the defaults were forgotten on leaving.
     if (!this.state?.deviceToken) await this.session.store.dropChurchSettings();
+    // Run sheet edits, here or arriving, may need videos fetched or let them go (U8, U9).
+    this.session.subscribe(() => this.scheduleVideos());
+    this.scheduleVideos();
     // Edits made here are sent shortly after; content applied from the instance is not.
     this.session.subscribe(() => {
       if (this.syncing || !this.connected) return;
@@ -335,6 +350,7 @@ export class CloudController {
     window.clearTimeout(this.editTimer);
     window.clearTimeout(this.fontsTimer);
     window.clearTimeout(this.offlineTimer);
+    window.clearTimeout(this.videoTimer);
     this.relay?.close();
     this.lanTransport?.close();
     this.lanHost?.stop();
@@ -423,6 +439,7 @@ export class CloudController {
     } finally {
       this.syncing = false;
       await this.refreshState();
+      this.scheduleVideos();
     }
   }
 
@@ -612,13 +629,63 @@ export class CloudController {
         for (const page of deck.pages) await native.downloadBackground(server, token, page.image);
         this.output.forgetFiles();
       },
-      storeVideo: native.storeVideo,
+      storeVideo: async (source, file) => {
+        await native.storeVideo(source, file);
+        this.videos.uploaded(file);
+      },
       createSong: (fields) => this.session.createSong(fields),
       saveSong: (id, fields) => this.session.saveSong(id, fields),
       getSong: (id) => this.session.store.getSong(id),
       canEdit: (date) => this.session.canEdit(date),
       addSong: (date, songId, afterItemId) => this.session.addSong(date, songId, afterItemId),
     };
+  }
+
+  /** What the video cache needs, on this computer and its church server. */
+  private videoCacheDeps(): VideoCacheDeps {
+    const key = 'worship-q.videoUploads';
+    return {
+      today: () => this.session.today(),
+      wanted: (from) => this.session.store.videosFrom(this.session.workspace.id, from),
+      list: () => native.listVideos(),
+      fetch: async (file, onProgress) => {
+        const { server, deviceToken } = this.state ?? {};
+        if (!server || !deviceToken) throw new Error('not-connected');
+        const { path } = await native.videoLocation(file);
+        await native.downloadMedia(
+          server,
+          deviceToken,
+          crypto.randomUUID(),
+          `/api/v1/files/${file}`,
+          path,
+          onProgress,
+        );
+      },
+      remove: (file) => native.removeVideo(file),
+      connected: () => this.connected,
+      uploads: {
+        get: () => {
+          try {
+            return JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, string>;
+          } catch {
+            return {};
+          }
+        },
+        set: (value) => {
+          try {
+            localStorage.setItem(key, JSON.stringify(value));
+          } catch {
+            // Kept for this run only.
+          }
+        },
+      },
+    };
+  }
+
+  /** Looks at the videos upcoming run sheets need, shortly after the last change. */
+  private scheduleVideos(): void {
+    window.clearTimeout(this.videoTimer);
+    this.videoTimer = window.setTimeout(() => void this.videos.pass().catch(console.error), 1500);
   }
 
   /**

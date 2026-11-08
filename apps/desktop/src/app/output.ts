@@ -119,6 +119,12 @@ export class OutputController {
     this.urls.clear();
   }
 
+  /** Draws the frame again once a file arrived, such as this computer's copy of a video. */
+  fileArrived(): void {
+    this.forgetFiles();
+    void this.refresh();
+  }
+
   /** Where a stored file is, from the cache or else asked for; null when it is missing. */
   private async fileUrl(fileName: string): Promise<string | null> {
     const cached = this.urls.get(fileName);
