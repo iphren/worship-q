@@ -1,11 +1,11 @@
 # Media Uploads — Acceptance record
 
-**Date:** 8 November 2026 (branch `media-uploads`); walkthrough pending  
+**Date:** 8 November 2026; released in 2.1.0, walkthrough done the same day  
 **Source:** [Media Uploads Plan](../media-uploads-plan.md), [task breakdown](../media-uploads-task-breakdown.md) M7.
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`, and
 `cargo test` in `apps/desktop/src-tauri`), the spikes (M0, `docs/spikes/media.md`), and the
-walkthrough with real equipment (M7.1), which is still to do. The desktop and phone
+walkthrough with real equipment (M7.1). The desktop and phone
 interfaces have no automated tests; they are covered by the walkthrough.
 
 ## Milestones
@@ -34,12 +34,12 @@ interfaces have no automated tests; they are covered by the walkthrough.
 | M6.4 control bar | By walkthrough | `VideoStatus.tsx` (`VideoControls`) |
 | M6.5 shortcuts | Done | `lib/shortcuts.test.ts` “keys while a video item is live” |
 | M6.6 phones | Done; by walkthrough | `remote` “videos on phones”; `RemoteApp.tsx` (`VideoBar`) |
-| M6.7 audio | Done; by walkthrough | `deviceSettings.test.ts` “audio devices”; the entitlement needs the first signed build |
-| M7.1 walkthrough | Pending | Table below |
+| M6.7 audio | Done; by walkthrough | `deviceSettings.test.ts` “audio devices”; the entitlement confirmed on the signed 2.1.0 build |
+| M7.1 walkthrough | Done | Table below; one fix (`94c16f8`) |
 | M7.2 deployment guide | Done | `server-deployment.md` “Media”, the limits, the proxy's body limit, “Updating for media” |
 | M7.3 volunteer guide | Done | `volunteer-guide.md` “Slides, PDFs, photos and videos” |
 | M7.4 spec write-back | Done | `worship-q-requirements-and-architecture.md` §11 “Media items” |
-| M7.5 release | After the walkthrough | release-please |
+| M7.5 release | Done | 2.1.0 by release-please, before the walkthrough; the walkthrough's fix follows in the next release |
 
 ## Changes from the plan
 
@@ -59,6 +59,12 @@ interfaces have no automated tests; they are covered by the walkthrough.
 - **Browser slideshow pages play the sound**, the localhost page and the links alike. A browser
   that blocks sound until the page is clicked plays the video muted with **Click for sound**;
   OBS does not block it.
+- **Released before the walkthrough.** 2.1.0 went out before M7.1, not after it. The walkthrough
+  found one fault, below, fixed on `main` for the next release.
+- **Changing the audio output mid-video.** Settings tells an open slideshow window directly (an
+  app event) instead of through a storage event between windows, and the slideshow moves a
+  playing video to the new device inside the native script call, which macOS counts as a
+  gesture.
 - **Entering an Autoplay video while blank** cannot happen through today's commands, since
   presenting unblanks; the rule is implemented and tested on its own.
 
@@ -69,23 +75,23 @@ against a server behind nginx with the default `client_max_body_size`, then with
 
 | Scenario | Result |
 | --- | --- |
-| A slide deck, a PDF, a photo and a video from **Library → Media → Add media…**: bars under the search box, each opens ready; Download original saves each unchanged | |
-| The same from the calendar's editor and from Live, by **Media…** and by dropping between items 2 and 3; the bar on the row at that place; on every desktop and phone once ready | |
-| Several files dropped at once; a folder and a `.txt` among them | |
-| Cancel while sending; a failure and Try again; moving between pages during an upload | |
-| A file over each limit: the U7 message before sending | |
-| A 200 MB deck behind nginx's default 1 MB limit: the proxy message, not a raw error; fixed by the guide's setting | |
-| An iPhone HEIC photo from a Mac; the same on Windows refused with the U25 message | |
-| Upload new version from the editor and from the item menu, also of the live item (a deck updates on the same slide; a video keeps playing until presented again, then from 0:00) | |
-| Reconvert of a deck | |
-| The item menu: Edit (lyrics, title, video title and Autoplay), Download original, Upload new version, Remove; keyboard; opening upwards near the bottom | |
-| A video added to next Sunday on one desktop: downloaded on the other with a bar on the item; deleted on Monday | |
-| A Sunday run: a video with Autoplay entered from a song; one without Autoplay played from a phone; leaving mid-way and returning to the same moment; blank and unblank during a video; End and Go live, then videos from the start | |
-| Two slideshows within half a second of each other | |
-| The control bar, the shortcuts, and the phone's bar | |
-| Sound from the slideshow window on the output chosen in Settings, never from previews; a device unplugged falls back to the default and Settings says so; no microphone indicator | |
-| A signed macOS build: device names listed (the `audio-input` entitlement) | |
-| A Windows PC with no audio input: no devices listed, the note shown, sound on the default | |
-| A desktop still on protocol 4: the image presents, the video shows nothing, renaming it there keeps the video | |
-| The localhost slideshow page and an OBS Browser Source: a video plays with sound in step with the slideshow (in OBS at once; in a browser, muted with **Click for sound** until clicked); the localhost page black until this computer has its copy | |
-| The admin app: Media tab, image and video items previewed, Storage counts Images and Videos | |
+| A slide deck, a PDF, a photo and a video from **Library → Media → Add media…**: bars under the search box, each opens ready; Download original saves each unchanged | Passed |
+| The same from the calendar's editor and from Live, by **Media…** and by dropping between items 2 and 3; the bar on the row at that place; on every desktop and phone once ready | Passed |
+| Several files dropped at once; a folder and a `.txt` among them | Passed |
+| Cancel while sending; a failure and Try again; moving between pages during an upload | Passed |
+| A file over each limit: the U7 message before sending | Passed |
+| A 200 MB deck behind nginx's default 1 MB limit: the proxy message, not a raw error; fixed by the guide's setting | Passed |
+| An iPhone HEIC photo from a Mac; the same on Windows refused with the U25 message | Passed |
+| Upload new version from the editor and from the item menu, also of the live item (a deck updates on the same slide; a video keeps playing until presented again, then from 0:00) | Passed |
+| Reconvert of a deck | Passed |
+| The item menu: Edit (lyrics, title, video title and Autoplay), Download original, Upload new version, Remove; keyboard; opening upwards near the bottom | Passed |
+| A video added to next Sunday on one desktop: downloaded on the other with a bar on the item; deleted on Monday | Passed |
+| A Sunday run: a video with Autoplay entered from a song; one without Autoplay played from a phone; leaving mid-way and returning to the same moment; blank and unblank during a video; End and Go live, then videos from the start | Passed |
+| Two slideshows within half a second of each other | Passed |
+| The control bar, the shortcuts, and the phone's bar | Passed |
+| Sound from the slideshow window on the output chosen in Settings, never from previews; a device unplugged falls back to the default and Settings says so; no microphone indicator | Passed after a fix: a new output chosen in Settings did not reach a video already playing; fixed in `94c16f8` and checked again |
+| A signed macOS build: device names listed (the `audio-input` entitlement) | Passed |
+| A Windows PC with no audio input: no devices listed, the note shown, sound on the default | Passed |
+| A desktop still on protocol 4: the image presents, the video shows nothing, renaming it there keeps the video | Passed |
+| The localhost slideshow page and an OBS Browser Source: a video plays with sound in step with the slideshow (in OBS at once; in a browser, muted with **Click for sound** until clicked); the localhost page black until this computer has its copy | Passed |
+| The admin app: Media tab, image and video items previewed, Storage counts Images and Videos | Passed |
