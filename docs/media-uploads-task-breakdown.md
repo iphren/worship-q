@@ -87,8 +87,9 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M2.1 | Native upload with progress: `upload_media(server, token, uploadId, route, source)` streams the file through a counting reader and emits `media-progress` `{ id, sent, total }` at most ten times a second and once at the end; `cancel_upload(uploadId)` makes the reader fail; 413, 422 and 501 become clear errors (as `import_deck` does now); `file_size(path)` for the size check | `cloud.rs`, `lib.rs`, `native.ts` | M0.5 | Rust, against a server in the test: progress reaches the total and is in order; cancelling stops the request; 413 maps to `too-large` | Progress comes from the core |
 | M2.2 | Native download with progress: `download_media(server, token, transferId, path, destination)` writes to `.partial`, renames when complete, emits the same progress events, and can be cancelled; used for Download original and for the video cache | `cloud.rs`, `native.ts` | M2.1 | Rust: a partial file never takes the final name; a cancelled download leaves nothing | One mechanism for both directions |
 | M2.3 | Kinds and checks (pure): `mediaKindOf(fileName)` gives `slides`, `pdf`, `image`, `video` or null by extension; `tooBig(kind, bytes, limits)` gives the U7 message with the server's limit; the file dialog's extension lists come from the same table | new `apps/desktop/src/app/media.ts` | M1.2 | Unit: every accepted extension, upper case, unknown ones; the U7 text for each kind | One list of formats |
-| M2.4 | Upload queue: `MediaUploads` holds uploads with their file, kind, target (the library, or a run sheet date with the item to follow) and stage: `waiting`, `uploading` (sent, total), `processing`, `failed` (message), `done`; sends one file at a time in the order added; a deck, PDF or image is processing from the last byte until its images are fetched (U15), then becomes a song; before a video is sent, `probeVideo` loads it in a hidden `<video>` and reads `duration`, `videoWidth` and `videoHeight` on `loadedmetadata`, and refuses it if that fails within 10 s or `videoWidth` is 0 (U14); a video is copied into this computer's storage (U14) and becomes a song straight away; a run sheet target then adds the song after its item (M4.1); **Try again**, **Dismiss** and **Cancel** (while waiting or uploading only) | new `apps/desktop/src/app/uploads.ts`, `cloud.ts` | M2.1, M2.3 | Unit with a fake native core and session: stages in order; a video never processes; a failure keeps its target for Try again; a cancelled upload leaves no song; the item lands after its neighbour, or at the end when the neighbour was removed meanwhile; a file over the limit fails before anything is sent | Uploads carry on across pages (U16) |
+| M2.4 | Upload queue: `MediaUploads` holds uploads with their file, kind, target (the library, a run sheet date with the item to follow, or a new version of an existing item, U26) and stage: `waiting`, `uploading` (sent, total), `processing`, `failed` (message), `done`; sends one file at a time in the order added; a deck, PDF or image is processing from the last byte until its images are fetched (U15), then becomes a song; a HEIC file is converted first (M2.6); before a video is sent, `probeVideo` loads it in a hidden `<video>` and reads `duration`, `videoWidth` and `videoHeight` on `loadedmetadata`, and refuses it if that fails within 10 s or `videoWidth` is 0 (U14); a video is copied into this computer's storage (U14) and becomes a song straight away; a run sheet target then adds the song after its item (M4.1); **Try again**, **Dismiss** and **Cancel** (while waiting or uploading only) | new `apps/desktop/src/app/uploads.ts`, `cloud.ts` | M2.1, M2.3 | Unit with a fake native core and session: stages in order; a video never processes; a failure keeps its target for Try again; a cancelled upload leaves no song; the item lands after its neighbour, or at the end when the neighbour was removed meanwhile; a file over the limit fails before anything is sent | Uploads carry on across pages (U16) |
 | M2.5 | Replace the deck import: `CloudController` exposes the queue and `mediaOffer()` (what the server takes, from `info.media` and `info.decks`, U19) in place of `decksAvailable` and `importDeck` | `cloud.ts` | M2.4 | Unit: an older server offers decks only; no server offers nothing | `ImportSlides` can go |
+| M2.6 | HEIC on macOS (U25): native `convert_heic(source)` decodes with ImageIO (`CGImageSource`) and writes a full-size JPEG at quality 0.9 with `CGImageDestination`, keeping the orientation tag, into a temporary file the queue deletes once the upload ends; on Windows it answers `unsupported`, which the queue turns into the U25 message before sending | `cloud.rs` or a new `heic.rs`, `native.ts`, `uploads.ts` | M2.4 | Rust on macOS: a 12-megapixel HEIC fixture gives a JPEG of the same size, with its orientation tag, in under a second; a damaged file gives an error, not a crash. Unit: Windows refuses before any upload | iPhone photos go up from a Mac |
 
 **Milestone done:** from the developer console, queueing an image, a PDF and a video against a local server ends with three songs, and the progress events arrive in order.
 
@@ -105,6 +106,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M3.7 | **Reconvert** for slides and PDFs (U4): sends the kept original back through the processing bar and saves the new deck as the item's next revision | `SongForm.tsx`, `cloud.ts` | M1.6, M3.3 | Manual | U4 |
 | M3.8 | Dropping on the library: a dropped file opens the Media tab and is added there only, never to a run sheet | `SongsPage.tsx` | M4.4 | Manual | As the plan's Features say |
 | M3.9 | Admin app: the `slides` library type is labelled **Media** in the Library tabs, the workspace's library settings and the plan of what moves to the church; image and video items are badged and previewed | `Library.tsx`, `Workspace.tsx`, `instance.ts` (`libraryType`, `contentOf`) | M1.7 | `admin.test.ts`: a video item is listed with its type | Same name in both apps |
+| M3.10 | **Upload new version…** (U26): the button next to Download original opens a file dialog with the formats the item's kind can take; the upload's bars show in the editor; when it is ready the item is saved as its next revision with the new deck or video, keeping the title and Autoplay; disabled when not connected, with unsaved changes, or without the right to edit the item | `SongForm.tsx`, `uploads.ts`, `cloud.ts`, `en.ts` | M2.4, M3.3 | Unit in `uploads.ts`: a new-version upload saves a revision of the same song, not a new song; a failed one changes nothing | U26 |
 
 **Milestone done:** a slide deck, a PDF, a photo and a video added from the Media tab each show their bars under the search box and open ready to present, and Download original saves each one unchanged.
 
@@ -150,9 +152,9 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 
 | # | Task | Where | Needs | Done when |
 | --- | --- | --- | --- | --- |
-| M7.1 | Walkthrough on macOS and Windows with a coordinator, a follower and a phone, against a server behind nginx: each kind added from the Media tab, the calendar's editor and Live, by button and by dropping; cancel, failure and Try again; a file over each limit; Download original and Reconvert; an older desktop next to video items (U20); a video service played end to end, including leaving and returning to a video, Autoplay on and off, and blanking during a video; the §3.14 checks | `docs/acceptance/media-uploads.md` | M1–M6 | Every scenario passes or has a recorded, accepted exception |
+| M7.1 | Walkthrough on macOS and Windows with a coordinator, a follower and a phone, against a server behind nginx: each kind added from the Media tab, the calendar's editor and Live, by button and by dropping; cancel, failure and Try again; a file over each limit; Download original, Upload new version (also of the live item) and Reconvert; an iPhone HEIC photo from a Mac; an older desktop next to video items (U20); a video service played end to end, including leaving and returning to a video, Autoplay on and off, and blanking during a video; the §3.14 checks | `docs/acceptance/media-uploads.md` | M1–M6 | Every scenario passes or has a recorded, accepted exception |
 | M7.2 | Deployment guide: the three limits and their variables, the proxy's body limit (U3), nothing more to install for images | `docs/server-deployment.md` | M1.1 | Reviewed |
-| M7.3 | Volunteer guide: adding media, the two bars, video controls and audio settings | `docs/volunteer-guide.md` | M3–M6 | Reviewed by a volunteer |
+| M7.3 | Volunteer guide: adding media, the two bars, uploading a new version, iPhone photos, video controls and audio settings | `docs/volunteer-guide.md` | M3–M6 | Reviewed by a volunteer |
 | M7.4 | Spec write-back: media items, the Media tab and the audio settings in the requirements | `docs/worship-q-requirements-and-architecture.md` | M7.1 | Spec matches the release |
 | M7.5 | Release by release-please | — | M7.1 | Released |
 
@@ -166,7 +168,7 @@ Each subsection names the rules the feature must keep, then the cases that prove
 
 Rules: the kind comes from the extension alone, ignoring case; each kind has its own limit; the desktop refuses before sending, and the server refuses while receiving, whatever the desktop said.
 
-- `.PPTX`, `.Key`, `.pdf`, `.JPG`, `.jpeg`, `.webp`, `.gif`, `.mp4`, `.MOV`, `.m4v`, `.webm` each map to their kind; `.heic` is refused with "Export the photo as JPEG and try again." (U13); `.txt`, `.docx`, a name with no extension and a name ending in a dot map to null.
+- `.PPTX`, `.Key`, `.pdf`, `.JPG`, `.jpeg`, `.webp`, `.gif`, `.mp4`, `.MOV`, `.m4v`, `.webm` each map to their kind; `.heic` and `.HEIF` are images that need converting (U25): accepted on macOS, refused on Windows with the U25 message; `.txt`, `.docx`, a name with no extension and a name ending in a dot map to null.
 - A file named `slides.pdf.mp4` is a video; a file named `.mp4` (no base name) is refused.
 - A file exactly at the limit is accepted; one byte over is refused, on the desktop and on the server.
 - An empty file (0 bytes) is refused with "This file is empty."
@@ -291,9 +293,9 @@ Rules: an item lands after the item it was dropped below, or first when dropped 
 - Removing a media item used on past dates gives the same "used on …" warning as a song.
 - A church item hidden rather than removed (spec §5) behaves the same for media.
 
-### 3.9 Download original (U18)
+### 3.9 Download original and Upload new version (U18, U26)
 
-`apps/desktop/src/app/cloud.test.ts`, Rust tests for `download_media`
+`apps/desktop/src/app/cloud.test.ts`, `uploads.test.ts`, Rust tests for `download_media`
 
 - A deck, PDF and image item each save the original's bytes under the source name offered in the save dialog.
 - A video saves this computer's copy when it has one, without the network; otherwise it downloads from the server.
@@ -302,6 +304,17 @@ Rules: an item lands after the item it was dropped below, or first when dropped 
 - Not connected: the button is disabled with the connect message, except for a video this computer has.
 - The download fails part-way: no file is left at the chosen place (the `.partial` is removed).
 - The chosen place already has a file: the save dialog's own overwrite question decides; nothing is overwritten silently.
+- A new version of a deck, PDF or image item accepts a deck, PDF or image; a video item accepts only a video, and refuses anything else with the U26 message before sending.
+- A new version keeps the song's id, title, Autoplay and every run sheet item that uses it; no run sheet changes.
+- Download original after a new version saves the new file under its name; restoring the previous revision from history brings back the old deck or video, and Download original then saves the old file again.
+- A new version that fails, is cancelled or is over the limit leaves the item as it was, with no new revision.
+- Two new versions queued for the same item: they are sent in order, and the last one to finish is the item's version.
+- The item is deleted while its new version uploads: the upload finishes, and no song is recreated; the uploaded files are left to the retention sweep.
+- The item has unsaved edits: the button is disabled with "Save your changes first."
+- A Church Library item seen from a workspace that only uses it: the button is not offered.
+- A new deck for the live item: the displays update on the same slide number, or the last slide when the new deck is shorter (**manual**).
+- A new video for the live video item: the old one keeps playing; presenting the item again starts the new one at 0:00, whatever position was remembered (**manual**).
+- On another desktop, a new video is downloaded for upcoming run sheets and the old copy is deleted when nothing else uses it.
 
 ### 3.10 Live video state: position memory, autoplay, blank (U22, U23)
 
@@ -409,6 +422,17 @@ Coordinator changes:
 - An image item and a video item on a desktop still on protocol 4 (U20): the image presents, the video shows nothing, and renaming the video there does not remove it.
 - A Sunday run: a video with Autoplay entered from a song; a video without Autoplay played from a phone; leaving a video mid-way for a reading and returning to the same moment; blank and unblank during a video; End and Go live, after which videos start from the beginning.
 
+### 3.15 HEIC photos (U25)
+
+Rust tests for `convert_heic` on macOS; `uploads.test.ts`
+
+- A HEIC photo on macOS is converted, uploaded as JPEG, and comes back as a one-page deck at the right size and upright (a portrait photo with orientation 6 is portrait).
+- Download original of a converted HEIC saves `<name>.jpg`, and the item's title is the file name without its extension, as for any image.
+- The temporary JPEG is deleted after the upload, also after a failure or a cancel.
+- A damaged `.heic` fails with "This photo could not be read." and nothing is sent.
+- A `.heic` on Windows is refused before sending with the U25 message.
+- A `.heic` sent straight to the server (an older desktop, `curl`) is refused with the U13 message.
+
 ## 4. Order and dependencies
 
 | Work | Tasks | When |
@@ -434,7 +458,7 @@ The server update comes first, and changes nothing for desktops that have not up
 
 | Risk | Task | Mitigation |
 | --- | --- | --- |
-| `sharp` does not install in the image, or cannot read iPhone photos | M0.1, M1.3 | Spike first; HEIC refused with a clear message rather than guessed |
+| `sharp` does not install in the image, or cannot read iPhone photos | M0.1, M1.3, M2.6 | `sharp` installs (M0.1); HEIC is converted on the Mac (U25) and refused with a clear message elsewhere |
 | The macOS webview cannot choose an audio output | M0.3, M6.7 | Resolved by M0.3: it can, through one native `eval`. Left: the entitlement on a signed build |
 | A proxy buffers the upload, so the bar fills before the server has the file | M0.5 | The processing bar covers the rest; the deployment guide explains the proxy settings |
 | A proxy refuses a large body part-way and the desktop shows a raw error | M0.5, M2.1 | 413 mapped to the U7 message; limits also checked before sending (U2) |
