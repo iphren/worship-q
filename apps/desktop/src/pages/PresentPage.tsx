@@ -8,7 +8,7 @@ import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
-import { isLyrics, ItemEditDialog } from '../components/ItemEditDialog';
+import { ItemEditDialog } from '../components/ItemEditDialog';
 import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
@@ -515,7 +515,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                       className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
                       onClick={() => setEditingSong(entry.song)}
                     >
-                      ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
+                      ✎ {t('present.edit')}
                     </button>
                   )}
                 </header>
