@@ -153,3 +153,27 @@ textarea {
     transform: translateX(300%);
   }
 }
+
+/* The processing stage of an upload (media uploads U15): diagonal stripes moving sideways. */
+.processing-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgb(56 189 248 / 0.55) 0 6px,
+    rgb(56 189 248 / 0.2) 6px 12px
+  );
+  background-size: 17px 17px;
+  animation: processing-stripes 0.8s linear infinite;
+}
+@keyframes processing-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 17px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .processing-stripes {
+    animation: none;
+  }
+}

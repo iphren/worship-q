@@ -45,9 +45,80 @@ export const native = {
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('download_background', { server, token, fileName }),
-  /** Has the church instance convert a slide deck; returns the converted deck as JSON. */
-  importDeck: (server: string, token: string, source: string) =>
-    invoke<string>('import_deck', { server, token, source }),
+  // ── Media (media uploads plan, `src-tauri/src/media.rs`) ──
+  /** A chosen file's size in bytes; fails for a folder or a missing file. */
+  fileSize: (path: string) => invoke<number>('file_size', { path }),
+  /**
+   * Sends a file to `/api/v1/<route>`, reporting progress, and returns the server's answer.
+   * Fails with a code such as `too-large:<bytes>`, `cancelled` or `refused:<message>`.
+   */
+  uploadMedia: async (
+    server: string,
+    token: string,
+    uploadId: string,
+    route: 'images' | 'videos' | 'decks',
+    source: string,
+    name: string,
+    onProgress: (sent: number, total: number) => void,
+  ): Promise<string> => {
+    const stop = await onTransfer(uploadId, onProgress);
+    try {
+      return await invoke<string>('upload_media', { server, token, uploadId, route, source, name });
+    } catch (error) {
+      throw new Error(String(error), { cause: error });
+    } finally {
+      stop();
+    }
+  },
+  /** Fetches `path` of the server into `destination`, reporting progress. */
+  downloadMedia: async (
+    server: string,
+    token: string,
+    transferId: string,
+    path: string,
+    destination: string,
+    onProgress: (done: number, total: number) => void = () => undefined,
+  ): Promise<void> => {
+    const stop = await onTransfer(transferId, onProgress);
+    try {
+      await invoke<void>('download_media', { server, token, transferId, path, destination });
+    } catch (error) {
+      throw new Error(String(error), { cause: error });
+    } finally {
+      stop();
+    }
+  },
+  cancelTransfer: (id: string) => invoke<boolean>('cancel_transfer', { id }),
+  /** Keeps a copy of an uploaded video in this computer's storage. */
+  storeVideo: (source: string, file: string) => invoke<void>('store_video', { source, file }),
+  /** Where this computer keeps a video's copy, and whether it is there. */
+  videoLocation: (file: string) =>
+    invoke<{ path: string; exists: boolean }>('video_location', { file }),
+  /** URL the webview can play this computer's copy of a video from, or null without one. */
+  videoUrl: async (file: string) => {
+    const { path, exists } = await invoke<{ path: string; exists: boolean }>('video_location', {
+      file,
+    });
+    return exists ? convertFileSrc(path) : null;
+  },
+  listVideos: () => invoke<string[]>('list_videos'),
+  removeVideo: (file: string) => invoke<void>('remove_video', { file }),
+  copyFile: (source: string, destination: string) =>
+    invoke<void>('copy_file', { source, destination }),
+  /** A JPEG made from a HEIC photo, on macOS; fails with `unreadable` or `unsupported`. */
+  convertHeic: async (source: string) => {
+    try {
+      return await invoke<string>('convert_heic', { source });
+    } catch (error) {
+      throw new Error(String(error), { cause: error });
+    }
+  },
+  removeConverted: (path: string) => invoke<void>('remove_converted', { path }),
+  /** Lets the interface load a chosen file; returns the URL to load it from. */
+  mediaFileUrl: async (path: string) => {
+    await invoke<void>('allow_media_file', { path });
+    return convertFileSrc(path);
+  },
   /** Makes a backup and sends it to the church instance. */
   uploadBackup: (server: string, token: string) => invoke<void>('upload_backup', { server, token }),
   /** Saves a backup in the app's data folder; returns its path. */
@@ -131,6 +202,16 @@ export const native = {
       ),
     ]).then((stops) => () => stops.forEach((stop) => stop())),
 };
+
+/** Reports a transfer's `media-progress` events until the returned function is called. */
+function onTransfer(
+  id: string,
+  report: (done: number, total: number) => void,
+): Promise<UnlistenFn> {
+  return listen<{ id: string; sent: number; total: number }>('media-progress', (event) => {
+    if (event.payload.id === id) report(event.payload.sent, event.payload.total);
+  });
+}
 
 /** The native OBS link's status (`src-tauri/src/obs.rs`). */
 export interface ObsLinkStatus {

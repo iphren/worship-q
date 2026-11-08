@@ -7,6 +7,7 @@ import {
   type Deck,
   type Song,
   type SongBackground,
+  type Video,
 } from '@worship-q/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
@@ -14,6 +15,9 @@ import { t } from '../i18n';
 import { SongBackgroundFields } from './BackgroundPicker';
 import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
+import { MediaActions } from './MediaActions';
+import { songMediaKind } from '../app/media';
+import { native } from '../platform/native';
 import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
@@ -114,6 +118,8 @@ type VersionProps = {
 function InnerForm(props: SongFormProps) {
   return props.song?.website || (!props.song && props.website) ? (
     <WebsiteForm {...props} />
+  ) : props.song?.video ? (
+    <VideoForm {...props} song={props.song} video={props.song.video} />
   ) : props.song?.deck ? (
     <DeckForm {...props} song={props.song} deck={props.song.deck} />
   ) : (
@@ -465,11 +471,17 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
         </label>
       )}
       <p className="text-xs text-slate-400">
+        {t(`media.kind.${songMediaKind(song) ?? 'slides'}`)} ·{' '}
         {t('songs.deckSource', { source: deck.source })} ·{' '}
-        {t('songs.pieceCount', { count: deck.pages.length })}
+        {deck.kind === 'image'
+          ? t('media.pixels', { width: deck.width, height: deck.height })
+          : t('songs.pieceCount', { count: deck.pages.length })}
         <br />
-        {t('songs.deckHint')}
+        {t(deck.kind === 'image' ? 'media.imageHint' : 'songs.deckHint')}
       </p>
+      {!props.quick && !readOnly && (
+        <MediaActions song={song} dirty={dirty} onSaved={props.onSaved} />
+      )}
       <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] content-start gap-2 overflow-auto rounded-md border border-slate-700 bg-slate-900/60 p-2">
         {deck.pages.map((page) => (
           <figure key={page.image} className="rounded-md bg-black">
@@ -485,6 +497,122 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
         ))}
       </div>
       <div className="flex items-center justify-end gap-2">
+        {props.actions}
+        <button type="submit" className="btn btn-primary" disabled={!canSave}>
+          {t('common.save')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Seconds as `m:ss`, or `h:mm:ss` from an hour. */
+export function formatDuration(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const s = String(whole % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+}
+
+/** Bytes in MB with one decimal. */
+const megabytes = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
+
+/**
+ * An uploaded video (U14, U23): its title and Autoplay can be changed; its file only by
+ * uploading a new version. The preview is muted and has its own controls.
+ */
+export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
+  const session = useSession();
+  const { song, video, onDirtyChange } = props;
+  const [title, setTitle] = useState(song.title);
+  const [autoplay, setAutoplay] = useState(video.autoplay);
+  const [saving, setSaving] = useState(false);
+  const readOnly = !!props.version?.readOnly;
+  const switched = !!props.version?.switched;
+  const changed = title.trim() !== song.title || autoplay !== video.autoplay;
+  const dirty = changed || switched;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  const canSave = !saving && ((changed && title.trim() !== '') || switched);
+  const url = useQuery(() => native.videoUrl(video.file).catch(() => null), [video.file]);
+
+  async function save() {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      const result = changed
+        ? await session.saveSong(song.id, {
+            title: title.trim(),
+            // Autoplay is part of the video's record (U23).
+            video: { ...video, autoplay },
+          })
+        : await props.version!.commit();
+      setTitle(result.title);
+      setAutoplay(result.video?.autoplay ?? false);
+      props.onSaved(result);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      className="flex h-full min-h-0 flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <label>
+        <span className="label">{t('songs.title')}</span>
+        <input
+          className="field"
+          value={title}
+          readOnly={readOnly}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </label>
+      <label className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={autoplay}
+          disabled={readOnly}
+          onChange={(e) => setAutoplay(e.target.checked)}
+        />
+        <span>
+          <span className="block text-sm">{t('media.autoplay')}</span>
+          <span className="block text-xs text-slate-400">{t('media.autoplayHint')}</span>
+        </span>
+      </label>
+      <p className="text-xs text-slate-400">
+        {t('media.kind.video')} · {t('songs.deckSource', { source: video.source })} ·{' '}
+        {formatDuration(video.durationSeconds)} ·{' '}
+        {t('media.pixels', { width: video.width, height: video.height })} ·{' '}
+        {t('media.size', { size: megabytes(video.bytes) })}
+      </p>
+      {!props.quick && (
+        <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-slate-700 bg-black">
+          {url ? (
+            <video
+              key={url}
+              src={url}
+              className="h-full max-h-full w-full object-contain"
+              muted
+              controls
+              preload="metadata"
+            />
+          ) : (
+            <p className="p-4 text-sm text-slate-400">
+              {url === null ? t('media.notDownloaded') : ''}
+            </p>
+          )}
+        </div>
+      )}
+      {!props.quick && !readOnly && (
+        <MediaActions song={song} dirty={dirty} onSaved={props.onSaved} />
+      )}
+      <div className="mt-auto flex items-center justify-end gap-2">
         {props.actions}
         <button type="submit" className="btn btn-primary" disabled={!canSave}>
           {t('common.save')}

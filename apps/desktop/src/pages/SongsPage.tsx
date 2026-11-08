@@ -1,4 +1,3 @@
-import { open as openFile } from '@tauri-apps/plugin-dialog';
 import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
@@ -6,15 +5,27 @@ import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
+import {
+  chooseMediaFiles,
+  refusedMessage,
+  UploadRow,
+  useMediaBlocked,
+  useUploads,
+} from '../components/UploadProgress';
 import { formatDate, t } from '../i18n';
+import { useFileDrop } from '../lib/fileDrop';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';
 
-/** The library is listed in three tabs: ordinary songs, imported slide decks and websites. */
-type Kind = 'songs' | 'slides' | 'web';
-const KINDS: Kind[] = ['songs', 'slides', 'web'];
+/**
+ * The library is listed in three tabs: ordinary songs, media (slide decks, PDFs, images and
+ * videos, U12) and websites.
+ */
+type Kind = 'songs' | 'media' | 'web';
+const KINDS: Kind[] = ['songs', 'media', 'web'];
 
-const kindOf = (song: Song): Kind => (song.website ? 'web' : song.deck ? 'slides' : 'songs');
+const kindOf = (song: Song): Kind =>
+  song.website ? 'web' : song.deck || song.video ? 'media' : 'songs';
 
 /** The song being edited; `key` changes only when the operator picks another song. */
 interface Editing {
@@ -56,6 +67,30 @@ export function SongsPage() {
     : (songs?.findLastIndex((song) => pinned.has(song.id)) ?? -1);
   const listRef = useRef<HTMLUListElement>(null);
   useScrollMemory(listRef, `songs:${kind}:${search}`);
+
+  // A file dropped anywhere on the library goes to the Media tab, never to a run sheet (M3.8).
+  const { cloud } = useApp();
+  const [dropMessage, setDropMessage] = useState<string | null>(null);
+  useFileDrop({
+    drop: (paths) => {
+      setKind('media');
+      void cloud
+        .addMedia(paths, { kind: 'library' })
+        .then((refused) => setDropMessage(refusedMessage(refused)));
+    },
+  });
+
+  // A finished upload opens in the editor, unless another item has unsaved changes (U16).
+  const uploads = useUploads();
+  useEffect(() => {
+    for (const upload of uploads) {
+      if (upload.target.kind !== 'library' || upload.stage.kind !== 'done') continue;
+      const { songId } = upload.stage;
+      cloud.uploads.dismiss(upload.id);
+      if (!songId || dirty) continue;
+      void session.store.getSong(songId).then((song) => song && open(song));
+    }
+  }, [uploads, dirty, cloud, session]);
 
   const open = (song: Song | null, website?: boolean) => {
     setEditing((current) => ({ key: (current?.key ?? 0) + 1, song, website }));
@@ -111,7 +146,7 @@ export function SongsPage() {
             + {t('songs.new')}
           </button>
         )}
-        {kind === 'slides' && <ImportSlides onImported={(song) => select(song)} />}
+        {kind === 'media' && <AddMedia onRefused={setDropMessage} />}
         {kind === 'web' && (
           <button className="btn btn-primary" onClick={() => select(null, true)}>
             + {t('songs.newWebsite')}
@@ -130,6 +165,9 @@ export function SongsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        {kind === 'media' && (
+          <LibraryUploads message={dropMessage} onDismiss={() => setDropMessage(null)} />
+        )}
         <ul ref={listRef} className="min-h-0 flex-1 space-y-0.5 overflow-auto">
           {songs?.length === 0 && (
             <li className="px-1 py-3 text-sm text-slate-500">
@@ -280,83 +318,63 @@ export function SongsPage() {
   );
 }
 
-const DECK_EXTENSIONS = ['pptx', 'ppsx', 'pptm', 'potx', 'ppt', 'pps', 'odp', 'key', 'pdf'];
-
-type ImportState =
-  | { kind: 'idle' }
-  | { kind: 'converting'; name: string }
-  | { kind: 'fetching'; done: number; total: number }
-  | { kind: 'failed'; message: string };
-
-/** Imports a slide deck through the church server, which turns it into images. */
-function ImportSlides(props: { onImported(song: Song): void }) {
+/** **Add media…** (U12): one button for slide decks, PDFs, images and videos. */
+function AddMedia(props: { onRefused(message: string | null): void }) {
   const { cloud } = useApp();
+  const blocked = useMediaBlocked();
   const status = useCloud();
-  const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [state, setState] = useState<ImportState>({ kind: 'idle' });
-  useEffect(() => {
-    let active = true;
-    void cloud.decksAvailable().then((value) => active && setAvailable(value));
-    return () => {
-      active = false;
-    };
-  }, [cloud, connected, status.state?.server]);
+  const offer = cloud.mediaOffer();
+  const older = offer && !offer.current;
 
   async function choose() {
-    const source = await openFile({
-      multiple: false,
-      filters: [{ name: t('songs.importSlides'), extensions: DECK_EXTENSIONS }],
-    });
-    if (typeof source !== 'string') return;
-    const name = source.split(/[\\/]/).pop() ?? source;
-    try {
-      const song = await cloud.importDeck(source, (stage, done, total) =>
-        setState(
-          stage === 'converting' ? { kind: 'converting', name } : { kind: 'fetching', done, total },
-        ),
-      );
-      setState({ kind: 'idle' });
-      props.onImported(song);
-    } catch (error) {
-      setState({ kind: 'failed', message: String(error) });
-    }
+    const paths = await chooseMediaFiles();
+    if (paths.length === 0) return;
+    props.onRefused(refusedMessage(await cloud.addMedia(paths, { kind: 'library' })));
   }
 
-  const busy = state.kind === 'converting' || state.kind === 'fetching';
-  const hint = !connected
-    ? t('songs.importNeedsServer')
-    : available === false
-      ? t('songs.importUnavailable')
-      : t('songs.importHint');
+  // Re-render when the server's info arrives.
+  void status.server;
   return (
     <div className="space-y-1">
       <button
         className="btn btn-primary w-full"
-        disabled={!connected || !available || busy}
-        title={hint}
+        disabled={!!blocked}
+        title={blocked ?? t('media.addTitle')}
         onClick={() => void choose()}
       >
-        + {t('songs.importSlides')}…
+        + {t('media.add')}…
       </button>
-      {state.kind === 'converting' && (
-        <p className="text-xs text-slate-400">
-          {t('songs.importConverting', { name: state.name })}
+      {(blocked || older) && (
+        <p className="text-xs text-slate-500">{blocked ?? t('media.needsServerUpdate')}</p>
+      )}
+    </div>
+  );
+}
+
+/** The library's uploads, one row each, under the search box (U16). */
+function LibraryUploads(props: { message: string | null; onDismiss(): void }) {
+  const uploads = useUploads().filter(
+    (upload) => upload.target.kind === 'library' && upload.stage.kind !== 'done',
+  );
+  if (uploads.length === 0 && !props.message) return null;
+  return (
+    <div className="space-y-1">
+      {props.message && (
+        <p className="flex items-start gap-1 text-xs text-rose-300" role="alert">
+          <span className="flex-1">{props.message}</span>
+          <button
+            type="button"
+            className="text-slate-400 hover:text-slate-100"
+            aria-label={t('media.dismiss')}
+            onClick={props.onDismiss}
+          >
+            ✕
+          </button>
         </p>
       )}
-      {state.kind === 'fetching' && (
-        <p className="text-xs text-slate-400">
-          {t('songs.importFetching', { done: state.done, total: state.total })}
-        </p>
-      )}
-      {state.kind === 'failed' && (
-        <p className="text-xs text-rose-300">
-          {t('songs.importFailed', { message: state.message })}
-        </p>
-      )}
-      {(!connected || available === false) && state.kind === 'idle' && (
-        <p className="text-xs text-slate-500">{hint}</p>
-      )}
+      {uploads.map((upload) => (
+        <UploadRow key={upload.id} upload={upload} />
+      ))}
     </div>
   );
 }
