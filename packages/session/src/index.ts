@@ -905,15 +905,21 @@ export class Session {
   }
 
   /**
-   * Adds a song to the end of a date's run sheet. Edits never change what is on screen; with
-   * nothing live, an edit makes its run sheet the live one.
+   * Adds a song to a date's run sheet: after `afterItemId`, first when it is null, and at
+   * the end when it is left out or no longer in the run sheet (U16, U17). Edits never change
+   * what is on screen; with nothing live, an edit makes its run sheet the live one.
    */
-  addSong(date: IsoDate, songId: string): Promise<RunSheetItem> {
+  addSong(date: IsoDate, songId: string, afterItemId?: string | null): Promise<RunSheetItem> {
     return this.mutate(async () => {
       const sheet = await this.editable(date);
       if (this.relay_ && date === this.liveDate) {
-        // A live run-sheet edit from a follower goes to the coordinator (decision D24).
-        this.relay_.send({ type: 'addItem', songId });
+        // A live run-sheet edit from a follower goes to the coordinator (decision D24), which
+        // places it the same way.
+        this.relay_.send(
+          afterItemId === undefined
+            ? { type: 'addItem', songId }
+            : { type: 'addItem', songId, afterItemId },
+        );
         const now = this.nowIso();
         return {
           id: this.store.newId(),
@@ -926,7 +932,15 @@ export class Session {
         };
       }
       await this.liveWhenEdited(sheet);
-      return this.store.addItem(sheet.id, songId);
+      let at: number | undefined;
+      if (afterItemId === null) at = 0;
+      else if (afterItemId !== undefined) {
+        const index = (await this.store.listItems(sheet.id)).findIndex(
+          (item) => item.id === afterItemId,
+        );
+        if (index >= 0) at = index + 1;
+      }
+      return this.store.addItem(sheet.id, songId, at);
     });
   }
 

@@ -517,6 +517,72 @@ describe('run-sheet edits in live mode', () => {
   });
 });
 
+describe('adding at a place (media uploads U16, U17)', () => {
+  let a: Awaited<ReturnType<typeof song>>;
+  let b: Awaited<ReturnType<typeof song>>;
+  let c: Awaited<ReturnType<typeof song>>;
+  beforeEach(async () => {
+    a = await song('A', 'a1');
+    b = await song('B', 'b1');
+    c = await song('C', 'c1');
+    await plan(SUNDAY, [a.id, b.id]);
+    await reopen();
+  });
+  const titles = async () => (await session.viewDate(SUNDAY)).entries.map((e) => e.song.title);
+  const itemOf = async (index: number) => (await session.viewDate(SUNDAY)).entries[index]!.item;
+
+  it('places the song after the item named, first with null, last without one', async () => {
+    await session.addSong(SUNDAY, c.id, (await itemOf(0)).id);
+    expect(await titles()).toEqual(['A', 'C', 'B']);
+    await session.addSong(SUNDAY, c.id, null);
+    expect(await titles()).toEqual(['C', 'A', 'C', 'B']);
+    await session.addSong(SUNDAY, c.id);
+    expect(await titles()).toEqual(['C', 'A', 'C', 'B', 'C']);
+  });
+
+  it('goes last when the item named is gone', async () => {
+    const first = await itemOf(0);
+    await session.removeItem(first.id);
+    await session.addSong(SUNDAY, c.id, first.id);
+    expect(await titles()).toEqual(['B', 'C']);
+  });
+
+  it('follows the item at its new place when it was moved', async () => {
+    const first = await itemOf(0);
+    await session.moveItem(first.id, 1);
+    await session.addSong(SUNDAY, c.id, first.id);
+    expect(await titles()).toEqual(['B', 'A', 'C']);
+  });
+
+  it('sends the place to the coordinator from a follower', async () => {
+    const sent: unknown[] = [];
+    session.follow({ send: (command) => sent.push(command) });
+    const first = await itemOf(0);
+    await session.addSong(SUNDAY, c.id, first.id);
+    await session.addSong(SUNDAY, c.id, null);
+    await session.addSong(SUNDAY, c.id);
+    expect(sent).toEqual([
+      { type: 'addItem', songId: c.id, afterItemId: first.id },
+      { type: 'addItem', songId: c.id, afterItemId: null },
+      { type: 'addItem', songId: c.id },
+    ]);
+  });
+
+  it('is placed by the coordinator as a phone’s edit is', async () => {
+    const first = await itemOf(0);
+    await session.remoteEdit('e1', { type: 'addItem', songId: c.id, afterItemId: first.id });
+    expect((await session.viewLive())!.entries.map((e) => e.song.title)).toEqual(['A', 'C', 'B']);
+  });
+
+  it('makes an editable run sheet live when nothing is', async () => {
+    await session.endPresentation();
+    expect(session.isLive).toBe(false);
+    await session.addSong(SUNDAY, c.id, null);
+    expect(session.liveDate).toBe(SUNDAY);
+    expect(session.live?.presented).toBeNull();
+  });
+});
+
 describe('run-sheet edits from a remote controller', () => {
   let a: Awaited<ReturnType<typeof song>>;
   let b: Awaited<ReturnType<typeof song>>;
