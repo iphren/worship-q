@@ -172,7 +172,15 @@ export class OutputController {
     // page server rather than reading them where they are (plan M7.7).
     if (this.overlayBase) {
       const base = this.overlayBase;
-      const page = await this.session.frame((fileName) => `${base}/files/${fileName}`);
+      const video = song?.video?.file;
+      const page = await this.session.frame((fileName) =>
+        fileName !== video
+          ? `${base}/files/${fileName}`
+          : // Its copy on this computer, once there is one (U8).
+            resolved.get(fileName)
+            ? `${base}/videos/${encodeURIComponent(fileName)}`
+            : '',
+      );
       if (this.stopped || request !== this.frameRequest) return;
       page.message = frame.message;
       await native.publishOverlay(page, 'slideshow').catch(console.error);

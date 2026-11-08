@@ -54,8 +54,9 @@ interfaces have no automated tests; they are covered by the walkthrough.
   no pages, instead of tracking protocol versions per message.
 - **Clocks.** Followers learn the coordinator's clock from the `updatedAt` of the changes it
   sends (the smallest gap seen lately) and move the video clock onto their own.
-- **The localhost slideshow page** (Settings → Browser outputs on the venue network) shows a
-  video item as black: its file server serves backgrounds only.
+- **The localhost slideshow page** (Settings → Browser outputs) plays a video item from this
+  computer's copy, served by the app in byte ranges (`overlay.rs` `/videos/`), muted: the
+  slideshow window is where its sound plays.
 - **Entering an Autoplay video while blank** cannot happen through today's commands, since
   presenting unblanks; the rule is implemented and tested on its own.
 
@@ -84,4 +85,5 @@ against a server behind nginx with the default `client_max_body_size`, then with
 | A signed macOS build: device names listed (the `audio-input` entitlement) | |
 | A Windows PC with no audio input: no devices listed, the note shown, sound on the default | |
 | A desktop still on protocol 4: the image presents, the video shows nothing, renaming it there keeps the video | |
+| The localhost slideshow page and an OBS Browser Source: a video plays, muted, in step with the slideshow; black until this computer has its copy | |
 | The admin app: Media tab, image and video items previewed, Storage counts Images and Videos | |
