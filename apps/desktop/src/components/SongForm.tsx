@@ -223,7 +223,12 @@ function TitleLabel(props: { song: Song | null }) {
     <span className="label">
       {t('songs.title')}
       {stats.map((stat) => (
-        <span key={stat} className="font-normal tracking-normal normal-case">
+        <span
+          key={stat}
+          className={`font-normal tracking-normal normal-case ${
+            usage?.length ? 'text-emerald-300' : 'text-amber-300'
+          }`}
+        >
           {' · '}
           {stat}
         </span>
