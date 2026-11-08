@@ -101,12 +101,12 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M3.2 | **Add media…** with every supported format and several files at once; disabled with the reason when not connected or when the server offers nothing (U19) | `SongsPage.tsx` | M2.5, M3.1 | Manual | One button for everything |
 | M3.3 | Progress bars: a shared `UploadProgress` row with the file name, a filling bar with the percentage, and the processing bar: diagonal stripes moving sideways (a repeating linear gradient animated in `styles.css`, static stripes under reduced motion), then the failure line with its buttons | new `components/UploadProgress.tsx`, `styles.css` | M2.4 | Manual | U15 as drawn |
 | M3.4 | Library placement (U16): the Media tab's uploads stack under the search box; a finished upload opens its item in the editor unless another item has unsaved changes | `SongsPage.tsx` | M3.3 | Manual | Progress under the search box |
-| M3.5 | Media editors: the deck editor names the kind (slides, PDF or image, with the image's size); a new video editor with the title, the **Autoplay** switch (U23), a muted preview with its own controls, the duration and the size | `SongForm.tsx`, `en.ts` | M1.7 | Unit: saving Autoplay makes a new revision and keeps the rest of the video | Every kind can be renamed and previewed; Autoplay can be set |
+| M3.5 | Media editors: the deck editor names the kind (slides, PDF or image, with the image's size); a new video editor with the title, the **Autoplay** switch (U23, the same form in the run sheet menu's Edit window, M4.6), a muted preview with its own controls, the duration and the size | `SongForm.tsx`, `en.ts` | M1.7 | Unit: saving Autoplay makes a new revision and keeps the rest of the video | Every kind can be renamed and previewed; Autoplay can be set |
 | M3.6 | **Download original** (U18): save dialog with the source name, progress while downloading, the not-kept message on 404; a video saves this computer's copy when present | `SongForm.tsx`, `cloud.ts` | M1.5, M2.2 | Unit in `cloud.ts`: local copy first for videos, server otherwise | U18 |
 | M3.7 | **Reconvert** for slides and PDFs (U4): sends the kept original back through the processing bar and saves the new deck as the item's next revision | `SongForm.tsx`, `cloud.ts` | M1.6, M3.3 | Manual | U4 |
 | M3.8 | Dropping on the library: a dropped file opens the Media tab and is added there only, never to a run sheet | `SongsPage.tsx` | M4.4 | Manual | As the plan's Features say |
 | M3.9 | Admin app: the `slides` library type is labelled **Media** in the Library tabs, the workspace's library settings and the plan of what moves to the church; image and video items are badged and previewed | `Library.tsx`, `Workspace.tsx`, `instance.ts` (`libraryType`, `contentOf`) | M1.7 | `admin.test.ts`: a video item is listed with its type | Same name in both apps |
-| M3.10 | **Upload new version…** (U26): the button next to Download original opens a file dialog with the formats the item's kind can take; the upload's bars show in the editor; when it is ready the item is saved as its next revision with the new deck or video, keeping the title and Autoplay; disabled when not connected, with unsaved changes, or without the right to edit the item | `SongForm.tsx`, `uploads.ts`, `cloud.ts`, `en.ts` | M2.4, M3.3 | Unit in `uploads.ts`: a new-version upload saves a revision of the same song, not a new song; a failed one changes nothing | U26 |
+| M3.10 | **Upload new version…** (U26): the button next to Download original, and the same action in the run sheet item menu (M4.6), opens a file dialog with the formats the item's kind can take; the upload's bars show in the editor, or on the run sheet item when started from its menu; when it is ready the item is saved as its next revision with the new deck or video, keeping the title and Autoplay; disabled when not connected, with unsaved changes, or without the right to edit the item | `SongForm.tsx`, `uploads.ts`, `cloud.ts`, `en.ts` | M2.4, M3.3 | Unit in `uploads.ts`: a new-version upload saves a revision of the same song, not a new song; a failed one changes nothing | U26 |
 
 **Milestone done:** a slide deck, a PDF, a photo and a video added from the Media tab each show their bars under the search box and open ready to present, and Download original saves each one unchanged.
 
@@ -119,6 +119,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M4.3 | **Add media…** next to the song search in both run sheet editors; adds to the end (U17) | `RunSheetEditor.tsx` | M4.2 | Manual | U17 |
 | M4.4 | Dropping files: `useFileDrop` over Tauri's drag-drop events; while files are dragged over an editable run sheet a line shows where they will land; on drop, each compatible file is queued for that place, in order; an incompatible file shows "Worship Q cannot show this kind of file." Positions as found in M0.4: on macOS, `x` as given and `y` minus `innerSize().height / scaleFactor() − window.innerHeight` (the strip under the title bar, 32 points on macOS 27), measured on each `enter`; on Windows, both divided by `devicePixelRatio`. Repeated `over` events at the same position are ignored. The target is the nearest row, not the element under the pointer | new `lib/fileDrop.ts`, `RunSheetEditor.tsx`, `PresentPage.tsx` | M0.4, M4.2 | Unit: `dropIndex(rows, y)` for above, between and below the rows, and scrolled lists | The plan's drag and drop |
 | M4.5 | Dropping on Live: an item added during a service never changes what is on screen; other desktops and phones see it once ready | `PresentPage.tsx` | M4.4 | Manual, with a follower and a phone | Safe during a service |
+| M4.6 | Run sheet item menu (U27): the ✕ becomes a **⋯** button opening a menu with **Edit…**, **Download original**, **Upload new version…** and **Remove**, in the calendar's editor and Live's run sheet column; **Edit…** opens the item's Edit window in a dialog (lyrics, title, or title and Autoplay for a video); Remove keeps today's confirmation; which actions show and which are disabled follow the item's kind and state; a keyboard-usable menu component | `RunSheetEditor.tsx`, new `components/Menu.tsx`, `PresentPage.tsx`, `CalendarPage.tsx`, `en.ts` | M3.5, M3.6, M3.10 | Unit for the pure choice of actions by kind and state; manual for the menu | Every item's actions in one place |
 
 **Milestone done:** dropping a PDF between items 2 and 3 of today's run sheet shows the bar on a new row there, and after processing the PDF is item 3 on every desktop and phone.
 
@@ -152,7 +153,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 
 | # | Task | Where | Needs | Done when |
 | --- | --- | --- | --- | --- |
-| M7.1 | Walkthrough on macOS and Windows with a coordinator, a follower and a phone, against a server behind nginx: each kind added from the Media tab, the calendar's editor and Live, by button and by dropping; cancel, failure and Try again; a file over each limit; Download original, Upload new version (also of the live item) and Reconvert; an iPhone HEIC photo from a Mac; an older desktop next to video items (U20); a video service played end to end, including leaving and returning to a video, Autoplay on and off, and blanking during a video; the §3.14 checks | `docs/acceptance/media-uploads.md` | M1–M6 | Every scenario passes or has a recorded, accepted exception |
+| M7.1 | Walkthrough on macOS and Windows with a coordinator, a follower and a phone, against a server behind nginx: each kind added from the Media tab, the calendar's editor and Live, by button and by dropping; cancel, failure and Try again; a file over each limit; Download original, Upload new version (also of the live item) and Reconvert, from the editor and from the run sheet item menu; an iPhone HEIC photo from a Mac; an older desktop next to video items (U20); a video service played end to end, including leaving and returning to a video, Autoplay on and off, and blanking during a video; the §3.14 checks | `docs/acceptance/media-uploads.md` | M1–M6 | Every scenario passes or has a recorded, accepted exception |
 | M7.2 | Deployment guide: the three limits and their variables, the proxy's body limit (U3), nothing more to install for images | `docs/server-deployment.md` | M1.1 | Reviewed |
 | M7.3 | Volunteer guide: adding media, the two bars, uploading a new version, iPhone photos, video controls and audio settings | `docs/volunteer-guide.md` | M3–M6 | Reviewed by a volunteer |
 | M7.4 | Spec write-back: media items, the Media tab and the audio settings in the requirements | `docs/worship-q-requirements-and-architecture.md` | M7.1 | Spec matches the release |
@@ -432,6 +433,21 @@ Rust tests for `convert_heic` on macOS; `uploads.test.ts`
 - A damaged `.heic` fails with "This photo could not be read." and nothing is sent.
 - A `.heic` on Windows is refused before sending with the U25 message.
 - A `.heic` sent straight to the server (an older desktop, `curl`) is refused with the U13 message.
+
+### 3.16 Run sheet item menu (U27)
+
+`apps/desktop/src/components/RunSheetEditor.test.ts` for the actions, the rest **manual**
+
+- A lyrics song and a website show **Edit…** and **Remove** only; a slide deck, PDF, image and video show all four.
+- A song removed from the library shows **Download original** (media only) and **Remove**.
+- A run sheet that cannot be edited shows **Download original** only, and no menu for a lyrics song or a website.
+- Not connected: **Download original** and **Upload new version…** are shown disabled with the connect message, except Download original of a video this computer has.
+- **Edit…** on a video opens the title and **Autoplay**; saving Autoplay makes a new revision, and the change shows on every run sheet that uses the video.
+- **Edit…** in the calendar's editor and in Live edit the same song; a lyrics edit made from the menu during a service updates the displays, as the ✎ button does.
+- **Remove** asks first, removes only this item (the same song used twice keeps its other item), and never deletes the song from the library.
+- **Upload new version…** started from the menu shows its bars on that item; the item can still be presented, reordered and removed meanwhile; removing it lets the upload finish and update the song.
+- Opening the menu does not select or present the item; Escape and a click outside close it; arrow keys move through it, and Enter chooses.
+- The menu on the last rows of a long run sheet opens upwards, inside the window.
 
 ## 4. Order and dependencies
 
