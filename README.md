@@ -119,6 +119,21 @@ a Developer ID, or with `WORSHIPQ_DEV_SIGNING=0`, the dev build keeps the token 
 `dev-keychain.json` in the data folder instead. **Settings → Backup** saves a workspace's
 database and backgrounds as one `.worshipq` file and restores them from it.
 
+Settings that belong to the computer, not the workspace, live in the web view's
+`localStorage`:
+
+| Key                      | Holds                                                       |
+| ------------------------ | ----------------------------------------------------------- |
+| `wq.device`              | Viewer mode and the audio output and input devices          |
+| `wq.obs.<workspace>`     | The OBS host and port, scene switching and favourite scenes |
+| `worship-q.videoUploads` | Which videos this computer uploaded, for the video cache    |
+
+`localStorage` is kept per origin. `pnpm dev` loads the app from `http://localhost:1420`,
+and a release build loads it from Tauri's own origin, so each build has its own copy of
+these settings. A change made in one build doesn't show in the other. This is expected. It
+only matters on a computer that runs both builds, which share workspaces and keychain
+entries (the OBS password among them) but keep separate OBS and device settings.
+
 ## Local ports
 
 | Port               | Serves                                                                            |
