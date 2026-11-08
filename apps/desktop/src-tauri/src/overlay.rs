@@ -109,15 +109,13 @@ async fn slideshow_page(AxumState(state): AxumState<ServerState>) -> Response {
 }
 
 fn serve_page(app: &AppHandle<Wry>, name: &str) -> Response {
-    if let Some(response) = bundled(app, name) {
-        return response;
-    }
     if cfg!(dev) {
-        // In development the page comes from the Vite server and connects back here.
+        // In development the page comes from the Vite server and connects back here, never
+        // from a build left in `dist`, which would show old code.
         let url = format!("{DEV_URL}/{name}?port={OVERLAY_PORT}");
         return Redirect::temporary(&url).into_response();
     }
-    StatusCode::NOT_FOUND.into_response()
+    bundled(app, name).unwrap_or_else(|| StatusCode::NOT_FOUND.into_response())
 }
 
 /// A stored background or slide image, for the slideshow page in an ordinary browser.
