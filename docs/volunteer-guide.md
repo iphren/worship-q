@@ -84,9 +84,10 @@ change too: Space plays or pauses, ← and → jump 10 seconds, ↑ and ↓ go t
 next item. Leave a video for a reading and come back: it carries on where it was. Blanking
 pauses it; showing the screen again carries on. **End** forgets where videos were.
 
-Video sound plays from the slideshow window only. Choose where under **Settings → Audio on
+Video sound plays from the slideshow window. Choose where under **Settings → Audio on
 this computer**; the app asks once to use the microphone, which it only uses to list your
-devices.
+devices. Browser slideshow pages and OBS play the sound too. A browser may wait until the page
+is clicked: the video then plays silently with **Click for sound**.
 
 ## Settings
 

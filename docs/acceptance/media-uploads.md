@@ -55,8 +55,10 @@ interfaces have no automated tests; they are covered by the walkthrough.
 - **Clocks.** Followers learn the coordinator's clock from the `updatedAt` of the changes it
   sends (the smallest gap seen lately) and move the video clock onto their own.
 - **The localhost slideshow page** (Settings → Browser outputs) plays a video item from this
-  computer's copy, served by the app in byte ranges (`overlay.rs` `/videos/`), muted: the
-  slideshow window is where its sound plays.
+  computer's copy, served by the app in byte ranges (`overlay.rs` `/videos/`).
+- **Browser slideshow pages play the sound**, the localhost page and the links alike. A browser
+  that blocks sound until the page is clicked plays the video muted with **Click for sound**;
+  OBS does not block it.
 - **Entering an Autoplay video while blank** cannot happen through today's commands, since
   presenting unblanks; the rule is implemented and tested on its own.
 
@@ -81,9 +83,9 @@ against a server behind nginx with the default `client_max_body_size`, then with
 | A Sunday run: a video with Autoplay entered from a song; one without Autoplay played from a phone; leaving mid-way and returning to the same moment; blank and unblank during a video; End and Go live, then videos from the start | |
 | Two slideshows within half a second of each other | |
 | The control bar, the shortcuts, and the phone's bar | |
-| Sound only from the slideshow window, on the output chosen in Settings; a device unplugged falls back to the default and Settings says so; no microphone indicator | |
+| Sound from the slideshow window on the output chosen in Settings, never from previews; a device unplugged falls back to the default and Settings says so; no microphone indicator | |
 | A signed macOS build: device names listed (the `audio-input` entitlement) | |
 | A Windows PC with no audio input: no devices listed, the note shown, sound on the default | |
 | A desktop still on protocol 4: the image presents, the video shows nothing, renaming it there keeps the video | |
-| The localhost slideshow page and an OBS Browser Source: a video plays, muted, in step with the slideshow; black until this computer has its copy | |
+| The localhost slideshow page and an OBS Browser Source: a video plays with sound in step with the slideshow (in OBS at once; in a browser, muted with **Click for sound** until clicked); the localhost page black until this computer has its copy | |
 | The admin app: Media tab, image and video items previewed, Storage counts Images and Videos | |

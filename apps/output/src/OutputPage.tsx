@@ -191,6 +191,7 @@ export function OutputPage() {
         width={size.width}
         height={size.height}
         transition
+        sound={kind === 'slideshow'}
       />
       {frame.website && (
         <iframe

@@ -54,8 +54,9 @@ export interface SlideProps {
   /** Fade between pieces, and into and out of blank, instead of cutting. */
   transition?: boolean;
   /**
-   * Plays a video item's sound. Only the slideshow window does; previews and browser outputs
-   * are muted (media uploads plan Features).
+   * Plays a video item's sound: the slideshow window and the browser slideshow pages do;
+   * previews are muted. A browser that will not start sound before the page is clicked plays
+   * the video muted, with **Click for sound**, until it is.
    */
   sound?: boolean;
   /** The audio output a video item's sound plays on; empty for the system default (U24). */
@@ -335,8 +336,25 @@ function VideoLayer(props: {
   sinkId: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
-  const { video, sinkId } = props;
+  const { video, sinkId, sound } = props;
   const url = video.url;
+  // A browser that will not start sound before the page is clicked plays it muted until then.
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    if (element) element.muted = !sound || blocked;
+  }, [sound, blocked, url]);
+  useEffect(() => {
+    if (!blocked) return;
+    // The click lets the page play sound; the video carries on, now heard.
+    const unmute = () => setBlocked(false);
+    window.addEventListener('pointerdown', unmute, true);
+    window.addEventListener('keydown', unmute, true);
+    return () => {
+      window.removeEventListener('pointerdown', unmute, true);
+      window.removeEventListener('keydown', unmute, true);
+    };
+  }, [blocked]);
   useEffect(() => {
     const element = ref.current as
       (HTMLVideoElement & { setSinkId?(id: string): Promise<void> }) | null;
@@ -352,7 +370,15 @@ function VideoLayer(props: {
         element.currentTime = target;
       }
       if (video.playing && target < video.durationSeconds) {
-        if (element.paused) void element.play().catch(() => undefined);
+        if (element.paused) {
+          void element.play().catch((error: unknown) => {
+            if (!(error instanceof DOMException) || error.name !== 'NotAllowedError') return;
+            if (element.muted) return;
+            element.muted = true;
+            setBlocked(true);
+            void element.play().catch(() => undefined);
+          });
+        }
       } else if (!element.paused) {
         element.pause();
       }
@@ -377,11 +403,30 @@ function VideoLayer(props: {
       <video
         ref={ref}
         src={props.video.url}
-        muted={!props.sound}
+        muted={!sound || blocked}
         playsInline
         preload="auto"
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
       />
+      {blocked && !props.hidden && (
+        <button
+          type="button"
+          style={{
+            position: 'absolute',
+            right: 16,
+            bottom: 16,
+            padding: '8px 14px',
+            border: 0,
+            borderRadius: 6,
+            background: 'rgba(15, 23, 42, 0.8)',
+            color: '#fff',
+            font: '14px system-ui, sans-serif',
+            cursor: 'pointer',
+          }}
+        >
+          🔇 Click for sound
+        </button>
+      )}
     </div>
   );
 }
