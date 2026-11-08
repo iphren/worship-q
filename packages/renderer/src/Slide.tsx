@@ -58,6 +58,8 @@ export interface SlideProps {
    * are muted (media uploads plan Features).
    */
   sound?: boolean;
+  /** The audio output a video item's sound plays on; empty for the system default (U24). */
+  sinkId?: string;
 }
 
 interface Layer {
@@ -153,6 +155,7 @@ export function Slide({
   measure,
   transition = false,
   sound = false,
+  sinkId = '',
 }: SlideProps) {
   const [mediaFailed, setMediaFailed] = useState<string | null>(null);
   const [fontsReady, setFontsReady] = useState(0);
@@ -280,7 +283,7 @@ export function Slide({
         <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
       ))}
       {frame.video && frame.video.url && (
-        <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} />
+        <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} sinkId={sinkId} />
       )}
       {pictureLayers.layers.map((layer) => (
         <img
@@ -325,9 +328,21 @@ export function drifted(current: number, target: number): boolean {
  * and is moved only when it drifts more than half a second, so it never stutters on every
  * update (U22, M6.3). It stays mounted while blank, hidden, so unblanking is immediate.
  */
-function VideoLayer(props: { video: OutputVideo; hidden: boolean; sound: boolean }) {
+function VideoLayer(props: {
+  video: OutputVideo;
+  hidden: boolean;
+  sound: boolean;
+  sinkId: string;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
-  const { video } = props;
+  const { video, sinkId } = props;
+  const url = video.url;
+  useEffect(() => {
+    const element = ref.current as
+      (HTMLVideoElement & { setSinkId?(id: string): Promise<void> }) | null;
+    // A device that is gone leaves the system default (U24).
+    void element?.setSinkId?.(sinkId).catch(() => element.setSinkId?.('').catch(() => undefined));
+  }, [sinkId, url]);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;

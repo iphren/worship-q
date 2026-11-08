@@ -114,6 +114,8 @@ export const native = {
     }
   },
   removeConverted: (path: string) => invoke<void>('remove_converted', { path }),
+  /** Applies an audio output to the slideshow window through its own script call (U24). */
+  outputAudioSink: (sinkId: string) => invoke<void>('output_audio_sink', { sinkId }),
   /** Lets the interface load a chosen file; returns the URL to load it from. */
   mediaFileUrl: async (path: string) => {
     await invoke<void>('allow_media_file', { path });

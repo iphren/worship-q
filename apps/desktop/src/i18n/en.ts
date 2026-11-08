@@ -616,6 +616,16 @@ export const en = {
   'media.downloadFailed': 'Could not download the original: {message}',
   'media.downloading': 'Downloading… {percent}%',
   'media.saveFirst': 'Save your changes first.',
+  'audio.title': 'Audio on this computer',
+  'audio.hint':
+    'Where video sound plays from the slideshow, and the input for live audio. Kept on this computer only. Previews never play sound, and background videos stay muted.',
+  'audio.output': 'Video sound plays on',
+  'audio.input': 'Audio input',
+  'audio.systemDefault': 'System default',
+  'audio.unnamed': 'Unnamed device',
+  'audio.missing': '“{name}” is not connected, so the system default is used.',
+  'audio.noDevices':
+    'No audio devices are listed. On Windows this happens on a computer with no audio input; the system default is used.',
   'video.waiting': 'Waiting to download to this computer',
   'video.downloading': 'Downloading to this computer… {percent}%',
   'video.fetchFailed': 'Could not download: {message}',
