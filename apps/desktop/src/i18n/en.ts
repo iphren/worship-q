@@ -136,13 +136,17 @@ export const en = {
 
   'runSheet.title': 'Run sheet · {date}',
   'runSheet.tab': 'Run sheet',
-  'runSheet.empty': 'Nothing planned yet. Search below to add songs, slides or websites.',
+  'runSheet.empty':
+    'Nothing planned yet. Search below to add songs, media or websites, or drop files here.',
   'runSheet.addSong': 'Search library to add',
   'runSheet.noSongs': 'Nothing found.',
   'runSheet.drag': 'Drag to reorder',
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
   'runSheet.add': 'Add',
+  'runSheet.addMedia': 'Media',
+  'runSheet.edit': 'Edit',
+  'runSheet.itemMenu': 'More actions',
   'runSheet.removeTitle': 'Remove “{title}” from the run sheet?',
   'runSheet.removeBody': 'The song stays in your library and can be added again.',
 

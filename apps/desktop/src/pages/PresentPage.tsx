@@ -2,14 +2,13 @@ import { nextMeetingDate } from '@worship-q/calendar';
 import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useCloud, useObs, useQuery, useSession } from '../app/context';
-import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
-import { SongForm, TitleForm } from '../components/SongForm';
+import { isLyrics, ItemEditDialog } from '../components/ItemEditDialog';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
@@ -52,11 +51,6 @@ function LastShownChip() {
       {t('present.lastShown')}
     </span>
   );
-}
-
-/** Songs have lyrics to fix; decks and websites only a title. */
-function isLyrics(song: Song): boolean {
-  return !song.deck && !song.website;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -600,42 +594,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
         )}
       </div>
 
-      {editingSong && !isLyrics(editingSong) && (
-        <Dialog title={t('present.liveEdit')} onClose={() => setEditingSong(null)} actions={null}>
-          <TitleForm
-            key={editingSong.id}
-            song={editingSong}
-            onSaved={() => setEditingSong(null)}
-            actions={
-              <button type="button" className="btn" onClick={() => setEditingSong(null)}>
-                {t('common.cancel')}
-              </button>
-            }
-          />
-        </Dialog>
-      )}
-      {editingSong && isLyrics(editingSong) && (
-        <Dialog
-          wide
-          title={t('present.liveEdit')}
-          onClose={() => setEditingSong(null)}
-          actions={null}
-        >
-          <div className="h-[65vh]">
-            <SongForm
-              key={editingSong.id}
-              song={editingSong}
-              quick
-              onSaved={() => setEditingSong(null)}
-              actions={
-                <button type="button" className="btn" onClick={() => setEditingSong(null)}>
-                  {t('common.cancel')}
-                </button>
-              }
-            />
-          </div>
-        </Dialog>
-      )}
+      {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
     </div>
   );
 }

@@ -21,8 +21,13 @@ export interface MediaActionState {
   replaceOffered: boolean;
 }
 
-/** The deck ids whose original the server said it does not have, this run. */
+/** The items whose original the server said it does not have, this run. */
 const notKept = new Set<string>();
+
+/** Whether the server said it did not keep this item's original (U18). */
+export function originalNotKept(songId: string): boolean {
+  return notKept.has(songId);
+}
 
 /**
  * Starts **Download original** (U18): asks where to save it, then saves it, from this
