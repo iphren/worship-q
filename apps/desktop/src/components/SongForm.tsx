@@ -49,6 +49,7 @@ function fieldsOf(draft: SongDraft) {
     background: null,
     deck: null,
     website: null,
+    video: null,
   });
   return fields;
 }

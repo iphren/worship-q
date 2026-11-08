@@ -632,6 +632,72 @@ describe('song backgrounds, the workspace’s choice', () => {
   });
 });
 
+describe('media items (media uploads plan)', () => {
+  const video = {
+    file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+    source: 'Welcome.mp4',
+    width: 1920,
+    height: 1080,
+    durationSeconds: 42.5,
+    bytes: 12_345_678,
+    autoplay: false,
+  };
+
+  it('keeps a video with the song and each revision', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    expect((await store.getSong(song.id))!.video).toEqual(video);
+    env.advance(1000);
+    const edited = await store.updateSong(song.id, { video: { ...video, autoplay: true } });
+    expect(edited.revision).toBe(2);
+    expect((await store.getSong(song.id))!.video).toEqual({ ...video, autoplay: true });
+    const revisions = await store.listSongRevisions(song.id);
+    expect(revisions.map((r) => r.video?.autoplay)).toEqual([false, true]);
+  });
+
+  it('reads a song from before videos as having none', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Grace' });
+    expect((await store.getSong(song.id))!.video).toBeNull();
+  });
+
+  it('applies a remote video song without asking for its file', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song' && r.id === song.id)!;
+    expect(record.data.video).toEqual(video);
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    const { autoplay, ...older } = video;
+    void autoplay;
+    const applied = await new SyncStore(other.store).applyRemote(otherWorkspace, [
+      { ...record, data: { ...record.data, video: older } },
+    ]);
+    expect(applied.backgroundFiles).toEqual([]);
+    // Saved before Autoplay existed: off.
+    expect((await other.store.getSong(song.id))!.video).toEqual({ ...video, autoplay: false });
+    other.driver.close();
+  });
+
+  it('applies a remote image deck and asks for its image', async () => {
+    const deck = {
+      source: 'Photo.jpg',
+      kind: 'image' as const,
+      width: 1440,
+      height: 1080,
+      pages: [{ image: 'deck-1-001.jpg', slide: 1, step: 0, text: [] }],
+    };
+    const song = await store.createSong(workspaceId, { title: 'Photo', deck });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song' && r.id === song.id)!;
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    const applied = await new SyncStore(other.store).applyRemote(otherWorkspace, [record]);
+    expect(applied.backgroundFiles).toEqual(['deck-1-001.jpg']);
+    expect((await other.store.getSong(song.id))!.deck?.kind).toBe('image');
+    other.driver.close();
+  });
+});
+
 describe('pinned songs', () => {
   const titles = async (search = '') =>
     (await store.listSongs(workspaceId, search)).map((song) => song.title);

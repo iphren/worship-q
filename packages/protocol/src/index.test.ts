@@ -7,7 +7,10 @@ import {
   OBS_PROTOCOL_VERSION,
   ObsStateSchema,
   RemoteToHostSchema,
+  DeckSchema,
   invalidSongFields,
+  libraryTypeOf,
+  SongFieldsSchema,
   maxSongYear,
   MIN_PROTOCOL_VERSION,
   negotiateProtocol,
@@ -32,6 +35,7 @@ describe('song fields', () => {
         background: null,
         deck: null,
         website: null,
+        video: null,
       }),
     ).toEqual({
       title: '耶和华你是我的神',
@@ -43,6 +47,7 @@ describe('song fields', () => {
       background: null,
       deck: null,
       website: null,
+      video: null,
     });
   });
 
@@ -56,6 +61,7 @@ describe('song fields', () => {
       background: null,
       deck: null,
       website: null,
+      video: null,
     };
     expect(cleanSongFields({ ...fields, ccli: ' 4702289 ' }).ccli).toBe('4702289');
   });
@@ -72,6 +78,49 @@ describe('song fields', () => {
     expect(invalidSongFields({ ccli: '打開眾城門', year: 20155 }, now)).toEqual(['ccli', 'year']);
     expect(invalidSongFields({ ccli: '', year: 2028 }, now)).toEqual(['ccli', 'year']);
     expect(invalidSongFields({ ccli: '12 34', year: 2001.5 }, now)).toEqual(['ccli', 'year']);
+  });
+});
+
+describe('media records (media uploads plan)', () => {
+  const fields = {
+    title: 'Welcome',
+    lyrics: '',
+    author: '',
+    copyright: '',
+    ccli: null,
+    year: null,
+    background: null,
+    deck: null,
+    website: null,
+  };
+  const video = {
+    file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+    source: 'Welcome.mp4',
+    width: 1920,
+    height: 1080,
+    durationSeconds: 42.5,
+    bytes: 1000,
+  };
+
+  it('reads a song from before videos with none, and a video from before Autoplay with it off', () => {
+    expect(SongFieldsSchema.parse(fields).video).toBeNull();
+    expect(SongFieldsSchema.parse({ ...fields, video }).video).toEqual({
+      ...video,
+      autoplay: false,
+    });
+  });
+
+  it('reads a deck without a kind, or with one it does not know, as slides', () => {
+    const deck = { source: 'a.pptx', width: 1, height: 1, pages: [] };
+    expect(DeckSchema.parse(deck).kind).toBeUndefined();
+    expect(DeckSchema.parse({ ...deck, kind: 'hologram' }).kind).toBeUndefined();
+    expect(DeckSchema.parse({ ...deck, kind: 'image' }).kind).toBe('image');
+  });
+
+  it('counts a video song as media (stored as `slides`), never songs or websites', () => {
+    expect(libraryTypeOf('song', { video })).toBe('slides');
+    expect(libraryTypeOf('songRevision', { video, deck: null, website: null })).toBe('slides');
+    expect(libraryTypeOf('song', { video: null })).toBe('songs');
   });
 });
 

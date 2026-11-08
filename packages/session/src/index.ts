@@ -192,6 +192,7 @@ function entryFromSnapshot(
           }
         : null,
     website: item.kind === 'website' ? { url: item.pieces[0]?.lines[0] ?? 'https://' } : null,
+    video: null,
     lineIds: [],
     revision: 1,
     createdAt: now,

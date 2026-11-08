@@ -229,6 +229,15 @@ export const MIGRATIONS: Migration[] = [
       `UPDATE sync_state SET value = '0' WHERE key = 'cursor'`,
     ],
   },
+  {
+    // An uploaded video shown instead of lyrics (media uploads plan, U14), kept as JSON.
+    version: 10,
+    statements: [
+      `ALTER TABLE song ADD COLUMN video TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN video TEXT`,
+      `ALTER TABLE church_version ADD COLUMN video TEXT`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

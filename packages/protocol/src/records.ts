@@ -51,10 +51,19 @@ export const DeckPageSchema = z.object({
 });
 export type DeckPage = z.infer<typeof DeckPageSchema>;
 
+/**
+ * What a deck was made from: slides (PowerPoint, Keynote, or a PDF), or one image (U13).
+ * Missing, or a value this build does not know, reads as slides.
+ */
+export const DeckKindSchema = z.enum(['slides', 'image']);
+export type DeckKind = z.infer<typeof DeckKindSchema>;
+
 /** Slides imported from PowerPoint, Keynote or PDF, shown as images instead of lyrics. */
 export const DeckSchema = z.object({
   /** The file the slides came from. */
   source: z.string(),
+  /** Set to `image` for an uploaded image, which is a deck of one page (U13). */
+  kind: DeckKindSchema.optional().catch(undefined),
   /** Size of every image in pixels. */
   width: z.number().int().min(1),
   height: z.number().int().min(1),
@@ -66,6 +75,28 @@ export type Deck = z.infer<typeof DeckSchema>;
 export function deckLyrics(deck: Deck): string {
   return deck.pages.map((page) => page.text.join('\n')).join('\n\n');
 }
+
+/**
+ * An uploaded video, shown full screen instead of lyrics (U14). The server keeps the file as
+ * uploaded; each computer keeps a copy for upcoming run sheets (U8).
+ */
+export const VideoSchema = z.object({
+  /** Name of the stored file among the workspace's files, `video-<id>.<ext>`. */
+  file: z.string().min(1),
+  /** The name of the file uploaded. */
+  source: z.string(),
+  /** Picture size in pixels. */
+  width: z.number().int().min(0),
+  height: z.number().int().min(0),
+  durationSeconds: z.number().min(0),
+  bytes: z.number().int().min(0),
+  /** Plays as soon as it is presented (U23). */
+  autoplay: z.boolean().default(false),
+});
+export type Video = z.infer<typeof VideoSchema>;
+
+/** A stored video file's name, as the server makes it. */
+export const VIDEO_FILE = /^video-[0-9a-f-]{36}\.(mp4|m4v|mov|webm)$/;
 
 /** A web page shown live on the slideshow instead of lyrics. */
 export const WebsiteSchema = z.object({
@@ -113,6 +144,11 @@ export const SongFieldsSchema = z.object({
   deck: DeckSchema.nullable(),
   /** A web page, shown instead of the lyrics; null for an ordinary song. */
   website: WebsiteSchema.nullable(),
+  /**
+   * An uploaded video, shown instead of the lyrics; null for an ordinary song, and on songs
+   * saved before videos existed.
+   */
+  video: VideoSchema.nullable().default(null),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -154,13 +190,15 @@ export function cleanSongFields(fields: SongFields): SongFields {
     background: fields.background,
     deck: fields.deck,
     website: fields.website,
+    video: fields.video,
   };
 }
 
 /**
  * What a workspace may manage in the Church Library, each on its own: songs of lyrics,
- * backgrounds, imported slides and websites. Slides and websites are songs with a deck or a
- * website, and a song's history goes with the song.
+ * backgrounds, media (imported slides, images and videos, stored as `slides`) and websites.
+ * Media and websites are songs with a deck, a video or a website, and a song's history goes
+ * with the song.
  */
 export const LIBRARY_TYPES = ['songs', 'backgrounds', 'slides', 'websites'] as const;
 export type LibraryType = (typeof LIBRARY_TYPES)[number];
@@ -168,11 +206,11 @@ export type LibraryType = (typeof LIBRARY_TYPES)[number];
 /** Which Church Library type a record is; null for a kind the Church Library does not hold. */
 export function libraryTypeOf(
   kind: string,
-  data: { deck?: unknown; website?: unknown } | null | undefined,
+  data: { deck?: unknown; website?: unknown; video?: unknown } | null | undefined,
 ): LibraryType | null {
   if (kind === 'background') return 'backgrounds';
   if (kind !== 'song' && kind !== 'songRevision') return null;
-  if (data?.deck) return 'slides';
+  if (data?.deck || data?.video) return 'slides';
   if (data?.website) return 'websites';
   return 'songs';
 }

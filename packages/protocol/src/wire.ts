@@ -81,7 +81,33 @@ export interface ServerInfo {
    * yet (D30). Once one exists this is false, and a code works only where turned on.
    */
   codes?: boolean;
+  /**
+   * What media the instance takes and how large each kind may be (media uploads plan, U1,
+   * U19). Missing on an instance from before images and videos, which imports slide decks
+   * only, as `decks` says.
+   */
+  media?: MediaOffer;
 }
+
+/** Upload limits in bytes, per kind of file (U1). */
+export interface MediaLimits {
+  image: number;
+  /** Slide decks and PDFs. */
+  deck: number;
+  video: number;
+}
+
+/** What `info.media` says. */
+export interface MediaOffer {
+  /** Images are taken and become one-page decks (U13). */
+  images: boolean;
+  /** Videos are taken and stored as uploaded (U14). */
+  videos: boolean;
+  limits: MediaLimits;
+}
+
+/** The answer to an upload over its kind's limit (U2). */
+export const TOO_LARGE = 'too-large';
 
 /**
  * Which side is behind when the server refused this version: the server, when the version
