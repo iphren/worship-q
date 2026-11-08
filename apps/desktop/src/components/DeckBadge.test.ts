@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DeckBadge, PinnedMark } from './DeckBadge';
+import { badgeKind, DeckBadge, PinnedMark } from './DeckBadge';
 
 const POSITIONED = /\b(relative|absolute|fixed|sticky)\b/;
 
@@ -41,5 +41,22 @@ describe('hidden labels stay inside their scroll box', () => {
     const parents = srOnlyParents(createElement(PinnedMark));
     expect(parents).toHaveLength(1);
     expect(parents[0]).toMatch(POSITIONED);
+  });
+});
+
+describe('badge colours', () => {
+  const deck = { title: 'Offering', deck: {}, website: null } as never;
+  const website = { title: 'Welcome', deck: null, website: {} } as never;
+  const lyrics = { title: 'Song', deck: null, website: null } as never;
+
+  it('gives each kind its own colour', () => {
+    expect(badgeKind(deck)).toBe('slides');
+    expect(badgeKind(website)).toBe('website');
+    expect(badgeKind(lyrics)).toBeNull();
+    const deckHtml = renderToStaticMarkup(createElement(DeckBadge, { song: deck }));
+    const websiteHtml = renderToStaticMarkup(createElement(DeckBadge, { song: website }));
+    expect(deckHtml).toContain('text-orange-300');
+    expect(websiteHtml).toContain('text-fuchsia-300');
+    expect(renderToStaticMarkup(createElement(DeckBadge, { song: lyrics }))).toBe('');
   });
 });
