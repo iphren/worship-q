@@ -17,6 +17,11 @@ services:
       WORSHIP_Q_ADMINS: ${WORSHIP_Q_ADMINS:-}
       # Days a deleted song's or background's files are kept.
       WORSHIP_Q_RETENTION_DAYS: ${WORSHIP_Q_RETENTION_DAYS:-90}
+      # Upload limits in MB, per kind of media. The reverse proxy's body limit must be at
+      # least the largest of them.
+      WORSHIP_Q_MAX_IMAGE_MB: ${WORSHIP_Q_MAX_IMAGE_MB:-25}
+      WORSHIP_Q_MAX_DECK_MB: ${WORSHIP_Q_MAX_DECK_MB:-200}
+      WORSHIP_Q_MAX_VIDEO_MB: ${WORSHIP_Q_MAX_VIDEO_MB:-200}
     # Your reverse proxy forwards to this port; it is only reachable from this machine.
     ports:
       - '127.0.0.1:${WORSHIP_Q_PORT:-8080}:8080'

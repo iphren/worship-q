@@ -1,7 +1,7 @@
 # Worship Q — Media Uploads Task Breakdown
 
 **Drafted:** 7 November 2026  
-**Status:** Draft for review. Not started.  
+**Status:** M1–M6 and M7.2–M7.4 implemented on the `media-uploads` branch (8 November 2026); the M7.1 walkthrough and the release remain. See the [acceptance record](acceptance/media-uploads.md).  
 **Source:** [Media Uploads Plan](media-uploads-plan.md), referred to here as "the plan", and the code at version 2.0.0. Decisions (U1–U21) are the plan's.
 
 ## 1. How to read this

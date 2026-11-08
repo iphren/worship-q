@@ -1,7 +1,7 @@
 # Worship Q — Media Uploads Plan
 
 **Drafted:** 1 November 2026; requirements added 7 November 2026 (U12–U23)  
-**Status:** Draft for review; tasks in the [task breakdown](media-uploads-task-breakdown.md). U11 is implemented (admin Storage page). Nothing else here is implemented yet.  
+**Status:** Implemented on the `media-uploads` branch (8 November 2026); tasks in the [task breakdown](media-uploads-task-breakdown.md), evidence and the walkthrough still to do in the [acceptance record](acceptance/media-uploads.md). U5 (pruning originals) is not implemented. §1 describes the code before this work.  
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md) (spec §§ on backgrounds and media), the "Unscheduled" items in the [Phase 2 Plan](phase-2-plan.md) (live audio broadcast), the project owner's requests of 7 November 2026 (Media tab, upload progress, image size, Download original), and the code at version 2.0.0.
 
 ## 1. Where the implementation stands
