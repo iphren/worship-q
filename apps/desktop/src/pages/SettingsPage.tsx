@@ -28,6 +28,7 @@ import { WorkspaceList } from '../components/WorkspaceSwitcher';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
+import { AudioSettings } from '../components/AudioSettings';
 
 const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
 const BACKUP_EXTENSION = 'worshipq';
@@ -570,6 +571,9 @@ export function SettingsPage() {
           )}
         </Section>
 
+        <Section title={t('audio.title')} hint={t('audio.hint')}>
+          <AudioSettings />
+        </Section>
         <Section title={t('devices.title')} hint={t('devices.hint')}>
           <ConnectedDevices />
         </Section>

@@ -174,6 +174,8 @@ function snapshot(partial: Partial<LiveSnapshot> = {}): LiveSnapshot {
       runSheetId: 'rs-1',
       presented: null,
       lastShown: {},
+      video: null,
+      videoPositions: {},
       blank: false,
       revision: 3,
       appliedCommandIds: [],

@@ -538,6 +538,18 @@ Support validated image and video types. Uploaded assets are immutable: add/remo
 
 Exact file formats, codecs, size limits, playback behavior, and promotion reference migration require validation across desktop, browser, mobile, and overlay consumers. Extensions alone do not establish compatibility. Background-setting changes during a live presentation need an explicit apply policy.
 
+### Media items (implemented, protocol version 5)
+
+Decided in the [Media Uploads Plan](media-uploads-plan.md) (U1–U27); the library's **Slides** tab is called **Media**, and the Church Library type keeps its stored name `slides`.
+
+- **Kinds.** A media item is a song with a `deck` (slide decks, PDFs and images, `deck.kind: 'image'` for an image) or a `video`. Images are reduced on the server to fit 1920 × 1080 and become one-page decks, so they present, synchronize and reach phones as slides do. Videos are stored as uploaded (MP4, M4V, MOV, WebM); the uploading computer checks that it can play one before sending it. HEIC photos are converted to JPEG on macOS before sending.
+- **Limits.** Images 25 MB, slide decks and PDFs 200 MB, videos 200 MB by default, set by the server administrator and reported in `/api/v1/info` under `media`. A desktop refuses a file over its limit before sending; the server refuses it while receiving.
+- **Uploading.** One file is sent at a time, with an uploading bar, then, for decks, PDFs and images, a processing bar; nothing is created until the media is ready. In a run sheet the upload shows at the place it will land; in the library, under the search box. Files can be added by **Add media…** or dropped on a run sheet.
+- **Originals.** The uploaded file of a deck, PDF or image is kept on the server for **Download original** and **Reconvert**; **Upload new version…** replaces an item's file and keeps its title, Autoplay and run sheet places.
+- **Video copies.** Each desktop downloads the videos of today's and upcoming run sheets ahead of time and deletes copies nothing upcoming uses; presenting never streams. Browser slideshow pages play videos from the server with their sound; a browser that blocks sound until the page is clicked plays them muted, with **Click for sound**.
+- **Playback.** The live state carries the presented video's clock (position at a moment, playing or not) and where each video item was left, by run sheet item, for the life of the live state. A video item waits paused on entry unless **Autoplay** is on; blanking pauses it and unblanking resumes only what blanking paused. Followers move the coordinator's clock onto their own. The slideshow window alone plays the sound, on the audio output chosen in this computer's Settings.
+- **Older desktops.** A desktop before protocol version 5 sees an image item as a one-page deck and a video item as an item with nothing to show; the server keeps a song's video when such a desktop saves the song.
+
 ## 12. Phone-to-TV presentation
 
 ### Agreed scenario

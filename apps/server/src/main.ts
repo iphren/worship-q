@@ -5,6 +5,7 @@ import { buildServer } from './app';
 import { openDatabase } from './db';
 import { convertDeck, deckTools, deckToolsAvailable } from './decks/convert';
 import { Instance } from './instance';
+import { mediaLimitsFromEnv } from './media';
 import { OidcClient, oidcConfigFromEnv } from './oidc';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
 
@@ -29,6 +30,7 @@ const { app } = await buildServer({
   publicUrl: process.env.WORSHIP_Q_PUBLIC_URL?.replace(/\/+$/, ''),
   administrators: (process.env.WORSHIP_Q_ADMINS ?? '').split(',').filter((e) => e.trim()),
   retentionDays,
+  mediaLimits: mediaLimitsFromEnv(process.env),
   adminDir: process.env.WORSHIP_Q_ADMIN_DIR ?? new URL('../admin', import.meta.url).pathname,
   convertDeck: decks
     ? (source, outDir, workDir) =>

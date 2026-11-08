@@ -49,6 +49,9 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `WORSHIP_Q_OIDC_CLIENT_SECRET` | — | Its secret, when the provider requires one (both Microsoft and Google do) |
 | `WORSHIP_Q_ADMINS` | — | E-mail addresses made administrators at start, comma-separated |
 | `WORSHIP_Q_RETENTION_DAYS` | `90` | How long a deleted song's or background's files are kept before the daily sweep removes them |
+| `WORSHIP_Q_MAX_IMAGE_MB` | `25` | Largest image a desktop may upload, in MB |
+| `WORSHIP_Q_MAX_DECK_MB` | `200` | Largest slide deck or PDF a desktop may upload, in MB |
+| `WORSHIP_Q_MAX_VIDEO_MB` | `200` | Largest video a desktop may upload, in MB; the server never shrinks videos |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -62,7 +65,18 @@ The server needs, end to end:
 - The `Authorization`, `x-worship-q-protocol` and `x-worship-q-admin` request headers passed
   through, and cookies both ways for `/auth/*` and `/api/v1/admin/*`.
 - No caching of `/api/*` or `/auth/*`.
-- Uploads of large files (videos) with `PUT`.
+- Uploads of large files (videos) with `PUT` and `POST`, with a request body limit at least
+  as large as the largest media limit above (200 MB by default). nginx allows only 1 MB
+  unless told otherwise; without the setting below, every larger upload fails with a 413
+  error, which the desktop reports as the proxy refusing the file:
+
+  ```nginx
+  client_max_body_size 200m;  # at least WORSHIP_Q_MAX_VIDEO_MB and WORSHIP_Q_MAX_DECK_MB
+  ```
+
+  With nginx's default request buffering, the desktop's upload bar reaches 100 % when nginx
+  has the file, and nginx then hands it to the server; that short wait shows as
+  processing. `proxy_request_buffering off;` for `/api/v1/` avoids it, but is not needed.
 
 For CloudFront in front of the proxy, use one behavior for everything:
 
@@ -79,7 +93,8 @@ Check the whole path from outside once deployed (replace the address):
 
 ```sh
 curl https://worship.example.org/api/v1/info
-# {"name":"Our Church","protocolVersion":2,"minProtocolVersion":2,"decks":true,"outputs":true}
+# {"name":"Our Church","protocolVersion":5,"minProtocolVersion":2,"decks":true,"outputs":true,
+#  ...,"media":{"images":true,"videos":true,"limits":{"image":26214400,"deck":209715200,"video":209715200}}}
 ```
 
 A device token is passed through correctly if, after connecting a desktop, its Settings →
@@ -273,10 +288,28 @@ deleted there. Songs edited in Worship Q since they were imported are left as th
 the import before a workspace's first computer connects, so that computer can choose
 **Use the church's copy**.
 
-## Importing slide decks
+## Media: slide decks, PDFs, images and videos
 
-**Songs → Import slides** on a connected desktop sends a PowerPoint (.pptx, .ppt, .ppsx),
-Keynote, OpenDocument (.odp) or PDF file to the server. The server lays the slides out with
+**Library → Media → Add media…** on a connected desktop, or a file dropped on a run sheet,
+sends a slide deck, PDF, image or video to the server. Each kind has its own size limit
+(see the table above); a desktop refuses a file over the limit before sending it, and the
+server refuses it again while receiving, with 413.
+
+- **Images** (JPEG, PNG, WebP, GIF) are reduced on the server to fit 1920 × 1080, never
+  enlarged, turned upright, and saved as JPEG with a small copy for phones. This uses the
+  `sharp` library, which comes with the server: nothing more to install, and images work
+  even without LibreOffice. HEIC photos are refused; a Mac converts them to JPEG before
+  sending, and a Windows PC asks for a JPEG.
+- **Videos** (MP4, M4V, MOV, WebM) are stored as uploaded; the server never converts them.
+  MP4 with H.264 plays on every computer. Each desktop downloads the videos of today's and
+  upcoming run sheets ahead of time, so nothing streams during a service.
+- **Originals** of decks, PDFs and images are kept beside their images, for **Download
+  original** and **Reconvert**; the Storage page in the admin app counts them.
+
+### Slide decks
+
+A PowerPoint (.pptx, .ppt, .ppsx), Keynote, OpenDocument (.odp) or PDF file is sent to the
+server. The server lays the slides out with
 LibreOffice and draws each one as an image with Ghostscript, both included in the Docker image.
 A slide with click animations becomes one image per click; hidden slides are left out. The
 deck is saved as a song that presents its images, and other computers fetch the images when
@@ -436,6 +469,16 @@ been updated. A desktop still on version 2 keeps presenting and synchronizing; i
 pull after the desktop update is a full one, so every song learns where it came from; a
 workspace of a few thousand songs takes under a minute. Every enrollment, device token, phone
 approval, output link and viewer setting is kept; no computer re-pairs.
+
+## Updating for media (protocol version 5)
+
+Media uploads raise the protocol version to 5 and keep accepting versions 2 to 4. Update the
+server first: a desktop with media against an older server still imports slide decks and
+PDFs, and says that images and videos need a server update. Raise the reverse proxy's body
+limit at the same time (see above). Image items work on older desktops too, as one-page
+slide decks. A desktop older than version 5 shows a video item as a title with nothing to
+present, and the server keeps the video when such a desktop renames it; ask every computer
+to update before planning a service with videos.
 
 ## Updating for OBS control (protocol version 4)
 

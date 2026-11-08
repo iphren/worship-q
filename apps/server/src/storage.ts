@@ -4,13 +4,20 @@
  */
 import { existsSync, readdirSync, statSync, statfsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AdminStorage, StorageTotal, StorageType } from '@worship-q/protocol';
+import {
+  VIDEO_FILE,
+  type AdminStorage,
+  type StorageTotal,
+  type StorageType,
+} from '@worship-q/protocol';
 import { churchFilesDir } from './files';
 import type { Instance } from './instance';
 
 const TYPES: StorageType[] = [
   'deckImages',
   'deckOriginals',
+  'images',
+  'videos',
   'backgroundImages',
   'backgroundVideos',
   'backups',
@@ -23,6 +30,7 @@ export const PRUNABLE_AFTER_DAYS = 180;
 
 const DECK_ORIGINAL = /^deck-([0-9a-f-]{36})-original\./;
 const DECK_IMAGE = /^deck-[0-9a-f-]{36}-\d{3,}(-t)?\.jpg$/;
+const DECK_ID = /^deck-([0-9a-f-]{36})-/;
 
 export function emptyTotals(): Record<StorageType, StorageTotal> {
   return Object.fromEntries(TYPES.map((type) => [type, { bytes: 0, files: 0 }])) as Record<
@@ -31,8 +39,19 @@ export function emptyTotals(): Record<StorageType, StorageTotal> {
   >;
 }
 
-/** What kind of file a name in a files folder is. */
-export function classifyFile(name: string): StorageType {
+/**
+ * What kind of file a name in a files folder is. The images and originals of decks made from
+ * an image, named in `imageDecks`, are counted as images.
+ */
+export function classifyFile(
+  name: string,
+  imageDecks: ReadonlySet<string> = new Set(),
+): StorageType {
+  if (VIDEO_FILE.test(name)) return 'videos';
+  const deckId = DECK_ID.exec(name)?.[1];
+  if (deckId && imageDecks.has(deckId) && (DECK_ORIGINAL.test(name) || DECK_IMAGE.test(name))) {
+    return 'images';
+  }
   if (DECK_ORIGINAL.test(name)) return 'deckOriginals';
   if (DECK_IMAGE.test(name)) return 'deckImages';
   if (/\.mp4$/i.test(name)) return 'backgroundVideos';
@@ -69,12 +88,13 @@ export function storageReport(
   const totals = emptyTotals();
   const workspaces: AdminStorage['workspaces'] = [];
   const prunable = prunableDeckIds(instance, now);
+  const imageDecks = imageDeckIds(instance);
   const prunableDeckOriginals: StorageTotal = { bytes: 0, files: 0 };
 
   const folder = (id: string, name: string, filesDir: string, backupsDir: string | null) => {
     const own = emptyTotals();
     for (const file of files(filesDir)) {
-      const type = classifyFile(file.name);
+      const type = classifyFile(file.name, imageDecks);
       add(own, type, file.bytes);
       add(totals, type, file.bytes);
       const deckId = DECK_ORIGINAL.exec(file.name)?.[1];
@@ -134,6 +154,19 @@ function walk(dir: string): number[] {
     else if (stat.isFile()) sizes.push(stat.size);
   }
   return sizes;
+}
+
+/** Decks made from an uploaded image (U13), whose files count as images. */
+export function imageDeckIds(instance: Instance): Set<string> {
+  const ids = new Set<string>();
+  for (const { record } of instance.allRecords('song')) {
+    const deck = record.data.deck as
+      { kind?: unknown; pages?: { image?: unknown }[] } | null | undefined;
+    const first = deck?.kind === 'image' ? deck.pages?.[0]?.image : null;
+    const id = typeof first === 'string' ? DECK_ID.exec(first)?.[1] : null;
+    if (id) ids.add(id);
+  }
+  return ids;
 }
 
 /**

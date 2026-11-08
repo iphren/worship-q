@@ -1,7 +1,7 @@
 # Worship Q — Media Uploads Plan
 
 **Drafted:** 1 November 2026; requirements added 7 November 2026 (U12–U23)  
-**Status:** Draft for review; tasks in the [task breakdown](media-uploads-task-breakdown.md). U11 is implemented (admin Storage page). Nothing else here is implemented yet.  
+**Status:** Implemented on the `media-uploads` branch (8 November 2026); tasks in the [task breakdown](media-uploads-task-breakdown.md), evidence and the walkthrough still to do in the [acceptance record](acceptance/media-uploads.md). U5 (pruning originals) is not implemented. §1 describes the code before this work.  
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md) (spec §§ on backgrounds and media), the "Unscheduled" items in the [Phase 2 Plan](phase-2-plan.md) (live audio broadcast), the project owner's requests of 7 November 2026 (Media tab, upload progress, image size, Download original), and the code at version 2.0.0.
 
 ## 1. Where the implementation stands
@@ -17,7 +17,7 @@
 ## 2. Features
 
 - **Media tab:** the library's **Slides** tab becomes **Media** and holds slide decks, PDFs, images and videos together. One **Add media…** button takes any of them (U12).
-- **Image and video run sheet items:** upload an image or video and add it to a run sheet as an item of its own, not only as a song background. A video item's sound plays only from the slideshow (see audio device settings).
+- **Image and video run sheet items:** upload an image or video and add it to a run sheet as an item of its own, not only as a song background. A video item's sound plays from the slideshow (see audio device settings) and from browser slideshow pages; previews are muted.
 - **Images fit the screen:** an uploaded image is reduced on the server so it is no wider than 1920 pixels and no taller than 1080. A smaller image is never enlarged (U13).
 - **Upload progress:** whenever media is added (in the library, in the calendar's run sheet editor, or in Live's run sheet), a progress bar shows how much of the file has been sent. Slide decks, PDFs and images then show an animated processing bar while the server works on them. Videos need no processing and are ready as soon as they are sent. In a run sheet the bars are on the item itself; in the library they are under the search box (U15, U16).
 - **Download original:** a media item has a **Download original** button that saves the file as it was uploaded (U18).

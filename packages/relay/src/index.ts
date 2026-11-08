@@ -19,6 +19,7 @@ import {
   isCompatibleProtocol,
   OutputToRelaySchema,
   RemoteToHostSchema,
+  snapshotWithoutVideos,
   type Capabilities,
   type DesktopToRelay,
   type DeviceRole,
@@ -571,13 +572,26 @@ export class Relay {
               return;
             }
             const peer: RelayToDesktop = { type: 'peer', from: desktop.deviceId, data: data.data };
+            // A desktop older than video items is sent them as decks with nothing to show
+            // (U20, U21), which it can read.
+            const older: RelayToDesktop | null =
+              data.data.type === 'snapshot'
+                ? {
+                    ...peer,
+                    data: { ...data.data, snapshot: snapshotWithoutVideos(data.data.snapshot) },
+                  }
+                : null;
+            const forDesktop = (each: Desktop) =>
+              older && !each.capabilities?.videos ? older : peer;
             if (message.to) {
               for (const each of room.desktops) {
-                if (each.deviceId === message.to) send(each.socket, peer);
+                if (each.deviceId === message.to) send(each.socket, forDesktop(each));
               }
               return;
             }
-            for (const each of room.desktops) if (each !== desktop) send(each.socket, peer);
+            for (const each of room.desktops) {
+              if (each !== desktop) send(each.socket, forDesktop(each));
+            }
             // Outputs only ever see snapshots.
             if (data.data.type === 'snapshot') {
               for (const output of room.outputs) send(output.socket, data.data);

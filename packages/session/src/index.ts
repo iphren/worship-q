@@ -21,6 +21,8 @@ import {
   type CommandResult,
   type PlayablePiece,
   type SnapshotBody,
+  forgetVideoPosition,
+  videoPosition,
 } from '@worship-q/live-state';
 import { buildPieces, type Piece } from '@worship-q/lyrics';
 import type {
@@ -91,6 +93,8 @@ export type StartKind =
 
 /** Identifier of a website's one piece, which shows its address as its text. */
 export const WEBSITE_PIECE_ID = 'website';
+/** Identifier of a video item's one piece (U14). */
+export const VIDEO_PIECE_ID = 'video';
 
 /**
  * A song's pieces: its lyrics in groups of lines, one per image of an imported deck, or a
@@ -98,9 +102,10 @@ export const WEBSITE_PIECE_ID = 'website';
  * slide read as a group.
  */
 export function songPieces(
-  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'>,
+  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'> & { video?: Song['video'] },
   linesPerPiece: number,
 ): Piece[] {
+  if (song.video) return [{ id: VIDEO_PIECE_ID, blockIndex: 0, indexInBlock: 0, lines: [] }];
   if (song.website) {
     const { url } = song.website;
     return [
@@ -132,13 +137,37 @@ export function songPieces(
   });
 }
 
-/** How a song is presented: as lyrics, as imported slides or as a web page. */
-export function songKind(song: Pick<Song, 'deck' | 'website'>): SnapshotItem['kind'] {
-  return song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
+/** How a song is presented: as lyrics, as imported slides, as a web page or as a video. */
+export function songKind(
+  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video'] },
+): SnapshotItem['kind'] {
+  return song.video ? 'video' : song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
+}
+
+/** A duration as `m:ss`, or `h:mm:ss` from an hour. */
+export function formatDuration(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const rest = String(whole % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${rest}` : `${m}:${rest}`;
 }
 
 /** A song's pieces as the snapshot and the phones' view carry them (plan M1.6). */
 export function snapshotPieces(song: Song, pieces: readonly Piece[]): SnapshotPiece[] {
+  if (song.video) {
+    // Phones show the title and duration in place of a slide (M5.5).
+    const { file, durationSeconds, width, height, autoplay } = song.video;
+    return [
+      {
+        id: VIDEO_PIECE_ID,
+        lines: [formatDuration(durationSeconds)],
+        block: 0,
+        textless: true,
+        video: { file, durationSeconds, width, height, autoplay },
+      },
+    ];
+  }
   return pieces.map((piece) => ({
     id: piece.id,
     lines:
@@ -192,6 +221,14 @@ function entryFromSnapshot(
           }
         : null,
     website: item.kind === 'website' ? { url: item.pieces[0]?.lines[0] ?? 'https://' } : null,
+    video:
+      item.kind === 'video' && item.pieces[0]?.video
+        ? {
+            ...item.pieces[0].video,
+            source: '',
+            bytes: 0,
+          }
+        : null,
     lineIds: [],
     revision: 1,
     createdAt: now,
@@ -434,6 +471,12 @@ export class Session {
     });
   }
 
+  /** A removed video item's remembered position goes with it (U22). */
+  private async forgetVideo(itemId: string): Promise<void> {
+    if (!this.live_ || this.relay_) return;
+    await this.setLive(forgetVideoPosition(this.live_, itemId, this.nowIso()));
+  }
+
   private async setLive(state: LiveState | null): Promise<void> {
     if (state === this.live_) return;
     if (state?.presented !== this.live_?.presented) this.browsedItemId_ = null;
@@ -599,6 +642,14 @@ export class Session {
         itemId: entry.item.id,
         songId: entry.song.id,
         pieceId: piece.id,
+        ...(entry.song.video
+          ? {
+              video: {
+                durationSeconds: entry.song.video.durationSeconds,
+                autoplay: entry.song.video.autoplay,
+              },
+            }
+          : {}),
       })),
     );
   }
@@ -624,6 +675,55 @@ export class Session {
     if (outcome.result !== 'applied') return outcome.result;
     await this.setLive(outcome.state);
     return 'applied';
+  }
+
+  /** Presents the first piece of the next or previous run sheet item. */
+  presentItem(by: 1 | -1): Promise<boolean> {
+    return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
+  }
+
+  /**
+   * How far this computer's clock is ahead of the coordinator's, in milliseconds, learned
+   * from the changes it sends: the smallest gap seen lately, which is the clock difference
+   * plus the quickest delivery (§3.10). Zero until a change arrives, and while coordinating.
+   */
+  private clockOffsetMs = 0;
+  private clockSamples: number[] = [];
+
+  private learnClock(sample: number): void {
+    if (!Number.isFinite(sample)) return;
+    this.clockSamples = [...this.clockSamples, sample].slice(-20);
+    this.clockOffsetMs = Math.min(...this.clockSamples);
+  }
+
+  /** A video clock taken by the coordinator, moved onto this computer's clock. */
+  private localVideo(video: LiveState['video']): LiveState['video'] {
+    if (!video || !this.relay_ || this.clockOffsetMs === 0) return video;
+    return { ...video, at: new Date(Date.parse(video.at) + this.clockOffsetMs).toISOString() };
+  }
+
+  /** The presented video item's playback, when a video item is presented (U21). */
+  get video(): LiveState['video'] {
+    return this.isLive ? this.localVideo(this.live_?.video ?? null) : null;
+  }
+
+  /** Plays or pauses the presented video item. */
+  videoPlay(playing: boolean): Promise<boolean> {
+    return this.mutate(async () => {
+      const itemId = this.video?.itemId;
+      if (!itemId) return false;
+      return this.apply({ type: playing ? 'videoPlay' : 'videoPause', itemId });
+    });
+  }
+
+  /** Moves the presented video item to `seconds`, or by `by` seconds from where it is. */
+  videoSeek(to: { seconds: number } | { by: number }): Promise<boolean> {
+    return this.mutate(async () => {
+      const video = this.video;
+      if (!video) return false;
+      const seconds = 'seconds' in to ? to.seconds : videoPosition(video, this.nowIso()) + to.by;
+      return this.apply({ type: 'videoSeek', itemId: video.itemId, seconds });
+    });
   }
 
   /** Presents any piece of the live run sheet. */
@@ -776,6 +876,7 @@ export class Session {
         const item = items[index(command.itemId)];
         if (!item) return null;
         await this.store.removeItem(item.id);
+        await this.forgetVideo(item.id);
         change = { kind: 'removed', item, title: await titleOf(item.songId) };
       } else {
         const from = index(command.itemId);
@@ -904,15 +1005,21 @@ export class Session {
   }
 
   /**
-   * Adds a song to the end of a date's run sheet. Edits never change what is on screen; with
-   * nothing live, an edit makes its run sheet the live one.
+   * Adds a song to a date's run sheet: after `afterItemId`, first when it is null, and at
+   * the end when it is left out or no longer in the run sheet (U16, U17). Edits never change
+   * what is on screen; with nothing live, an edit makes its run sheet the live one.
    */
-  addSong(date: IsoDate, songId: string): Promise<RunSheetItem> {
+  addSong(date: IsoDate, songId: string, afterItemId?: string | null): Promise<RunSheetItem> {
     return this.mutate(async () => {
       const sheet = await this.editable(date);
       if (this.relay_ && date === this.liveDate) {
-        // A live run-sheet edit from a follower goes to the coordinator (decision D24).
-        this.relay_.send({ type: 'addItem', songId });
+        // A live run-sheet edit from a follower goes to the coordinator (decision D24), which
+        // places it the same way.
+        this.relay_.send(
+          afterItemId === undefined
+            ? { type: 'addItem', songId }
+            : { type: 'addItem', songId, afterItemId },
+        );
         const now = this.nowIso();
         return {
           id: this.store.newId(),
@@ -925,7 +1032,15 @@ export class Session {
         };
       }
       await this.liveWhenEdited(sheet);
-      return this.store.addItem(sheet.id, songId);
+      let at: number | undefined;
+      if (afterItemId === null) at = 0;
+      else if (afterItemId !== undefined) {
+        const index = (await this.store.listItems(sheet.id)).findIndex(
+          (item) => item.id === afterItemId,
+        );
+        if (index >= 0) at = index + 1;
+      }
+      return this.store.addItem(sheet.id, songId, at);
     });
   }
 
@@ -951,6 +1066,7 @@ export class Session {
       }
       await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.removeItem(itemId);
+      await this.forgetVideo(itemId);
     });
   }
 
@@ -1022,6 +1138,15 @@ export class Session {
             this.nowIso(),
           ),
         );
+      }
+      // A new version of a video starts from the beginning next time; the one live keeps
+      // playing the old file until then (U26).
+      if (this.live_ && !this.relay_ && before?.video && after.video?.file !== before.video.file) {
+        let state = this.live_;
+        for (const [itemId, shown] of Object.entries(state.lastShown)) {
+          if (shown.songId === id) state = forgetVideoPosition(state, itemId, this.nowIso());
+        }
+        await this.setLive(state);
       }
       return after;
     });
@@ -1135,6 +1260,10 @@ export class Session {
   applySnapshot(snapshot: LiveSnapshot): Promise<void> {
     return this.mutate(async () => {
       const before = this.live_;
+      // A change the coordinator just made tells how far its clock is from this one's.
+      if (before && snapshot.state.updatedAt !== before.updatedAt) {
+        this.learnClock(Date.parse(this.nowIso()) - Date.parse(snapshot.state.updatedAt));
+      }
       this.snapshot_ = snapshot;
       if (before?.presented !== snapshot.state.presented) {
         const same =
@@ -1157,7 +1286,8 @@ export class Session {
    */
   adoptSnapshot(snapshot: LiveSnapshot): Promise<void> {
     return this.mutate(async () => {
-      let state = snapshot.state;
+      // A video carries on from where it was, by this computer's clock (U22).
+      let state = { ...snapshot.state, video: this.localVideo(snapshot.state.video) };
       if (!(await this.store.getRunSheet(state.runSheetId))) {
         const local = await this.store.ensureRunSheet(this.workspace_.id, snapshot.date);
         const presented =
@@ -1380,7 +1510,7 @@ export class Session {
         ? song.background
         : await this.store.getSongBackground(song);
     const background =
-      song?.deck || song?.website
+      song?.deck || song?.website || song?.video
         ? { color: '#000000', assetId: null }
         : (songBackground ?? {
             color: profile.backgroundColor,
@@ -1408,7 +1538,21 @@ export class Session {
       website: null,
     };
 
-    if (presented && song?.website) {
+    if (presented && song?.video) {
+      // Played by the slideshow window only, on black; a subtitle overlay shows nothing. The
+      // live state's clock says where it is (U22).
+      frame.pieceId = VIDEO_PIECE_ID;
+      const clock = this.video;
+      if (kind === 'slideshow' && clock && clock.itemId === presented.itemId) {
+        frame.video = {
+          url: mediaUrl(song.video.file),
+          playing: clock.playing,
+          position: clock.position,
+          at: clock.at,
+          durationSeconds: clock.durationSeconds,
+        };
+      }
+    } else if (presented && song?.website) {
       // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
       if (presented.pieceId === WEBSITE_PIECE_ID) {
         if (kind === 'slideshow' && !frame.blank) frame.website = { url: song.website.url };

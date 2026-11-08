@@ -1,7 +1,7 @@
 # Worship Q — Media Uploads Task Breakdown
 
 **Drafted:** 7 November 2026  
-**Status:** Draft for review. Not started.  
+**Status:** M1–M6 and M7.2–M7.4 implemented on the `media-uploads` branch (8 November 2026); the M7.1 walkthrough and the release remain. See the [acceptance record](acceptance/media-uploads.md).  
 **Source:** [Media Uploads Plan](media-uploads-plan.md), referred to here as "the plan", and the code at version 2.0.0. Decisions (U1–U21) are the plan's.
 
 ## 1. How to read this
@@ -131,7 +131,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M5.2 | Video cache (U8, U9): `VideoCache` works out the videos in run sheets dated today or later (the workspace's time zone), fetches missing ones one at a time with progress (M2.2), and deletes copies nothing upcoming uses; a copy made by uploading counts as wanted on the day it was made; runs after each pull and each run sheet edit | new `apps/desktop/src/app/videoCache.ts`, `cloud.ts` | M2.2, M5.1 | Unit with a fake core and clock: fetched when scheduled; deleted the day after its last date; a video in two run sheets kept until both are past; a failed fetch retried on the next pass | U8, U9 |
 | M5.3 | Download state on items (U8): rows of a video item show the download bar until its copy is ready, then nothing; a failure shows **Try again**; presenting a video without a copy says so on the operator's screen and never streams | `RunSheetEditor.tsx`, `PresentPage.tsx` | M5.2, M3.3 | Manual | Operators know a video is ready |
 | M5.4 | Presenting a video: snapshot item kind `video` with one piece (protocol 5); `OutputFrame.video` with the file's address; the slideshow draws it full screen on black; the subtitle overlay shows nothing; previews show it muted and paused | `wire.ts`, `session`, `frame.ts`, `Slide.tsx` | M1.8, M5.1 | `frame.test.ts`: a video frame on the slideshow, none on the subtitle overlay, the background never shown behind it | A video can be live |
-| M5.5 | Browser outputs and phones: the output pages play it muted from the server; phones show the title and duration in place of a slide | `apps/output`, `packages/remote`, `RemoteApp.tsx` | M5.4, M1.4 | `remote` unit: a video piece in the phone's view | Every screen has something sensible |
+| M5.5 | Browser outputs and phones: the output pages play it from the server, with sound on the slideshow page; phones show the title and duration in place of a slide | `apps/output`, `packages/remote`, `RemoteApp.tsx` | M5.4, M1.4 | `remote` unit: a video piece in the phone's view | Every screen has something sensible |
 
 **Milestone done:** a video added to next Sunday's run sheet on one desktop is fetched by the other desktop with a bar on the item, plays on its slideshow, and its copy is deleted on Monday.
 
@@ -141,7 +141,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | --- | --- | --- | --- | --- | --- |
 | M6.1 | Video commands (U21): `videoPlay`, `videoPause` and `videoSeek` (to a second) in `CommandSchema` and the phone commands; `LiveState.video` (item, playing, position, the time the position was taken, and `resumeOnUnblank`, set when blanking paused it or Autoplay waits for the screen, U22 and U23); `LiveState.videoPositions` keyed by run sheet item (U22), empty for states saved before it; the relay accepts them | `records.ts`, `wire.ts`, `packages/relay` | M1.8 | Unit: schemas; a live state without the new fields parses; `relay.test.ts`: a phone's `videoPlay` reaches the coordinator; a version 4 follower is sent nothing new | Commands travel |
 | M6.2 | Applying them: the reducer plays, pauses and seeks within the duration and reports a video at its end as paused there; leaving a video item saves its position (U22); entering one restores it and plays or waits by Autoplay and the blank screen (U23); blank pauses and unblank resumes only what blank paused; End, Go live on another run sheet and removing the item forget positions | `packages/live-state/src/index.ts`, `packages/session` (removal) | M6.1 | Unit: every case in §3.10 | One clock for every screen, and positions survive the session |
-| M6.3 | The slideshow follows the state: play, pause and seek its video when it drifts more than half a second from the live position; sound only from the slideshow window (plan Features), never from previews or browser outputs | `OutputApp.tsx`, `Slide.tsx` | M6.2, M5.4 | Manual on both platforms | Video plays with sound |
+| M6.3 | The slideshow follows the state: play, pause and seek its video when it drifts more than half a second from the live position; sound from the slideshow window (plan Features) and the browser slideshow pages, never from previews | `OutputApp.tsx`, `Slide.tsx` | M6.2, M5.4 | Manual on both platforms | Video plays with sound |
 | M6.4 | Control bar on the Present page while a video item is live: play or pause, position and duration, a scrubber, back and forward 10 seconds | `PresentPage.tsx`, new `components/VideoControls.tsx` | M6.2 | Manual | The plan's control bar |
 | M6.5 | Shortcuts while a video item is live: Space plays or pauses, Left and Right jump 10 seconds, Up and Down move to the previous and next item; the Help overlay lists both sets | `lib/shortcuts.ts` | M6.2 | `shortcuts.test.ts`: each key with a video live and with a song live | As the plan's Features say |
 | M6.6 | The phone's control bar: the same controls on the phone's Live screen while a video is live | `RemoteApp.tsx`, `packages/remote` | M6.1 | `remote` unit: the commands are forwarded with ids and acknowledged | Phones control videos |
@@ -393,7 +393,7 @@ Coordinator changes:
 - Previews in the main window never play sound and never move unless the live video moves.
 - The slideshow seeks only when it drifts more than half a second from the live position; it does not stutter on every state update (**manual**).
 - A video without a copy on this computer shows a black screen on the slideshow and "This video is not downloaded yet" on the operator's screen; it never streams (**manual**).
-- Browser output pages play muted (**manual**).
+- Browser slideshow pages play the sound; where the browser blocks it until the page is clicked, the video plays muted with **Click for sound** (**manual**).
 - The chosen output device is used on a signed macOS build and on Windows, with no click in the slideshow window, and no microphone prompt or indicator after the first permission (**manual**).
 - A device saved with an id that changed is found by its name (**manual**).
 - A Windows PC with no audio input: the picker lists nothing, says the system default is used, and video sound plays there (**manual**).

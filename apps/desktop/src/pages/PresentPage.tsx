@@ -2,17 +2,17 @@ import { nextMeetingDate } from '@worship-q/calendar';
 import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { useCloud, useObs, useQuery, useSession } from '../app/context';
-import { Dialog } from '../components/Dialog';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
-import { SongForm, TitleForm } from '../components/SongForm';
+import { ItemEditDialog } from '../components/ItemEditDialog';
+import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
-import { presentAction, runPresentAction, slideKeyLabel } from '../lib/shortcuts';
+import { presentAction, runPresentAction, slideKeyLabel, videoKeys } from '../lib/shortcuts';
 import { DeckBadge } from '../components/DeckBadge';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
@@ -52,11 +52,6 @@ function LastShownChip() {
       {t('present.lastShown')}
     </span>
   );
-}
-
-/** Songs have lyrics to fix; decks and websites only a title. */
-function isLyrics(song: Song): boolean {
-  return !song.deck && !song.website;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -219,6 +214,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const previous = session.presentingPreviousContent;
   const presented = previous ? null : live.presented;
   const entries = view?.date === liveDate ? view.entries : [];
+  // The video the control bar is for, when a video item is live (M6.4).
+  const presentedVideoFile =
+    entries.find((entry) => entry.item.id === session.video?.itemId)?.song.video?.file ?? null;
   // The item the slide keys act on: the one moved to with left and right, else the presented
   // one, or the first before anything is.
   const browsedItemId = entries.some((entry) => entry.item.id === session.browsedItemId)
@@ -234,7 +232,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
-      const action = presentAction(event);
+      const action = presentAction(event, { video: videoKeys(session) });
       if (!action) return;
       follow();
       runPresentAction(session, action);
@@ -468,7 +466,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                     {t('present.clear')} <KeyHint>Del</KeyHint>
                   </button>
                 </div>
-                <p className="text-center text-xs text-slate-500">{t('present.shortcuts')}</p>
+                <p className="text-center text-xs text-slate-500">
+                  {t(videoKeys(session) ? 'present.videoShortcuts' : 'present.shortcuts')}
+                </p>
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
                 {props.outputPanel}
@@ -493,149 +493,121 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <ObsLiveMonitor />
-          <main ref={slidesRef} className="min-h-0 flex-1 space-y-4 overflow-auto pr-1">
-            {view && entries.length === 0 && (
-              <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
-            )}
-            {entries.map((entry, index) => (
-              <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
-                <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
-                  <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
-                    <span className="mr-2 text-slate-400">{index + 1}</span>
-                    <DeckBadge song={entry.song} />
-                    {entry.song.title || t('songs.untitled')}
-                  </h3>
-                  {entry.song.removedAt && (
-                    <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
-                  )}
-                  <span className="flex-1" />
-                  {!entry.song.removedAt && (
-                    <button
-                      className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
-                      onClick={() => setEditingSong(entry.song)}
-                    >
-                      ✎ {isLyrics(entry.song) ? t('present.editLyrics') : t('present.editTitle')}
-                    </button>
-                  )}
-                </header>
-                {entry.pieces.length === 0 && (
-                  <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
-                )}
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-                  {entry.pieces.map((piece, pieceIndex) => {
-                    const keyLabel =
-                      entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
-                    const active =
-                      presented?.itemId === entry.item.id && presented.pieceId === piece.id;
-                    return (
+          <div className="relative min-h-0 flex-1">
+            <main ref={slidesRef} className="h-full space-y-4 overflow-auto pr-1">
+              {view && entries.length === 0 && (
+                <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
+              )}
+              {entries.map((entry, index) => (
+                <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
+                  <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
+                    <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
+                      <span className="mr-2 text-slate-400">{index + 1}</span>
+                      <DeckBadge song={entry.song} />
+                      {entry.song.title || t('songs.untitled')}
+                    </h3>
+                    {entry.song.removedAt && (
+                      <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
+                    )}
+                    <span className="flex-1" />
+                    {!entry.song.removedAt && (
                       <button
-                        key={piece.id}
-                        ref={active ? activeRef : undefined}
-                        onClick={() => {
-                          if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
-                          follow();
-                          void session.play(entry.item.id, piece.id);
-                        }}
-                        className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
-                          active
-                            ? live.blank
-                              ? 'border-amber-400 bg-amber-900/30'
-                              : 'border-emerald-500 bg-emerald-900/40'
-                            : // Alternate styles by block so slides from one block read as a group.
-                              piece.blockIndex % 2 === 0
-                              ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
-                              : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
-                        } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                        className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
+                        onClick={() => setEditingSong(entry.song)}
                       >
-                        {keyLabel && (
-                          <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
-                            {keyLabel}
-                          </kbd>
-                        )}
-                        {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
-                        {piece.image && entry.song.deck ? (
-                          <SlideImage
-                            image={piece.image}
-                            className="w-full rounded-sm"
-                            style={{
-                              aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
-                            }}
-                          />
-                        ) : (
-                          piece.lines.map((line) => (
-                            <span key={line.id} className="block truncate whitespace-pre">
-                              {line.text}
-                            </span>
-                          ))
-                        )}
+                        ✎ {t('present.edit')}
                       </button>
-                    );
-                  })}
-                </div>
-                {/* Last, so it paints over the slides. */}
-                {flash?.itemId === entry.item.id && (
-                  <div
-                    key={flash.count}
-                    className="item-flash pointer-events-none absolute inset-0 rounded-md"
-                    onAnimationEnd={() => setFlash(null)}
-                  />
-                )}
-              </section>
-            ))}
-          </main>
+                    )}
+                  </header>
+                  {entry.pieces.length === 0 && (
+                    <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
+                  )}
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
+                    {entry.pieces.map((piece, pieceIndex) => {
+                      const keyLabel =
+                        entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
+                      const active =
+                        presented?.itemId === entry.item.id && presented.pieceId === piece.id;
+                      return (
+                        <button
+                          key={piece.id}
+                          ref={active ? activeRef : undefined}
+                          onClick={() => {
+                            if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
+                            follow();
+                            void session.play(entry.item.id, piece.id);
+                          }}
+                          className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
+                            active
+                              ? live.blank
+                                ? 'border-amber-400 bg-amber-900/30'
+                                : 'border-emerald-500 bg-emerald-900/40'
+                              : // Alternate styles by block so slides from one block read as a group.
+                                piece.blockIndex % 2 === 0
+                                ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                                : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
+                          } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                        >
+                          {keyLabel && (
+                            <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
+                              {keyLabel}
+                            </kbd>
+                          )}
+                          {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
+                          {entry.song.video ? (
+                            <VideoTile video={entry.song.video} />
+                          ) : piece.image && entry.song.deck ? (
+                            <SlideImage
+                              image={piece.image}
+                              className="w-full rounded-sm"
+                              style={{
+                                aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
+                              }}
+                            />
+                          ) : (
+                            piece.lines.map((line) => (
+                              <span key={line.id} className="block truncate whitespace-pre">
+                                {line.text}
+                              </span>
+                            ))
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Last, so it paints over the slides. */}
+                  {flash?.itemId === entry.item.id && (
+                    <div
+                      key={flash.count}
+                      className="item-flash pointer-events-none absolute inset-0 rounded-md"
+                      onAnimationEnd={() => setFlash(null)}
+                    />
+                  )}
+                </section>
+              ))}
+            </main>
+            {presented && !activeInView && (
+              <button
+                className={`absolute right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
+                  live.blank
+                    ? 'border-amber-400 text-amber-300'
+                    : 'border-emerald-500 text-emerald-300'
+                }`}
+                title={t('present.locate')}
+                aria-label={t('present.locate')}
+                onClick={() =>
+                  activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                }
+              >
+                <Icon name="locate" />
+              </button>
+            )}
+          </div>
+          <VideoControls file={presentedVideoFile} />
         </div>
-        {presented && !activeInView && (
-          <button
-            className={`absolute right-8 bottom-8 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
-              live.blank ? 'border-amber-400 text-amber-300' : 'border-emerald-500 text-emerald-300'
-            }`}
-            title={t('present.locate')}
-            aria-label={t('present.locate')}
-            onClick={() =>
-              activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-            }
-          >
-            <Icon name="locate" />
-          </button>
-        )}
       </div>
 
-      {editingSong && !isLyrics(editingSong) && (
-        <Dialog title={t('present.liveEdit')} onClose={() => setEditingSong(null)} actions={null}>
-          <TitleForm
-            key={editingSong.id}
-            song={editingSong}
-            onSaved={() => setEditingSong(null)}
-            actions={
-              <button type="button" className="btn" onClick={() => setEditingSong(null)}>
-                {t('common.cancel')}
-              </button>
-            }
-          />
-        </Dialog>
-      )}
-      {editingSong && isLyrics(editingSong) && (
-        <Dialog
-          wide
-          title={t('present.liveEdit')}
-          onClose={() => setEditingSong(null)}
-          actions={null}
-        >
-          <div className="h-[65vh]">
-            <SongForm
-              key={editingSong.id}
-              song={editingSong}
-              quick
-              onSaved={() => setEditingSong(null)}
-              actions={
-                <button type="button" className="btn" onClick={() => setEditingSong(null)}>
-                  {t('common.cancel')}
-                </button>
-              }
-            />
-          </div>
-        </Dialog>
-      )}
+      {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
     </div>
   );
 }

@@ -1,14 +1,20 @@
 import { emit, listen } from '@tauri-apps/api/event';
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ACTION_EVENT, CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
 import { presentAction } from '../lib/shortcuts';
+import { DEVICE_SETTINGS_KEY, deviceSettings, findDevice } from '../app/deviceSettings';
+import { listAudioDevices } from '../components/AudioSettings';
 import { native } from '../platform/native';
 
 /** The slideshow window: draws whatever frame the operator window last sent. */
 export function OutputApp() {
   const [frame, setFrame] = useState<OutputFrame>(EMPTY_FRAME);
+  // A video item is live: the keys play, pause and move through it (M6.5).
+  const videoLive = useRef(false);
+  videoLive.current = !!frame.video;
+  const sinkId = useAudioOutput();
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   useEffect(() => {
@@ -24,7 +30,7 @@ export function OutputApp() {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') return void emit(CLOSE_REQUEST_EVENT);
       // The operator window owns the presentation; this window only passes the keys on.
-      const action = presentAction(event);
+      const action = presentAction(event, { video: !!videoLive.current });
       if (!action) return;
       event.preventDefault();
       void emit(ACTION_EVENT, action);
@@ -71,7 +77,15 @@ export function OutputApp() {
         cursor: frame.hideCursor ? 'none' : undefined,
       }}
     >
-      <Slide frame={frame} width={size.width} height={size.height} transition />
+      {/* The slideshow window is the only place a video item's sound plays. */}
+      <Slide
+        frame={frame}
+        width={size.width}
+        height={size.height}
+        transition
+        sound
+        sinkId={sinkId}
+      />
       {frame.message && (
         <div
           style={{
@@ -90,4 +104,47 @@ export function OutputApp() {
       )}
     </div>
   );
+}
+
+declare global {
+  interface Window {
+    /** Called by the native core's script call, which macOS counts as a gesture (M0.3). */
+    __worshipQSink?: (id: string) => Promise<void>;
+  }
+}
+
+/**
+ * The audio output chosen in Settings, for this window's video sound (U24). On opening, and
+ * whenever the choice changes, the window asks for audio and stops it at once, which makes
+ * the device ids usable here; it finds the device by id, then by name, and the native core
+ * applies it through one script call, which unlocks `setSinkId` without a click on macOS.
+ * A device that is not connected leaves the system default.
+ */
+function useAudioOutput(): string {
+  const [sinkId, setSinkId] = useState('');
+  useEffect(() => {
+    let active = true;
+    window.__worshipQSink = async (id: string) => {
+      const probe = document.createElement('audio') as HTMLAudioElement & {
+        setSinkId?(id: string): Promise<void>;
+      };
+      await probe.setSinkId?.(id).catch(() => undefined);
+      if (active) setSinkId(id);
+    };
+    const apply = async () => {
+      const chosen = deviceSettings.get().audioOutput;
+      const id = chosen ? (findDevice((await listAudioDevices()).outputs, chosen)?.id ?? '') : '';
+      await native.outputAudioSink(id).catch(() => window.__worshipQSink?.(id));
+    };
+    void apply();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === DEVICE_SETTINGS_KEY) void apply();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      active = false;
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return sinkId;
 }

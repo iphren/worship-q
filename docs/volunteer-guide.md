@@ -6,7 +6,7 @@ computers** below.
 
 ## 1. Add a song
 
-1. Open **Songs** and choose **New song**.
+1. Open **Library** and choose **New song**.
 2. Type the title, then type or paste the lyrics, one line of lyrics per line.
 3. Leave a blank line between sections (verse, chorus…).
 4. The **Slides** column shows how the song will be split. By default every two lines make
@@ -42,7 +42,8 @@ Other dates are read-only until you choose **Edit run sheet** on them.
 Choose **Edit lyrics** above the song, correct the text or title and **Save**. The screen updates
 straight away and stays on the same slide.
 
-Slide decks and websites show **Edit title** instead, which renames the item.
+Slide decks, PDFs, photos and websites show **Edit title** instead, which renames the item;
+a video's also has **Autoplay**.
 
 ## 5. When you finish
 
@@ -50,6 +51,43 @@ Just close the app, or choose **Clear screen** to take the lyrics down. The run 
 for planning is then always today's when today is a meeting day, otherwise the next
 meeting day's. Everything is saved as you go; if the laptop is closed or restarts
 mid-service, reopening Worship Q carries on where it was.
+
+## Slides, PDFs, photos and videos
+
+These need your church's Worship Q server (see **Several computers**).
+
+- **Add them** from **Library → Media → Add media…**, with **Media…** next to the song search
+  of a run sheet (added at the end), or by dragging files from Finder or Explorer onto a run
+  sheet: a blue line shows where they will land. Several files at once are fine.
+- **Two bars.** First a bar fills as the file is sent, with its percentage. Slides, PDFs and
+  photos then show moving stripes while the church server works on them. Videos are ready as
+  soon as they are sent. In a run sheet the bars are on the item itself; in the library they
+  are under the search box. You can move to another page meanwhile. ✕ cancels while
+  sending; if something goes wrong, the reason shows with **Try again**.
+- **Too big?** The message says how big the file is and what the server accepts. Export a
+  smaller version (for a video, MP4 with H.264 plays everywhere) and add it again.
+- **iPhone photos (HEIC).** A Mac turns them into JPEG on its own. On Windows, export the
+  photo as JPEG first, or set the iPhone to **Settings → Camera → Formats → Most
+  Compatible**.
+- **The ⋯ menu** on each run sheet item has **Edit…** (lyrics, a title, or a video's title
+  and **Autoplay**), **Download original**, **Upload new version…** and **Remove**. A new
+  version keeps the item's title and its place in every run sheet; if it fails, nothing
+  changes.
+
+### Videos
+
+Every computer downloads the videos of today's and upcoming run sheets ahead of time; a
+violet bar on the item shows it, and nothing streams during the service. A video item starts
+paused, unless **Autoplay** is on in its Edit window. While a video is live, a control bar
+above the slides plays, pauses and moves through it, and phones get the same bar. The keys
+change too: Space plays or pauses, ← and → jump 10 seconds, ↑ and ↓ go to the previous and
+next item. Leave a video for a reading and come back: it carries on where it was. Blanking
+pauses it; showing the screen again carries on. **End** forgets where videos were.
+
+Video sound plays from the slideshow window. Choose where under **Settings → Audio on
+this computer**; the app asks once to use the microphone, which it only uses to list your
+devices. Browser slideshow pages and OBS play the sound too. A browser may wait until the page
+is clicked: the video then plays silently with **Click for sound**.
 
 ## Settings
 

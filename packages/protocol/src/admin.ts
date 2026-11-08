@@ -169,7 +169,12 @@ export interface AdminLibraryItem {
     | { type: 'hidden'; churchId: string };
 }
 
-export type AdminLibraryType = 'lyrics' | 'deck' | 'website' | 'image' | 'video';
+/**
+ * A song of lyrics, imported slides, an image item (a deck made from an image, U13), a video
+ * item (U14), a website, or a background image or video.
+ */
+export type AdminLibraryType =
+  'lyrics' | 'deck' | 'imageItem' | 'videoItem' | 'website' | 'image' | 'video';
 
 /**
  * What a Church Library item shows, for the admin app's preview. Files are fetched from
@@ -177,7 +182,7 @@ export type AdminLibraryType = 'lyrics' | 'deck' | 'website' | 'image' | 'video'
  */
 export type AdminLibraryContent =
   | {
-      type: 'lyrics' | 'deck' | 'website';
+      type: 'lyrics' | 'deck' | 'imageItem' | 'website';
       lyrics: string;
       author: string;
       copyright: string;
@@ -192,7 +197,7 @@ export type AdminLibraryContent =
       /** The page a website song shows. */
       websiteUrl: string | null;
     }
-  | { type: 'image' | 'video'; fileName: string };
+  | { type: 'image' | 'video' | 'videoItem'; fileName: string };
 
 /** Which workspaces' run sheets use an item (D37). */
 export interface AdminLibraryUsage {
@@ -202,6 +207,10 @@ export interface AdminLibraryUsage {
 export type StorageType =
   | 'deckImages'
   | 'deckOriginals'
+  /** Image items: their one-page decks and kept originals (U13). */
+  | 'images'
+  /** Video items' files (U14). */
+  | 'videos'
   | 'backgroundImages'
   | 'backgroundVideos'
   | 'backups'

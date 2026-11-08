@@ -57,6 +57,7 @@ function SlideshowApp() {
         width={size.width}
         height={size.height}
         transition
+        sound
       />
       {frame.website && (
         <iframe

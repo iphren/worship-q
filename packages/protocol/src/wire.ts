@@ -33,9 +33,14 @@ import {
  * live-state protocol is unchanged, so version 2 and 3 desktops present together, and each
  * side speaks the other's version when it is older (decision D26). Version 4 adds OBS control
  * (`./obs`): new message kinds that the relay must know before it passes them on, sent only
- * to devices declaring the `obs` capability, so version 3 desktops are untouched.
+ * to devices declaring the `obs` capability, so version 3 desktops are untouched. Version 5
+ * adds video items (media uploads plan, U20, U21): songs with a `video`, which the instance
+ * keeps when an older desktop saves the song without it, and video playback in the live
+ * state.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
+/** The first protocol version that knows songs' `video` (U20). */
+export const VIDEO_PROTOCOL_VERSION = 5;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -81,7 +86,33 @@ export interface ServerInfo {
    * yet (D30). Once one exists this is false, and a code works only where turned on.
    */
   codes?: boolean;
+  /**
+   * What media the instance takes and how large each kind may be (media uploads plan, U1,
+   * U19). Missing on an instance from before images and videos, which imports slide decks
+   * only, as `decks` says.
+   */
+  media?: MediaOffer;
 }
+
+/** Upload limits in bytes, per kind of file (U1). */
+export interface MediaLimits {
+  image: number;
+  /** Slide decks and PDFs. */
+  deck: number;
+  video: number;
+}
+
+/** What `info.media` says. */
+export interface MediaOffer {
+  /** Images are taken and become one-page decks (U13). */
+  images: boolean;
+  /** Videos are taken and stored as uploaded (U14). */
+  videos: boolean;
+  limits: MediaLimits;
+}
+
+/** The answer to an upload over its kind's limit (U2). */
+export const TOO_LARGE = 'too-large';
 
 /**
  * Which side is behind when the server refused this version: the server, when the version
@@ -116,6 +147,11 @@ export const CapabilitiesSchema = z.object({
    * older relay, which knows only the fields above: either way, nothing is sent to it.
    */
   obs: z.boolean().optional(),
+  /**
+   * Takes video items in snapshots (protocol version 5, U21). Absent from older devices,
+   * which are sent such items as slide decks with nothing to show (U20).
+   */
+  videos: z.boolean().optional(),
 });
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
@@ -290,6 +326,10 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('removeItem'), itemId: z.string() }),
   z.object({ type: z.literal('moveItem'), itemId: z.string(), afterItemId: z.string().nullable() }),
+  // Video playback (protocol version 5, U21).
+  z.object({ type: z.literal('videoPlay'), itemId: z.string() }),
+  z.object({ type: z.literal('videoPause'), itemId: z.string() }),
+  z.object({ type: z.literal('videoSeek'), itemId: z.string(), seconds: z.number().finite() }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 export type RemoteEditCommand = Extract<
@@ -368,8 +408,11 @@ export interface RemoteItemView {
   itemId: string;
   title: string;
   removed: boolean;
-  /** Lyrics, imported slides or a website; desktops before it was added leave it out. */
-  kind?: 'lyrics' | 'deck' | 'website';
+  /**
+   * Lyrics, imported slides, a website or a video; desktops before it was added leave it
+   * out, and `video` came with protocol version 5.
+   */
+  kind?: 'lyrics' | 'deck' | 'website' | 'video';
   /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
   /**
    * `thumbnail` names a small image of an imported slide, served to phones by the instance.
@@ -410,6 +453,18 @@ export interface RemoteView {
   editable?: boolean;
   /** OBS, when a device of the workspace has an active OBS link; absent from older desktops. */
   obs?: RemoteObsView | null;
+  /**
+   * The presented video item's playback, for the phone's control bar (U21); absent from
+   * older desktops, null when no video item is presented.
+   */
+  video?: {
+    itemId: string;
+    playing: boolean;
+    /** Seconds into the video at `at`. */
+    position: number;
+    at: string;
+    durationSeconds: number;
+  } | null;
 }
 
 /** From the desktop to a remote controller. */
@@ -449,8 +504,21 @@ export const SnapshotPieceSchema = z.object({
   thumbnail: z.string().optional(),
   /** An imported slide without text, whose lines only name its place. */
   textless: z.boolean().optional(),
+  /** A video item's one piece: the video to play (protocol version 5, U14). */
+  video: z
+    .object({
+      file: z.string().min(1),
+      durationSeconds: z.number().min(0),
+      width: z.number().int().min(0),
+      height: z.number().int().min(0),
+      autoplay: z.boolean(),
+    })
+    .optional(),
 });
 export type SnapshotPiece = z.infer<typeof SnapshotPieceSchema>;
+
+/** How an item is presented; `video` came with protocol version 5 (U21). */
+export const SnapshotKindSchema = z.enum(['lyrics', 'deck', 'website', 'video']);
 
 /** One item of the live run sheet as the snapshot carries it. */
 export const SnapshotItemSchema = z.object({
@@ -459,7 +527,7 @@ export const SnapshotItemSchema = z.object({
   title: z.string(),
   /** The song was removed from the library; the item still presents it. */
   removed: z.boolean(),
-  kind: z.enum(['lyrics', 'deck', 'website']),
+  kind: SnapshotKindSchema,
   pieces: z.array(SnapshotPieceSchema),
 });
 export type SnapshotItem = z.infer<typeof SnapshotItemSchema>;
@@ -473,7 +541,7 @@ export const SnapshotPresentedSchema = z.object({
   pieceId: z.string().min(1),
   songId: z.string().min(1),
   title: z.string(),
-  kind: z.enum(['lyrics', 'deck', 'website']),
+  kind: SnapshotKindSchema,
   /** Every piece of the presented song, which the renderer needs to size the text. */
   pieces: z.array(SnapshotPieceSchema),
   /** The song's own background, if it has one. */
@@ -783,4 +851,21 @@ export function wellFormed<T>(value: T): T {
     ) as T;
   }
   return value;
+}
+
+/**
+ * A snapshot for a device older than video items (U20): each video item becomes a slide deck
+ * with nothing to show, so it keeps its title and place, and nothing it cannot read is sent.
+ */
+export function snapshotWithoutVideos(snapshot: LiveSnapshot): LiveSnapshot {
+  const hasVideo =
+    snapshot.items.some((item) => item.kind === 'video') || snapshot.presented?.kind === 'video';
+  if (!hasVideo) return snapshot;
+  const plain = <T extends { kind: SnapshotItem['kind']; pieces: SnapshotPiece[] }>(item: T): T =>
+    item.kind === 'video' ? { ...item, kind: 'deck', pieces: [] } : item;
+  return {
+    ...snapshot,
+    items: snapshot.items.map(plain),
+    presented: snapshot.presented && plain(snapshot.presented),
+  };
 }

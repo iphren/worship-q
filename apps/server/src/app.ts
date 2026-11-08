@@ -4,14 +4,15 @@ import {
   createWriteStream,
   existsSync,
   mkdirSync,
+  readdirSync,
   rmSync,
   statSync,
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { rename } from 'node:fs/promises';
+import { copyFile, rename } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import type { Readable } from 'node:stream';
+import { Transform, type Readable } from 'node:stream';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
@@ -26,9 +27,12 @@ import {
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   PushRequestSchema,
+  TOO_LARGE,
   UPDATE_NEEDED,
+  VIDEO_FILE,
   WorkspaceGrantSchema,
   type Deck,
+  type MediaLimits,
   type LibraryType,
   type EnrollResponse,
   type OutputLink,
@@ -42,6 +46,16 @@ import { z } from 'zod';
 import { registerAdminRoutes } from './admin';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
+import { convertImage, ImageError } from './images';
+import {
+  attachment,
+  DEFAULT_MEDIA_LIMITS,
+  HEIC_EXTENSIONS,
+  HEIC_MESSAGE,
+  IMAGE_EXTENSIONS,
+  limiter,
+  VIDEO_EXTENSIONS,
+} from './media';
 import { sendFile } from './ranges';
 import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
 import { ObsReports } from './obsReports';
@@ -81,12 +95,17 @@ export interface ServerConfig {
   retentionDays?: number;
   /** Whether the retention sweep runs on a timer; off in tests. */
   sweep?: boolean;
+  /** Upload limits per kind of media (U1); see `mediaLimitsFromEnv`. */
+  mediaLimits?: Partial<MediaLimits>;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
 /** A converted slide's image or its small copy; see the decks route. */
 const DECK_IMAGE = /^deck-[0-9a-f-]{36}-\d{3,}(-t)?\.jpg$/;
+/** Background files and backups, which have no limit of their own. */
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
+/** A deck's identifier, as in its images' names. */
+const DECK_ID_PARAM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PING_MS = 25_000;
 
 declare module 'fastify' {
@@ -143,6 +162,75 @@ export async function buildServer(config: ServerConfig) {
     return result;
   };
   const backupsDir = (workspaceId: string) => join(config.dataDir, 'backups', workspaceId);
+  const limits: MediaLimits = { ...DEFAULT_MEDIA_LIMITS, ...config.mediaLimits };
+  // Resizing an image is quick but takes memory; two at once (U13).
+  const imageSlots = limiter(2);
+
+  /**
+   * Turns a file into a deck kept with the workspace's files, under a new identifier, with
+   * the file itself kept beside the images as the deck's original (U4). An image is reduced
+   * to one page (U13); anything else is converted as slides.
+   */
+  const makeDeck = async (
+    workspaceId: string,
+    upload: string,
+    source: string,
+    work: string,
+  ): Promise<Deck> => {
+    const extension = extname(upload).toLowerCase();
+    const isImage = IMAGE_EXTENSIONS.includes(extension);
+    const out = join(work, 'out');
+    mkdirSync(out, { recursive: true });
+    const converted = isImage
+      ? await imageSlots(() => convertImage(upload, out))
+      : await queued(() => config.convertDeck!(upload, out, join(work, 'convert')));
+    const id = randomUUID();
+    const dir = uploadDir(workspaceId, 'slides');
+    mkdirSync(dir, { recursive: true });
+    const pages: Deck['pages'] = [];
+    for (const page of converted.pages) {
+      const image = `deck-${id}-${page.image}`;
+      const thumbnail = `deck-${id}-${page.image.replace(/\.jpg$/, '-t.jpg')}`;
+      await rename(join(out, page.image), join(dir, image));
+      await rename(join(out, page.thumbnail), join(dir, thumbnail));
+      pages.push({ image, thumbnail, slide: page.slide, step: page.step, text: page.text });
+    }
+    // Kept so the deck can be converted again and downloaded later. Its name holds the same
+    // identifier as the deck's images; only the original route serves it.
+    await rename(upload, join(dir, `deck-${id}-original${extension}`));
+    return {
+      source,
+      ...(isImage ? { kind: 'image' as const } : {}),
+      width: converted.width,
+      height: converted.height,
+      pages,
+    };
+  };
+
+  /** A deck's kept original, from the workspace's files or the Church Library's. */
+  const findOriginal = (workspaceId: string, deckId: string): string | null => {
+    if (!DECK_ID_PARAM.test(deckId)) return null;
+    const prefix = `deck-${deckId}-original.`;
+    for (const dir of [
+      workspaceFilesDir(config.dataDir, workspaceId),
+      churchFilesDir(config.dataDir),
+    ]) {
+      if (!existsSync(dir)) continue;
+      const name = readdirSync(dir).find(
+        (file) => file.startsWith(prefix) && !file.endsWith('.partial'),
+      );
+      if (name) return join(dir, name);
+    }
+    return null;
+  };
+
+  /** Answers an upload that failed while arriving: too large, empty, or broken off. */
+  const uploadRefused = (reply: FastifyReply, error: unknown) => {
+    if (error instanceof UploadError) {
+      return reply.code(error.status).send({ error: error.code, ...error.detail });
+    }
+    throw error;
+  };
 
   // Devices authenticate with a bearer token, never cookies, so any origin may call the API.
   await app.register(cors, {
@@ -180,6 +268,7 @@ export async function buildServer(config: ServerConfig) {
       pairing: true,
       admin: !!config.oidc,
       codes: !instance.hasAdministrators(),
+      media: { images: true, videos: true, limits },
     };
     return info;
   });
@@ -230,9 +319,10 @@ export async function buildServer(config: ServerConfig) {
       const { name } = request.params;
       const link = instance.authenticateOutputLink(String(request.query.t ?? ''));
       if (!link) return reply.code(401).send({ error: 'unauthorized' });
-      if (!BACKGROUND_NAME.test(name) && !DECK_IMAGE.test(name)) {
+      if (!BACKGROUND_NAME.test(name) && !DECK_IMAGE.test(name) && !VIDEO_FILE.test(name)) {
         return reply.code(404).send({ error: 'not-found' });
       }
+      if (name.includes('-original.')) return reply.code(404).send({ error: 'not-found' });
       const path = findFile(config.dataDir, link.workspaceId, name);
       if (!path) return reply.code(404).send({ error: 'not-found' });
       const etag = `"${name}"`;
@@ -404,6 +494,7 @@ export async function buildServer(config: ServerConfig) {
         device.workspaceId,
         device.id,
         parsed.data.records,
+        Number(request.headers[PROTOCOL_HEADER]),
       );
       // The Church Library reaches every workspace.
       if (central > 0) relay.contentChangedAll(device.id);
@@ -444,57 +535,145 @@ export async function buildServer(config: ServerConfig) {
       if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
       const dir = uploadDir(request.device!.workspaceId, 'backgrounds');
       mkdirSync(dir, { recursive: true });
-      await receive(request.body as Readable, join(dir, name));
+      try {
+        await receive(request, join(dir, name), MAX_FILE_BYTES);
+      } catch (error) {
+        return uploadRefused(reply, error);
+      }
       return { stored: true };
     });
 
     api.get<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
-      if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
+      const video = VIDEO_FILE.test(name);
+      // A deck's original is served only by its own route.
+      if ((!BACKGROUND_NAME.test(name) && !video) || name.includes('-original.')) {
+        return reply.code(400).send({ error: 'invalid-name' });
+      }
       const path = findFile(config.dataDir, request.device!.workspaceId, name);
       if (!path) return reply.code(404).send({ error: 'not-found' });
+      // Videos are fetched in parts when a download resumes or a page plays one.
+      if (video) return sendFile(request, reply, path, name);
       reply.header('content-length', statSync(path).size);
       reply.type('application/octet-stream');
       return reply.send(createReadStream(path));
     });
 
+    /** Stores a video as uploaded (U10, U14); the device then saves it as a song. */
+    api.post<{ Querystring: { name?: string } }>('/api/v1/videos', async (request, reply) => {
+      const source = basename(String(request.query.name ?? ''));
+      const extension = extname(source).toLowerCase();
+      if (!VIDEO_EXTENSIONS.includes(extension) || source === extension) {
+        return reply.code(400).send({ error: 'unsupported-format' });
+      }
+      const file = `video-${randomUUID()}${extension}`;
+      const dir = uploadDir(request.device!.workspaceId, 'slides');
+      mkdirSync(dir, { recursive: true });
+      try {
+        const bytes = await receive(request, join(dir, file), limits.video);
+        return { file, source, bytes };
+      } catch (error) {
+        return uploadRefused(reply, error);
+      }
+    });
+
+    /** Makes an uploaded image a deck of one page (U13). */
+    api.post<{ Querystring: { name?: string } }>('/api/v1/images', async (request, reply) => {
+      const source = basename(String(request.query.name ?? '')) || 'image.jpg';
+      const extension = extname(source).toLowerCase();
+      if (HEIC_EXTENSIONS.includes(extension)) {
+        return reply.code(400).send({ error: 'heic-unsupported', message: HEIC_MESSAGE });
+      }
+      if (!IMAGE_EXTENSIONS.includes(extension)) {
+        return reply.code(400).send({ error: 'unsupported-format' });
+      }
+      const work = join(config.dataDir, 'work', randomUUID());
+      mkdirSync(work, { recursive: true });
+      try {
+        const upload = join(work, `upload${extension}`);
+        await receive(request, upload, limits.image);
+        return await makeDeck(request.device!.workspaceId, upload, source, work);
+      } catch (error) {
+        if (error instanceof ImageError) {
+          return reply.code(422).send({ error: 'conversion-failed', message: error.message });
+        }
+        return uploadRefused(reply, error);
+      } finally {
+        rmSync(work, { recursive: true, force: true });
+      }
+    });
+
+    /**
+     * A deck's kept original (U18), named after `name` with the original's own extension, so
+     * a photo converted from HEIC on a Mac downloads as `.jpg`.
+     */
+    api.get<{ Params: { id: string }; Querystring: { name?: string } }>(
+      '/api/v1/decks/:id/original',
+      async (request, reply) => {
+        const path = findOriginal(request.device!.workspaceId, request.params.id);
+        if (!path) return reply.code(404).send({ error: 'no-original' });
+        const extension = extname(path);
+        const asked = basename(String(request.query.name ?? ''));
+        const stem = asked ? asked.slice(0, asked.length - extname(asked).length) : '';
+        reply.header('content-disposition', attachment(`${stem || 'original'}${extension}`));
+        reply.header('content-length', statSync(path).size);
+        reply.type('application/octet-stream');
+        return reply.send(createReadStream(path));
+      },
+    );
+
+    /**
+     * Converts a deck's kept original again, under a new identifier (U4). The old images stay
+     * until the retention sweep finds no record using them.
+     */
+    api.post<{ Params: { id: string }; Querystring: { name?: string } }>(
+      '/api/v1/decks/:id/reconvert',
+      async (request, reply) => {
+        const original = findOriginal(request.device!.workspaceId, request.params.id);
+        if (!original) return reply.code(404).send({ error: 'no-original' });
+        const extension = extname(original).toLowerCase();
+        const isImage = IMAGE_EXTENSIONS.includes(extension);
+        if (!isImage && !config.convertDeck) {
+          return reply.code(501).send({ error: 'decks-unavailable' });
+        }
+        const source = basename(String(request.query.name ?? '')) || `original${extension}`;
+        const work = join(config.dataDir, 'work', randomUUID());
+        mkdirSync(work, { recursive: true });
+        try {
+          const upload = join(work, `upload${extension}`);
+          await copyFile(original, upload);
+          return await makeDeck(request.device!.workspaceId, upload, source, work);
+        } catch (error) {
+          request.log.error(error);
+          return reply.code(422).send({
+            error: 'conversion-failed',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          rmSync(work, { recursive: true, force: true });
+        }
+      },
+    );
+
     // Converts a slide deck into images kept with the workspace's files, and describes them.
     // The device then fetches the images and saves the deck as a song.
     api.post<{ Querystring: { name?: string } }>('/api/v1/decks', async (request, reply) => {
-      const convert = config.convertDeck;
-      if (!convert) return reply.code(501).send({ error: 'decks-unavailable' });
+      if (!config.convertDeck) return reply.code(501).send({ error: 'decks-unavailable' });
       const source = basename(String(request.query.name ?? '')) || 'slides.pptx';
       const extension = extname(source).toLowerCase();
       if (!DECK_EXTENSIONS.includes(extension)) {
         return reply.code(400).send({ error: 'unsupported-format' });
       }
-      const id = randomUUID();
-      const work = join(config.dataDir, 'work', id);
+      const work = join(config.dataDir, 'work', randomUUID());
       mkdirSync(work, { recursive: true });
       try {
         const upload = join(work, `upload${extension}`);
-        await receive(request.body as Readable, upload);
-        const out = join(work, 'out');
-        const converted = await queued(() => convert(upload, out, join(work, 'convert')));
-        const dir = uploadDir(request.device!.workspaceId, 'slides');
-        mkdirSync(dir, { recursive: true });
-        const pages: Deck['pages'] = [];
-        for (const page of converted.pages) {
-          const image = `deck-${id}-${page.image}`;
-          const thumbnail = `deck-${id}-${page.image.replace(/\.jpg$/, '-t.jpg')}`;
-          await rename(join(out, page.image), join(dir, image));
-          await rename(join(out, page.thumbnail), join(dir, thumbnail));
-          pages.push({ image, thumbnail, slide: page.slide, step: page.step, text: page.text });
+        try {
+          await receive(request, upload, limits.deck);
+        } catch (error) {
+          return uploadRefused(reply, error);
         }
-        // Kept so the deck can be converted again later. Its name holds the same identifier
-        // as the deck's images, and no route serves it.
-        await rename(upload, join(dir, `deck-${id}-original${extension}`));
-        return {
-          source,
-          width: converted.width,
-          height: converted.height,
-          pages,
-        } satisfies Deck;
+        return await makeDeck(request.device!.workspaceId, upload, source, work);
       } catch (error) {
         request.log.error(error);
         return reply.code(422).send({
@@ -506,12 +685,16 @@ export async function buildServer(config: ServerConfig) {
       }
     });
 
-    api.put('/api/v1/backups', async (request) => {
+    api.put('/api/v1/backups', async (request, reply) => {
       const device = request.device!;
       const dir = backupsDir(device.workspaceId);
       mkdirSync(dir, { recursive: true });
       const file = `${new Date().toISOString().replace(/[:.]/g, '-')}-${device.id}.worshipq`;
-      await receive(request.body as Readable, join(dir, file));
+      try {
+        await receive(request, join(dir, file), MAX_FILE_BYTES);
+      } catch (error) {
+        return uploadRefused(reply, error);
+      }
       const id = instance.addBackup(
         device.workspaceId,
         device.id,
@@ -673,19 +856,55 @@ export async function buildServer(config: ServerConfig) {
   return { app, relay };
 }
 
-/** Writes an upload to a temporary file and moves it into place once complete. */
-async function receive(body: Readable, target: string): Promise<void> {
+/** An upload refused while it arrived, with the answer to give. */
+class UploadError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly detail: Record<string, unknown> = {},
+  ) {
+    super(code);
+  }
+}
+
+/**
+ * Writes an upload to a temporary file and moves it into place once complete, returning its
+ * size. A body over `limit` bytes is refused with 413 and `limitBytes` (U2), already from
+ * its declared length when it has one; an empty body, or one shorter than declared, is
+ * refused too. Nothing is left behind when it fails.
+ */
+async function receive(request: FastifyRequest, target: string, limit: number): Promise<number> {
+  const body = request.body as Readable;
+  const declared = request.headers['content-length'];
+  const expected = declared === undefined ? null : Number(declared);
+  const tooLarge = () => new UploadError(413, TOO_LARGE, { limitBytes: limit });
+  if (expected !== null && expected > limit) {
+    body.resume();
+    throw tooLarge();
+  }
   const partial = `${target}.partial`;
   let size = 0;
-  body.on('data', (chunk: Buffer) => {
-    size += chunk.length;
-    if (size > MAX_FILE_BYTES) body.destroy(new Error('too-large'));
+  let over = false;
+  // Counts what arrives and stops the copy once the limit is passed.
+  const counter = new Transform({
+    transform(chunk: Buffer, _encoding, done) {
+      size += chunk.length;
+      if (size > limit) {
+        over = true;
+        return done(new Error(TOO_LARGE));
+      }
+      done(null, chunk);
+    },
   });
   try {
-    await pipeline(body, createWriteStream(partial));
+    await pipeline(body, counter, createWriteStream(partial));
+    if (expected !== null && size !== expected) throw new UploadError(400, 'incomplete');
+    if (size === 0) throw new UploadError(400, 'empty');
     await rename(partial, target);
+    return size;
   } catch (error) {
     rmSync(partial, { force: true });
+    if (over) throw tooLarge();
     throw error;
   }
 }

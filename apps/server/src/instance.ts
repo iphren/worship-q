@@ -10,6 +10,8 @@ import {
   LIBRARY_TYPES,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
+  PROTOCOL_VERSION,
+  VIDEO_PROTOCOL_VERSION,
   OutputKindSchema,
   syncWins,
   wellFormed,
@@ -674,6 +676,7 @@ export class Instance {
     workspaceId: string,
     deviceId: string,
     records: readonly SyncRecord[],
+    protocol: number = PROTOCOL_VERSION,
   ): { remap: Record<string, string>; stored: number; central: number } {
     const remap: Record<string, string> = {};
     let stored = 0;
@@ -681,10 +684,10 @@ export class Instance {
     const managed = this.managedTypes(workspaceId);
     transaction(this.db, () => {
       const find = this.db.prepare(
-        'SELECT id, revision, updated_at FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
+        'SELECT id, revision, updated_at, data FROM record WHERE workspace_id = ? AND kind = ? AND key = ?',
       );
       const findChurch = this.db.prepare(
-        'SELECT revision, updated_at FROM church_record WHERE kind = ? AND key = ?',
+        'SELECT revision, updated_at, data FROM church_record WHERE kind = ? AND key = ?',
       );
       const upsert = this.db.prepare(
         `INSERT INTO record (workspace_id, kind, key, id, revision, updated_at, seq, data, device_id)
@@ -696,10 +699,23 @@ export class Instance {
       const version = (row: Record<string, SqlValue> | undefined) =>
         row ? { revision: Number(row.revision), updatedAt: text(row.updated_at) } : null;
       for (const received of records) {
-        const incoming = wellFormed(received);
+        let incoming = wellFormed(received);
         const existing = find.get(workspaceId, incoming.kind, incoming.key);
+        const church = isLibraryKind(incoming.kind)
+          ? findChurch.get(incoming.kind, incoming.key)
+          : undefined;
+        // A desktop older than videos drops a song's `video` when it saves the song, as it
+        // does not know the field; the stored video is kept (U20).
+        if (
+          protocol < VIDEO_PROTOCOL_VERSION &&
+          incoming.kind === 'song' &&
+          !('video' in incoming.data)
+        ) {
+          const stored = (existing ?? church)?.data;
+          const video = stored ? (JSON.parse(text(stored)) as { video?: unknown }).video : null;
+          if (video) incoming = { ...incoming, data: { ...incoming.data, video } };
+        }
         if (isLibraryKind(incoming.kind)) {
-          const church = findChurch.get(incoming.kind, incoming.key);
           if (!existing && managed.has(libraryTypeOf(incoming.kind, incoming.data)!)) {
             if (!syncWins(incoming, version(church))) continue;
             this.putChurch(incoming, deviceId, workspaceId);
@@ -1774,9 +1790,13 @@ export function fileNamesOf(kind: string, data: Record<string, unknown>): string
   if (kind === 'background') {
     return typeof data.fileName === 'string' && data.fileName ? [data.fileName] : [];
   }
-  const deck = data.deck as { pages?: { image?: unknown; thumbnail?: unknown }[] } | null;
-  if (kind !== 'song' || !deck || !Array.isArray(deck.pages)) return [];
+  if (kind !== 'song') return [];
   const names = new Set<string>();
+  // A video song's file (U14).
+  const video = data.video as { file?: unknown } | null | undefined;
+  if (typeof video?.file === 'string' && video.file) names.add(video.file);
+  const deck = data.deck as { pages?: { image?: unknown; thumbnail?: unknown }[] } | null;
+  if (!deck || !Array.isArray(deck.pages)) return [...names];
   for (const page of deck.pages) {
     if (typeof page.image === 'string') names.add(page.image);
     if (typeof page.thumbnail === 'string') names.add(page.thumbnail);
@@ -1809,6 +1829,10 @@ function contentOf(kind: LibraryKind, row: Record<string, SqlValue>): AdminLibra
   if (type === 'image' || type === 'video') {
     return { type, fileName: String(data.fileName ?? '') };
   }
+  if (type === 'videoItem') {
+    const video = data.video as { file?: unknown } | null | undefined;
+    return { type, fileName: typeof video?.file === 'string' ? video.file : '' };
+  }
   const str = (value: unknown) => (typeof value === 'string' ? value : '');
   const deck = data.deck as
     { width?: unknown; height?: unknown; pages?: Record<string, unknown>[] } | null | undefined;
@@ -1821,7 +1845,7 @@ function contentOf(kind: LibraryKind, row: Record<string, SqlValue>): AdminLibra
     ccli: typeof data.ccli === 'string' ? data.ccli : null,
     year: typeof data.year === 'number' ? data.year : null,
     deck:
-      type === 'deck' && deck
+      (type === 'deck' || type === 'imageItem') && deck
         ? {
             width: Number(deck.width) || 16,
             height: Number(deck.height) || 9,
@@ -1844,6 +1868,7 @@ function libraryItem(
 ): Omit<AdminLibraryItem, 'fromWorkspace' | 'deletedBy'> {
   const data = JSON.parse(text(row.data)) as Record<string, unknown>;
   const deck = data.deck as { source?: unknown } | null | undefined;
+  const video = data.video as { source?: unknown } | null | undefined;
   return {
     kind,
     id: text(row.id),
@@ -1857,7 +1882,9 @@ function libraryItem(
         ? String(data.fileName ?? '') || null
         : deck && typeof deck.source === 'string'
           ? deck.source
-          : null,
+          : video && typeof video.source === 'string'
+            ? video.source
+            : null,
     type: libraryType(kind, data),
   };
 }
@@ -1865,7 +1892,8 @@ function libraryItem(
 /** A song by what it shows, or a background by its file. */
 function libraryType(kind: LibraryKind, data: Record<string, unknown>): AdminLibraryItem['type'] {
   if (kind === 'background') return data.kind === 'video' ? 'video' : 'image';
-  if (data.deck) return 'deck';
+  if (data.video) return 'videoItem';
+  if (data.deck) return (data.deck as { kind?: unknown }).kind === 'image' ? 'imageItem' : 'deck';
   if (data.website) return 'website';
   return 'lyrics';
 }

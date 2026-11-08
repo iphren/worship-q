@@ -10,6 +10,7 @@ mod files;
 mod fonts;
 mod keychain;
 mod lan;
+mod media;
 mod obs;
 mod output;
 mod overlay;
@@ -50,12 +51,29 @@ pub fn run() {
             // The configured scope covers only the first workspace's backgrounds.
             app.asset_protocol_scope()
                 .allow_directory(dir.join(files::BACKGROUNDS_DIR), true)?;
+            // This computer's copies of videos, played by the slideshow (U8).
+            fs::create_dir_all(dir.join(media::VIDEOS_DIR))?;
+            app.asset_protocol_scope()
+                .allow_directory(dir.join(media::VIDEOS_DIR), true)?;
             app.manage(db::AppData::open(dir)?);
             app.manage(overlay::Overlay::new());
             overlay::start(app.handle());
             app.manage(lan::Lan::new(app.handle().clone()));
             app.manage(obs::Obs::new(app.handle().clone()));
+            app.manage(media::Transfers::default());
             Ok(())
+        })
+        // The app's own pages may list audio devices (U24): WebView2 would otherwise show its
+        // own prompt, and macOS shows only the system's, once. Everything else as usual.
+        // Presented websites are left to the default.
+        .on_permission_request(|webview, kind| {
+            let own = matches!(webview.label(), "main" | output::OUTPUT_LABEL);
+            match kind {
+                tauri::webview::PermissionKind::Microphone if own => {
+                    tauri::webview::PermissionResponse::Allow
+                }
+                _ => tauri::webview::PermissionResponse::Default,
+            }
         })
         .on_page_load(|webview, payload| {
             // The page loading again (viewer mode, workspaces) starts the interface afresh,
@@ -98,6 +116,7 @@ pub fn run() {
             output::drag_output,
             output::output_website,
             output::monitor_labels,
+            output::output_audio_sink,
             files::import_background,
             files::remove_background_file,
             files::background_path,
@@ -106,9 +125,20 @@ pub fn run() {
             cloud::upload_background,
             cloud::download_background,
             cloud::upload_backup,
-            cloud::import_deck,
             cloud::backup_before_join,
             cloud::computer_name,
+            media::file_size,
+            media::upload_media,
+            media::download_media,
+            media::cancel_transfer,
+            media::store_video,
+            media::video_location,
+            media::list_videos,
+            media::remove_video,
+            media::copy_file,
+            media::convert_heic,
+            media::remove_converted,
+            media::allow_media_file,
             overlay::overlay_publish,
             overlay::overlay_status,
             keychain::keychain_set,

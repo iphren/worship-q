@@ -318,3 +318,20 @@ mod tests {
         assert_eq!(main["backgroundThrottling"], "disabled");
     }
 }
+
+/// Applies the audio output chosen in Settings to the slideshow's video sound (media uploads
+/// plan, U24). The call runs as the webview's own script, which macOS counts as a user
+/// gesture, so `setSinkId` works in a window that never gets a click (spike M0.3); on Windows
+/// the same path is harmless. An empty id is the system default.
+#[tauri::command]
+pub fn output_audio_sink(app: AppHandle, sink_id: String) -> Result<(), String> {
+    let webview = app
+        .get_webview(OUTPUT_LABEL)
+        .ok_or_else(|| "output-closed".to_string())?;
+    let id = serde_json::to_string(&sink_id).map_err(|e| e.to_string())?;
+    webview
+        .eval(format!(
+            "window.__worshipQSink && window.__worshipQSink({id})"
+        ))
+        .map_err(|e| e.to_string())
+}

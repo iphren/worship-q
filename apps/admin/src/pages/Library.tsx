@@ -11,11 +11,12 @@ import { formatDate } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, INPUT, PageTitle, Spinner, When } from '../ui';
 import { useAction, useLoad } from '../useLoad';
 
+/** The `slides` library type is called Media: slide decks, PDFs, images and videos (U12). */
 type Tab = 'songs' | 'slides' | 'websites' | 'backgrounds';
 
 const TABS: { tab: Tab; label: string; kind: LibraryKind; types: AdminLibraryType[] }[] = [
   { tab: 'songs', label: 'Songs', kind: 'song', types: ['lyrics'] },
-  { tab: 'slides', label: 'Slides', kind: 'song', types: ['deck'] },
+  { tab: 'slides', label: 'Media', kind: 'song', types: ['deck', 'imageItem', 'videoItem'] },
   { tab: 'websites', label: 'Websites', kind: 'song', types: ['website'] },
   { tab: 'backgrounds', label: 'Backgrounds', kind: 'background', types: ['image', 'video'] },
 ];
@@ -542,6 +543,8 @@ function Preview(props: {
 const TYPE_LABEL: Record<AdminLibraryType, string> = {
   lyrics: 'Song',
   deck: 'Slides',
+  imageItem: 'Image',
+  videoItem: 'Video',
   website: 'Website',
   image: 'Background image',
   video: 'Background video',
@@ -560,7 +563,7 @@ function Contents({
   if ('fileName' in content) {
     if (filesGone) return gone;
     const src = fileUrl(content.fileName);
-    return content.type === 'video' ? (
+    return content.type === 'video' || content.type === 'videoItem' ? (
       <video
         key={src}
         src={src}

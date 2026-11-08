@@ -301,6 +301,8 @@ function Live({ view }: { view: RemoteView | null }) {
                                 // presented slide is not thrown short by thumbnails loading on the way.
                                 className="block aspect-video w-full rounded object-contain"
                               />
+                            ) : item.kind === 'video' ? (
+                              <div>▶ Video · {piece.lines[0] ?? ''}</div>
                             ) : (
                               piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
                             )}
@@ -350,6 +352,7 @@ function Live({ view }: { view: RemoteView | null }) {
         )}
       </div>
 
+      {view.video && <VideoBar video={view.video} connected={connected} />}
       <LiveLine view={view} />
 
       <footer
@@ -421,6 +424,73 @@ function liveText(view: RemoteView): string | null {
     return lines;
   }
   return title;
+}
+
+/** Seconds as `m:ss`. */
+function clock(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}
+
+/**
+ * The phone's control bar while a video item is live (media uploads M6.6): play or pause,
+ * 10 s jumps, and a scrubber, sent to the operator's computer like any other command.
+ */
+function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: boolean }) {
+  const { video, connected } = props;
+  const [now, setNow] = useState(() => Date.now());
+  const [dragging, setDragging] = useState<number | null>(null);
+  useEffect(() => {
+    if (!video.playing) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [video.playing]);
+  const elapsed = video.playing ? Math.max(0, (now - Date.parse(video.at)) / 1000) : 0;
+  const position = dragging ?? Math.min(video.durationSeconds, video.position + elapsed);
+  const seek = (seconds: number) =>
+    connection.send({ type: 'videoSeek', itemId: video.itemId, seconds });
+  const button =
+    'rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold active:scale-95 disabled:opacity-40';
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50">
+      <button className={button} disabled={!connected} onClick={() => seek(position - 10)}>
+        −10s
+      </button>
+      <button
+        className={`${button} min-w-20 bg-violet-600 text-white`}
+        disabled={!connected}
+        onClick={() =>
+          connection.send({
+            type: video.playing ? 'videoPause' : 'videoPlay',
+            itemId: video.itemId,
+          })
+        }
+      >
+        {video.playing ? 'Pause' : 'Play'}
+      </button>
+      <button className={button} disabled={!connected} onClick={() => seek(position + 10)}>
+        +10s
+      </button>
+      <span className="ml-auto text-xs tabular-nums">
+        {clock(position)} / {clock(video.durationSeconds)}
+      </span>
+      <input
+        type="range"
+        aria-label="Video position"
+        className="w-full accent-violet-400"
+        min={0}
+        max={video.durationSeconds || 1}
+        step={0.5}
+        disabled={!connected}
+        value={Math.min(position, video.durationSeconds)}
+        onChange={(event) => setDragging(Number(event.target.value))}
+        onPointerUp={() => {
+          if (dragging !== null) seek(dragging);
+          setDragging(null);
+        }}
+      />
+    </div>
+  );
 }
 
 function LiveLine({ view }: { view: RemoteView }) {

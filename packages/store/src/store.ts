@@ -24,8 +24,10 @@ import {
   type SongBackground,
   type SongFields,
   type SongRevision,
+  type Video,
   type Website,
   type Workspace,
+  VideoSchema,
 } from '@worship-q/protocol';
 import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
 import type { SqlDriver, SqlValue, Statement } from './driver';
@@ -54,6 +56,23 @@ const json = <T>(value: SqlValue | undefined, fallback: T): T => {
   }
 };
 
+/**
+ * A video stored as JSON, or received from another device; null when there is none or it is
+ * unreadable. One saved before Autoplay existed has it off (U23).
+ */
+export function videoOf(value: unknown): Video | null {
+  let data = value;
+  if (typeof value === 'string') {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  const parsed = VideoSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
+
 function toWorkspace(row: Row): Workspace {
   return {
     id: text(row.id),
@@ -79,6 +98,7 @@ const CONTENT_COLUMNS = [
   'background_asset_id',
   'deck',
   'website',
+  'video',
 ] as const;
 
 /**
@@ -105,6 +125,7 @@ function songContent(row: Row, prefix = ''): SongFields & { lineIds: string[] } 
         : { color: text(at('background_color')), assetId: optional(at('background_asset_id')) },
     deck: json<Deck | null>(at('deck'), null),
     website: json<Website | null>(at('website'), null),
+    video: videoOf(at('video')),
   };
 }
 
@@ -169,6 +190,7 @@ function toSongRevision(row: Row): SongRevision {
     background: songBackground(row),
     deck: json<Deck | null>(row.deck, null),
     website: json<Website | null>(row.website, null),
+    video: videoOf(row.video),
     createdAt: text(row.created_at),
   };
 }
@@ -317,7 +339,7 @@ export class Store {
   /** Whether the workspace manages a song's or background's type in the Church Library. */
   managesChurch(
     kind: 'song' | 'background',
-    data?: { deck?: unknown; website?: unknown } | null,
+    data?: { deck?: unknown; website?: unknown; video?: unknown } | null,
   ): boolean {
     const type = libraryTypeOf(kind, data);
     return type !== null && this.managedLibraryTypes.has(type);
@@ -392,8 +414,8 @@ export class Store {
   private revisionInsert(song: Song): Statement {
     return {
       sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year,
-              background_color, background_asset_id, deck, website, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              background_color, background_asset_id, deck, website, video, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -409,6 +431,7 @@ export class Store {
         song.background?.assetId ?? null,
         song.deck ? JSON.stringify(song.deck) : null,
         song.website ? JSON.stringify(song.website) : null,
+        song.video ? JSON.stringify(song.video) : null,
         song.updatedAt,
       ],
     };
@@ -455,6 +478,7 @@ export class Store {
       background: fields.background ?? null,
       deck: fields.deck ?? null,
       website: fields.website ?? null,
+      video: fields.video ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -469,8 +493,8 @@ export class Store {
     await this.db.batch([
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, website, revision, created_at, updated_at, origin)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                background_color, background_asset_id, deck, website, video, revision, created_at, updated_at, origin)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -485,6 +509,7 @@ export class Store {
           song.background?.assetId ?? null,
           song.deck ? JSON.stringify(song.deck) : null,
           song.website ? JSON.stringify(song.website) : null,
+          song.video ? JSON.stringify(song.video) : null,
           1,
           now,
           now,
@@ -516,7 +541,8 @@ export class Store {
       next.background?.color === current.background?.color &&
       next.background?.assetId === current.background?.assetId &&
       JSON.stringify(next.deck) === JSON.stringify(current.deck) &&
-      JSON.stringify(next.website) === JSON.stringify(current.website);
+      JSON.stringify(next.website) === JSON.stringify(current.website) &&
+      JSON.stringify(next.video) === JSON.stringify(current.video);
     if (unchanged) return current;
     this.validate(next);
 
@@ -554,7 +580,7 @@ export class Store {
     statements.push(
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
-                background_color = ?, background_asset_id = ?, deck = ?, website = ?, revision = ?,
+                background_color = ?, background_asset_id = ?, deck = ?, website = ?, video = ?, revision = ?,
                 updated_at = ?, origin = ?, use_church_version = 0
               WHERE id = ?`,
         params: [
@@ -569,6 +595,7 @@ export class Store {
           next.background?.assetId ?? null,
           next.deck ? JSON.stringify(next.deck) : null,
           next.website ? JSON.stringify(next.website) : null,
+          next.video ? JSON.stringify(next.video) : null,
           next.revision,
           next.updatedAt,
           next.origin,
@@ -814,6 +841,28 @@ export class Store {
       [songId],
     );
     return rows.map((row) => row.date);
+  }
+
+  /**
+   * The videos of run sheets dated `from` or later, each with the earliest such date, earliest
+   * first (U8). A song removed from the library still counts, as its run sheets present it.
+   */
+  async videosFrom(workspaceId: string, from: IsoDate): Promise<{ file: string; date: IsoDate }[]> {
+    const rows = await this.db.select<{ song_id: string; date: string }>(
+      `SELECT run_sheet_item.song_id AS song_id, MIN(run_sheet.date) AS date FROM run_sheet_item
+       JOIN run_sheet ON run_sheet.id = run_sheet_item.run_sheet_id
+       WHERE run_sheet.workspace_id = ? AND run_sheet.date >= ?
+       GROUP BY run_sheet_item.song_id ORDER BY date`,
+      [workspaceId, from],
+    );
+    const earliest = new Map<string, IsoDate>();
+    for (const row of rows) {
+      const file = (await this.getSong(row.song_id))?.video?.file;
+      if (file && !earliest.has(file)) earliest.set(file, row.date);
+    }
+    return [...earliest]
+      .map(([file, date]) => ({ file, date }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   // ── Run sheets ───────────────────────────────────────────────────────────

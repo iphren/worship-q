@@ -18,7 +18,7 @@ import {
   type Website,
 } from '@worship-q/protocol';
 import type { SqlValue, Statement } from './driver';
-import type { Store } from './store';
+import { videoOf, type Store } from './store';
 
 type Row = Record<string, SqlValue>;
 
@@ -511,6 +511,9 @@ export class SyncStore {
     const lineIds = Array.isArray(d.lineIds) ? d.lineIds : [];
     const deck = deckOf(d.deck);
     const website = websiteOf(d.website);
+    // A video's file is never fetched here: only run sheets dated today or later need it,
+    // and the video cache fetches those (U8).
+    const video = videoOf(d.video);
     // A deck's slide images are fetched like background files, also for a deck removed from
     // the library: run sheets that use it still present it.
     if (deck) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
@@ -519,14 +522,14 @@ export class SyncStore {
     const useChurchVersion = origin === 'workspace' && d.useChurchVersion === true ? 1 : 0;
     statements.push({
       sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-              background_color, background_asset_id, deck, website, revision, created_at, updated_at,
-              removed_at, origin, use_church_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              background_color, background_asset_id, deck, website, video, revision, created_at,
+              updated_at, removed_at, origin, use_church_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
               line_ids = excluded.line_ids, author = excluded.author, copyright = excluded.copyright,
               ccli = excluded.ccli, year = excluded.year, background_color = excluded.background_color,
               background_asset_id = excluded.background_asset_id, deck = excluded.deck,
-              website = excluded.website,
+              website = excluded.website, video = excluded.video,
               revision = excluded.revision, updated_at = excluded.updated_at,
               removed_at = excluded.removed_at,
               origin = coalesce(excluded.origin, song.origin),
@@ -545,6 +548,7 @@ export class SyncStore {
         background ? strOrNull(background.assetId) : null,
         deck ? JSON.stringify(deck) : null,
         website ? JSON.stringify(website) : null,
+        video ? JSON.stringify(video) : null,
         record.revision,
         str(d.createdAt) || record.updatedAt,
         record.updatedAt,
@@ -628,17 +632,19 @@ export class SyncStore {
     const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
     const deck = deckOf(d.deck);
     const website = websiteOf(d.website);
+    const video = videoOf(d.video);
     if (deck) changes.backgroundFiles.push(...deck.pages.map((page) => page.image));
     return [
       {
         sql: `INSERT INTO church_version (song_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, website, revision, updated_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                background_color, background_asset_id, deck, website, video, revision, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT (song_id) DO UPDATE SET title = excluded.title, lyrics = excluded.lyrics,
                 line_ids = excluded.line_ids, author = excluded.author, copyright = excluded.copyright,
                 ccli = excluded.ccli, year = excluded.year, background_color = excluded.background_color,
                 background_asset_id = excluded.background_asset_id, deck = excluded.deck,
-                website = excluded.website, revision = excluded.revision, updated_at = excluded.updated_at`,
+                website = excluded.website, video = excluded.video, revision = excluded.revision,
+                updated_at = excluded.updated_at`,
         params: [
           record.id,
           str(d.title),
@@ -652,6 +658,7 @@ export class SyncStore {
           background ? strOrNull(background.assetId) : null,
           deck ? JSON.stringify(deck) : null,
           website ? JSON.stringify(website) : null,
+          video ? JSON.stringify(video) : null,
           record.revision,
           record.updatedAt,
         ],
@@ -878,6 +885,7 @@ function songData(row: Row): Record<string, unknown> {
         : { color: text(row.background_color), assetId: optional(row.background_asset_id) },
     deck: parse(row.deck) ?? null,
     website: parse(row.website) ?? null,
+    video: videoOf(row.video),
     createdAt: text(row.created_at),
     removedAt: optional(row.removed_at),
   };
@@ -890,8 +898,8 @@ function applySongRevision(record: SyncRecord): Statement {
     // A revision another device numbered the same as one here is kept out; the song itself
     // still settles on the winning content.
     sql: `INSERT OR IGNORE INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author,
-            copyright, ccli, year, background_color, background_asset_id, deck, website, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            copyright, ccli, year, background_color, background_asset_id, deck, website, video, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     params: [
       record.id,
       str(d.songId),
@@ -907,6 +915,7 @@ function applySongRevision(record: SyncRecord): Statement {
       background ? strOrNull(background.assetId) : null,
       deckOf(d.deck) ? JSON.stringify(d.deck) : null,
       websiteOf(d.website) ? JSON.stringify(d.website) : null,
+      videoOf(d.video) ? JSON.stringify(videoOf(d.video)) : null,
       record.updatedAt,
     ],
   };

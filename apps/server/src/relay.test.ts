@@ -65,6 +65,8 @@ async function setup(relayOptions?: RelayOptions) {
       role?: 'operator' | 'viewer';
       withHost?: boolean;
       live?: LivePresence;
+      /** Takes video items (protocol version 5). */
+      videos?: boolean;
     } = {},
   ) {
     const token = options.token ?? instance.enroll(code, name)!.token;
@@ -96,6 +98,7 @@ async function setup(relayOptions?: RelayOptions) {
         screens: true,
         media: true,
         transparency: true,
+        ...(options.videos ? { videos: true } : {}),
       },
       live: options.live,
     });
@@ -801,6 +804,65 @@ describe('OBS control through the relay (OBS plan M2.5)', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('video items through the relay (media uploads U20, U21)', () => {
+  const withVideo = (revision: number, coordinatorId: string): LiveSnapshot => {
+    const item = {
+      itemId: 'i1',
+      songId: 's1',
+      title: 'Welcome',
+      removed: false,
+      kind: 'video' as const,
+      pieces: [
+        {
+          id: 'video',
+          lines: ['1:30'],
+          block: 0,
+          textless: true,
+          video: {
+            file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+            durationSeconds: 90,
+            width: 1920,
+            height: 1080,
+            autoplay: false,
+          },
+        },
+      ],
+    };
+    return {
+      ...snapshot(revision, coordinatorId),
+      items: [item],
+      presented: {
+        itemId: 'i1',
+        pieceId: 'video',
+        songId: 's1',
+        title: 'Welcome',
+        kind: 'video',
+        pieces: item.pieces,
+        background: null,
+        websiteUrl: null,
+        previous: false,
+      },
+    };
+  };
+
+  it('passes video items to desktops that take them, and as empty decks to older ones', async () => {
+    const { desktop, instance, workspace, output } = await setup();
+    const a = desktop('Projector', { withHost: false, videos: true });
+    const b = desktop('New laptop', { withHost: false, videos: true });
+    const c = desktop('Old laptop', { withHost: false });
+    const link = instance.createOutputLink(workspace.id, 'slideshow', 'Foyer');
+    const page = output(link.token);
+    const data: CoordinatorToFollower = { type: 'snapshot', snapshot: withVideo(1, a.deviceId) };
+    a.say({ type: 'toFollower', data });
+    expect(b.socket.last()).toEqual({ type: 'peer', from: a.deviceId, data });
+    const old = c.socket.last<{ data: { snapshot: LiveSnapshot } }>().data.snapshot;
+    expect(old.items[0]).toMatchObject({ kind: 'deck', pieces: [], title: 'Welcome' });
+    expect(old.presented).toMatchObject({ kind: 'deck', pieces: [] });
+    // Browser output pages come from this server, so they take them.
+    expect(page.socket.last<{ snapshot: LiveSnapshot }>().snapshot.items[0]!.kind).toBe('video');
   });
 });
 

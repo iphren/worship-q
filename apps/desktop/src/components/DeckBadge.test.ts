@@ -28,7 +28,7 @@ function srOnlyParents(element: ReactElement): string[] {
   return parents;
 }
 
-const song = { title: 'Welcome', deck: {}, website: null } as never;
+const song = { title: 'Welcome', deck: { source: 'a.pptx' }, website: null } as never;
 
 describe('hidden labels stay inside their scroll box', () => {
   it('keeps the deck badge label within a positioned badge', () => {
@@ -44,19 +44,44 @@ describe('hidden labels stay inside their scroll box', () => {
   });
 });
 
-describe('badge colours', () => {
-  const deck = { title: 'Offering', deck: {}, website: null } as never;
-  const website = { title: 'Welcome', deck: null, website: {} } as never;
-  const lyrics = { title: 'Song', deck: null, website: null } as never;
+describe('badge colours (U12)', () => {
+  const deck = (source: string, kind?: 'image') =>
+    ({
+      title: 'Offering',
+      deck: { source, ...(kind ? { kind } : {}), width: 1, height: 1, pages: [] },
+      website: null,
+      video: null,
+    }) as never;
+  const website = { title: 'Welcome', deck: null, website: {}, video: null } as never;
+  const video = {
+    title: 'Clip',
+    deck: null,
+    website: null,
+    video: { file: 'video-x.mp4' },
+  } as never;
+  const lyrics = { title: 'Song', deck: null, website: null, video: null } as never;
+  const html = (song: never) => renderToStaticMarkup(createElement(DeckBadge, { song }));
 
-  it('gives each kind its own colour', () => {
-    expect(badgeKind(deck)).toBe('slides');
+  it('gives each kind its own colour and label', () => {
+    expect(badgeKind(deck('a.pptx'))).toBe('slides');
+    expect(badgeKind(deck('a.pdf'))).toBe('pdf');
+    expect(badgeKind(deck('a.jpg', 'image'))).toBe('image');
+    expect(badgeKind(video)).toBe('video');
     expect(badgeKind(website)).toBe('website');
     expect(badgeKind(lyrics)).toBeNull();
-    const deckHtml = renderToStaticMarkup(createElement(DeckBadge, { song: deck }));
-    const websiteHtml = renderToStaticMarkup(createElement(DeckBadge, { song: website }));
-    expect(deckHtml).toContain('text-orange-300');
-    expect(websiteHtml).toContain('text-fuchsia-300');
-    expect(renderToStaticMarkup(createElement(DeckBadge, { song: lyrics }))).toBe('');
+    expect(html(deck('a.pptx'))).toContain('text-orange-300');
+    expect(html(deck('a.PDF'))).toContain('text-rose-300');
+    expect(html(deck('a.png', 'image'))).toContain('text-emerald-300');
+    expect(html(video)).toContain('text-violet-300');
+    expect(html(website)).toContain('text-fuchsia-300');
+    expect(html(lyrics)).toBe('');
+    // The colour is never the only sign: each keeps its label.
+    expect(html(video)).toContain('>Video</span>');
+    expect(html(deck('a.pdf'))).toContain('title="PDF"');
+  });
+
+  it('reads a deck from before kinds as slides, or a PDF by its file', () => {
+    expect(badgeKind({ deck: { source: 'Notes.PDF' }, website: null } as never)).toBe('pdf');
+    expect(badgeKind({ deck: { source: 'talk.key' }, website: null } as never)).toBe('slides');
   });
 });

@@ -603,6 +603,8 @@ export class LiveLink {
         runSheetId: 'none',
         presented: null,
         lastShown: {},
+        video: null,
+        videoPositions: {},
         blank: false,
         revision: 0,
         appliedCommandIds: [],

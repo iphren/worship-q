@@ -40,6 +40,10 @@ import {
 } from '@worship-q/sync';
 import { native, type LanCredential, type LanStatus } from '../platform/native';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
+import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
+import { mediaOffer, type MediaOffer } from './media';
+import { MediaUploads, type UploadDeps, type UploadTarget } from './uploads';
+import { VideoCache, type VideoCacheDeps } from './videoCache';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
 import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
@@ -114,6 +118,11 @@ export class CloudController {
   readonly host: RemoteHost;
   /** The workspace's OBS state on this desktop (OBS control plan). */
   readonly obs: ObsShare;
+  /** Media being uploaded from this computer; they carry on across pages (U16). */
+  readonly uploads: MediaUploads;
+  /** This computer's copies of the videos of upcoming run sheets (U8, U9). */
+  readonly videos: VideoCache;
+  private videoTimer: number | undefined;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
   private state: SyncState | null = null;
@@ -137,7 +146,6 @@ export class CloudController {
   private editTimer: number | undefined;
   private timers: number[] = [];
   private syncing = false;
-  private decks: { server: string; available: Promise<boolean> } | null = null;
   private appVersion = '';
   private missingFonts: string[] = [];
   private fontsTimer: number | undefined;
@@ -156,6 +164,15 @@ export class CloudController {
       () => this.state?.deviceId ?? null,
     );
     this.client = this.makeClient();
+    this.uploads = new MediaUploads(this.uploadDeps());
+    this.videos = new VideoCache(this.videoCacheDeps());
+    let readyVideos = 0;
+    this.videos.subscribe(() => {
+      // A copy that arrived may be the one on screen.
+      const ready = [...this.videos.statuses.values()].filter((s) => s.kind === 'ready').length;
+      if (ready > readyVideos) this.output.fileArrived();
+      readyVideos = ready;
+    });
     this.obs = new ObsShare({
       deviceId: () => this.state?.deviceId ?? '',
       deviceName: () => this.state?.deviceName ?? 'This computer',
@@ -300,6 +317,9 @@ export class CloudController {
     this.update({ state: this.state, sync: this.client.status });
     // A computer that left its church before the defaults were forgotten on leaving.
     if (!this.state?.deviceToken) await this.session.store.dropChurchSettings();
+    // Run sheet edits, here or arriving, may need videos fetched or let them go (U8, U9).
+    this.session.subscribe(() => this.scheduleVideos());
+    this.scheduleVideos();
     // Edits made here are sent shortly after; content applied from the instance is not.
     this.session.subscribe(() => {
       if (this.syncing || !this.connected) return;
@@ -330,6 +350,7 @@ export class CloudController {
     window.clearTimeout(this.editTimer);
     window.clearTimeout(this.fontsTimer);
     window.clearTimeout(this.offlineTimer);
+    window.clearTimeout(this.videoTimer);
     this.relay?.close();
     this.lanTransport?.close();
     this.lanHost?.stop();
@@ -418,6 +439,7 @@ export class CloudController {
     } finally {
       this.syncing = false;
       await this.refreshState();
+      this.scheduleVideos();
     }
   }
 
@@ -563,47 +585,160 @@ export class CloudController {
     if (Date.now() - last > BACKUP_EVERY_MS) await this.backupNow();
   }
 
-  // ── Slide decks ──────────────────────────────────────────────────────────
+  // ── Media (media uploads plan) ───────────────────────────────────────────
 
-  /** Whether the church instance can convert slide decks. */
-  decksAvailable(): Promise<boolean> {
-    const server = this.state?.server;
-    if (!server || !this.connected) return Promise.resolve(false);
-    if (this.decks?.server !== server) {
-      const available = fetch(`${server}/api/v1/info`)
-        .then((response) => response.json() as Promise<{ decks?: boolean }>)
-        .then((info) => info.decks === true)
-        .catch(() => {
-          // Asked again next time, in case the instance was only out of reach.
-          this.decks = null;
-          return false;
-        });
-      this.decks = { server, available };
-    }
-    return this.decks.available;
+  /** What the church's server takes now (U19); null when not connected. */
+  mediaOffer(): MediaOffer | null {
+    return this.connected ? mediaOffer(this.status_.server) : null;
   }
 
   /**
-   * Has the church instance convert a slide deck into images, fetches them, and saves the
-   * deck as a song. Other computers fetch the images when the song reaches them.
+   * Queues files for uploading, after asking the server what it takes, so a limit changed
+   * since this computer last asked is the one used (U2). Returns the files Worship Q cannot
+   * show, which are left out.
    */
-  async importDeck(
-    source: string,
-    onProgress: (stage: 'converting' | 'fetching', done: number, total: number) => void,
-  ): Promise<Song> {
+  async addMedia(paths: readonly string[], target: UploadTarget): Promise<string[]> {
+    await this.recheckProtocol().catch(() => undefined);
+    return this.uploads.add(paths, target).refused;
+  }
+
+  /** The dependencies of the upload queue, on this computer and its church server. */
+  private uploadDeps(): UploadDeps {
+    return {
+      newId: () => crypto.randomUUID(),
+      platform: /Mac/.test(navigator.userAgent)
+        ? 'macos'
+        : /Windows/.test(navigator.userAgent)
+          ? 'windows'
+          : 'other',
+      offer: () => this.mediaOffer(),
+      credentials: () => {
+        const { server, deviceToken } = this.state ?? {};
+        return server && deviceToken && this.connected ? { server, token: deviceToken } : null;
+      },
+      fileSize: native.fileSize,
+      convertHeic: native.convertHeic,
+      removeConverted: native.removeConverted,
+      probeVideo: async (path) => probeVideo(await native.mediaFileUrl(path)),
+      upload: ({ server, token }, id, route, source, name, onProgress) =>
+        native.uploadMedia(server, token, id, route, source, name, onProgress),
+      cancel: async (id) => {
+        await native.cancelTransfer(id);
+      },
+      fetchDeckImages: async ({ server, token }, deck) => {
+        for (const page of deck.pages) await native.downloadBackground(server, token, page.image);
+        this.output.forgetFiles();
+      },
+      storeVideo: async (source, file) => {
+        await native.storeVideo(source, file);
+        this.videos.uploaded(file);
+      },
+      createSong: (fields) => this.session.createSong(fields),
+      saveSong: (id, fields) => this.session.saveSong(id, fields),
+      getSong: (id) => this.session.store.getSong(id),
+      canEdit: (date) => this.session.canEdit(date),
+      addSong: (date, songId, afterItemId) => this.session.addSong(date, songId, afterItemId),
+    };
+  }
+
+  /** What the video cache needs, on this computer and its church server. */
+  private videoCacheDeps(): VideoCacheDeps {
+    const key = 'worship-q.videoUploads';
+    return {
+      today: () => this.session.today(),
+      wanted: (from) => this.session.store.videosFrom(this.session.workspace.id, from),
+      list: () => native.listVideos(),
+      fetch: async (file, onProgress) => {
+        const { server, deviceToken } = this.state ?? {};
+        if (!server || !deviceToken) throw new Error('not-connected');
+        const { path } = await native.videoLocation(file);
+        await native.downloadMedia(
+          server,
+          deviceToken,
+          crypto.randomUUID(),
+          `/api/v1/files/${file}`,
+          path,
+          onProgress,
+        );
+      },
+      remove: (file) => native.removeVideo(file),
+      connected: () => this.connected,
+      uploads: {
+        get: () => {
+          try {
+            return JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, string>;
+          } catch {
+            return {};
+          }
+        },
+        set: (value) => {
+          try {
+            localStorage.setItem(key, JSON.stringify(value));
+          } catch {
+            // Kept for this run only.
+          }
+        },
+      },
+    };
+  }
+
+  /** Looks at the videos upcoming run sheets need, shortly after the last change. */
+  private scheduleVideos(): void {
+    window.clearTimeout(this.videoTimer);
+    this.videoTimer = window.setTimeout(() => void this.videos.pass().catch(console.error), 1500);
+  }
+
+  /**
+   * Saves a media item's original file at `destination` (U18): a video from this computer's
+   * copy when it has one, otherwise from the church's server.
+   */
+  async downloadOriginal(
+    song: Song,
+    destination: string,
+    onProgress: (done: number, total: number) => void,
+  ): Promise<void> {
+    const local = song.video ? await native.videoLocation(song.video.file) : null;
+    const source = originalSource(song, local?.exists ? local.path : null);
+    if (!source) throw new Error('no-original');
+    if ('local' in source) return native.copyFile(source.local, destination);
     const { server, deviceToken } = this.state ?? {};
     if (!server || !deviceToken || !this.connected) throw new Error('not-connected');
-    onProgress('converting', 0, 0);
-    const deck = DeckSchema.parse(JSON.parse(await native.importDeck(server, deviceToken, source)));
-    let done = 0;
-    onProgress('fetching', done, deck.pages.length);
-    for (const page of deck.pages) {
-      await native.downloadBackground(server, deviceToken, page.image);
-      onProgress('fetching', ++done, deck.pages.length);
+    await native.downloadMedia(
+      server,
+      deviceToken,
+      crypto.randomUUID(),
+      source.server,
+      destination,
+      onProgress,
+    );
+  }
+
+  /**
+   * Converts a slide deck's kept original again on the server and saves the new deck as the
+   * item's next revision (U4). The processing stage shows meanwhile.
+   */
+  async reconvert(song: Song): Promise<Song> {
+    const { server, deviceToken } = this.state ?? {};
+    if (!server || !deviceToken || !this.connected) throw new Error('not-connected');
+    const response = await fetch(
+      `${server}/api/v1/decks/${deckIdOf(song)}/reconvert?name=${encodeURIComponent(song.deck?.source ?? '')}`,
+      {
+        method: 'POST',
+        headers: {
+          [PROTOCOL_HEADER]: String(this.protocolVersion),
+          authorization: `Bearer ${deviceToken}`,
+        },
+      },
+    );
+    if (response.status === 404) throw new Error('no-original');
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { message?: string };
+      throw new Error(body.message ?? `server answered ${response.status}`);
     }
+    const deck = DeckSchema.parse(await response.json());
+    for (const page of deck.pages) await native.downloadBackground(server, deviceToken, page.image);
     this.output.forgetFiles();
-    const title = deck.source.replace(/\.[^.]+$/, '');
-    return this.session.createSong({ title, lyrics: deckLyrics(deck), deck });
+    return this.session.saveSong(song.id, { deck, lyrics: deckLyrics(deck) });
   }
 
   // ── Remote control ───────────────────────────────────────────────────────
@@ -750,6 +885,8 @@ export class CloudController {
       transparency: true,
       missingFonts: this.missingFonts,
       obs: this.obsSupported(),
+      // Video items in snapshots (protocol version 5, U21).
+      videos: true,
     };
   }
 

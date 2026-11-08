@@ -19,7 +19,7 @@ import {
 export const LIBRARY_TYPE_NOUNS: Record<LibraryType, string> = {
   songs: 'songs',
   backgrounds: 'backgrounds',
-  slides: 'slides',
+  slides: 'media',
   websites: 'websites',
 };
 
@@ -27,7 +27,7 @@ export const LIBRARY_TYPE_NOUNS: Record<LibraryType, string> = {
 export const LIBRARY_TYPE_LABELS: Record<LibraryType, string> = {
   songs: 'Songs',
   backgrounds: 'Backgrounds',
-  slides: 'Slides',
+  slides: 'Media',
   websites: 'Websites',
 };
 

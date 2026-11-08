@@ -45,6 +45,9 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    },
+    "macOS": {
+      "entitlements": "./Entitlements.plist"
     }
   },
   "plugins": {

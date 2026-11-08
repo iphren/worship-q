@@ -119,6 +119,12 @@ export class OutputController {
     this.urls.clear();
   }
 
+  /** Draws the frame again once a file arrived, such as this computer's copy of a video. */
+  fileArrived(): void {
+    this.forgetFiles();
+    void this.refresh();
+  }
+
   /** Where a stored file is, from the cache or else asked for; null when it is missing. */
   private async fileUrl(fileName: string): Promise<string | null> {
     const cached = this.urls.get(fileName);
@@ -142,6 +148,13 @@ export class OutputController {
       ...(song?.deck?.pages.map((page) => page.image) ?? []),
     ];
     for (const name of names) resolved.set(name, (await this.fileUrl(name)) ?? '');
+    // A video plays only from this computer's copy, never streamed from the server (U8).
+    if (song?.video) {
+      resolved.set(
+        song.video.file,
+        (await native.videoUrl(song.video.file).catch(() => null)) ?? '',
+      );
+    }
     const frame = await this.session.frame((fileName) => resolved.get(fileName) ?? '');
     // A selected background whose file is missing falls back to the solid color.
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;
@@ -159,7 +172,15 @@ export class OutputController {
     // page server rather than reading them where they are (plan M7.7).
     if (this.overlayBase) {
       const base = this.overlayBase;
-      const page = await this.session.frame((fileName) => `${base}/files/${fileName}`);
+      const video = song?.video?.file;
+      const page = await this.session.frame((fileName) =>
+        fileName !== video
+          ? `${base}/files/${fileName}`
+          : // Its copy on this computer, once there is one (U8).
+            resolved.get(fileName)
+            ? `${base}/videos/${encodeURIComponent(fileName)}`
+            : '',
+      );
       if (this.stopped || request !== this.frameRequest) return;
       page.message = frame.message;
       await native.publishOverlay(page, 'slideshow').catch(console.error);

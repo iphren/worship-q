@@ -24,7 +24,17 @@ export type PresentAction =
   /** Takes the slide off the screen, staying live. */
   | 'clear'
   /** A slide of the browsed or presented item by its position, counted from zero. */
-  | { slide: number };
+  | { slide: number }
+  /** While a video item is live (M6.5): play or pause it, and jump 10 s back or forward. */
+  | 'video-toggle'
+  | 'video-back'
+  | 'video-forward'
+  /** While a video item is live: present the next or previous run sheet item. */
+  | 'present-next-item'
+  | 'present-previous-item';
+
+/** How far Left and Right jump through a live video. */
+export const VIDEO_JUMP_SECONDS = 10;
 
 /**
  * The keys that jump to a slide of the presented item, in slide order: the number row, then
@@ -39,8 +49,30 @@ export function slideKeyLabel(slide: number): string | null {
 
 type KeyPress = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>;
 
-export function presentAction(event: KeyPress): PresentAction | null {
+/**
+ * The action of a key. While a video item is live and the slide keys are on it (`video`),
+ * Space plays or pauses, Left and Right jump through the video, and Up and Down move to the
+ * previous and next item (U21, M6.5); every other key does what it does otherwise.
+ */
+export function presentAction(
+  event: KeyPress,
+  context: { video?: boolean } = {},
+): PresentAction | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
+  if (context.video) {
+    switch (event.key) {
+      case ' ':
+        return 'video-toggle';
+      case 'ArrowLeft':
+        return 'video-back';
+      case 'ArrowRight':
+        return 'video-forward';
+      case 'ArrowUp':
+        return 'present-previous-item';
+      case 'ArrowDown':
+        return 'present-next-item';
+    }
+  }
   switch (event.key) {
     case 'ArrowDown':
       return 'slide-next';
@@ -79,6 +111,10 @@ export interface PresentControls {
   setBlank(blank: boolean): Promise<unknown>;
   clear(): Promise<unknown>;
   playSlide(slide: number): Promise<unknown>;
+  readonly video: { playing: boolean } | null;
+  videoPlay(playing: boolean): Promise<unknown>;
+  videoSeek(to: { by: number }): Promise<unknown>;
+  presentItem(by: 1 | -1): Promise<unknown>;
 }
 
 export function runPresentAction(session: PresentControls, action: PresentAction): void {
@@ -104,5 +140,27 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.setBlank(!session.live?.blank);
     case 'clear':
       return void session.clear();
+    case 'video-toggle':
+      return void session.videoPlay(!session.video?.playing);
+    case 'video-back':
+      return void session.videoSeek({ by: -VIDEO_JUMP_SECONDS });
+    case 'video-forward':
+      return void session.videoSeek({ by: VIDEO_JUMP_SECONDS });
+    case 'present-next-item':
+      return void session.presentItem(1);
+    case 'present-previous-item':
+      return void session.presentItem(-1);
   }
+}
+
+/**
+ * Whether the keys act on a live video (M6.5): a video item is presented, and the slide keys
+ * have not been moved to another item.
+ */
+export function videoKeys(session: {
+  readonly video: { itemId: string } | null;
+  readonly browsedItemId: string | null;
+}): boolean {
+  const video = session.video;
+  return !!video && (session.browsedItemId === null || session.browsedItemId === video.itemId);
 }
