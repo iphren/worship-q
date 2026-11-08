@@ -11,7 +11,7 @@ import {
 } from '@worship-q/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { t } from '../i18n';
+import { formatDate, t } from '../i18n';
 import { SongBackgroundFields } from './BackgroundPicker';
 import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
@@ -200,6 +200,38 @@ function VersionedSongForm(props: SongFormProps & { song: Song }) {
   );
 }
 
+/**
+ * The Title label, with how the item has been used: "Title · Last used on Sunday 1st Nov ·
+ * Used in 3 run sheets". "Last used" is the latest run sheet up to today; the count takes in
+ * every run sheet, planned ones too.
+ */
+function TitleLabel(props: { song: Song | null }) {
+  const session = useSession();
+  const id = props.song?.id;
+  const usage = useQuery(async () => (id ? session.store.songUsage(id) : null), [id]);
+  const today = session.today();
+  const last = usage?.filter((date) => date <= today).at(-1);
+  const stats = !usage
+    ? []
+    : usage.length === 0
+      ? [t('songs.unused')]
+      : [
+          ...(last ? [t('songs.lastUsed', { date: formatDate(last) })] : []),
+          usage.length === 1 ? t('songs.usedOnce') : t('songs.usedIn', { count: usage.length }),
+        ];
+  return (
+    <span className="label">
+      {t('songs.title')}
+      {stats.map((stat) => (
+        <span key={stat} className="font-normal tracking-normal normal-case">
+          {' · '}
+          {stat}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 const changedText = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
@@ -338,7 +370,7 @@ function WebsiteForm(props: SongFormProps) {
     >
       {!props.quick && (
         <label>
-          <span className="label">{t('songs.title')}</span>
+          <TitleLabel song={song} />
           <input
             className="field"
             value={title}
@@ -406,7 +438,7 @@ export function TitleForm(props: { song: Song; onSaved(song: Song): void; action
       }}
     >
       <label>
-        <span className="label">{t('songs.title')}</span>
+        <TitleLabel song={song} />
         <input
           className="field"
           value={title}
@@ -462,7 +494,7 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
     >
       {!props.quick && (
         <label>
-          <span className="label">{t('songs.title')}</span>
+          <TitleLabel song={song} />
           <input
             className="field"
             value={title}
@@ -556,7 +588,7 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
       }}
     >
       <label>
-        <span className="label">{t('songs.title')}</span>
+        <TitleLabel song={song} />
         <input
           className="field"
           value={title}
@@ -702,7 +734,7 @@ function LyricsForm(props: SongFormProps) {
       }}
     >
       <label>
-        <span className="label">{t('songs.title')}</span>
+        <TitleLabel song={song} />
         <input
           className="field"
           value={draft.title}
