@@ -682,9 +682,29 @@ export class Session {
     return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
   }
 
+  /**
+   * How far this computer's clock is ahead of the coordinator's, in milliseconds, learned
+   * from the changes it sends: the smallest gap seen lately, which is the clock difference
+   * plus the quickest delivery (§3.10). Zero until a change arrives, and while coordinating.
+   */
+  private clockOffsetMs = 0;
+  private clockSamples: number[] = [];
+
+  private learnClock(sample: number): void {
+    if (!Number.isFinite(sample)) return;
+    this.clockSamples = [...this.clockSamples, sample].slice(-20);
+    this.clockOffsetMs = Math.min(...this.clockSamples);
+  }
+
+  /** A video clock taken by the coordinator, moved onto this computer's clock. */
+  private localVideo(video: LiveState['video']): LiveState['video'] {
+    if (!video || !this.relay_ || this.clockOffsetMs === 0) return video;
+    return { ...video, at: new Date(Date.parse(video.at) + this.clockOffsetMs).toISOString() };
+  }
+
   /** The presented video item's playback, when a video item is presented (U21). */
   get video(): LiveState['video'] {
-    return this.isLive ? (this.live_?.video ?? null) : null;
+    return this.isLive ? this.localVideo(this.live_?.video ?? null) : null;
   }
 
   /** Plays or pauses the presented video item. */
@@ -1119,6 +1139,15 @@ export class Session {
           ),
         );
       }
+      // A new version of a video starts from the beginning next time; the one live keeps
+      // playing the old file until then (U26).
+      if (this.live_ && !this.relay_ && before?.video && after.video?.file !== before.video.file) {
+        let state = this.live_;
+        for (const [itemId, shown] of Object.entries(state.lastShown)) {
+          if (shown.songId === id) state = forgetVideoPosition(state, itemId, this.nowIso());
+        }
+        await this.setLive(state);
+      }
       return after;
     });
   }
@@ -1231,6 +1260,10 @@ export class Session {
   applySnapshot(snapshot: LiveSnapshot): Promise<void> {
     return this.mutate(async () => {
       const before = this.live_;
+      // A change the coordinator just made tells how far its clock is from this one's.
+      if (before && snapshot.state.updatedAt !== before.updatedAt) {
+        this.learnClock(Date.parse(this.nowIso()) - Date.parse(snapshot.state.updatedAt));
+      }
       this.snapshot_ = snapshot;
       if (before?.presented !== snapshot.state.presented) {
         const same =
@@ -1253,7 +1286,8 @@ export class Session {
    */
   adoptSnapshot(snapshot: LiveSnapshot): Promise<void> {
     return this.mutate(async () => {
-      let state = snapshot.state;
+      // A video carries on from where it was, by this computer's clock (U22).
+      let state = { ...snapshot.state, video: this.localVideo(snapshot.state.video) };
       if (!(await this.store.getRunSheet(state.runSheetId))) {
         const local = await this.store.ensureRunSheet(this.workspace_.id, snapshot.date);
         const presented =
@@ -1508,7 +1542,7 @@ export class Session {
       // Played by the slideshow window only, on black; a subtitle overlay shows nothing. The
       // live state's clock says where it is (U22).
       frame.pieceId = VIDEO_PIECE_ID;
-      const clock = this.live_?.video;
+      const clock = this.video;
       if (kind === 'slideshow' && clock && clock.itemId === presented.itemId) {
         frame.video = {
           url: mediaUrl(song.video.file),

@@ -1369,6 +1369,50 @@ describe('video items (media uploads M5.4, M6.1)', () => {
     expect(session.live!.videoPositions).toEqual({});
   });
 
+  it.each([
+    ['ahead', 5000],
+    ['behind', -5000],
+  ])(
+    'puts a follower whose clock is 5 s %s on the coordinator’s video clock',
+    async (_name, skew) => {
+      await presentVideo();
+      const snapshotOf = async (revision: number) => ({
+        ...(await session.buildSnapshot('A'))!,
+        revision,
+      });
+      const first = await snapshotOf(1);
+      const follower = (
+        await Session.open(store, { now: () => new Date(env.date().getTime() + skew) }, 'UTC')
+      ).session;
+      follower.follow({ send: () => undefined });
+      await follower.applySnapshot(first);
+      env.advance(1000);
+      await session.videoPlay(true);
+      const playing = await snapshotOf(2);
+      // Delivered 40 ms later.
+      env.advance(40);
+      await follower.applySnapshot(playing);
+      env.advance(10_000);
+      const now = new Date(env.date().getTime() + skew).toISOString();
+      const frame = await follower.frame(mediaUrl);
+      const position =
+        frame.video!.position + (Date.parse(now) - Date.parse(frame.video!.at)) / 1000;
+      // The coordinator's video is 10.04 s in; the follower is within half a second of it.
+      expect(Math.abs(position - 10.04)).toBeLessThan(0.5);
+    },
+  );
+
+  it('forgets where a video was left when a new version replaces its file (U26)', async () => {
+    const created = await presentVideo();
+    await session.videoSeek({ seconds: 42 });
+    await session.next();
+    expect(Object.values(session.live!.videoPositions)).toEqual([42]);
+    await session.saveSong(created.id, {
+      video: { ...video, file: 'video-1f8fad5b-d9cb-469f-a165-70867728950e.mp4' },
+    });
+    expect(session.live!.videoPositions).toEqual({});
+  });
+
   it('sends video commands to the coordinator from a follower', async () => {
     await presentVideo();
     const sent: unknown[] = [];
