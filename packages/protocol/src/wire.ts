@@ -321,6 +321,10 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('removeItem'), itemId: z.string() }),
   z.object({ type: z.literal('moveItem'), itemId: z.string(), afterItemId: z.string().nullable() }),
+  // Video playback (protocol version 5, U21).
+  z.object({ type: z.literal('videoPlay'), itemId: z.string() }),
+  z.object({ type: z.literal('videoPause'), itemId: z.string() }),
+  z.object({ type: z.literal('videoSeek'), itemId: z.string(), seconds: z.number().finite() }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 export type RemoteEditCommand = Extract<

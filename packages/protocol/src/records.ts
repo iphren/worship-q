@@ -373,6 +373,25 @@ export const PresentedSchema = z.object({
 });
 export type Presented = z.infer<typeof PresentedSchema>;
 
+/**
+ * The presented video item's playback (media uploads plan, U22, U23): where it was at `at`,
+ * and whether it has played on since. One clock for every screen.
+ */
+export const LiveVideoSchema = z.object({
+  itemId: IdSchema,
+  playing: z.boolean(),
+  /** Seconds into the video at `at`. */
+  position: z.number().min(0),
+  at: TimestampSchema,
+  durationSeconds: z.number().min(0),
+  /**
+   * Set while blanking paused it, or while an Autoplay video waits for the screen, so
+   * unblanking plays it; cleared by the operator's own play or pause (U22, U23).
+   */
+  resumeOnUnblank: z.boolean(),
+});
+export type LiveVideo = z.infer<typeof LiveVideoSchema>;
+
 export const LiveStateSchema = z.object({
   status: z.enum(['live', 'ended']),
   /** Link to the dated run sheet, not a copy of it. */
@@ -384,6 +403,13 @@ export const LiveStateSchema = z.object({
    * added start empty.
    */
   lastShown: z.record(IdSchema, z.object({ songId: IdSchema, pieceId: IdSchema })).default({}),
+  /** The presented video item's playback; null when no video item is presented. */
+  video: LiveVideoSchema.nullable().default(null),
+  /**
+   * Where each video item was left, in seconds, keyed by run sheet item (U22). Lasts as long
+   * as this live state; states saved before it was added start empty.
+   */
+  videoPositions: z.record(IdSchema, z.number().min(0)).default({}),
   blank: z.boolean(),
   revision: z.number().int().min(0),
   /** Recently applied command identifiers, so a repeated command is applied once. */
@@ -412,6 +438,18 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ ...commandBase, type: z.literal('clear') }),
   z.object({ ...commandBase, type: z.literal('goLive'), runSheetId: IdSchema }),
   z.object({ ...commandBase, type: z.literal('end') }),
+  /**
+   * Video playback (protocol version 5, U21). Each names the video item it is meant for, so
+   * one sent from a slow phone after the item changed is ignored.
+   */
+  z.object({ ...commandBase, type: z.literal('videoPlay'), itemId: IdSchema }),
+  z.object({ ...commandBase, type: z.literal('videoPause'), itemId: IdSchema }),
+  z.object({
+    ...commandBase,
+    type: z.literal('videoSeek'),
+    itemId: IdSchema,
+    seconds: z.number().finite(),
+  }),
 ]);
 export type Command = z.infer<typeof CommandSchema>;
 export type CommandType = Command['type'];

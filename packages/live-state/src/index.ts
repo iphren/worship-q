@@ -7,6 +7,7 @@
  */
 import { locatePiece, type Piece } from '@worship-q/lyrics';
 import type { Command, LiveState, Presented } from '@worship-q/protocol';
+import { applyVideoCommand, followPresentation, type VideoInfo } from './video';
 
 export type { Command, LiveState, Presented };
 
@@ -19,6 +20,8 @@ export interface PlayablePiece {
   itemId: string;
   songId: string;
   pieceId: string;
+  /** Set on a video item's one piece: its length and whether it plays on entry (U23). */
+  video?: VideoInfo;
 }
 
 export interface CommandContext {
@@ -47,6 +50,8 @@ export function createLiveState(runSheetId: string, now: string): LiveState {
     runSheetId,
     presented: null,
     lastShown: {},
+    video: null,
+    videoPositions: {},
     blank: false,
     revision: 0,
     appliedCommandIds: [],
@@ -218,7 +223,54 @@ function reduce(
       return { presented: null, blank: false };
     case 'end':
       return { status: 'ended', presented: null, lastShown: {}, blank: false };
+    case 'videoPlay':
+    case 'videoPause':
+    case 'videoSeek': {
+      // One meant for an item no longer presented, as from a slow phone, changes nothing.
+      const video = applyVideoCommand(state, command, context.now);
+      return video ? { video } : {};
+    }
   }
+}
+
+/** The presented item's video, as the run sheet describes it, or as it was when removed. */
+function presentedVideo(
+  before: LiveState,
+  after: LiveState,
+  sequence: readonly PlayablePiece[],
+): VideoInfo | null {
+  const presented = after.presented;
+  if (!presented) return null;
+  const piece = sequence.find(
+    (p) => p.itemId === presented.itemId && p.pieceId === presented.pieceId,
+  );
+  if (piece) return piece.video ?? null;
+  // An item removed while presented still presents its video.
+  if (before.video?.itemId === presented.itemId) {
+    return { durationSeconds: before.video.durationSeconds, autoplay: false };
+  }
+  return null;
+}
+
+/** The video fields after a command, which may have changed what is presented (U22, U23). */
+function withVideo(
+  before: LiveState,
+  after: LiveState,
+  command: Command,
+  context: CommandContext,
+): Partial<LiveState> {
+  if (command.type === 'videoPlay' || command.type === 'videoPause' || command.type === 'videoSeek')
+    return {};
+  // Ending, or another run sheet going live, forgets where videos were left.
+  if (command.type === 'end') return { video: null, videoPositions: {} };
+  const forget = command.type === 'goLive' && before.runSheetId !== command.runSheetId;
+  const followed = followPresentation(
+    before,
+    forget ? { ...after, videoPositions: {} } : after,
+    presentedVideo(before, after, context.sequence),
+    context.now,
+  );
+  return forget ? { ...followed, videoPositions: {} } : followed;
 }
 
 /** Applies a command once. A repeated identifier leaves the state untouched. */
@@ -231,12 +283,13 @@ export function applyCommand(
 
   const change = reduce(state, command, context);
   if (typeof change === 'string') return { state, result: 'rejected', reason: change };
+  const changed = { ...state, ...change };
 
   return {
     result: 'applied',
     state: {
-      ...state,
-      ...change,
+      ...changed,
+      ...withVideo(state, changed, command, context),
       revision: state.revision + 1,
       appliedCommandIds: [...state.appliedCommandIds, command.id].slice(-COMMAND_MEMORY),
       updatedAt: context.now,
@@ -352,5 +405,14 @@ export function songsInLiveState(state: LiveState): Set<string> {
   return songs;
 }
 
+/** Forgets where a video item was left, once it is removed from the run sheet (U22). */
+export function forgetVideoPosition(state: LiveState, itemId: string, now: string): LiveState {
+  if (!(itemId in state.videoPositions)) return state;
+  const videoPositions = { ...state.videoPositions };
+  delete videoPositions[itemId];
+  return { ...state, videoPositions, revision: state.revision + 1, updatedAt: now };
+}
+
+export { END_SLACK_SECONDS, videoAt, videoPosition, type VideoInfo } from './video';
 export * from './coordination';
 export * from './obs';
