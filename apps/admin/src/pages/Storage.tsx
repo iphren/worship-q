@@ -8,6 +8,8 @@ import { useLoad } from '../useLoad';
 const TYPES: { type: StorageType; label: string }[] = [
   { type: 'deckImages', label: 'Slide images' },
   { type: 'deckOriginals', label: 'Original slide files' },
+  { type: 'images', label: 'Images' },
+  { type: 'videos', label: 'Videos' },
   { type: 'backgroundImages', label: 'Background images' },
   { type: 'backgroundVideos', label: 'Background videos' },
   { type: 'backups', label: 'Backups' },

@@ -33,9 +33,14 @@ import {
  * live-state protocol is unchanged, so version 2 and 3 desktops present together, and each
  * side speaks the other's version when it is older (decision D26). Version 4 adds OBS control
  * (`./obs`): new message kinds that the relay must know before it passes them on, sent only
- * to devices declaring the `obs` capability, so version 3 desktops are untouched.
+ * to devices declaring the `obs` capability, so version 3 desktops are untouched. Version 5
+ * adds video items (media uploads plan, U20, U21): songs with a `video`, which the instance
+ * keeps when an older desktop saves the song without it, and video playback in the live
+ * state.
  */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
+/** The first protocol version that knows songs' `video` (U20). */
+export const VIDEO_PROTOCOL_VERSION = 5;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 

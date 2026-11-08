@@ -202,6 +202,10 @@ export interface AdminLibraryUsage {
 export type StorageType =
   | 'deckImages'
   | 'deckOriginals'
+  /** Image items: their one-page decks and kept originals (U13). */
+  | 'images'
+  /** Video items' files (U14). */
+  | 'videos'
   | 'backgroundImages'
   | 'backgroundVideos'
   | 'backups'

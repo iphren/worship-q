@@ -8,7 +8,8 @@ import { openDatabase } from './db';
 import { churchFilesDir, workspaceFilesDir } from './files';
 import { Instance } from './instance';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
-import { classifyFile, prunableDeckIds, storageReport } from './storage';
+import { moveFilesToChurch, moveFilesToWorkspace } from './files';
+import { classifyFile, imageDeckIds, prunableDeckIds, storageReport } from './storage';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -209,6 +210,82 @@ describe('the retention sweep (D34)', () => {
     expect(retentionDaysFromEnv({ WORSHIP_Q_RETENTION_DAYS: '30' })).toBe(30);
     expect(retentionDaysFromEnv({ WORSHIP_Q_RETENTION_DAYS: '0' })).toBe(90);
     expect(retentionDaysFromEnv({ WORSHIP_Q_RETENTION_DAYS: 'soon' })).toBe(90);
+  });
+});
+
+describe('video songs’ files (U14)', () => {
+  const VIDEO = 'video-11111111-2222-3333-4444-555555555555.mp4';
+  const videoSong = (
+    id: string,
+    updatedAt: string,
+    removedAt: string | null = null,
+  ): SyncRecord => ({
+    kind: 'song',
+    id,
+    key: id,
+    revision: removedAt ? 2 : 1,
+    updatedAt,
+    data: {
+      title: 'Welcome',
+      lyrics: '',
+      removedAt,
+      video: { file: VIDEO, source: 'w.mp4', width: 1, height: 1, durationSeconds: 1, bytes: 1 },
+    },
+  });
+
+  it('sweeps a removed video song’s file after the retention days, and never a used one', () => {
+    const { time, dataDir, instance, north, own, write } = setup();
+    write(own, VIDEO);
+    instance.push(north.id, 'n', [videoSong('v', time.now())]);
+    time.advance(1000);
+    instance.push(north.id, 'n', [videoSong('v', time.now(), time.now())]);
+    time.advance(89 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(0);
+    time.advance(2 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(1);
+    expect(existsSync(join(own, VIDEO))).toBe(false);
+  });
+
+  it('keeps a removed video song’s file while another song uses it', () => {
+    const { time, dataDir, instance, north, own, write } = setup();
+    write(own, VIDEO);
+    instance.push(north.id, 'n', [videoSong('v', time.now()), videoSong('w', time.now())]);
+    time.advance(1000);
+    instance.push(north.id, 'n', [videoSong('v', time.now(), time.now())]);
+    time.advance(100 * DAY);
+    expect(sweepDeletedFiles(instance, dataDir, 90).files).toBe(0);
+    expect(existsSync(join(own, VIDEO))).toBe(true);
+  });
+
+  it('moves a video’s file to the Church Library and back with its song', () => {
+    const { dataDir, north, own, church, write } = setup();
+    write(own, VIDEO);
+    expect(moveFilesToChurch(dataDir, north.id, [VIDEO])).toBe(1);
+    expect(existsSync(join(church, VIDEO))).toBe(true);
+    expect(moveFilesToWorkspace(dataDir, north.id, [VIDEO], [VIDEO])).toBe(1);
+    // Still used by another record: copied, not moved.
+    expect(existsSync(join(church, VIDEO))).toBe(true);
+    expect(existsSync(join(own, VIDEO))).toBe(true);
+  });
+
+  it('counts videos and image items in the storage report', () => {
+    const { time, dataDir, instance, north, own, write, deckSong } = setup();
+    const image = deckSong('img', DECK);
+    (image.data.deck as Record<string, unknown>).kind = 'image';
+    instance.push(north.id, 'n', [image, videoSong('v', time.now())]);
+    expect([...imageDeckIds(instance)]).toEqual([DECK]);
+    write(own, VIDEO, 'abcd');
+    write(own, `deck-${DECK}-001.jpg`, 'ab');
+    write(own, `deck-${DECK}-original.png`, 'abc');
+    const report = storageReport(instance, dataDir, time.now(), () => ({
+      bsize: 1,
+      blocks: 1,
+      bavail: 1,
+    }));
+    expect(report.totals.videos).toEqual({ bytes: 4, files: 1 });
+    expect(report.totals.images).toEqual({ bytes: 5, files: 2 });
+    expect(report.totals.deckImages.files).toBe(0);
+    expect(classifyFile(VIDEO)).toBe('videos');
   });
 });
 

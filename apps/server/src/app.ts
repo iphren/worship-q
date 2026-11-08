@@ -494,6 +494,7 @@ export async function buildServer(config: ServerConfig) {
         device.workspaceId,
         device.id,
         parsed.data.records,
+        Number(request.headers[PROTOCOL_HEADER]),
       );
       // The Church Library reaches every workspace.
       if (central > 0) relay.contentChangedAll(device.id);

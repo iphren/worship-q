@@ -130,7 +130,7 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
-  it('gives a version 3 device what a version 4 device gets, after the OBS protocol bump', async () => {
+  it('gives version 3 and 4 devices what a version 5 device gets, after the OBS and video bumps', async () => {
     const { app, headers, b1 } = await setup();
     const pull = (protocol: number) =>
       app.inject({
@@ -140,11 +140,14 @@ describe('pulling with origins (D31)', () => {
       });
     const three = await pull(3);
     const four = await pull(4);
-    expect(PROTOCOL_VERSION).toBe(4);
+    const five = await pull(5);
+    expect(PROTOCOL_VERSION).toBe(5);
     expect(three.statusCode).toBe(200);
+    expect(four.statusCode).toBe(200);
     expect(three.json().records).toEqual(four.json().records);
+    expect(four.json().records).toEqual(five.json().records);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ protocolVersion: 4, minProtocolVersion: 2 });
+    expect(info.json()).toMatchObject({ protocolVersion: 5, minProtocolVersion: 2 });
   });
 
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {
@@ -298,5 +301,98 @@ describe('turning Manage Church Library on with two-version songs (D36)', () => 
     expect(instance.pull(north.id, 0, 500, 3).records.every((r) => r.origin === 'church')).toBe(
       true,
     );
+  });
+});
+
+describe('older desktops and video songs (U20)', () => {
+  const video = {
+    file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+    source: 'Welcome.mp4',
+    width: 1920,
+    height: 1080,
+    durationSeconds: 30,
+    bytes: 1000,
+    autoplay: true,
+  };
+  const push = async (
+    context: Awaited<ReturnType<typeof setup>>,
+    protocol: number,
+    record: SyncRecord,
+  ) =>
+    context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.c.token, protocol),
+      payload: { protocolVersion: protocol, records: [record] },
+    });
+  const stored = (context: Awaited<ReturnType<typeof setup>>) =>
+    context.instance
+      .pull(context.south.id, 0, 500, PROTOCOL_VERSION)
+      .records.find((r) => r.id === 'v1')!.data;
+
+  it('keeps the video when a version 4 device renames the song', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(context, 5, song('v1', 'Welcome', time.now(), { video }));
+    time.advance();
+    const renamed = await push(context, 4, {
+      ...song('v1', 'Welcome everyone', time.now()),
+      revision: 2,
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(stored(context)).toMatchObject({ title: 'Welcome everyone', video });
+  });
+
+  it('lets a version 5 device remove the video', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(context, 5, song('v1', 'Welcome', time.now(), { video }));
+    time.advance();
+    await push(context, 5, { ...song('v1', 'Welcome', time.now(), { video: null }), revision: 2 });
+    expect(stored(context).video).toBeNull();
+  });
+
+  it('adds nothing to a song that never had a video', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(context, 4, song('v1', 'Grace', time.now()));
+    time.advance();
+    await push(context, 4, { ...song('v1', 'Amazing grace', time.now()), revision: 2 });
+    expect(stored(context)).not.toHaveProperty('video');
+  });
+
+  it('keeps the church’s video when a version 4 desktop of a managing workspace renames it', async () => {
+    const context = await setup();
+    const time = context.time;
+    context.instance.setLibraryTypes(context.managing.id, ['slides']);
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.a.token, 5),
+      payload: { protocolVersion: 5, records: [song('v1', 'Welcome', time.now(), { video })] },
+    });
+    time.advance();
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.a.token, 4),
+      payload: {
+        protocolVersion: 4,
+        records: [{ ...song('v1', 'Welcome all', time.now()), revision: 2 }],
+      },
+    });
+    expect(stored(context)).toMatchObject({ title: 'Welcome all', video });
+  });
+
+  it('still accepts version 3 and 4 devices', async () => {
+    const context = await setup();
+    for (const protocol of [3, 4]) {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: '/api/v1/workspace',
+        headers: context.headers(context.c.token, protocol),
+      });
+      expect(response.statusCode).toBe(200);
+    }
   });
 });
