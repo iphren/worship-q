@@ -97,7 +97,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 
 | # | Task | Where | Needs | Tests | Done when |
 | --- | --- | --- | --- | --- | --- |
-| M3.1 | Media tab (U12): the `slides` tab becomes `media` and lists decks, images and videos; strings `library.media*`; kind badges for slides, PDF, image and video | `SongsPage.tsx`, `DeckBadge.tsx`, `en.ts` | M1.7 | `DeckBadge.test.ts`: each kind's badge | The tab reads **Media** |
+| M3.1 | Media tab (U12): the `slides` tab becomes `media` and lists decks, images and videos; strings `library.media*`; kind badges for slides, PDF, image, video and website, each with its icon and colour (U12) | `SongsPage.tsx`, `DeckBadge.tsx`, `en.ts` | M1.7 | `DeckBadge.test.ts`: each kind's badge | The tab reads **Media** |
 | M3.2 | **Add media…** with every supported format and several files at once; disabled with the reason when not connected or when the server offers nothing (U19) | `SongsPage.tsx` | M2.5, M3.1 | Manual | One button for everything |
 | M3.3 | Progress bars: a shared `UploadProgress` row with the file name, a filling bar with the percentage, and the processing bar: diagonal stripes moving sideways (a repeating linear gradient animated in `styles.css`, static stripes under reduced motion), then the failure line with its buttons | new `components/UploadProgress.tsx`, `styles.css` | M2.4 | Manual | U15 as drawn |
 | M3.4 | Library placement (U16): the Media tab's uploads stack under the search box; a finished upload opens its item in the editor unless another item has unsaved changes | `SongsPage.tsx` | M3.3 | Manual | Progress under the search box |
@@ -288,7 +288,7 @@ Rules: an item lands after the item it was dropped below, or first when dropped 
 `apps/desktop/src/components/DeckBadge.test.ts`, `packages/search` tests
 
 - The Media tab lists slide decks, PDFs, images and videos; the Songs tab lists none of them; the Web tab only websites.
-- Each item's badge matches its kind; a deck from before `kind` shows the slides badge, or the PDF badge when its source ends in `.pdf`.
+- Each item's badge matches its kind, in that kind's colour, the same in the library, run sheets, Live and search; a deck from before `kind` shows the slides badge, or the PDF badge when its source ends in `.pdf`.
 - Searching the Media tab finds a video or an image by title; slides also by their text.
 - Pinned media lead the list as pinned songs do.
 - Removing a media item used on past dates gives the same "used on …" warning as a song.
