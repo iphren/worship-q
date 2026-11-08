@@ -30,10 +30,17 @@ export function byteRange(
   return { start, end };
 }
 
-/** The type a stored background or slide image is sent as, by its name. */
+const TYPES: Record<string, string> = {
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+  png: 'image/png',
+};
+
+/** The type a stored background, slide image or video is sent as, by its name. */
 function fileType(name: string): string {
-  const lower = name.toLowerCase();
-  return lower.endsWith('.mp4') ? 'video/mp4' : lower.endsWith('.png') ? 'image/png' : 'image/jpeg';
+  return TYPES[name.toLowerCase().split('.').pop() ?? ''] ?? 'image/jpeg';
 }
 
 /** Sends a file, or the part of it asked for; caching headers are the caller's. */
