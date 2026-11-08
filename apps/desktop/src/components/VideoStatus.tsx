@@ -116,7 +116,7 @@ export function VideoControls(props: { file: string | null }) {
   const duration = video.durationSeconds;
   return (
     <div
-      className="panel flex flex-wrap items-center gap-2 px-3 py-2"
+      className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-800 bg-violet-950/80 px-3 py-2"
       role="group"
       aria-label={t('video.controls')}
     >
@@ -131,7 +131,7 @@ export function VideoControls(props: { file: string | null }) {
       </button>
       <button
         type="button"
-        className="btn btn-primary min-w-20"
+        className="btn min-w-20 border-violet-500 bg-violet-600 hover:bg-violet-500"
         title={`${video.playing ? t('video.pause') : t('video.play')} (Space)`}
         onClick={() => void session.videoPlay(!video.playing)}
       >
@@ -146,7 +146,7 @@ export function VideoControls(props: { file: string | null }) {
       >
         +10s
       </button>
-      <span className="w-24 shrink-0 text-center text-xs text-slate-300 tabular-nums">
+      <span className="w-24 shrink-0 text-center text-xs text-violet-200 tabular-nums">
         {formatDuration(position)} / {formatDuration(duration)}
       </span>
       <input
