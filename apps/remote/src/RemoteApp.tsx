@@ -1,15 +1,19 @@
 import {
+  itemBadge,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
   outputElapsed,
   switchTarget,
+  type ItemBadge,
   type ObsCommand,
   type ObsOutput,
   type ObsResult,
+  type RemoteItemView,
   type RemoteObsView,
   type RemoteSongResult,
   type RemoteView,
 } from '@worship-q/protocol';
+import { ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { RemoteConnection } from './connection';
 
@@ -249,8 +253,9 @@ function Live({ view }: { view: RemoteView | null }) {
                 )}
                 {view.items.map((item) => (
                   <section key={item.itemId}>
-                    <h2 className="mb-3 px-1 text-xl font-semibold text-white">
-                      {item.title || 'Untitled'}
+                    <h2 className="mb-3 flex items-center gap-2 px-1 text-xl font-semibold text-white">
+                      <ItemMark item={item} />
+                      <span className="min-w-0">{item.title || 'Untitled'}</span>
                     </h2>
                     <div
                       className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
@@ -562,6 +567,7 @@ function EditRunSheet(props: {
             }`}
           >
             <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
+            <ItemMark item={item} />
             <span className="min-w-0 flex-1 truncate text-[15px] text-white">
               {item.title || 'Untitled'}
             </span>
@@ -633,11 +639,11 @@ function EditRunSheet(props: {
   );
 }
 
-const KIND_LABEL: Record<RemoteSongResult['kind'], string | null> = {
-  lyrics: null,
-  deck: 'Slides',
-  website: 'Website',
-};
+/** An item's badge, as the desktop marks it; nothing for an ordinary song. */
+function ItemMark(props: { item: { kind?: RemoteItemView['kind']; badge?: ItemBadge } }) {
+  const badge = itemBadge(props.item);
+  return badge ? <ItemBadgeMark badge={badge} /> : null;
+}
 
 /** The library search, as on the presenting computer, adding songs to the live run sheet. */
 function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void }) {
@@ -743,15 +749,10 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
           <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
         )}
         {results?.songs.map((song) => {
-          const label = KIND_LABEL[song.kind];
           return (
             <li key={song.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
-              <div className="mb-1 flex items-baseline gap-2">
-                {label && (
-                  <span className="shrink-0 rounded bg-slate-700 px-1.5 text-[11px] text-slate-200">
-                    {label}
-                  </span>
-                )}
+              <div className="mb-1 flex items-center gap-2">
+                <ItemMark item={song} />
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
                   {song.title || 'Untitled'}
                 </span>

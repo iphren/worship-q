@@ -66,6 +66,22 @@ describe('remote run-sheet editing', () => {
     });
   });
 
+  it('sends each item’s badge, as the desktop marks it', async () => {
+    const web = await session.createSong({
+      title: 'Notices',
+      lyrics: '',
+      website: { url: 'https://example.com' },
+    });
+    await session.addSong(session.today(), web.id);
+    await session.goLive(session.today());
+    await approved('p1');
+    await host.message('p1', { type: 'search', id: 's1', query: 'notices' });
+    expect(lastTo('p1')).toMatchObject({ songs: [{ title: 'Notices', badge: 'website' }] });
+    const view = [...sent].reverse().find((s) => s.message.type === 'view')?.message;
+    const items = view?.type === 'view' ? view.view.items : [];
+    expect(items.map((item) => item.badge)).toEqual([undefined, 'website']);
+  });
+
   it('ignores searches and edits from connections that were not approved', async () => {
     const invite = host.invite();
     await host.message('p2', {

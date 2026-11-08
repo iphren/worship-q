@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
 @source '../../../packages/renderer/src';
+@source '../../../packages/ui/src';
 
 html,
 body,

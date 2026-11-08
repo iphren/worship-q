@@ -1,4 +1,7 @@
+import { ITEM_ICON_SHAPES } from '@worship-q/ui';
 import type { ReactNode } from 'react';
+
+// The icons of item kinds are shared with phones and the admin pages.
 
 const ICONS = {
   songs: (
@@ -76,11 +79,7 @@ const ICONS = {
       <path d="M11 18h2" />
     </>
   ),
-  slides: (
-    <>
-      <path d="M2 3h20M3 3v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V3M12 16v5M8 21h8" />
-    </>
-  ),
+  slides: ITEM_ICON_SHAPES.slides,
   offline: (
     <>
       <path d="m2 2 20 20" />
@@ -96,12 +95,7 @@ const ICONS = {
       <path d="M8 16H3v5" />
     </>
   ),
-  website: (
-    <>
-      <circle cx="12" cy="12" r="10" />
-      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    </>
-  ),
+  website: ITEM_ICON_SHAPES.website,
   pin: (
     <>
       <path d="M12 17v5" />
@@ -115,25 +109,9 @@ const ICONS = {
     </>
   ),
   switch: <path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4" />,
-  pdf: (
-    <>
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
-      <path d="M14 2v4a2 2 0 0 0 2 2h4M8 13h8M8 17h5" />
-    </>
-  ),
-  image: (
-    <>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="9" cy="9" r="2" />
-      <path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21" />
-    </>
-  ),
-  video: (
-    <>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m10 9 5 3-5 3z" />
-    </>
-  ),
+  pdf: ITEM_ICON_SHAPES.pdf,
+  image: ITEM_ICON_SHAPES.image,
+  video: ITEM_ICON_SHAPES.video,
   more: (
     <>
       <circle cx="5" cy="12" r="1" />

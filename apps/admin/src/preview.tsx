@@ -59,6 +59,9 @@ function useWidth() {
 export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
   const frame = useFrame(props.view, props.workspaceId, 'slideshow');
   const { ref, width } = useWidth();
+  // A video plays muted, as previews do, until it is unmuted here. The choice holds for the
+  // videos after it, until the page is left.
+  const [sound, setSound] = useState(false);
   return (
     <div ref={ref} className="relative w-full overflow-hidden rounded-lg border border-slate-700">
       {width > 0 && (
@@ -68,7 +71,20 @@ export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
           height={OUTPUT_HEIGHT}
           displayWidth={width}
           transition
+          sound={sound}
         />
+      )}
+      {frame.video && !frame.blank && (
+        <button
+          type="button"
+          onClick={() => setSound((on) => !on)}
+          aria-pressed={sound}
+          title={sound ? 'Mute this preview' : 'Hear the video on this computer'}
+          className="absolute right-2 bottom-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-900/80 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:bg-slate-800"
+        >
+          <SpeakerIcon muted={!sound} />
+          {sound ? 'Mute' : 'Unmute'}
+        </button>
       )}
       {/* A website is shown by the screen itself (many refuse to be embedded); here it is
           offered as a link to open beside the page. */}
@@ -88,6 +104,28 @@ export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+function SpeakerIcon(props: { muted: boolean }) {
+  return (
+    <svg
+      className="h-3.5 w-3.5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M11 5 6 9H2v6h4l5 4z" />
+      {props.muted ? (
+        <path d="m22 9-6 6M16 9l6 6" />
+      ) : (
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+      )}
+    </svg>
   );
 }
 

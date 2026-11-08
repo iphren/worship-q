@@ -1,4 +1,5 @@
 import {
+  itemBadge,
   LIBRARY_TYPES,
   OBS_REPORT_EVERY_MS,
   outputElapsed,
@@ -7,7 +8,9 @@ import {
   type AdminObsView,
   type AdminWorkspace,
   type LibraryType,
+  type SnapshotItem,
 } from '@worship-q/protocol';
+import { ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import {
@@ -567,11 +570,11 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
                       <span className="w-5 shrink-0 text-right text-xs text-slate-500">
                         {index + 1}
                       </span>
-                      <span className="min-w-40 flex-1 truncate">{item.title || 'Untitled'}</span>
+                      <span className="flex min-w-40 flex-1 items-center gap-2">
+                        <ItemMark item={item} />
+                        <span className="min-w-0 truncate">{item.title || 'Untitled'}</span>
+                      </span>
                       <span className="flex flex-wrap gap-1">
-                        {item.kind !== 'lyrics' && (
-                          <Badge>{item.kind === 'deck' ? 'Slides' : 'Website'}</Badge>
-                        )}
                         {item.removed && <Badge tone="warn">Removed from library</Badge>}
                         {current && <Badge tone="live">On screen</Badge>}
                       </span>
@@ -612,6 +615,12 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
       </div>
     </div>
   );
+}
+
+/** An item's badge, as the desktop marks it; nothing for an ordinary song. */
+function ItemMark(props: { item: Pick<SnapshotItem, 'kind' | 'badge'> }) {
+  const badge = itemBadge(props.item);
+  return badge ? <ItemBadgeMark badge={badge} /> : null;
 }
 
 // ── OBS ──────────────────────────────────────────────────────────────────────

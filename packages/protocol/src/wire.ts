@@ -7,6 +7,7 @@
  * update rather than failing unpredictably.
  */
 import { z } from 'zod';
+import { ItemBadgeSchema, type ItemBadge } from './badges';
 import {
   ObsCommandSchema,
   ObsResultSchema,
@@ -413,6 +414,8 @@ export interface RemoteItemView {
    * out, and `video` came with protocol version 5.
    */
   kind?: 'lyrics' | 'deck' | 'website' | 'video';
+  /** Its badge, as the desktop marks it; desktops before it was added leave it out. */
+  badge?: ItemBadge;
   /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
   /**
    * `thumbnail` names a small image of an imported slide, served to phones by the instance.
@@ -433,6 +436,8 @@ export interface RemoteSongResult {
   title: string;
   /** Imported slides and websites are marked as on the desktop. */
   kind: 'lyrics' | 'deck' | 'website';
+  /** Its badge, as the desktop marks it; desktops before it was added leave it out. */
+  badge?: ItemBadge;
   /** The first lines of the lyrics, a deck's first slide text, or a website's address. */
   preview: string[];
 }
@@ -528,6 +533,8 @@ export const SnapshotItemSchema = z.object({
   /** The song was removed from the library; the item still presents it. */
   removed: z.boolean(),
   kind: SnapshotKindSchema,
+  /** Its badge, as the desktop marks it; devices before it was added leave it out. */
+  badge: ItemBadgeSchema.optional().catch(undefined),
   pieces: z.array(SnapshotPieceSchema),
 });
 export type SnapshotItem = z.infer<typeof SnapshotItemSchema>;
@@ -861,8 +868,12 @@ export function snapshotWithoutVideos(snapshot: LiveSnapshot): LiveSnapshot {
   const hasVideo =
     snapshot.items.some((item) => item.kind === 'video') || snapshot.presented?.kind === 'video';
   if (!hasVideo) return snapshot;
-  const plain = <T extends { kind: SnapshotItem['kind']; pieces: SnapshotPiece[] }>(item: T): T =>
-    item.kind === 'video' ? { ...item, kind: 'deck', pieces: [] } : item;
+  // A video item's badge goes too, so it reads as the slide deck it now is.
+  const plain = <
+    T extends { kind: SnapshotItem['kind']; badge?: ItemBadge; pieces: SnapshotPiece[] },
+  >(
+    item: T,
+  ): T => (item.kind === 'video' ? { ...item, kind: 'deck', badge: undefined, pieces: [] } : item);
   return {
     ...snapshot,
     items: snapshot.items.map(plain),

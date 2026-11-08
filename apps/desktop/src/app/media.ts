@@ -2,10 +2,10 @@
  * What kind of media a file is, and whether this server takes it at its size (media uploads
  * plan, U1, U2, U7, U19, U25). One table of formats serves the checks and the file dialogs.
  */
-import type { Deck, MediaLimits, ServerInfo, Song } from '@worship-q/protocol';
+import type { MediaKind, MediaLimits, ServerInfo } from '@worship-q/protocol';
 import { t } from '../i18n';
 
-export type MediaKind = 'slides' | 'pdf' | 'image' | 'video';
+export { songMediaKind, type MediaKind } from '@worship-q/protocol';
 
 /** Extensions by kind, without the dot, lower case. */
 export const MEDIA_FORMATS: Record<MediaKind, readonly string[]> = {
@@ -132,16 +132,6 @@ export function titleFromFile(path: string): string {
   const dot = name.lastIndexOf('.');
   const stem = (dot > 0 ? name.slice(0, dot) : dot === 0 ? '' : name).trim();
   return stem || t('media.untitled');
-}
-
-/** What a media song shows, for its badge and editor; null for lyrics and websites. */
-export function songMediaKind(
-  song: Pick<Song, 'deck' | 'video' | 'website'> & { deck: Deck | null },
-): MediaKind | null {
-  if (song.video) return 'video';
-  if (!song.deck) return null;
-  if (song.deck.kind === 'image') return 'image';
-  return /\.pdf$/i.test(song.deck.source) ? 'pdf' : 'slides';
 }
 
 /** Kinds a new version of a media item may be (U26): any deck kind, or only a video. */

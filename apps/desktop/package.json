@@ -24,6 +24,7 @@
     "@worship-q/session": "workspace:*",
     "@worship-q/store": "workspace:*",
     "@worship-q/sync": "workspace:*",
+    "@worship-q/ui": "workspace:*",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.3.0"

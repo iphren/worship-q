@@ -18,6 +18,7 @@ import {
   isRemoteEdit,
   OBS_ERRORS,
   RemoteToHostSchema,
+  songBadge,
   type CommandOrigin,
   type HostToRemote,
   type ObsCommand,
@@ -139,6 +140,7 @@ export async function buildRemoteView(
       title: item.title,
       removed: item.removed,
       kind: item.kind,
+      ...(item.badge ? { badge: item.badge } : {}),
       pieces: item.pieces.map((piece) => ({
         id: piece.id,
         lines: piece.lines,
@@ -176,6 +178,7 @@ export async function buildRemoteView(
 
 /** A song as a remote controller's search shows it. */
 export function remoteSongResult(song: Song): RemoteSongResult {
+  const badge = songBadge(song);
   const preview = song.video
     ? []
     : song.website
@@ -187,6 +190,7 @@ export function remoteSongResult(song: Song): RemoteSongResult {
     id: song.id,
     title: song.title,
     kind: song.website ? 'website' : song.deck ? 'deck' : 'lyrics',
+    ...(badge ? { badge } : {}),
     preview: preview.slice(0, PREVIEW_LINES),
   };
 }

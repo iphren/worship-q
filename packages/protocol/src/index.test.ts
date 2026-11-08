@@ -9,7 +9,11 @@ import {
   RemoteToHostSchema,
   DeckSchema,
   invalidSongFields,
+  itemBadge,
   libraryTypeOf,
+  SnapshotItemSchema,
+  snapshotWithoutVideos,
+  songBadge,
   SongFieldsSchema,
   maxSongYear,
   MIN_PROTOCOL_VERSION,
@@ -18,6 +22,7 @@ import {
   SyncRecordSchema,
   updateNeededBy,
   websiteUrl,
+  type LiveSnapshot,
 } from './index';
 
 const now = new Date('2026-10-17T09:00:00.000Z');
@@ -302,5 +307,85 @@ describe('record origins (D31)', () => {
 
   it('rejects an unknown origin', () => {
     expect(SyncRecordSchema.safeParse({ ...record, origin: 'elsewhere' }).success).toBe(false);
+  });
+});
+
+describe('item badges (U12)', () => {
+  const deck = (source: string, kind?: 'image') => ({
+    source,
+    ...(kind ? { kind } : {}),
+    width: 1,
+    height: 1,
+    pages: [],
+  });
+  const none = { deck: null, website: null, video: null };
+
+  it('marks a song by what it shows, and an ordinary song not at all', () => {
+    expect(songBadge(none)).toBeNull();
+    expect(songBadge({ ...none, deck: deck('a.pptx') })).toBe('slides');
+    expect(songBadge({ ...none, deck: deck('a.PDF') })).toBe('pdf');
+    expect(songBadge({ ...none, deck: deck('a.jpg', 'image') })).toBe('image');
+    expect(songBadge({ ...none, website: { url: 'https://example.com' } })).toBe('website');
+    expect(
+      songBadge({
+        deck: null,
+        website: null,
+        video: {
+          file: 'v.mp4',
+          source: 'v.mp4',
+          width: 1,
+          height: 1,
+          durationSeconds: 1,
+          bytes: 1,
+          autoplay: false,
+        },
+      }),
+    ).toBe('video');
+  });
+
+  it('takes an item’s badge, or one from its kind when an older device sent none', () => {
+    expect(itemBadge({ kind: 'deck', badge: 'pdf' })).toBe('pdf');
+    expect(itemBadge({ kind: 'deck' })).toBe('slides');
+    expect(itemBadge({ kind: 'website' })).toBe('website');
+    expect(itemBadge({ kind: 'video' })).toBe('video');
+    expect(itemBadge({ kind: 'lyrics' })).toBeNull();
+    expect(itemBadge({})).toBeNull();
+  });
+
+  it('reads a snapshot item without a badge, or with one it does not know', () => {
+    const item = { itemId: 'i', songId: 's', title: 'T', removed: false, kind: 'deck', pieces: [] };
+    expect(SnapshotItemSchema.parse(item).badge).toBeUndefined();
+    expect(SnapshotItemSchema.parse({ ...item, badge: 'hologram' }).badge).toBeUndefined();
+    expect(SnapshotItemSchema.parse({ ...item, badge: 'image' }).badge).toBe('image');
+  });
+
+  it('drops a video item’s badge for a device older than videos', () => {
+    const snapshot = {
+      items: [
+        {
+          itemId: 'v',
+          songId: 's',
+          title: 'V',
+          removed: false,
+          kind: 'video',
+          badge: 'video',
+          pieces: [],
+        },
+        {
+          itemId: 'p',
+          songId: 't',
+          title: 'P',
+          removed: false,
+          kind: 'deck',
+          badge: 'pdf',
+          pieces: [],
+        },
+      ],
+      presented: null,
+    } as unknown as LiveSnapshot;
+    const [video, pdf] = snapshotWithoutVideos(snapshot).items;
+    expect(video?.kind).toBe('deck');
+    expect(video?.badge).toBeUndefined();
+    expect(pdf?.badge).toBe('pdf');
   });
 });

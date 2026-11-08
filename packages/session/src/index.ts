@@ -25,6 +25,7 @@ import {
   videoPosition,
 } from '@worship-q/live-state';
 import { buildPieces, type Piece } from '@worship-q/lyrics';
+import { songBadge } from '@worship-q/protocol';
 import type {
   BackgroundAsset,
   Command,
@@ -1309,14 +1310,18 @@ export class Session {
   /** The live run sheet's items as the snapshot and the phones' view carry them. */
   async snapshotItems(): Promise<SnapshotItem[]> {
     const view = await this.viewLive();
-    return (view?.entries ?? []).map((entry) => ({
-      itemId: entry.item.id,
-      songId: entry.song.id,
-      title: entry.song.title,
-      removed: entry.song.removedAt !== null,
-      kind: songKind(entry.song),
-      pieces: snapshotPieces(entry.song, entry.pieces),
-    }));
+    return (view?.entries ?? []).map((entry) => {
+      const badge = songBadge(entry.song);
+      return {
+        itemId: entry.item.id,
+        songId: entry.song.id,
+        title: entry.song.title,
+        removed: entry.song.removedAt !== null,
+        kind: songKind(entry.song),
+        ...(badge ? { badge } : {}),
+        pieces: snapshotPieces(entry.song, entry.pieces),
+      };
+    });
   }
 
   /** What is on screen, carried for followers whose content is behind. */
