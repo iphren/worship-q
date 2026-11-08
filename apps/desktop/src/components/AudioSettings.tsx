@@ -1,4 +1,6 @@
+import { emitTo } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
+import { AUDIO_OUTPUT_EVENT, OUTPUT_WINDOW } from '../app/output';
 import {
   deviceSettings,
   findDevice,
@@ -48,8 +50,13 @@ export function AudioSettings() {
     };
   }, []);
 
-  const choose = (key: 'audioOutput' | 'audioInput', device: AudioDevice | null) =>
+  const choose = (key: 'audioOutput' | 'audioInput', device: AudioDevice | null) => {
     setSaved(deviceSettings.set({ [key]: device }));
+    // An open slideshow switches at once, even mid-video; a storage event between windows
+    // is not delivered reliably.
+    if (key === 'audioOutput')
+      void emitTo(OUTPUT_WINDOW, AUDIO_OUTPUT_EVENT).catch(() => undefined);
+  };
 
   const picker = (
     key: 'audioOutput' | 'audioInput',

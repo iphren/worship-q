@@ -2,9 +2,15 @@ import { emit, listen } from '@tauri-apps/api/event';
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
-import { ACTION_EVENT, CLOSE_REQUEST_EVENT, FRAME_EVENT, READY_EVENT } from '../app/output';
+import {
+  ACTION_EVENT,
+  AUDIO_OUTPUT_EVENT,
+  CLOSE_REQUEST_EVENT,
+  FRAME_EVENT,
+  READY_EVENT,
+} from '../app/output';
 import { presentAction } from '../lib/shortcuts';
-import { DEVICE_SETTINGS_KEY, deviceSettings, findDevice } from '../app/deviceSettings';
+import { deviceSettings, findDevice } from '../app/deviceSettings';
 import { listAudioDevices } from '../components/AudioSettings';
 import { native } from '../platform/native';
 
@@ -124,11 +130,14 @@ function useAudioOutput(): string {
   const [sinkId, setSinkId] = useState('');
   useEffect(() => {
     let active = true;
+    type Sinkable = HTMLMediaElement & { setSinkId?(id: string): Promise<void> };
     window.__worshipQSink = async (id: string) => {
-      const probe = document.createElement('audio') as HTMLAudioElement & {
-        setSinkId?(id: string): Promise<void>;
-      };
-      await probe.setSinkId?.(id).catch(() => undefined);
+      // Called inside the native script call, which counts as a gesture on macOS: a video
+      // already playing is moved here, synchronously, before the gesture can lapse.
+      const playing = Array.from(document.querySelectorAll<Sinkable>('video'));
+      const moves = playing.map((element) => element.setSinkId?.(id).catch(() => undefined));
+      const probe = document.createElement('audio') as Sinkable;
+      await Promise.all([...moves, probe.setSinkId?.(id).catch(() => undefined)]);
       if (active) setSinkId(id);
     };
     const apply = async () => {
@@ -137,13 +146,15 @@ function useAudioOutput(): string {
       await native.outputAudioSink(id).catch(() => window.__worshipQSink?.(id));
     };
     void apply();
-    const onStorage = (event: StorageEvent) => {
-      if (event.key === DEVICE_SETTINGS_KEY) void apply();
-    };
-    window.addEventListener('storage', onStorage);
+    // Settings tells this window directly when the output changes.
+    let stop: (() => void) | undefined;
+    void listen(AUDIO_OUTPUT_EVENT, () => void apply()).then((unlisten) => {
+      if (active) stop = unlisten;
+      else unlisten();
+    });
     return () => {
       active = false;
-      window.removeEventListener('storage', onStorage);
+      stop?.();
     };
   }, []);
   return sinkId;

@@ -18,6 +18,8 @@ export const READY_EVENT = 'output-ready';
 export const CLOSE_REQUEST_EVENT = 'output-close-request';
 /** Sent by the output window when a presenting shortcut is pressed on it. */
 export const ACTION_EVENT = 'output-action';
+/** Sent to the output window when the audio output is changed in Settings (U24). */
+export const AUDIO_OUTPUT_EVENT = 'output-audio-output';
 const MONITOR_POLL_MS = 2000;
 
 export interface OutputStatus {
