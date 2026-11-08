@@ -8,7 +8,14 @@ import {
   type TestEnv,
 } from '@worship-q/store/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ReadOnlyDateError, Session, songPieces, WEBSITE_PIECE_ID, type StartKind } from './index';
+import {
+  ReadOnlyDateError,
+  Session,
+  songPieces,
+  VIDEO_PIECE_ID,
+  WEBSITE_PIECE_ID,
+  type StartKind,
+} from './index';
 
 // The clock starts on Sunday 11 October 2026, 09:00 in the workspace timezone (UTC).
 const SUNDAY = '2026-10-11';
@@ -1278,5 +1285,95 @@ describe('websites', () => {
     expect((await store.getSong(created.id))!.website).toEqual(moved);
     const history = await store.listSongRevisions(created.id);
     expect(history.map((r) => r.website?.url)).toEqual([website.url, moved.url]);
+  });
+});
+
+describe('video items (media uploads M5.4, M6.1)', () => {
+  const video = {
+    file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+    source: 'Welcome.mp4',
+    width: 1920,
+    height: 1080,
+    durationSeconds: 90,
+    bytes: 1000,
+    autoplay: false,
+  };
+
+  async function presentVideo(fields: Partial<typeof video> = {}) {
+    const created = await session.createSong({ title: 'Welcome', video: { ...video, ...fields } });
+    const hymn = await song('Hymn', 'h1');
+    await session.addSong(session.openDate, created.id);
+    await session.addSong(session.openDate, hymn.id);
+    await session.goLive(session.openDate);
+    await session.next();
+    return created;
+  }
+
+  it('has one piece, and is a video in the snapshot with its title and duration', async () => {
+    expect(songPieces({ lyrics: '', lineIds: [], deck: null, website: null, video }, 2)).toEqual([
+      { id: VIDEO_PIECE_ID, blockIndex: 0, indexInBlock: 0, lines: [] },
+    ]);
+    await presentVideo();
+    const [item] = await session.snapshotItems();
+    expect(item).toMatchObject({
+      kind: 'video',
+      title: 'Welcome',
+      pieces: [{ id: VIDEO_PIECE_ID, lines: ['1:30'], video: { file: video.file } }],
+    });
+  });
+
+  it('plays on the slideshow on black, never on the subtitle overlay, hidden while blank', async () => {
+    await presentVideo();
+    const frame = await session.frame(mediaUrl);
+    expect(frame).toMatchObject({
+      song: null,
+      picture: null,
+      pieceId: VIDEO_PIECE_ID,
+      background: { color: '#000000', media: null },
+      video: { url: `media://${video.file}`, playing: false, position: 0, durationSeconds: 90 },
+    });
+    const subtitle = await session.frame(mediaUrl, 'subtitle');
+    expect(subtitle.video ?? null).toBeNull();
+    expect(subtitle.song).toBeNull();
+    await session.setBlank(true);
+    expect((await session.frame(mediaUrl)).blank).toBe(true);
+  });
+
+  it('plays, pauses and moves through the presented video', async () => {
+    await presentVideo();
+    await session.videoPlay(true);
+    expect(session.video).toMatchObject({ playing: true, position: 0 });
+    env.advance(20_000);
+    await session.videoSeek({ by: 10 });
+    expect(session.video!.position).toBe(30);
+    await session.videoPlay(false);
+    expect(session.video).toMatchObject({ playing: false });
+    await session.videoSeek({ seconds: 5 });
+    expect(session.video!.position).toBe(5);
+  });
+
+  it('starts playing on entry with Autoplay', async () => {
+    await presentVideo({ autoplay: true });
+    expect(session.video).toMatchObject({ playing: true });
+  });
+
+  it('remembers where it was left, and forgets it when the item is removed', async () => {
+    await presentVideo();
+    await session.videoSeek({ seconds: 42 });
+    await session.next();
+    expect(session.live!.videoPositions).toEqual({
+      [(await session.viewLive())!.entries[0]!.item.id]: 42,
+    });
+    const item = (await session.viewLive())!.entries[0]!.item;
+    await session.removeItem(item.id);
+    expect(session.live!.videoPositions).toEqual({});
+  });
+
+  it('sends video commands to the coordinator from a follower', async () => {
+    await presentVideo();
+    const sent: unknown[] = [];
+    session.follow({ send: (command) => sent.push(command) });
+    await session.videoPlay(true);
+    expect(sent).toEqual([{ type: 'videoPlay', itemId: session.live!.presented!.itemId }]);
   });
 });

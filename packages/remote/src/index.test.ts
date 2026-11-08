@@ -342,3 +342,86 @@ describe('OBS on phones (OBS plan M2.8)', () => {
     expect(fake.watching).toEqual([true, false, true, false]);
   });
 });
+
+describe('videos on phones (media uploads M5.5, M6.6)', () => {
+  const video = {
+    file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+    source: 'Welcome.mp4',
+    width: 1920,
+    height: 1080,
+    durationSeconds: 90,
+    bytes: 1000,
+    autoplay: false,
+  };
+
+  async function presentVideo() {
+    const clip = await session.createSong({ title: 'Welcome', video });
+    await session.addSong(session.today(), clip.id);
+    const view = (await session.viewLive())!;
+    const entry = view.entries.find((e) => e.song.id === clip.id)!;
+    await session.play(entry.item.id, 'video');
+    return entry.item.id;
+  }
+
+  it('shows a video item’s title and duration, and its clock while presented', async () => {
+    const itemId = await presentVideo();
+    await approved('p1');
+    const view = sent.filter((e) => e.message.type === 'view').at(-1)!.message as Extract<
+      HostToRemote,
+      { type: 'view' }
+    >;
+    expect(view.view.items.find((item) => item.itemId === itemId)).toMatchObject({
+      kind: 'video',
+      title: 'Welcome',
+      pieces: [{ id: 'video', lines: ['1:30'], textless: true }],
+    });
+    expect(view.view.video).toMatchObject({
+      itemId,
+      playing: false,
+      position: 0,
+      durationSeconds: 90,
+    });
+  });
+
+  it('applies a phone’s play, pause and seek, and acknowledges each', async () => {
+    const itemId = await presentVideo();
+    await approved('p1');
+    await host.message('p1', { type: 'command', id: 'v1', command: { type: 'videoPlay', itemId } });
+    expect(lastTo('p1')).toEqual({ type: 'ack', id: 'v1', applied: true });
+    expect(session.video).toMatchObject({ playing: true });
+    await host.message('p1', {
+      type: 'command',
+      id: 'v2',
+      command: { type: 'videoSeek', itemId, seconds: 30 },
+    });
+    expect(session.video).toMatchObject({ position: 30 });
+    await host.message('p1', {
+      type: 'command',
+      id: 'v3',
+      command: { type: 'videoPause', itemId },
+    });
+    expect(session.video).toMatchObject({ playing: false });
+  });
+
+  it('forwards a phone’s video command to the coordinator with its id', async () => {
+    const forwarded: unknown[] = [];
+    host.setCoordination({
+      coordinating: false,
+      forward: async (id, _origin, command) => {
+        forwarded.push({ id, command });
+        return true;
+      },
+      registerGrant: () => undefined,
+      revokeGrant: () => undefined,
+      phones: () => undefined,
+    });
+    await approved('p1');
+    await host.message('p1', {
+      type: 'command',
+      id: 'v1',
+      command: { type: 'videoPlay', itemId: 'item' },
+    });
+    expect(forwarded).toEqual([{ id: 'v1', command: { type: 'videoPlay', itemId: 'item' } }]);
+    expect(lastTo('p1')).toEqual({ type: 'ack', id: 'v1', applied: true });
+  });
+});

@@ -818,6 +818,8 @@ export class CloudController {
       transparency: true,
       missingFonts: this.missingFonts,
       obs: this.obsSupported(),
+      // Video items in snapshots (protocol version 5, U21).
+      videos: true,
     };
   }
 

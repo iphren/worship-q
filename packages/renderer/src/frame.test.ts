@@ -2,6 +2,7 @@ import { createLiveState } from '@worship-q/live-state';
 import type { LiveSnapshot, OutputView } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import { buildFrame, missingFonts } from './frame';
+import { drifted, videoTarget } from './Slide';
 
 const look: OutputView['look'] = {
   fontFamily: 'Noto Sans SC',
@@ -155,5 +156,102 @@ describe('browser output frames (M7.2)', () => {
     expect(
       buildFrame({ kind: 'slideshow', look, fileUrl, fontAvailable: true, snapshot: ended }).song,
     ).toBeNull();
+  });
+});
+
+describe('video items (media uploads M5.4, M5.5, M6.3)', () => {
+  const file = 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4';
+  const presented: LiveSnapshot['presented'] = {
+    itemId: 'v1',
+    pieceId: 'video',
+    songId: 's1',
+    title: 'Welcome',
+    kind: 'video',
+    pieces: [
+      {
+        id: 'video',
+        lines: ['1:30'],
+        video: { file, durationSeconds: 90, width: 1920, height: 1080, autoplay: false },
+      },
+    ],
+    background: { color: '#ff0000', assetId: null },
+    websiteUrl: null,
+    previous: false,
+  };
+  const clock = {
+    itemId: 'v1',
+    playing: true,
+    position: 12,
+    at: '2026-10-11T09:00:05.000Z',
+    durationSeconds: 90,
+    resumeOnUnblank: false,
+  };
+  const withClock = (blank = false): LiveSnapshot => {
+    const base = snapshot(presented, blank);
+    return { ...base, state: { ...base.state, video: clock } };
+  };
+
+  it('plays the video on the slideshow, on black, with the live state’s clock', () => {
+    const frame = buildFrame({
+      kind: 'slideshow',
+      look,
+      fileUrl,
+      fontAvailable: true,
+      snapshot: withClock(),
+    });
+    expect(frame).toMatchObject({
+      song: null,
+      picture: null,
+      pieceId: 'video',
+      background: { color: '#000000', media: null },
+      video: { url: `/files/${file}`, playing: true, position: 12, durationSeconds: 90 },
+    });
+  });
+
+  it('shows nothing on the subtitle overlay', () => {
+    const frame = buildFrame({
+      kind: 'subtitle',
+      look,
+      fileUrl,
+      fontAvailable: true,
+      snapshot: withClock(),
+    });
+    expect(frame.video ?? null).toBeNull();
+    expect(frame.song).toBeNull();
+  });
+
+  it('keeps the video while blank, for the slideshow to hide', () => {
+    const frame = buildFrame({
+      kind: 'slideshow',
+      look,
+      fileUrl,
+      fontAvailable: true,
+      snapshot: withClock(true),
+    });
+    expect(frame.blank).toBe(true);
+    expect(frame.background).toEqual({ color: '#000000', media: null });
+  });
+});
+
+describe('following the live clock (M6.3)', () => {
+  const video = {
+    url: 'v.mp4',
+    playing: true,
+    position: 10,
+    at: '2026-10-11T09:00:00.000Z',
+    durationSeconds: 60,
+  };
+  const t = (seconds: number) => Date.parse(video.at) + seconds * 1000;
+
+  it('moves a playing video on with the clock, never past its end', () => {
+    expect(videoTarget(video, t(5))).toBe(15);
+    expect(videoTarget(video, t(500))).toBe(60);
+    expect(videoTarget({ ...video, playing: false }, t(5))).toBe(10);
+  });
+
+  it('moves the player only when it drifts more than half a second', () => {
+    expect(drifted(10.4, 10)).toBe(false);
+    expect(drifted(10.6, 10)).toBe(true);
+    expect(drifted(9.4, 10)).toBe(true);
   });
 });

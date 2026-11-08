@@ -71,7 +71,8 @@ export function OutputApp() {
         cursor: frame.hideCursor ? 'none' : undefined,
       }}
     >
-      <Slide frame={frame} width={size.width} height={size.height} transition />
+      {/* The slideshow window is the only place a video item's sound plays. */}
+      <Slide frame={frame} width={size.width} height={size.height} transition sound />
       {frame.message && (
         <div
           style={{

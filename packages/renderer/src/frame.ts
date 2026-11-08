@@ -48,7 +48,7 @@ export function buildFrame(input: FrameInput): OutputFrame {
   frame.blank = snapshot.state.blank;
   const presented = snapshot.presented;
   if (!presented) return frame;
-  if (presented.kind === 'deck' || presented.kind === 'website') {
+  if (presented.kind === 'deck' || presented.kind === 'website' || presented.kind === 'video') {
     frame.background = { color: '#000000', media: null };
   } else if (presented.background) {
     const file = presented.background.assetId ? input.songBackground : null;
@@ -61,6 +61,22 @@ export function buildFrame(input: FrameInput): OutputFrame {
     frame.pieceId = presented.pieceId;
     if (kind === 'slideshow' && !frame.blank && presented.websiteUrl) {
       frame.website = { url: presented.websiteUrl };
+    }
+    return frame;
+  }
+  if (presented.kind === 'video') {
+    // Played muted from the server, on the slideshow only (M5.5).
+    const piece = presented.pieces[0];
+    const clock = snapshot.state.video;
+    frame.pieceId = piece?.id ?? null;
+    if (piece?.video && kind === 'slideshow' && clock && clock.itemId === presented.itemId) {
+      frame.video = {
+        url: input.fileUrl(piece.video.file),
+        playing: clock.playing,
+        position: clock.position,
+        at: clock.at,
+        durationSeconds: clock.durationSeconds,
+      };
     }
     return frame;
   }

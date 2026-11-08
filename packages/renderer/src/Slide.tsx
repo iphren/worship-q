@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type Ref,
 } from 'react';
-import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
+import { EMPTY_FRAME, type OutputFrame, type OutputVideo } from '@worship-q/protocol';
 import {
   contrastTextColor,
   fitSong,
@@ -53,6 +53,11 @@ export interface SlideProps {
   measure?: Measure;
   /** Fade between pieces, and into and out of blank, instead of cutting. */
   transition?: boolean;
+  /**
+   * Plays a video item's sound. Only the slideshow window does; previews and browser outputs
+   * are muted (media uploads plan Features).
+   */
+  sound?: boolean;
 }
 
 interface Layer {
@@ -141,7 +146,14 @@ function useCrossfade<T extends Layer>(current: T | null, enabled: boolean, fade
 }
 
 /** Draws one frame at the output's own pixel size. */
-export function Slide({ frame, width, height, measure, transition = false }: SlideProps) {
+export function Slide({
+  frame,
+  width,
+  height,
+  measure,
+  transition = false,
+  sound = false,
+}: SlideProps) {
   const [mediaFailed, setMediaFailed] = useState<string | null>(null);
   const [fontsReady, setFontsReady] = useState(0);
 
@@ -267,6 +279,9 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
       {lyricLayers.layers.map((layer) => (
         <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
       ))}
+      {frame.video && frame.video.url && (
+        <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} />
+      )}
       {pictureLayers.layers.map((layer) => (
         <img
           key={layer.key}
@@ -284,6 +299,74 @@ export function Slide({ frame, width, height, measure, transition = false }: Sli
           }}
         />
       ))}
+    </div>
+  );
+}
+
+/** How far a playing video may drift from the live state's clock before it is moved (M6.3). */
+export const VIDEO_DRIFT_SECONDS = 0.5;
+
+/**
+ * Where a video should be at `nowMs`, by the live state's clock: its position, moved on by the
+ * time since it was taken while it plays, and never past its end.
+ */
+export function videoTarget(video: OutputVideo, nowMs: number): number {
+  const elapsed = video.playing ? Math.max(0, (nowMs - Date.parse(video.at)) / 1000) : 0;
+  return Math.min(video.durationSeconds, video.position + elapsed);
+}
+
+/** Whether a player at `current` seconds must be moved to `target`. */
+export function drifted(current: number, target: number): boolean {
+  return Math.abs(current - target) > VIDEO_DRIFT_SECONDS;
+}
+
+/**
+ * A video item, full screen on black, following the live state: it plays and pauses with it,
+ * and is moved only when it drifts more than half a second, so it never stutters on every
+ * update (U22, M6.3). It stays mounted while blank, hidden, so unblanking is immediate.
+ */
+function VideoLayer(props: { video: OutputVideo; hidden: boolean; sound: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const { video } = props;
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const follow = () => {
+      const target = videoTarget(video, Date.now());
+      if (element.readyState >= 1 && drifted(element.currentTime, target)) {
+        element.currentTime = target;
+      }
+      if (video.playing && target < video.durationSeconds) {
+        if (element.paused) void element.play().catch(() => undefined);
+      } else if (!element.paused) {
+        element.pause();
+      }
+    };
+    follow();
+    element.addEventListener('loadedmetadata', follow);
+    const timer = window.setInterval(follow, 1000);
+    return () => {
+      element.removeEventListener('loadedmetadata', follow);
+      window.clearInterval(timer);
+    };
+  }, [video]);
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background: '#000000',
+        visibility: props.hidden ? 'hidden' : 'visible',
+      }}
+    >
+      <video
+        ref={ref}
+        src={props.video.url}
+        muted={!props.sound}
+        playsInline
+        preload="auto"
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+      />
     </div>
   );
 }

@@ -454,6 +454,18 @@ export const CommandSchema = z.discriminatedUnion('type', [
 export type Command = z.infer<typeof CommandSchema>;
 export type CommandType = Command['type'];
 
+/** The presented video as an output plays it. */
+export interface OutputVideo {
+  /** Where to play it from; empty when this computer has no copy yet. */
+  url: string;
+  playing: boolean;
+  /** Seconds into the video at `at`. */
+  position: number;
+  /** ISO timestamp the position was taken at. */
+  at: string;
+  durationSeconds: number;
+}
+
 /** Everything an output needs to draw the current moment of a presentation. */
 export interface OutputFrame {
   /** Slideshow: lyrics over a background. Subtitle: a lower band over transparency. */
@@ -477,6 +489,11 @@ export interface OutputFrame {
   picture: { url: string } | null;
   /** A web page shown live over the slideshow, by the output window itself. */
   website: { url: string } | null;
+  /**
+   * A video item, shown full screen on black in place of lyrics (U14), with the live state's
+   * clock for it. Hidden while blank. Never on the subtitle overlay.
+   */
+  video?: OutputVideo | null;
   /**
    * Words shown instead of lyrics, such as **Waiting for presentation** on a viewer's
    * slideshow (decision D16). Never shown on the subtitle overlay.

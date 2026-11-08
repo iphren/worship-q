@@ -142,6 +142,13 @@ export class OutputController {
       ...(song?.deck?.pages.map((page) => page.image) ?? []),
     ];
     for (const name of names) resolved.set(name, (await this.fileUrl(name)) ?? '');
+    // A video plays only from this computer's copy, never streamed from the server (U8).
+    if (song?.video) {
+      resolved.set(
+        song.video.file,
+        (await native.videoUrl(song.video.file).catch(() => null)) ?? '',
+      );
+    }
     const frame = await this.session.frame((fileName) => resolved.get(fileName) ?? '');
     // A selected background whose file is missing falls back to the solid color.
     if (frame.background.media && !frame.background.media.url) frame.background.media = null;

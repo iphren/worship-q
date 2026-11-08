@@ -160,16 +160,29 @@ export async function buildRemoteView(
     previousContent: previous,
     blank: session.isLive && (live?.blank ?? false),
     editable: session.isLive,
+    // The presented video item's clock, for the phone's control bar (M6.6).
+    video:
+      session.isLive && live?.video && !previous
+        ? {
+            itemId: live.video.itemId,
+            playing: live.video.playing,
+            position: live.video.position,
+            at: live.video.at,
+            durationSeconds: live.video.durationSeconds,
+          }
+        : null,
   };
 }
 
 /** A song as a remote controller's search shows it. */
 export function remoteSongResult(song: Song): RemoteSongResult {
-  const preview = song.website
-    ? [song.website.url]
-    : song.deck
-      ? (song.deck.pages.find((page) => page.text.length > 0)?.text ?? [])
-      : song.lyrics.split('\n').filter((line) => line.trim() !== '');
+  const preview = song.video
+    ? []
+    : song.website
+      ? [song.website.url]
+      : song.deck
+        ? (song.deck.pages.find((page) => page.text.length > 0)?.text ?? [])
+        : song.lyrics.split('\n').filter((line) => line.trim() !== '');
   return {
     id: song.id,
     title: song.title,

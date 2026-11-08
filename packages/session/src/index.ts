@@ -21,6 +21,8 @@ import {
   type CommandResult,
   type PlayablePiece,
   type SnapshotBody,
+  forgetVideoPosition,
+  videoPosition,
 } from '@worship-q/live-state';
 import { buildPieces, type Piece } from '@worship-q/lyrics';
 import type {
@@ -91,6 +93,8 @@ export type StartKind =
 
 /** Identifier of a website's one piece, which shows its address as its text. */
 export const WEBSITE_PIECE_ID = 'website';
+/** Identifier of a video item's one piece (U14). */
+export const VIDEO_PIECE_ID = 'video';
 
 /**
  * A song's pieces: its lyrics in groups of lines, one per image of an imported deck, or a
@@ -98,9 +102,10 @@ export const WEBSITE_PIECE_ID = 'website';
  * slide read as a group.
  */
 export function songPieces(
-  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'>,
+  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'> & { video?: Song['video'] },
   linesPerPiece: number,
 ): Piece[] {
+  if (song.video) return [{ id: VIDEO_PIECE_ID, blockIndex: 0, indexInBlock: 0, lines: [] }];
   if (song.website) {
     const { url } = song.website;
     return [
@@ -132,13 +137,37 @@ export function songPieces(
   });
 }
 
-/** How a song is presented: as lyrics, as imported slides or as a web page. */
-export function songKind(song: Pick<Song, 'deck' | 'website'>): SnapshotItem['kind'] {
-  return song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
+/** How a song is presented: as lyrics, as imported slides, as a web page or as a video. */
+export function songKind(
+  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video'] },
+): SnapshotItem['kind'] {
+  return song.video ? 'video' : song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
+}
+
+/** A duration as `m:ss`, or `h:mm:ss` from an hour. */
+export function formatDuration(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(whole / 3600);
+  const m = Math.floor((whole % 3600) / 60);
+  const rest = String(whole % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${rest}` : `${m}:${rest}`;
 }
 
 /** A song's pieces as the snapshot and the phones' view carry them (plan M1.6). */
 export function snapshotPieces(song: Song, pieces: readonly Piece[]): SnapshotPiece[] {
+  if (song.video) {
+    // Phones show the title and duration in place of a slide (M5.5).
+    const { file, durationSeconds, width, height, autoplay } = song.video;
+    return [
+      {
+        id: VIDEO_PIECE_ID,
+        lines: [formatDuration(durationSeconds)],
+        block: 0,
+        textless: true,
+        video: { file, durationSeconds, width, height, autoplay },
+      },
+    ];
+  }
   return pieces.map((piece) => ({
     id: piece.id,
     lines:
@@ -192,7 +221,14 @@ function entryFromSnapshot(
           }
         : null,
     website: item.kind === 'website' ? { url: item.pieces[0]?.lines[0] ?? 'https://' } : null,
-    video: null,
+    video:
+      item.kind === 'video' && item.pieces[0]?.video
+        ? {
+            ...item.pieces[0].video,
+            source: '',
+            bytes: 0,
+          }
+        : null,
     lineIds: [],
     revision: 1,
     createdAt: now,
@@ -435,6 +471,12 @@ export class Session {
     });
   }
 
+  /** A removed video item's remembered position goes with it (U22). */
+  private async forgetVideo(itemId: string): Promise<void> {
+    if (!this.live_ || this.relay_) return;
+    await this.setLive(forgetVideoPosition(this.live_, itemId, this.nowIso()));
+  }
+
   private async setLive(state: LiveState | null): Promise<void> {
     if (state === this.live_) return;
     if (state?.presented !== this.live_?.presented) this.browsedItemId_ = null;
@@ -600,6 +642,14 @@ export class Session {
         itemId: entry.item.id,
         songId: entry.song.id,
         pieceId: piece.id,
+        ...(entry.song.video
+          ? {
+              video: {
+                durationSeconds: entry.song.video.durationSeconds,
+                autoplay: entry.song.video.autoplay,
+              },
+            }
+          : {}),
       })),
     );
   }
@@ -625,6 +675,30 @@ export class Session {
     if (outcome.result !== 'applied') return outcome.result;
     await this.setLive(outcome.state);
     return 'applied';
+  }
+
+  /** The presented video item's playback, when a video item is presented (U21). */
+  get video(): LiveState['video'] {
+    return this.isLive ? (this.live_?.video ?? null) : null;
+  }
+
+  /** Plays or pauses the presented video item. */
+  videoPlay(playing: boolean): Promise<boolean> {
+    return this.mutate(async () => {
+      const itemId = this.video?.itemId;
+      if (!itemId) return false;
+      return this.apply({ type: playing ? 'videoPlay' : 'videoPause', itemId });
+    });
+  }
+
+  /** Moves the presented video item to `seconds`, or by `by` seconds from where it is. */
+  videoSeek(to: { seconds: number } | { by: number }): Promise<boolean> {
+    return this.mutate(async () => {
+      const video = this.video;
+      if (!video) return false;
+      const seconds = 'seconds' in to ? to.seconds : videoPosition(video, this.nowIso()) + to.by;
+      return this.apply({ type: 'videoSeek', itemId: video.itemId, seconds });
+    });
   }
 
   /** Presents any piece of the live run sheet. */
@@ -777,6 +851,7 @@ export class Session {
         const item = items[index(command.itemId)];
         if (!item) return null;
         await this.store.removeItem(item.id);
+        await this.forgetVideo(item.id);
         change = { kind: 'removed', item, title: await titleOf(item.songId) };
       } else {
         const from = index(command.itemId);
@@ -966,6 +1041,7 @@ export class Session {
       }
       await this.liveWhenEdited(await this.editableItem(itemId));
       await this.store.removeItem(itemId);
+      await this.forgetVideo(itemId);
     });
   }
 
@@ -1395,7 +1471,7 @@ export class Session {
         ? song.background
         : await this.store.getSongBackground(song);
     const background =
-      song?.deck || song?.website
+      song?.deck || song?.website || song?.video
         ? { color: '#000000', assetId: null }
         : (songBackground ?? {
             color: profile.backgroundColor,
@@ -1423,7 +1499,21 @@ export class Session {
       website: null,
     };
 
-    if (presented && song?.website) {
+    if (presented && song?.video) {
+      // Played by the slideshow window only, on black; a subtitle overlay shows nothing. The
+      // live state's clock says where it is (U22).
+      frame.pieceId = VIDEO_PIECE_ID;
+      const clock = this.live_?.video;
+      if (kind === 'slideshow' && clock && clock.itemId === presented.itemId) {
+        frame.video = {
+          url: mediaUrl(song.video.file),
+          playing: clock.playing,
+          position: clock.position,
+          at: clock.at,
+          durationSeconds: clock.durationSeconds,
+        };
+      }
+    } else if (presented && song?.website) {
       // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
       if (presented.pieceId === WEBSITE_PIECE_ID) {
         if (kind === 'slideshow' && !frame.blank) frame.website = { url: song.website.url };
