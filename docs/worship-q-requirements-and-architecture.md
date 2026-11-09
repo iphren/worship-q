@@ -731,7 +731,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | LAN coordination and cloud relay | Proposed v1 architecture |
 | Subtitle overlay, including OBS integration | Agreed terminology; proposed v1 integration scope |
 | Full offline editing and conflict synchronization | Proposed target; rules open |
-| Bible passages | Later |
+| Bible passages | Later; see the [Bible Passages Discovery](bible-passages-discovery.md) |
 | Uploaded slide decks, PowerPoint/PDF handling | Later; formats/workflow open |
 | Automatic translation | Later, optional |
 | Native mobile applications | User preference; release timing open |
