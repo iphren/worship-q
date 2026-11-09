@@ -478,12 +478,11 @@ export function VersionChips(props: {
           </span>
         );
       })}
-      {addable.length > 0 && (
+      {!full && addable.length > 0 && (
         <select
           className="field w-auto py-0.5 text-xs"
           aria-label={t('bible.addVersion')}
-          title={full ? t('bible.twoVersions') : t('bible.addVersion')}
-          disabled={full}
+          title={t('bible.addVersion')}
           value=""
           onChange={(event) => {
             const id = event.target.value;
@@ -491,11 +490,15 @@ export function VersionChips(props: {
           }}
         >
           <option value="">+</option>
-          {addable.map((version) => (
-            <option key={version.id} value={version.id}>
-              {version.credit} · {version.name}
-            </option>
-          ))}
+          {offered.map((version) => {
+            const selected = shown.includes(version.id);
+            return (
+              <option key={version.id} value={version.id} disabled={selected}>
+                {version.credit} · {version.name}
+                {selected ? ` (${t('bible.selected')})` : ''}
+              </option>
+            );
+          })}
         </select>
       )}
     </div>

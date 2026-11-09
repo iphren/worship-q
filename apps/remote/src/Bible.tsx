@@ -204,13 +204,12 @@ export function PhoneBible(props: {
               }
             >
               <option value="">+ Version</option>
-              {offered
-                .filter((v) => !versions.includes(v.id))
-                .map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.credit}
-                  </option>
-                ))}
+              {offered.map((v) => (
+                <option key={v.id} value={v.id} disabled={versions.includes(v.id)}>
+                  {v.credit}
+                  {versions.includes(v.id) ? ' (selected)' : ''}
+                </option>
+              ))}
             </select>
           )}
         </div>
