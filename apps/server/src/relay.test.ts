@@ -904,6 +904,81 @@ describe('passage items through the relay (Bible passages P3.5)', () => {
     };
   };
 
+  const passage = {
+    reference: 'JHN.3.16',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'youversion',
+        copyright: '',
+        units: [{ chapter: 3, verses: [16], label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+        fumsToken: null,
+      },
+    ],
+  };
+
+  it('forwards a phone’s passage and Bible requests to a desktop that takes them (P7.2)', async () => {
+    const { desktop, phone } = await setup();
+    const a = desktop('Projector', { withHost: false, videos: true, passages: true });
+    const remote = phone({ invite: `${a.deviceId}.secret` });
+    remote.say({
+      type: 'command',
+      id: 'c1',
+      command: { type: 'addPassage', passage, present: true },
+    });
+    expect(a.socket.last()).toMatchObject({
+      type: 'message',
+      data: { type: 'command', id: 'c1', command: { type: 'addPassage', present: true } },
+    });
+    remote.say({ type: 'bibleToc', id: 't1', version: 'NIVUK' });
+    expect(a.socket.last()).toMatchObject({
+      type: 'message',
+      data: { type: 'bibleToc', id: 't1' },
+    });
+    expect(remote.socket.received).toEqual([]);
+  });
+
+  it('refuses a phone’s passage, and answers its Bible requests as offline, for a desktop below protocol 6', async () => {
+    const { desktop, phone } = await setup();
+    const a = desktop('Version 5 laptop', { withHost: false, videos: true });
+    const remote = phone({ invite: `${a.deviceId}.secret` });
+    const before = a.socket.received.length;
+    remote.say({ type: 'command', id: 'c1', command: { type: 'addPassage', passage } });
+    expect(remote.socket.last()).toEqual({ type: 'ack', id: 'c1', applied: false });
+    remote.say({ type: 'biblePassage', id: 'p1', reference: 'JHN.3.16', versions: ['NIVUK'] });
+    expect(remote.socket.last()).toEqual({
+      type: 'biblePassage',
+      id: 'p1',
+      passage: null,
+      error: 'offline',
+    });
+    expect(a.socket.received.length).toBe(before);
+    // Its other commands still go through.
+    remote.say({ type: 'command', id: 'c2', command: { type: 'next' } });
+    expect(a.socket.last()).toMatchObject({ type: 'message', data: { id: 'c2' } });
+  });
+
+  it('refuses a follower’s passage for a coordinator below protocol 6', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Version 5 coordinator', { withHost: false, videos: true });
+    const b = desktop('New laptop', { withHost: false, videos: true, passages: true });
+    const command = {
+      type: 'command',
+      id: 'c1',
+      origin: { kind: 'operator', deviceId: b.deviceId, name: 'New laptop' },
+      command: { type: 'addPassage', passage },
+    } as unknown as FollowerToCoordinator;
+    const before = a.socket.received.length;
+    b.say({ type: 'toCoordinator', data: command });
+    expect(a.socket.received.length).toBe(before);
+    expect(b.socket.last()).toEqual({
+      type: 'peer',
+      from: a.deviceId,
+      data: { type: 'ack', id: 'c1', applied: false },
+    });
+  });
+
   it('passes passage items to desktops that take them, and as lyrics to older ones', async () => {
     const { desktop } = await setup();
     const a = desktop('Projector', { withHost: false, videos: true, passages: true });

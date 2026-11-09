@@ -27,7 +27,13 @@ import {
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { BibleRequestError, workspaceVersions } from '../app/bible';
-import {
+import { bibleWindow } from '@worship-q/protocol';
+import { useApp, useCloud, useSession } from '../app/context';
+import { t } from '../i18n';
+import { Dialog } from './Dialog';
+import { Icon } from './Icon';
+
+const {
   backTo,
   canContinue,
   checkReference,
@@ -40,12 +46,8 @@ import {
   selectedReference,
   typed,
   verseCells,
-  type BibleWindowState,
-} from '../app/bibleWindow';
-import { useApp, useCloud, useSession } from '../app/context';
-import { t } from '../i18n';
-import { Dialog } from './Dialog';
-import { Icon } from './Icon';
+} = bibleWindow;
+type BibleWindowState = bibleWindow.BibleWindowState;
 
 export type BibleWindowMode =
   /** Adding to a run sheet; `present` on the Present tab, where Present ▶ is offered (B6). */

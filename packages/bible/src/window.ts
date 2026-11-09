@@ -1,23 +1,12 @@
 /**
- * The Bible window's state (P4.2, B2, B3): one selection that the search box, the breadcrumb
- * and the grids all show. Typing moves the grids on; clicking writes the reference into the
+ * The Bible window's state (P4.2, B2, B3), on the desktop and on phones: one selection that
+ * the search box, the breadcrumb and the grids all show. Typing moves the grids on; clicking writes the reference into the
  * box. Pure, so every rule is tested without the window.
  */
-import {
-  bookName,
-  chapterReference,
-  chapterVerses,
-  formatReference,
-  nextChapter,
-  parseReference,
-  tocBook,
-  tocNames,
-  validate,
-  verseReference,
-  type BibleLanguage,
-  type Reference,
-  type Toc,
-} from '@worship-q/protocol';
+import { bookName, type BibleLanguage } from './books';
+import { parseReference } from './parse';
+import { chapterReference, formatReference, verseReference, type Reference } from './reference';
+import { chapterVerses, nextChapter, tocBook, tocNames, validate, type Toc } from './toc';
 
 export type GridLevel = 'books' | 'chapters' | 'verses';
 

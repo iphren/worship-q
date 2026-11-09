@@ -28,10 +28,43 @@ import {
   type RemoteCommand,
   type RemoteSongResult,
   type RemoteView,
+  type RemoteToHost,
   type Song,
   type WorkspaceGrant,
+  fromUsfm,
+  type BibleAnswerError,
+  type BibleSearchResponse,
+  type BibleVersionInfo,
+  type Passage,
+  type Reference,
+  type Toc,
 } from '@worship-q/protocol';
 import type { RunSheetChange, Session } from '@worship-q/session';
+
+/**
+ * The Bible as this desktop has it, for phones (B26): the church's versions through the
+ * church server, and the contents saved here.
+ */
+export interface RemoteBible {
+  /** The versions the church offers, and the workspace's in order. */
+  versions(): Promise<{ offered: BibleVersionInfo[]; versions: string[] }>;
+  setVersions(versions: string[]): Promise<void>;
+  toc(version: string, chapter?: { book: string; chapter: number }): Promise<Toc | null>;
+  passage(versions: string[], reference: Reference): Promise<Passage>;
+  search(version: string, query: string): Promise<BibleSearchResponse>;
+}
+
+/** The code of a Bible error, for a phone's answer. */
+function bibleError(error: unknown): BibleAnswerError {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === 'not-offered' ||
+    code === 'not-found' ||
+    code === 'too-large' ||
+    code === 'unavailable' ||
+    code === 'offline'
+    ? code
+    : 'unavailable';
+}
 
 /** How the host reaches remote connections: through the instance relay. */
 export interface RemoteLink {
@@ -147,6 +180,7 @@ export async function buildRemoteView(
         block: piece.block,
         ...(piece.thumbnail ? { thumbnail: piece.thumbnail } : {}),
         ...(piece.textless ? { textless: true } : {}),
+        ...(piece.passage ? { passage: piece.passage } : {}),
       })),
     })),
     presented:
@@ -208,6 +242,7 @@ export class RemoteHost {
   private version_ = 0;
   private coordination: RemoteCoordination | null = null;
   private obs: RemoteObs | null = null;
+  private bible: RemoteBible | null = null;
   /** Phones showing the live monitor, by connection. */
   private readonly obsWatchers = new Set<string>();
 
@@ -218,6 +253,80 @@ export class RemoteHost {
     /** This device's identifier at the instance, put in invitations so the relay routes scans here. */
     private readonly deviceId: () => string | null = () => null,
   ) {}
+
+  /** Gives phones the Bible through this desktop (B26); null when it has none. */
+  setBible(bible: RemoteBible | null): void {
+    this.bible = bible;
+  }
+
+  /** Answers a phone's Bible request (P7.1): a version the church does not offer is refused. */
+  private async answerBible(
+    from: string,
+    message: Extract<RemoteToHost, { type: `bible${string}` }>,
+  ): Promise<void> {
+    const link = this.link!;
+    const bible = this.bible;
+    if (message.type === 'bibleSetVersions') {
+      if (bible) await bible.setVersions(message.versions).catch(() => undefined);
+      return;
+    }
+    const offered = bible ? await bible.versions().catch(() => null) : null;
+    const offeredIds = offered?.offered.map((v) => v.id) ?? [];
+    const refuse = (error: BibleAnswerError) => {
+      switch (message.type) {
+        case 'bibleVersions':
+          return link.send(from, {
+            type: 'bibleVersions',
+            id: message.id,
+            offered: [],
+            versions: [],
+          });
+        case 'bibleToc':
+          return link.send(from, { type: 'bibleToc', id: message.id, toc: null, error });
+        case 'biblePassage':
+          return link.send(from, { type: 'biblePassage', id: message.id, passage: null, error });
+        case 'bibleSearch':
+          return link.send(from, {
+            type: 'bibleSearch',
+            id: message.id,
+            references: [],
+            searched: false,
+            error,
+          });
+      }
+    };
+    if (!bible || !offered) return refuse('offline');
+    try {
+      switch (message.type) {
+        case 'bibleVersions':
+          return link.send(from, { type: 'bibleVersions', id: message.id, ...offered });
+        case 'bibleToc': {
+          if (!offeredIds.includes(message.version)) return refuse('not-offered');
+          const toc = await bible.toc(
+            message.version,
+            message.book && message.chapter
+              ? { book: message.book, chapter: message.chapter }
+              : undefined,
+          );
+          return link.send(from, { type: 'bibleToc', id: message.id, toc });
+        }
+        case 'biblePassage': {
+          if (message.versions.some((v) => !offeredIds.includes(v))) return refuse('not-offered');
+          const reference = fromUsfm(message.reference);
+          if (!reference) return refuse('not-found');
+          const passage = await bible.passage(message.versions, reference);
+          return link.send(from, { type: 'biblePassage', id: message.id, passage });
+        }
+        case 'bibleSearch': {
+          if (!offeredIds.includes(message.version)) return refuse('not-offered');
+          const answer = await bible.search(message.version, message.query);
+          return link.send(from, { type: 'bibleSearch', id: message.id, ...answer });
+        }
+      }
+    } catch (error) {
+      return refuse(bibleError(error));
+    }
+  }
 
   /** Joins or leaves the shared live state. */
   setCoordination(coordination: RemoteCoordination | null): void {
@@ -452,6 +561,15 @@ export class RemoteHost {
       return link.send(from, { type: 'obsAck', id: message.id, ...result });
     }
     if (message.type === 'obsWatch') return this.setObsWatching(from, message.watching);
+    if (
+      message.type === 'bibleVersions' ||
+      message.type === 'bibleSetVersions' ||
+      message.type === 'bibleToc' ||
+      message.type === 'biblePassage' ||
+      message.type === 'bibleSearch'
+    ) {
+      return this.answerBible(from, message);
+    }
     if (message.type !== 'command') return;
     const { command } = message;
     let applied: boolean;

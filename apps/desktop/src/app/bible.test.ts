@@ -10,7 +10,9 @@ import {
   type Toc,
 } from '@worship-q/protocol';
 import { BibleClient, BibleRequestError, workspaceVersions, type BibleServer } from './bible';
-import {
+import { bibleWindow } from '@worship-q/protocol';
+
+const {
   backTo,
   canContinue,
   checkReference,
@@ -25,7 +27,7 @@ import {
   selectedReference,
   typed,
   verseCells,
-} from './bibleWindow';
+} = bibleWindow;
 
 const r = (usfm: string): Reference => fromUsfm(usfm)!;
 const usfm = (state: Parameters<typeof selectedReference>[0]) => {

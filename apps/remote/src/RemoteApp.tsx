@@ -15,6 +15,7 @@ import {
 } from '@worship-q/protocol';
 import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { PassageColumns, PhoneBible } from './Bible';
 import { RemoteConnection } from './connection';
 
 const connection = new RemoteConnection(window.location);
@@ -122,7 +123,7 @@ function Live({ view }: { view: RemoteView | null }) {
   // away from what this phone is about to tap.
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
-  const [mode, setMode] = useState<'present' | 'edit' | 'add'>('present');
+  const [mode, setMode] = useState<'present' | 'edit' | 'add' | 'bible'>('present');
   // The OBS screen opens over whichever of the others was showing, which stays as it was
   // underneath (its search, its scroll) and comes back when the screen closes.
   const [obsOpen, setObsOpen] = useState(false);
@@ -167,7 +168,7 @@ function Live({ view }: { view: RemoteView | null }) {
 
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
-  const editing = mode === 'edit' || mode === 'add';
+  const editing = mode === 'edit' || mode === 'add' || mode === 'bible';
   const control =
     'flex items-center justify-center rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40';
   const controlIcon = 'h-6 w-6';
@@ -234,7 +235,13 @@ function Live({ view }: { view: RemoteView | null }) {
           search and scroll position underneath. */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
-          {mode === 'add' ? (
+          {mode === 'bible' ? (
+            <PhoneBible
+              connection={connection}
+              connected={connected && canEdit}
+              onDone={() => setMode('edit')}
+            />
+          ) : mode === 'add' ? (
             <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
           ) : mode === 'edit' ? (
             <EditRunSheet
@@ -242,6 +249,11 @@ function Live({ view }: { view: RemoteView | null }) {
               connected={connected && canEdit}
               before={before}
               onAdd={openSearch}
+              onBible={() => {
+                setBefore(new Set(view.items.map((item) => item.itemId)));
+                setMode('bible');
+                setObsOpen(false);
+              }}
             />
           ) : (
             <div className="relative min-h-0 flex-1">
@@ -308,6 +320,8 @@ function Live({ view }: { view: RemoteView | null }) {
                               />
                             ) : item.kind === 'video' ? (
                               <div>▶ Video · {piece.lines[0] ?? ''}</div>
+                            ) : piece.passage ? (
+                              <PassageColumns columns={piece.passage.columns} />
                             ) : (
                               piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
                             )}
@@ -549,6 +563,7 @@ function EditRunSheet(props: {
   connected: boolean;
   before: ReadonlySet<string> | null;
   onAdd(): void;
+  onBible(): void;
 }) {
   const { view, connected, before } = props;
   const firstNewRef = useRef<HTMLLIElement>(null);
@@ -656,6 +671,13 @@ function EditRunSheet(props: {
         onClick={props.onAdd}
       >
         + Add an item
+      </button>
+      <button
+        className="w-full rounded-lg border border-dashed border-teal-700 py-3 text-[15px] font-semibold text-teal-300 active:scale-[0.98] disabled:opacity-40"
+        disabled={!connected}
+        onClick={props.onBible}
+      >
+        📖 Add a Bible passage
       </button>
     </main>
   );

@@ -7,7 +7,14 @@
  * update rather than failing unpredictably.
  */
 import { z } from 'zod';
-import { PassageColumnSchema, PassageSchema, type PassageColumn } from '@worship-q/bible';
+import {
+  PassageColumnSchema,
+  PassageSchema,
+  type Passage,
+  type PassageColumn,
+  type Toc,
+} from '@worship-q/bible';
+import type { BibleErrorCode, BibleVersionInfo } from './bible';
 import { ItemBadgeSchema, type ItemBadge } from './badges';
 import {
   ObsCommandSchema,
@@ -437,6 +444,35 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
   }),
   /** The phone's OBS screen opened or closed: send it the live monitor's images, or stop. */
   z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
+  // The Bible through the desktop (protocol version 6, B26), each answered by the same type.
+  /** The versions the church offers, and the workspace's. */
+  z.object({ type: z.literal('bibleVersions'), id: z.string().min(1).max(100) }),
+  /** Changes the workspace's versions, as the window's chips do (B4). */
+  z.object({
+    type: z.literal('bibleSetVersions'),
+    versions: z.array(z.string().min(1).max(20)).max(2),
+  }),
+  /** A version's contents, with a chapter's verses fetched first when named. */
+  z.object({
+    type: z.literal('bibleToc'),
+    id: z.string().min(1).max(100),
+    version: z.string().min(1).max(20),
+    book: z.string().max(3).optional(),
+    chapter: z.number().int().min(1).max(200).optional(),
+  }),
+  /** A reference (USFM) in up to two versions, in order. */
+  z.object({
+    type: z.literal('biblePassage'),
+    id: z.string().min(1).max(100),
+    reference: z.string().min(1).max(40),
+    versions: z.array(z.string().min(1).max(20)).min(1).max(2),
+  }),
+  z.object({
+    type: z.literal('bibleSearch'),
+    id: z.string().min(1).max(100),
+    version: z.string().min(1).max(20),
+    query: z.string().max(200),
+  }),
 ]);
 export type RemoteToHost = z.infer<typeof RemoteToHostSchema>;
 
@@ -520,7 +556,25 @@ export type HostToRemote =
   | { type: 'ack'; id: string; applied: boolean }
   | { type: 'searchResults'; id: string; songs: RemoteSongResult[] }
   | ({ type: 'obsAck'; id: string } & ObsResult)
-  | ({ type: 'obsSnapshot' } & ObsSnapshot);
+  | ({ type: 'obsSnapshot' } & ObsSnapshot)
+  | { type: 'bibleVersions'; id: string; offered: BibleVersionInfo[]; versions: string[] }
+  | { type: 'bibleToc'; id: string; toc: Toc | null; error?: BibleAnswerError }
+  | { type: 'biblePassage'; id: string; passage: Passage | null; error?: BibleAnswerError }
+  | {
+      type: 'bibleSearch';
+      id: string;
+      references: string[];
+      searched: boolean;
+      error?: BibleAnswerError;
+    };
+
+/** Why the desktop could not answer a phone's Bible request. */
+export type BibleAnswerError = BibleErrorCode | 'offline';
+
+/** Whether a phone's message is one of the Bible's (protocol version 6). */
+export function isBibleMessage(message: { type: string }): boolean {
+  return message.type.startsWith('bible');
+}
 
 /** From the instance to a remote controller, about the connection itself. */
 export type RelayToRemote =

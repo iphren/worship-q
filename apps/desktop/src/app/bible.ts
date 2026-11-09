@@ -18,7 +18,9 @@ import {
   type Toc,
 } from '@worship-q/protocol';
 import type { SettingsStorage } from './deviceSettings';
-import { referenceInVersion } from './bibleWindow';
+import { bibleWindow } from '@worship-q/protocol';
+
+const { referenceInVersion } = bibleWindow;
 
 /** The church server's Bible routes, as this computer calls them. */
 export interface BibleServer {

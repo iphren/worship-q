@@ -41,7 +41,7 @@ import {
   type SyncStatus,
 } from '@worship-q/sync';
 import { native, type LanCredential, type LanStatus } from '../platform/native';
-import { BibleClient, BibleRequestError, type BibleServer } from './bible';
+import { BibleClient, BibleRequestError, workspaceVersions, type BibleServer } from './bible';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
 import { mediaOffer, type MediaOffer } from './media';
@@ -174,6 +174,23 @@ export class CloudController {
       () => (typeof localStorage === 'undefined' ? null : localStorage),
       () => this.state?.server ?? '',
     );
+    // Phones use the Bible through this desktop (B26).
+    this.host.setBible({
+      versions: async () => {
+        const offered = await this.bible.versions();
+        const chosen = await session.store.getBibleVersions(session.workspace.id);
+        return { offered, versions: workspaceVersions(chosen, offered) };
+      },
+      setVersions: async (versions) => {
+        await session.setBibleVersions(versions);
+      },
+      toc: (version, chapter) =>
+        chapter
+          ? this.bible.tocWithChapter(version, chapter.book, chapter.chapter)
+          : this.bible.toc(version),
+      passage: (versions, reference) => this.bible.passage(versions, reference),
+      search: (version, query) => this.bible.search(version, query),
+    });
     this.uploads = new MediaUploads(this.uploadDeps());
     this.videos = new VideoCache(this.videoCacheDeps());
     let readyVideos = 0;
