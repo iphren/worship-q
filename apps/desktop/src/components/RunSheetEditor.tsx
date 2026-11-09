@@ -2,7 +2,8 @@ import type { IsoDate, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
-import { dropIndex, inside, useFileDrop } from '../lib/fileDrop';
+import { useEdgeScroll } from '../lib/edgeScroll';
+import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';
 import { native } from '../platform/native';
 import { ItemEditDialog } from './ItemEditDialog';
 import { canReplace, downloadOriginal, originalNotKept, uploadNewVersion } from './MediaActions';
@@ -84,6 +85,9 @@ export function RunSheetEditor(props: {
     rows: { top: number; bottom: number }[];
   } | null>(null);
 
+  // A long run sheet scrolls while a row is held near its top or bottom edge.
+  const dragEdgeScroll = useEdgeScroll(listRef, dragTo);
+
   function startDrag(event: PointerEvent<HTMLElement>, id: string, index: number) {
     const list = listRef.current;
     if (event.button !== 0 || !list) return;
@@ -101,10 +105,16 @@ export function RunSheetEditor(props: {
   }
 
   function moveDrag(event: PointerEvent<HTMLElement>) {
+    const point = { x: event.clientX, y: event.clientY };
+    dragEdgeScroll(drag ? point : null);
+    dragTo(point);
+  }
+
+  function dragTo(point: Point) {
     const start = grab.current;
     const list = listRef.current;
     if (!drag || !start || !list) return;
-    const dy = event.clientY - start.y + list.scrollTop - start.scroll;
+    const dy = point.y - start.y + list.scrollTop - start.scroll;
     const top = start.rows[drag.from]!.top + dy;
     const bottom = start.rows[drag.from]!.bottom + dy;
     let to = drag.from;
@@ -117,6 +127,7 @@ export function RunSheetEditor(props: {
   }
 
   function endDrag(drop: boolean) {
+    dragEdgeScroll(null);
     grab.current = null;
     setDrag(null);
     if (!drop || !drag || drag.to === drag.from) return;
@@ -178,10 +189,17 @@ export function RunSheetEditor(props: {
       const { top, bottom } = row.getBoundingClientRect();
       return { top, bottom };
     });
+  const showDropAt = (point: Point) => setDropAt(dropIndex(itemRects(), point.y));
+  // A long run sheet scrolls while files are held near its top or bottom edge.
+  const edgeScroll = useEdgeScroll(listRef, showDropAt);
   useFileDrop(
     {
-      over: (point) =>
-        setDropAt(point && inside(rootRef.current, point) ? dropIndex(itemRects(), point.y) : null),
+      over: (point) => {
+        const over = point && inside(rootRef.current, point) ? point : null;
+        edgeScroll(over);
+        if (over) showDropAt(over);
+        else setDropAt(null);
+      },
       drop: (paths, point) => {
         if (!inside(rootRef.current, point)) return;
         const index = dropIndex(itemRects(), point.y);
