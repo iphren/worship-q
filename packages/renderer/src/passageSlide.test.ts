@@ -12,11 +12,15 @@ const column = (version: string, credit: string, verses: string[]) => ({
   credit,
   units: verses.map((text, i) => ({ label: String(i + 5), lines: [{ text, indent: 0 }] })),
 });
-const html = (columns: ReturnType<typeof column>[], headers = ['Mark 15:5–8']) => {
+const html = (
+  columns: ReturnType<typeof column>[],
+  headers = ['Mark 15:5–8'],
+  page?: { number: number; count: number },
+) => {
   const frame: OutputFrame = {
     ...EMPTY_FRAME,
     pieceId: 'v15:5',
-    passage: { columns, headers },
+    passage: { columns, headers, ...(page ? { page } : {}) },
   };
   return renderToStaticMarkup(createElement(Slide, { frame, width: 1920, height: 1080, measure }));
 };
@@ -54,6 +58,15 @@ describe('a passage slide’s reference and credits (P6.3)', () => {
     expect(two).toMatch(
       /justify-content:space-between[^>]*><span>NIV \(UK\)<\/span><span>当代译本（简）<\/span>/,
     );
+  });
+
+  it('numbers the slides of a passage of several at the bottom centre, and not one of one', () => {
+    const one = [column('NIVUK', 'NIV (UK)', ['But Jesus'])];
+    expect(html(one, undefined, { number: 2, count: 3 })).toMatch(
+      /text-align:center[^>]*>2 \/ 3<\/div>/,
+    );
+    expect(html(one, undefined, { number: 1, count: 1 })).not.toContain(' / ');
+    expect(html(one)).not.toContain(' / ');
   });
 
   it('keeps the reference and credits in the same places whatever the verses', () => {

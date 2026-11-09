@@ -511,7 +511,12 @@ export interface OutputFrame {
    * (`Mark 15:5–6`, `马可福音 15:5-6`), the same on every slide. Hidden while blank; never on
    * the subtitle overlay (B12).
    */
-  passage?: { columns: PassageColumn[]; headers: string[] } | null;
+  passage?: {
+    columns: PassageColumn[];
+    headers: string[];
+    /** Which slide of the passage this is, from 1, and how many it has. */
+    page?: { number: number; count: number };
+  } | null;
   /**
    * Words shown instead of lyrics, such as **Waiting for presentation** on a viewer's
    * slideshow (decision D16). Never shown on the subtitle overlay.

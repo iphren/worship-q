@@ -89,6 +89,7 @@ export function buildFrame(input: FrameInput): OutputFrame {
       frame.passage = {
         columns: piece.passage.columns,
         headers: piece.passage.headers ?? [presented.title],
+        page: { number: presented.pieces.indexOf(piece) + 1, count: presented.pieces.length },
       };
     }
     return frame;

@@ -83,6 +83,8 @@ interface PassageLayer extends Layer {
   fitted: FittedPassage;
   /** The whole passage's reference in each version's language, the same on every slide. */
   headers: string[];
+  /** Which slide this is of how many; null for a frame from before pages were sent. */
+  page: { number: number; count: number } | null;
   color: string;
   fontFamily: string;
   textShadow: string;
@@ -281,6 +283,7 @@ export function Slide({
       key: `passage:${pieceId}:${passageColumns.map((column) => column.version).join('|')}`,
       fitted,
       headers: frame.passage?.headers ?? [],
+      page: frame.passage?.page ?? null,
       color,
       fontFamily: cssFontFamily(fontFamily),
       textShadow: onMedia ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)' : 'none',
@@ -295,6 +298,7 @@ export function Slide({
     fontFamily,
     frame.scale,
     pieceId,
+    frame.passage?.page?.count,
     color,
     onMedia,
     fontsReady,
@@ -554,7 +558,7 @@ function LyricsBlock(props: { lyrics: Lyrics; ref: Ref<HTMLDivElement> }) {
  * verses change.
  */
 function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }) {
-  const { fitted, color, fontFamily, textShadow, headers } = props.passage;
+  const { fitted, color, fontFamily, textShadow, headers, page } = props.passage;
   // One reference per column; two that read the same are shown once, at the left.
   const shownHeaders =
     headers.length > 1 && headers[0] === headers[1] ? headers.slice(0, 1) : headers;
@@ -657,6 +661,21 @@ function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }
           <span key={index}>{credit}</span>
         ))}
       </div>
+      {/* Which slide of the passage, at the bottom centre, when it has more than one. */}
+      {page && page.count > 1 && page.number > 0 && (
+        <div
+          style={{
+            ...band,
+            bottom: fitted.edge,
+            fontSize: fitted.creditSize,
+            fontWeight: 400,
+            opacity: 0.7,
+            textAlign: 'center',
+          }}
+        >
+          {`${page.number} / ${page.count}`}
+        </div>
+      )}
     </div>
   );
 }

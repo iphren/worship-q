@@ -1595,6 +1595,12 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect(entry.pieces.length).toBeGreaterThan(1);
     expect(entry.pieces.map((p) => p.blockIndex)).toEqual(entry.pieces.map(() => 0));
     expect(entry.pieces.map((p) => p.indexInBlock)).toEqual(entry.pieces.map((_, i) => i));
+    // Each slide knows which it is of how many, for its page number.
+    await session.play(item!.id, entry.pieces[1]!.id);
+    expect((await session.frame(mediaUrl)).passage!.page).toEqual({
+      number: 2,
+      count: entry.pieces.length,
+    });
   });
 
   it('gives the same slides from the database and from a snapshot, ids kept when saved again', async () => {
@@ -1627,6 +1633,7 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect(slideshow.passage!.columns.map((c) => c.version)).toEqual(['NIVUK', 'CCB']);
     // The whole passage's reference, not the slide's verses.
     expect(slideshow.passage!.headers).toEqual(['Mark 15:5–6', '马可福音 15:5-6']);
+    expect(slideshow.passage!.page).toEqual({ number: 1, count: 1 });
     expect(slideshow.pieceId).toBe('v15:5');
     expect(slideshow.song).toBeNull();
     const subtitle = await session.frame(mediaUrl, 'subtitle');

@@ -1797,14 +1797,20 @@ export class Session {
       // Drawn on the slideshow only: the subtitle overlay stays empty while a passage is live,
       // as the words are not being spoken or sung at that moment (B12).
       const carriedPiece = carriedPieces?.find((piece) => piece.id === presented.pieceId);
+      const slideIds = song.passage
+        ? passageSlides(song.passage).map((slide) => slide.id)
+        : (carriedPieces ?? []).map((piece) => piece.id);
       const columns = song.passage
         ? passageSlides(song.passage).find((slide) => slide.id === presented.pieceId)?.columns
         : carriedPiece?.passage?.columns;
+      const page = { number: slideIds.indexOf(presented.pieceId) + 1, count: slideIds.length };
       const headers = song.passage
         ? passageHeaders(song.passage)
         : (carriedPiece?.passage?.headers ?? [song.title]);
       frame.pieceId = columns ? presented.pieceId : null;
-      if (columns && kind === 'slideshow' && !frame.blank) frame.passage = { columns, headers };
+      if (columns && kind === 'slideshow' && !frame.blank) {
+        frame.passage = { columns, headers, page };
+      }
     } else if (presented && song?.website) {
       // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
       if (presented.pieceId === WEBSITE_PIECE_ID) {
