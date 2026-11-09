@@ -184,3 +184,89 @@ textarea {
     animation: none;
   }
 }
+
+/*
+ * The pencil in place of the Editor's title (ScribblingPencil): it writes a squiggle, rising and
+ * dipping with it, lifts, goes back and writes again. It turns about its tip, which starts at (2, 20) in the icon.
+ */
+.scribble-line {
+  stroke-dasharray: 1;
+  animation: scribble-line 3.2s linear infinite;
+}
+@keyframes scribble-line {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 1;
+  }
+  55%,
+  78% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  92%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+.scribble-pencil-move {
+  transform-box: view-box;
+  transform-origin: 2px 20px;
+  animation: scribble-pencil 3.2s linear infinite;
+}
+@keyframes scribble-pencil {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  5.5% {
+    transform: translate(3px, -1.5px) rotate(-6deg);
+  }
+  11% {
+    transform: translate(6px, 0) rotate(0deg);
+  }
+  16.5% {
+    transform: translate(9px, 1.5px) rotate(6deg);
+  }
+  22% {
+    transform: translate(12px, 0) rotate(0deg);
+  }
+  27.5% {
+    transform: translate(15px, -1.5px) rotate(-6deg);
+  }
+  33% {
+    transform: translate(18px, 0) rotate(0deg);
+  }
+  38.5% {
+    transform: translate(21px, 1.5px) rotate(6deg);
+  }
+  44% {
+    transform: translate(24px, 0) rotate(0deg);
+  }
+  49.5% {
+    transform: translate(27px, -1.5px) rotate(-6deg);
+  }
+  55% {
+    transform: translate(30, 0) rotate(0deg);
+  }
+  70% {
+    transform: translate(30px, -4px) rotate(-12deg);
+  }
+  90% {
+    transform: translate(0, -4px) rotate(-12deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scribble-line,
+  .scribble-pencil-move {
+    animation: none;
+  }
+  .scribble-line {
+    stroke-dashoffset: 0;
+  }
+  .scribble-pencil-move {
+    transform: translate(30px, 0);
+  }
+}

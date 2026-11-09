@@ -166,7 +166,7 @@ export const en = {
   'present.clear': 'Clear screen',
   'present.preview': 'Slideshow',
   'present.edit': 'Edit',
-  'present.liveEdit': 'Live Edit',
+  'present.editor': 'Editor',
   'present.previousContent': 'Previous content',
   'present.previousContentBody': 'Shown until you present from this run sheet.',
   'present.keptTooLong': 'The run sheet for {date} is still live.',

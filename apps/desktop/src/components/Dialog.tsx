@@ -3,6 +3,11 @@ import { t } from '../i18n';
 
 export function Dialog(props: {
   title: string;
+  /**
+   * Drawn in place of the title, which is then only read out by screen readers. The title
+   * still names the dialog.
+   */
+  icon?: ReactNode;
   children?: ReactNode;
   onClose(): void;
   /** Footer buttons; null hides the footer. */
@@ -34,8 +39,15 @@ export function Dialog(props: {
         aria-modal="true"
         aria-label={props.title}
       >
-        <h2 className="border-b border-slate-700 px-5 py-3 text-base font-semibold">
-          {props.title}
+        <h2 className="relative flex items-center gap-2 border-b border-slate-700 px-5 py-3 text-base font-semibold">
+          {props.icon ? (
+            <>
+              <span className="sr-only">{props.title}</span>
+              {props.icon}
+            </>
+          ) : (
+            props.title
+          )}
         </h2>
         {props.children && (
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4 text-sm text-slate-300">

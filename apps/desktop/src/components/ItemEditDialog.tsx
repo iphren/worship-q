@@ -1,6 +1,7 @@
 import type { Song } from '@worship-q/protocol';
 import { t } from '../i18n';
 import { Dialog } from './Dialog';
+import { ScribblingPencil } from './ScribblingPencil';
 import { SongForm, TitleForm, VideoForm } from './SongForm';
 
 /** Songs have lyrics to fix; media and websites only a title (and a video its Autoplay). */
@@ -22,7 +23,13 @@ export function ItemEditDialog(props: { song: Song; onClose(): void }) {
   );
   if (isLyrics(song)) {
     return (
-      <Dialog wide title={t('present.liveEdit')} onClose={onClose} actions={null}>
+      <Dialog
+        wide
+        title={t('present.editor')}
+        icon={<ScribblingPencil />}
+        onClose={onClose}
+        actions={null}
+      >
         <div className="h-[65vh]">
           <SongForm key={song.id} song={song} quick onSaved={onClose} actions={cancel} />
         </div>
@@ -30,7 +37,12 @@ export function ItemEditDialog(props: { song: Song; onClose(): void }) {
     );
   }
   return (
-    <Dialog title={t('present.liveEdit')} onClose={onClose} actions={null}>
+    <Dialog
+      title={t('present.editor')}
+      icon={<ScribblingPencil />}
+      onClose={onClose}
+      actions={null}
+    >
       {song.video ? (
         <VideoForm
           key={song.id}
