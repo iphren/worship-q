@@ -1,8 +1,10 @@
 # Live Audio Broadcast — Discovery
 
 **Date:** 9 November 2026
-**Status:** Discovery only. Nothing is built or measured; figures below are typical published
-numbers or estimates, to be confirmed on a real venue connection.
+**Status:** Discovery. Nothing is built. Part of §8 was run on one Mac on 9 November 2026. The
+results are in the [spike](spikes/live-audio.md), which confirms WebRTC in WebKit and measures
+150–214 ms mouth-to-ear through a speaker and microphone. Other figures below are typical
+published numbers or estimates, to be confirmed on a real venue connection.
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), §17
 "Future improvements noted": *Live audio broadcast to remote operators and controllers.*
 
@@ -72,9 +74,10 @@ The standard real-time media stack in every browser and both webviews.
   element.
 - **Tuning available:** `echoCancellation`, `noiseSuppression`, `autoGainControl` off on capture;
   Opus `maxaveragebitrate` 64–96 kbps, `useinbandfec=1`, DTX off (silences between songs must
-  not clip the start of the next phrase), mono. `RTCRtpReceiver.jitterBufferTarget` lets a
-  receiver ask for a smaller buffer in Chromium and Firefox; Safari does not support it, so
-  iPhones use the default adaptive buffer (still fine).
+  not clip the start of the next phrase), mono, 10 ms frames (about 10 ms less delay than
+  20 ms, spike L4). `RTCRtpReceiver.jitterBufferTarget` exists in Chromium, Firefox and WebKit
+  on macOS 27 (the spike found it, contrary to MDN's table), but it only sets a minimum and the
+  default target is already 20 ms, so there is no reason to set it.
 - **Cost:** needs signalling (offer/answer/ICE) — which the existing relay and LAN channels can
   carry as new message kinds — plus STUN, and for some networks TURN.
 - **LAN bonus:** WebRTC's media is secured by DTLS, with the fingerprint exchanged over the
@@ -177,12 +180,18 @@ than a laptop microphone in the room. Running the sender on the OBS computer is 
 that machine usually has the mix.
 
 Capture constraints: `{ echoCancellation: false, noiseSuppression: false, autoGainControl:
-false, channelCount: 1 }`.
+false, channelCount: 1 }`. WebKit supports only the first of the three and honours it (spike L2).
+Avoid the built-in microphone: it shares its device with the built-in speakers, and capture
+stalled for about a second when another app started audio on them.
 
 ## 6. Listener side
 
-- **Desktop followers:** `<audio>` element fed by the remote track; `jitterBufferTarget` low
-  (e.g. 40–60 ms) on WebView2; WKWebView uses the default.
+- **Desktop followers:** a plain `<audio>` element fed by the remote track, not Web Audio, which
+  runs well below real time on a remote track in WebKit. Default jitter buffer.
+- **Never touch audio devices while listening:** calling `getUserMedia` or `setSinkId` on the
+  listening page while audio arrives stalls WebKit's incoming audio, and leaves about 1.2 s of
+  delay for 25–30 s (spike L3). Choose the output device before connecting, or reconnect after
+  changing it.
 - **Phone browsers:** playback must start from a tap (autoplay policy); iOS suspends audio when
   the screen locks or the page is backgrounded, so the remote page should say so. A receive-only
   phone that never asked for the microphone may only see obfuscated mDNS host candidates;
