@@ -143,7 +143,7 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/media.md`.
 | M6.2 | Applying them: the reducer plays, pauses and seeks within the duration and reports a video at its end as paused there; leaving a video item saves its position (U22); entering one restores it and plays or waits by Autoplay and the blank screen (U23); blank pauses and unblank resumes only what blank paused; End, Go live on another run sheet and removing the item forget positions | `packages/live-state/src/index.ts`, `packages/session` (removal) | M6.1 | Unit: every case in §3.10 | One clock for every screen, and positions survive the session |
 | M6.3 | The slideshow follows the state: play, pause and seek its video when it drifts more than half a second from the live position; sound from the slideshow window (plan Features) and the browser slideshow pages, never from previews | `OutputApp.tsx`, `Slide.tsx` | M6.2, M5.4 | Manual on both platforms | Video plays with sound |
 | M6.4 | Control bar on the Present page while a video item is live: play or pause, position and duration, a scrubber, back and forward 10 seconds | `PresentPage.tsx`, new `components/VideoControls.tsx` | M6.2 | Manual | The plan's control bar |
-| M6.5 | Shortcuts while a video item is live: Space plays or pauses, Left and Right jump 10 seconds, Up and Down move to the previous and next item; the Help overlay lists both sets | `lib/shortcuts.ts` | M6.2 | `shortcuts.test.ts`: each key with a video live and with a song live | As the plan's Features say |
+| M6.5 | Shortcuts while a video item is live: Space plays or pauses, Up and Down jump 10 seconds, Left and Right move the keys to another item as for any item; the Help overlay lists both sets | `lib/shortcuts.ts` | M6.2 | `shortcuts.test.ts`: each key with a video live and with a song live | As the plan's Features say |
 | M6.6 | The phone's control bar: the same controls on the phone's Live screen while a video is live | `RemoteApp.tsx`, `packages/remote` | M6.1 | `remote` unit: the commands are forwarded with ids and acknowledged | Phones control videos |
 | M6.7 | Audio settings on this computer (U24): input and output device pickers with **System default** first, kept with the device settings (not synchronized), saving the id and the name; the pickers hide `default` and `communications`, ask for microphone permission when they open, and say when no devices are listed (a PC with no audio input); the slideshow asks for audio on opening and stops the track at once, finds the device by id then by name, and the native core applies it with one `eval` calling `setSinkId`; a chosen device that is missing falls back to the default with a note. Platform set-up: `src-tauri/Info.plist` with `NSMicrophoneUsageDescription` (from the spike branch); `com.apple.security.device.audio-input` in a `bundle.macOS.entitlements` file, **checked on the first signed build**; a WebView2 permission handler that allows the microphone for the app's own page | `deviceSettings.ts`, `SettingsPage.tsx`, `OutputApp.tsx`, `lib.rs`, `Info.plist`, `tauri.conf.json`, entitlements | M0.3, M6.3 | `deviceSettings.test.ts`: saved and read back; damaged settings read as defaults; matching by id, then by name | Sound goes where chosen, on a signed macOS build too |
 
@@ -377,10 +377,10 @@ Coordinator changes:
 
 `apps/desktop/src/lib/shortcuts.test.ts`
 
-- With a video item live: Space plays or pauses; Left and Right jump 10 s back and forward, stopping at 0 and at the end; Up and Down go to the previous and next item.
+- With a video item live: Space plays or pauses; Up and Down jump 10 s back and forward, stopping at 0 and at the end; Left and Right move the keys to the previous and next item and the video stays on screen; Enter presents the next item.
 - With a song or deck live: every key does what it does today.
 - With a video live and the screen blank: Space plays or pauses (it does not unblank).
-- Up on the first item and Down on the last do what Previous item and Next item do there today.
+- Up at the start and Down at the end of a video stop there; Left on the first item and Right on the last do what they do for any item.
 - Keys typed into a text field are never taken as shortcuts, as today.
 - A video item keyed (moved to without presenting it): the slide keys act as today until it is presented.
 

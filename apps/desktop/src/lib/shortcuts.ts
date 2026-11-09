@@ -21,6 +21,11 @@ export type PresentAction =
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
   | 'toggle-blank'
+  /**
+   * Hides or shows the lyrics while a slide is on screen; with nothing on screen, the same as
+   * `unblank-or-next`, so the key always does something.
+   */
+  | 'toggle-blank-or-present'
   /** Takes the slide off the screen, staying live. */
   | 'clear'
   /** A slide of the browsed or presented item by its position, counted from zero. */
@@ -28,12 +33,9 @@ export type PresentAction =
   /** While a video item is live (M6.5): play or pause it, and jump 10 s back or forward. */
   | 'video-toggle'
   | 'video-back'
-  | 'video-forward'
-  /** While a video item is live: present the next or previous run sheet item. */
-  | 'present-next-item'
-  | 'present-previous-item';
+  | 'video-forward';
 
-/** How far Left and Right jump through a live video. */
+/** How far Up and Down jump through a live video. */
 export const VIDEO_JUMP_SECONDS = 10;
 
 /**
@@ -50,9 +52,11 @@ export function slideKeyLabel(slide: number): string | null {
 type KeyPress = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>;
 
 /**
- * The action of a key. While a video item is live and the slide keys are on it (`video`),
- * Space plays or pauses, Left and Right jump through the video, and Up and Down move to the
- * previous and next item (U21, M6.5); every other key does what it does otherwise.
+ * The action of a key. Up and Down move within the keyed item and Left and Right between
+ * items; Space hides or shows the lyrics and Enter moves on through the whole run sheet. While
+ * a video item is live and the slide keys are on it (`video`), Space plays or pauses and Up
+ * and Down jump back and forward through the video (U21, M6.5); every other key does what it
+ * does otherwise.
  */
 export function presentAction(
   event: KeyPress,
@@ -63,14 +67,10 @@ export function presentAction(
     switch (event.key) {
       case ' ':
         return 'video-toggle';
-      case 'ArrowLeft':
-        return 'video-back';
-      case 'ArrowRight':
-        return 'video-forward';
       case 'ArrowUp':
-        return 'present-previous-item';
+        return 'video-back';
       case 'ArrowDown':
-        return 'present-next-item';
+        return 'video-forward';
     }
   }
   switch (event.key) {
@@ -84,8 +84,10 @@ export function presentAction(
       return 'item-previous';
     case 'PageDown':
       return 'next';
-    case ' ':
+    case 'Enter':
       return 'unblank-or-next';
+    case ' ':
+      return 'toggle-blank-or-present';
     case 'PageUp':
       return 'previous';
     case 'Backspace':
@@ -102,7 +104,7 @@ export function presentAction(
 
 /** What an action needs of the session; kept narrow so it is easy to test. */
 export interface PresentControls {
-  readonly live: { blank: boolean } | null;
+  readonly live: { blank: boolean; presented: unknown } | null;
   stepInItem(by: 1 | -1): Promise<unknown>;
   browseItem(by: 1 | -1): Promise<unknown>;
   next(): Promise<unknown>;
@@ -114,7 +116,6 @@ export interface PresentControls {
   readonly video: { playing: boolean } | null;
   videoPlay(playing: boolean): Promise<unknown>;
   videoSeek(to: { by: number }): Promise<unknown>;
-  presentItem(by: 1 | -1): Promise<unknown>;
 }
 
 export function runPresentAction(session: PresentControls, action: PresentAction): void {
@@ -138,6 +139,10 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.setBlank(true);
     case 'toggle-blank':
       return void session.setBlank(!session.live?.blank);
+    case 'toggle-blank-or-present':
+      return void (session.live?.presented
+        ? session.setBlank(!session.live.blank)
+        : session.unblankOrNext());
     case 'clear':
       return void session.clear();
     case 'video-toggle':
@@ -146,10 +151,6 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.videoSeek({ by: -VIDEO_JUMP_SECONDS });
     case 'video-forward':
       return void session.videoSeek({ by: VIDEO_JUMP_SECONDS });
-    case 'present-next-item':
-      return void session.presentItem(1);
-    case 'present-previous-item':
-      return void session.presentItem(-1);
   }
 }
 

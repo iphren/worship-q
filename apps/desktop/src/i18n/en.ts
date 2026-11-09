@@ -174,8 +174,8 @@ export const en = {
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
-  'present.shortcuts': '← → song · 1 2 3… jump · ⌫ hide lyrics',
-  'present.videoShortcuts': 'Video: Space play/pause · ← → 10 s · ↑ ↓ item',
+  'present.shortcuts': '← → song · 1 2 3… jump · Space hide/show lyrics · Enter next',
+  'present.videoShortcuts': 'Video: Space play/pause · ↑ ↓ 10 s · ← → item · Enter next item',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 

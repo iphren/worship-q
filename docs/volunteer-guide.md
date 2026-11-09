@@ -32,10 +32,13 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    otherwise with the next meeting day. To present another date, choose **Go live** on it
    in the calendar.
 4. Click any slide to show it. ↓ and ↑ step through the slides of the current song, and →
-   and ← move to the next or previous song. Backspace hides the lyrics and keeps the
-   background; ↓, ↑ or Space then shows the same slide again. Delete (fn + delete on a
-   Mac laptop) clears the screen and stays live; ↓ or Space then starts from the first
-   slide. The same keys work when the slideshow window is the one in front.
+   and ← move to the next or previous song. Enter moves on through the whole run sheet:
+   the next slide, and after the last slide of a song, the first slide of the next one.
+   Space hides the lyrics and keeps the background; press Space again to show the same
+   slide. (Space does not move to the next slide, as it does in PowerPoint or Keynote.)
+   Delete (fn + delete on a Mac laptop) clears the screen and stays live; Enter, ↓ or
+   Space then starts from the first slide. The same keys work when the slideshow window is
+   the one in front.
 
 ## 4. Fix a lyric during the service
 
@@ -80,8 +83,8 @@ Every computer downloads the videos of today's and upcoming run sheets ahead of 
 violet bar on the item shows it, and nothing streams during the service. A video item starts
 paused, unless **Autoplay** is on in its Edit window. While a video is live, a control bar
 above the slides plays, pauses and moves through it, and phones get the same bar. The keys
-change too: Space plays or pauses, ← and → jump 10 seconds, ↑ and ↓ go to the previous and
-next item. Leave a video for a reading and come back: it carries on where it was. Blanking
+change too: Space plays or pauses and ↑ and ↓ jump 10 seconds back and forward. ← and →
+move to another item as usual, and Enter presents the next item. Leave a video for a reading and come back: it carries on where it was. Blanking
 pauses it; showing the screen again carries on. **End** forgets where videos were.
 
 Video sound plays from the slideshow window. Choose where under **Settings → Audio on

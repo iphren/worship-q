@@ -35,10 +35,15 @@ describe('presentAction', () => {
     expect(press('/')).toBeNull();
   });
 
-  it('moves through the whole run sheet with page down and up, and space', () => {
+  it('moves through the whole run sheet with page down and up, and enter', () => {
     expect(press('PageDown')).toBe('next');
     expect(press('PageUp')).toBe('previous');
-    expect(press(' ')).toBe('unblank-or-next');
+    expect(press('Enter')).toBe('unblank-or-next');
+  });
+
+  it('hides or shows the lyrics with space, and with the period as remotes send it', () => {
+    expect(press(' ')).toBe('toggle-blank-or-present');
+    expect(press('.')).toBe('toggle-blank');
   });
 
   it('jumps to a slide of the item with the number row, then the letter rows', () => {
@@ -56,7 +61,6 @@ describe('presentAction', () => {
 
   it('ignores other keys and key combinations', () => {
     expect(press('!')).toBeNull();
-    expect(press('Enter')).toBeNull();
     expect(press('1', { ctrlKey: true })).toBeNull();
     expect(press('ArrowDown', { metaKey: true })).toBeNull();
   });
@@ -66,30 +70,31 @@ describe('keys while a video item is live (M6.5)', () => {
   const video = (key: string) =>
     presentAction({ key, metaKey: false, ctrlKey: false, altKey: false }, { video: true });
 
-  it('plays or pauses with Space, also while blank, instead of unblank-or-next', () => {
+  it('plays or pauses with Space, also while blank, instead of hiding the lyrics', () => {
     expect(video(' ')).toBe('video-toggle');
   });
 
-  it('jumps through the video with Left and Right', () => {
-    expect(video('ArrowLeft')).toBe('video-back');
-    expect(video('ArrowRight')).toBe('video-forward');
+  it('jumps through the video with Up and Down', () => {
+    expect(video('ArrowUp')).toBe('video-back');
+    expect(video('ArrowDown')).toBe('video-forward');
   });
 
-  it('moves to the previous and next item with Up and Down', () => {
-    expect(video('ArrowUp')).toBe('present-previous-item');
-    expect(video('ArrowDown')).toBe('present-next-item');
+  it('moves the keys to another item with Left and Right, as for any item', () => {
+    expect(video('ArrowLeft')).toBe('item-previous');
+    expect(video('ArrowRight')).toBe('item-next');
   });
 
   it('leaves every other key as it is', () => {
+    expect(video('Enter')).toBe('unblank-or-next');
     expect(video('PageDown')).toBe('next');
     expect(video('.')).toBe('toggle-blank');
     expect(video('Delete')).toBe('clear');
     expect(video('1')).toEqual({ slide: 0 });
   });
 
-  it('does what it does today with a song live', () => {
-    expect(press(' ')).toBe('unblank-or-next');
-    expect(press('ArrowLeft')).toBe('item-previous');
+  it('does what it does otherwise with a song live', () => {
+    expect(press(' ')).toBe('toggle-blank-or-present');
+    expect(press('ArrowDown')).toBe('slide-next');
   });
 
   it('acts on the video only while the slide keys are on it', () => {
@@ -103,11 +108,11 @@ describe('keys while a video item is live (M6.5)', () => {
 });
 
 describe('runPresentAction', () => {
-  const controls = (blank: boolean) => {
+  const controls = (blank: boolean, presented: unknown = { itemId: 'song' }) => {
     const calls: string[] = [];
     const record = (name: string) => async () => void calls.push(name);
     const session: PresentControls = {
-      live: { blank },
+      live: { blank, presented },
       stepInItem: record('stepInItem'),
       browseItem: record('browseItem'),
       next: record('next'),
@@ -119,31 +124,32 @@ describe('runPresentAction', () => {
       video: { playing: false },
       videoPlay: async (playing) => void calls.push(`videoPlay(${playing})`),
       videoSeek: async (to) => void calls.push(`videoSeek(${to.by})`),
-      presentItem: async (by) => void calls.push(`presentItem(${by})`),
     };
     return { session, calls };
   };
 
-  it('plays, pauses, jumps and moves between items while a video is live (M6.5)', () => {
+  it('plays, pauses and jumps while a video is live (M6.5)', () => {
     const { session, calls } = controls(false);
-    for (const action of [
-      'video-toggle',
-      'video-back',
-      'video-forward',
-      'present-next-item',
-      'present-previous-item',
-    ] as const)
+    for (const action of ['video-toggle', 'video-back', 'video-forward'] as const)
       runPresentAction(session, action);
-    expect(calls).toEqual([
-      'videoPlay(true)',
-      'videoSeek(-10)',
-      'videoSeek(10)',
-      'presentItem(1)',
-      'presentItem(-1)',
-    ]);
+    expect(calls).toEqual(['videoPlay(true)', 'videoSeek(-10)', 'videoSeek(10)']);
   });
 
-  it('leaves space to the session, which knows whether to unblank or move on', () => {
+  it('hides and shows the lyrics with space while a slide is on screen', () => {
+    const shown = controls(false);
+    runPresentAction(shown.session, 'toggle-blank-or-present');
+    const hidden = controls(true);
+    runPresentAction(hidden.session, 'toggle-blank-or-present');
+    expect([...shown.calls, ...hidden.calls]).toEqual(['setBlank(true)', 'setBlank(false)']);
+  });
+
+  it('presents with space when nothing is on screen, as enter does', () => {
+    const { session, calls } = controls(false, null);
+    runPresentAction(session, 'toggle-blank-or-present');
+    expect(calls).toEqual(['unblankOrNext']);
+  });
+
+  it('leaves enter to the session, which knows whether to unblank or move on', () => {
     const { session, calls } = controls(true);
     runPresentAction(session, 'unblank-or-next');
     expect(calls).toEqual(['unblankOrNext']);

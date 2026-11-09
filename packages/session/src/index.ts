@@ -678,11 +678,6 @@ export class Session {
     return 'applied';
   }
 
-  /** Presents the first piece of the next or previous run sheet item. */
-  presentItem(by: 1 | -1): Promise<boolean> {
-    return this.mutate(() => this.apply({ type: by === 1 ? 'nextItem' : 'previousItem' }));
-  }
-
   /**
    * How far this computer's clock is ahead of the coordinator's, in milliseconds, learned
    * from the changes it sends: the smallest gap seen lately, which is the clock difference
