@@ -93,6 +93,38 @@ this computer**; the app asks once to use the microphone, which it only uses to 
 devices. Browser slideshow pages and OBS play the sound too. A browser may wait until the page
 is clicked: the video then plays silently with **Click for sound**.
 
+## Bible passages
+
+When the speaker reads a passage that is not in the run sheet, click the **book** button
+beside the song search on the Present page (or in the calendar's run sheet editor).
+
+- **Type it** the way you would write it: `Mark 15:5-6`, `Mk 15.5-6`, `马可福音15章5-6节`,
+  `可15:5`. Or **browse**: choose a book, then a chapter, then the first and the last verse
+  (choose one verse twice for that verse alone). **Continue into chapter …** carries a range
+  into the next chapter. Words that are not a reference, such as `love your enemies`, search
+  the Bible after a pause.
+- The **preview** shows the text in the workspace's versions side by side. Check it, then:
+  - **Present ▶** (or Enter) adds the passage right after the item on screen and shows it at
+    once. With nothing on screen it goes at the end of the run sheet.
+  - **Add to run sheet** puts it in the same place without showing it, for a passage the
+    speaker will read later. In the calendar, only Add is offered.
+- Typing a reference into the song search, such as `Mark 15:5`, offers **Open Mark 15:5 in the
+  Bible** above the songs.
+- **Versions** are the chips beside the search box: **✕** removes one, **◀** shows it first,
+  and **+** adds one of those the church offers, at most two. They belong to the workspace, so
+  every computer gets the same; they are also in **Settings → Bible versions**.
+- A passage is a **run sheet item** with a teal book badge. Move or remove it like any item;
+  **Edit…** opens the Bible window on it to change the verses or its versions, keeping its
+  place. Changing the workspace's versions never changes passages already added.
+- **Notes under a passage** (ⓘ) explain why it may look different from the speaker's Bible:
+  a version that joins two verses into one (当代译本 joins 1 Chronicles 16:12–13), or one that
+  has no such verse (NIVUK has no Revelation 12:18). The screen never shows these notes.
+- Passages are **not shown on the subtitle overlay**. To show one on the stream, switch OBS to
+  a scene with the slides.
+- New passages need the church server; passages already in a run sheet present offline.
+- On a **phone**, **Edit → Add a Bible passage** does the same, except editing a passage
+  already added.
+
 ## Settings
 
 **Settings** holds your meeting days, lines per slide, the slideshow font, text size and

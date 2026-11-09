@@ -22,6 +22,11 @@ services:
       WORSHIP_Q_MAX_IMAGE_MB: ${WORSHIP_Q_MAX_IMAGE_MB:-25}
       WORSHIP_Q_MAX_DECK_MB: ${WORSHIP_Q_MAX_DECK_MB:-200}
       WORSHIP_Q_MAX_VIDEO_MB: ${WORSHIP_Q_MAX_VIDEO_MB:-200}
+      # The church's Bible provider keys (Bible passages, B17); each is optional. They stay
+      # on this server and are never sent to a desktop, a phone or the admin app.
+      WORSHIP_Q_YOUVERSION_KEY: ${WORSHIP_Q_YOUVERSION_KEY:-}
+      WORSHIP_Q_API_BIBLE_KEY: ${WORSHIP_Q_API_BIBLE_KEY:-}
+      WORSHIP_Q_ESV_KEY: ${WORSHIP_Q_ESV_KEY:-}
     # Your reverse proxy forwards to this port; it is only reachable from this machine.
     ports:
       - '127.0.0.1:${WORSHIP_Q_PORT:-8080}:8080'

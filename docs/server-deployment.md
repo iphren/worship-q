@@ -52,6 +52,9 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `WORSHIP_Q_MAX_IMAGE_MB` | `25` | Largest image a desktop may upload, in MB |
 | `WORSHIP_Q_MAX_DECK_MB` | `200` | Largest slide deck or PDF a desktop may upload, in MB |
 | `WORSHIP_Q_MAX_VIDEO_MB` | `200` | Largest video a desktop may upload, in MB; the server never shrinks videos |
+| `WORSHIP_Q_YOUVERSION_KEY` | — | The church's YouVersion Platform app key; see **Bible passages** |
+| `WORSHIP_Q_API_BIBLE_KEY` | — | The church's API.Bible key |
+| `WORSHIP_Q_ESV_KEY` | — | The church's ESV API key |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -330,6 +333,35 @@ fonts (Noto CJK), fonts with the same widths as Calibri, Cambria, Arial and Time
 and Microsoft's free core fonts such as Trebuchet MS when they could be downloaded while
 building.
 
+## Bible passages
+
+Desktops and phones show Bible passages through this server, which calls the Bible
+providers with the church's own keys. The keys stay on the server: they are never logged,
+never sent to a desktop or a phone, and the admin app shows only whether each is set.
+
+| Provider | Variable | Where to get a key | What it serves |
+| --- | --- | --- | --- |
+| YouVersion Platform | `WORSHIP_Q_YOUVERSION_KEY` | Register an app at developers.youversion.com; accept each publisher's licence (Biblica for NIV and 当代译本, Lockman for NASB) in the portal, or those versions answer 403 | NIVUK, 当代译本 (CCB, CCBT), 中文标准译本 (CSBS, CSBT), BSB |
+| API.Bible | `WORSHIP_Q_API_BIBLE_KEY` | api.bible; the Starter plan allows 5,000 calls a month for the whole church | NKJV, NLT, KJV, and NIVUK and the open 当代译本 as fallbacks |
+| ESV API | `WORSHIP_Q_ESV_KEY` | api.esv.org | ESV |
+| Free Use Bible API | — | No key | 新标点和合本 (CUNP-S, CUNP-T), KJV, BSB, 当代译本 and 中文标准译本 as fallbacks |
+
+The keys belong to the church, registered by the church for its own use, as each provider's
+terms require (see the Bible passages discovery, §4). Set them in `.env` beside the others
+and restart the server; the log then says which keys are set and, once checked, which
+versions are available and through which provider.
+
+**Choose the offered versions** in the admin app: **Church defaults → Bible versions** lists
+every version Worship Q knows, says whether a provider answers for it with the keys set, and
+offers the ticked ones to every workspace. Until a version is ticked, desktops say the church
+offers no Bible. Each workspace then picks up to two of them, shown side by side.
+
+The server checks each version once at start and daily, falls back from one provider to the
+next for the same edition when one fails, and keeps each version's table of contents in
+`bible/` in the data folder (about 7 KB each). Passage text is kept in memory for ten minutes
+at most and never written to disk. API.Bible's usage tokens are reported to API.Bible from
+the server in the background, as its terms ask.
+
 ## Connecting a desktop
 
 1. On the desktop: **Settings → Church connection**, enter the server address
@@ -479,6 +511,16 @@ limit at the same time (see above). Image items work on older desktops too, as o
 slide decks. A desktop older than version 5 shows a video item as a title with nothing to
 present, and the server keeps the video when such a desktop renames it; ask every computer
 to update before planning a service with videos.
+
+## Updating for Bible passages (protocol version 6)
+
+Bible passages raise the protocol version to 6 and keep accepting versions 2 to 5. Update
+the server first, set the church's keys and choose the offered versions; desktops update
+themselves as usual. A desktop older than version 6 shows a passage item as plain lyrics
+(the passage's first version), and the server keeps the passage when such a desktop saves
+the item, so churches can update desktops at their own pace. The Bible window appears only
+on updated desktops connected to an updated server. A phone connected through an older
+desktop cannot add passages; its Bible screen says the computer has no Bible.
 
 ## Updating for OBS control (protocol version 4)
 

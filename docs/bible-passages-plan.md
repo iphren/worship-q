@@ -3,7 +3,8 @@
 **Drafted:** 9 November 2026
 **Status:** Agreed with the project owner: the user-facing design (B1–B16) and how the APIs
 serve it (B17–B26, §5, confirmed 9 November 2026). Tasks in the
-[task breakdown](bible-passages-task-breakdown.md). Nothing is built.
+[task breakdown](bible-passages-task-breakdown.md). Built on the `bible-passages` branch;
+awaiting the walkthrough ([acceptance record](acceptance/bible-passages.md)).
 **Source:** [Bible Passages Discovery](bible-passages-discovery.md) (rights, versions, agreed
 direction in §9) and [Bible APIs — Technical Discovery](bible-apis-technical-discovery.md)
 (how the APIs behave).
