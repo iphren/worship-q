@@ -114,6 +114,10 @@ textarea {
   .item-flash {
     animation: item-flash 900ms ease-out;
   }
+  /* Shows the run sheet glance for three seconds, fading in and out. */
+  .run-sheet-glance {
+    animation: run-sheet-glance 3s ease-in-out forwards;
+  }
   /* Slowly pulses a warning so it is noticed from across the room. */
   .breathe {
     animation: breathe 2s ease-in-out infinite;
@@ -128,6 +132,27 @@ textarea {
 
 @media (prefers-reduced-motion: reduce) {
   .breathe {
+    animation: none;
+  }
+}
+
+@keyframes run-sheet-glance {
+  from {
+    opacity: 0;
+    transform: translateX(1rem);
+  }
+  8%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-sheet-glance {
     animation: none;
   }
 }

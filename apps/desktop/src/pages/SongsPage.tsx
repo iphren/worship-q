@@ -1,8 +1,10 @@
 import type { IsoDate, Song } from '@worship-q/protocol';
+import type { RunSheetView } from '@worship-q/session';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { RunSheetGlance } from '../components/RunSheetGlance';
 import { SongForm } from '../components/SongForm';
 import { SongPeek } from '../components/SongPeek';
 import {
@@ -49,9 +51,16 @@ export function SongsPage() {
   const [added, setAdded] = useState<number | null>(null);
   useEffect(() => {
     if (added === null) return;
-    const timer = setTimeout(() => setAdded(null), 2000);
+    const timer = setTimeout(() => setAdded(null), 3000);
     return () => clearTimeout(timer);
   }, [added]);
+  /** The run sheet just added to, shown briefly since the library does not show it. */
+  const [glance, setGlance] = useState<{ view: RunSheetView; itemId: string } | null>(null);
+  useEffect(() => {
+    if (!glance) return;
+    const timer = setTimeout(() => setGlance(null), 3000);
+    return () => clearTimeout(timer);
+  }, [glance]);
   const library = useQuery(async () => {
     const workspaceId = session.workspace.id;
     return {
@@ -106,7 +115,9 @@ export function SongsPage() {
     // Ignore repeat clicks while the check is showing.
     if (added === key) return;
     setAdded(key);
-    await session.addSong(session.openDate, song.id);
+    const date = session.openDate;
+    const item = await session.addSong(date, song.id);
+    setGlance({ view: await session.viewDate(date), itemId: item.id });
   }
 
   async function askRemove(song: Song) {
@@ -267,6 +278,10 @@ export function SongsPage() {
           <p className="p-6 text-slate-500">{t('songs.select')}</p>
         )}
       </section>
+
+      {glance && (
+        <RunSheetGlance key={glance.itemId} view={glance.view} addedItemId={glance.itemId} />
+      )}
 
       {pending && (
         <ConfirmDialog

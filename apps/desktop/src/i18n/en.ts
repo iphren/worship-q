@@ -153,6 +153,7 @@ export const en = {
   'runSheet.addHint': 'Add (or double-click the song)',
   'runSheet.edit': 'Edit',
   'runSheet.itemMenu': 'More actions',
+  'runSheet.glanceMore': '… {count} more above',
   'runSheet.removed': 'Removed “{title}”',
 
   'present.nothingLive': 'Nothing is live',
