@@ -85,7 +85,11 @@ export function buildFrame(input: FrameInput): OutputFrame {
     const piece = presented.pieces.find((p) => p.id === presented.pieceId);
     frame.pieceId = piece ? piece.id : null;
     if (piece?.passage && kind === 'slideshow' && !frame.blank) {
-      frame.passage = { columns: piece.passage.columns };
+      // From a desktop before headers were sent: the item's title, the first version's.
+      frame.passage = {
+        columns: piece.passage.columns,
+        headers: piece.passage.headers ?? [presented.title],
+      };
     }
     return frame;
   }

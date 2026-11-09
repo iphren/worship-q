@@ -505,7 +505,7 @@ export interface RemoteItemView {
     thumbnail?: string;
     textless?: boolean;
     /** A passage's slide: each version's verses, side by side. */
-    passage?: { columns: PassageColumn[] };
+    passage?: { columns: PassageColumn[]; headers?: string[] };
   }[];
 }
 
@@ -616,8 +616,13 @@ export const SnapshotPieceSchema = z.object({
       autoplay: z.boolean(),
     })
     .optional(),
-  /** A passage's slide: each version's verses, side by side (protocol version 6). */
-  passage: z.object({ columns: z.array(PassageColumnSchema) }).optional(),
+  /**
+   * A passage's slide: each version's verses, side by side, and the whole passage's
+   * reference in each version's language (protocol version 6).
+   */
+  passage: z
+    .object({ columns: z.array(PassageColumnSchema), headers: z.array(z.string()).optional() })
+    .optional(),
 });
 export type SnapshotPiece = z.infer<typeof SnapshotPieceSchema>;
 

@@ -507,9 +507,11 @@ export interface OutputFrame {
   video?: OutputVideo | null;
   /**
    * A Bible passage's slide (B10): each version's verses as a column, side by side, with its
-   * credit. Hidden while blank; never on the subtitle overlay (B12).
+   * credit, and above each column the whole passage's reference in its version's language
+   * (`Mark 15:5–6`, `马可福音 15:5-6`), the same on every slide. Hidden while blank; never on
+   * the subtitle overlay (B12).
    */
-  passage?: { columns: PassageColumn[] } | null;
+  passage?: { columns: PassageColumn[]; headers: string[] } | null;
   /**
    * Words shown instead of lyrics, such as **Waiting for presentation** on a viewer's
    * slideshow (decision D16). Never shown on the subtitle overlay.

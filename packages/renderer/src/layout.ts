@@ -256,9 +256,19 @@ export const PASSAGE_FLOOR_RATIO = 0.04;
 /** The gap between two columns, as a fraction of the output width. */
 export const PASSAGE_COLUMN_GAP = 0.03;
 export const PASSAGE_LINE_HEIGHT = 1.5;
-/** Verse numbers are small and raised; credits small, at each column's foot. */
+/** Verse numbers are small and raised. */
 export const PASSAGE_LABEL_SCALE = 0.6;
-export const PASSAGE_CREDIT_SCALE = 0.55;
+/**
+ * The passage's reference at the top and the versions' credits at the bottom keep fixed
+ * places on every slide: this far from the screen's edge, at these sizes, all as fractions
+ * of the height. The verses fit between them.
+ */
+export const PASSAGE_EDGE_RATIO = 0.03;
+export const PASSAGE_HEADER_RATIO = 0.035;
+export const PASSAGE_CREDIT_RATIO = 0.025;
+/** Where the verses start and end, as fractions of the height. */
+export const PASSAGE_TEXT_TOP = 0.09;
+export const PASSAGE_TEXT_BOTTOM = 0.91;
 /** A poetry line's indent, in em. */
 export const PASSAGE_INDENT_EM = 1.5;
 
@@ -332,10 +342,15 @@ export interface PassageVisualLine {
 export interface FittedPassage {
   /** One size for every column (B24). */
   fontSize: number;
+  /** The verses' area: from `marginX` at each side, from `marginY` down `areaHeight`. */
   marginX: number;
   marginY: number;
   areaWidth: number;
   areaHeight: number;
+  /** The reference above and the credits below, at fixed places and sizes. */
+  edge: number;
+  headerSize: number;
+  creditSize: number;
   columnWidth: number;
   gap: number;
   columns: { credit: string; lines: PassageVisualLine[] }[];
@@ -354,9 +369,9 @@ export function fitPassage(
   scale = 1,
 ): FittedPassage {
   const marginX = width * SAFE_MARGIN;
-  const marginY = height * SAFE_MARGIN;
+  const marginY = height * PASSAGE_TEXT_TOP;
   const areaWidth = width - marginX * 2;
-  const areaHeight = height - marginY * 2;
+  const areaHeight = height * (PASSAGE_TEXT_BOTTOM - PASSAGE_TEXT_TOP);
   const count = Math.max(1, columns.length);
   const gap = count > 1 ? width * PASSAGE_COLUMN_GAP : 0;
   const columnWidth = (areaWidth - gap * (count - 1)) / count;
@@ -382,10 +397,7 @@ export function fitPassage(
     }));
   const fits = (size: number) =>
     layoutAt(size).every(
-      (column) =>
-        column.lines.length * size * PASSAGE_LINE_HEIGHT +
-          size * PASSAGE_CREDIT_SCALE * PASSAGE_LINE_HEIGHT * 1.5 <=
-        areaHeight + EPSILON,
+      (column) => column.lines.length * size * PASSAGE_LINE_HEIGHT <= areaHeight + EPSILON,
     );
   const largest = (low: number, high: number) => {
     for (let i = 0; i < 40 && high - low > 0.05; i++) {
@@ -408,6 +420,9 @@ export function fitPassage(
     marginY,
     areaWidth,
     areaHeight,
+    edge: height * PASSAGE_EDGE_RATIO,
+    headerSize: height * PASSAGE_HEADER_RATIO,
+    creditSize: height * PASSAGE_CREDIT_RATIO,
     columnWidth,
     gap,
     columns: layoutAt(fontSize),

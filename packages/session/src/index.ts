@@ -152,6 +152,19 @@ export function passageSongFields(
   };
 }
 
+/**
+ * The whole passage's reference in each version's language, one per column, for the slide's
+ * header: `Mark 15:5–6` above an English column, `马可福音 15:5-6` above a Chinese one.
+ */
+export function passageHeaders(passage: Passage): string[] {
+  const reference = passageReference(passage);
+  return passage.texts.map((text) =>
+    reference
+      ? formatReference(reference, catalogueVersion(text.version)?.language ?? 'en')
+      : passage.reference,
+  );
+}
+
 /** The API.Bible usage tokens a passage carries (B25). */
 export function passageTokens(passage: Passage): string[] {
   return passage.texts.flatMap((text) => (text.fumsToken ? [text.fumsToken] : []));
@@ -230,13 +243,14 @@ export function snapshotPieces(song: Song, pieces: readonly Piece[]): SnapshotPi
   if (song.passage) {
     // Each slide carries both columns, so phones and followers show what the screen does.
     const slides = passageSlides(song.passage);
+    const headers = passageHeaders(song.passage);
     return pieces.map((piece) => {
       const columns = slides.find((slide) => slide.id === piece.id)?.columns ?? [];
       return {
         id: piece.id,
         lines: piece.lines.map((line) => line.text),
         block: piece.blockIndex,
-        passage: { columns },
+        passage: { columns, headers },
       };
     });
   }
@@ -1781,11 +1795,15 @@ export class Session {
     } else if (presented && song && (song.passage || carriedPassage)) {
       // Drawn on the slideshow only: the subtitle overlay stays empty while a passage is live,
       // as the words are not being spoken or sung at that moment (B12).
+      const carriedPiece = carriedPieces?.find((piece) => piece.id === presented.pieceId);
       const columns = song.passage
         ? passageSlides(song.passage).find((slide) => slide.id === presented.pieceId)?.columns
-        : carriedPieces?.find((piece) => piece.id === presented.pieceId)?.passage?.columns;
+        : carriedPiece?.passage?.columns;
+      const headers = song.passage
+        ? passageHeaders(song.passage)
+        : (carriedPiece?.passage?.headers ?? [song.title]);
       frame.pieceId = columns ? presented.pieceId : null;
-      if (columns && kind === 'slideshow' && !frame.blank) frame.passage = { columns };
+      if (columns && kind === 'slideshow' && !frame.blank) frame.passage = { columns, headers };
     } else if (presented && song?.website) {
       // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
       if (presented.pieceId === WEBSITE_PIECE_ID) {

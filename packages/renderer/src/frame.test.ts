@@ -289,7 +289,8 @@ describe('passage frames (P6.2)', () => {
 
   it('draws a passage on the slideshow, side by side, on the song’s background', () => {
     const shown = frame('slideshow');
-    expect(shown.passage).toEqual({ columns });
+    // Under the whole passage's reference, the item's title.
+    expect(shown.passage).toEqual({ columns, headers: ['Mark 15:5'] });
     expect(shown.pieceId).toBe('v15:5');
     expect(shown.song).toBeNull();
     expect(shown.background.color).toBe('#203040');

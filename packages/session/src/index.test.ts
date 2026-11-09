@@ -1605,6 +1605,8 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     await session.addPassage(SUNDAY, mark, { present: true });
     const slideshow = await session.frame(mediaUrl);
     expect(slideshow.passage!.columns.map((c) => c.version)).toEqual(['NIVUK', 'CCB']);
+    // The whole passage's reference, not the slide's verses.
+    expect(slideshow.passage!.headers).toEqual(['Mark 15:5–6', '马可福音 15:5-6']);
     expect(slideshow.pieceId).toBe('v15:5');
     expect(slideshow.song).toBeNull();
     const subtitle = await session.frame(mediaUrl, 'subtitle');

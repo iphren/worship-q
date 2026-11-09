@@ -12,7 +12,6 @@ import {
   contrastTextColor,
   fitPassage,
   fitSong,
-  PASSAGE_CREDIT_SCALE,
   PASSAGE_INDENT_EM,
   PASSAGE_LABEL_SCALE,
   PASSAGE_LINE_HEIGHT,
@@ -81,6 +80,8 @@ interface Lyrics extends Layer {
 
 interface PassageLayer extends Layer {
   fitted: FittedPassage;
+  /** The whole passage's reference in each version's language, the same on every slide. */
+  headers: string[];
   color: string;
   fontFamily: string;
   textShadow: string;
@@ -278,6 +279,7 @@ export function Slide({
     return {
       key: `passage:${pieceId}:${passageColumns.map((column) => column.version).join('|')}`,
       fitted,
+      headers: frame.passage?.headers ?? [],
       color,
       fontFamily: cssFontFamily(fontFamily),
       textShadow: onMedia ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)' : 'none',
@@ -544,77 +546,114 @@ function LyricsBlock(props: { lyrics: Lyrics; ref: Ref<HTMLDivElement> }) {
 }
 
 /**
- * A passage's columns side by side, top-aligned so verses start level, with each column's
- * credit at its foot; the whole block is centred in the area. Verse numbers are small and
- * raised; poetry keeps its indent.
+ * A passage's slide: the whole passage's reference at the top and the versions' credits at
+ * the bottom, both at the left and right corners for two versions, and at the top left and
+ * bottom right for one; the verses of each version side by side between them, top-aligned so
+ * they start level. The reference and the credits keep their places on every slide; only the
+ * verses change.
  */
 function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }) {
-  const { fitted, color, fontFamily, textShadow } = props.passage;
-  const row: CSSProperties = { display: 'flex', gap: fitted.gap };
+  const { fitted, color, fontFamily, textShadow, headers } = props.passage;
+  // One reference per column; two that read the same are shown once, at the left.
+  const shownHeaders =
+    headers.length > 1 && headers[0] === headers[1] ? headers.slice(0, 1) : headers;
+  const credits = fitted.columns.map((column) => column.credit);
+  const band: CSSProperties = {
+    position: 'absolute',
+    left: fitted.marginX,
+    width: fitted.areaWidth,
+    lineHeight: PASSAGE_LINE_HEIGHT,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
   return (
     <div
       ref={props.ref}
       style={{
         position: 'absolute',
-        left: fitted.marginX,
-        top: fitted.marginY,
-        width: fitted.areaWidth,
-        height: fitted.areaHeight,
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
+        inset: 0,
         color,
         fontFamily,
-        fontSize: fitted.fontSize,
-        lineHeight: PASSAGE_LINE_HEIGHT,
-        fontWeight: FONT_WEIGHT,
         textShadow,
+        fontWeight: FONT_WEIGHT,
       }}
     >
-      <div style={{ ...row, alignItems: 'flex-start' }}>
-        {fitted.columns.map((column, index) => (
-          <div key={index} style={{ width: fitted.columnWidth }}>
-            {column.lines.map((line, i) => (
-              <div
-                key={i}
-                style={{
-                  whiteSpace: 'pre',
-                  paddingLeft: `${line.indent * PASSAGE_INDENT_EM}em`,
-                  fontStyle: line.title ? 'italic' : undefined,
-                  opacity: line.title ? 0.85 : undefined,
-                }}
-              >
-                {line.label && (
-                  <span
-                    style={{
-                      fontSize: `${PASSAGE_LABEL_SCALE}em`,
-                      verticalAlign: '0.6em',
-                      lineHeight: 0,
-                      opacity: 0.75,
-                    }}
-                  >
-                    {`${line.label} `}
-                  </span>
-                )}
-                {line.text}
-              </div>
-            ))}
-          </div>
-        ))}
+      {shownHeaders.length > 0 && (
+        <div
+          style={{
+            ...band,
+            top: fitted.edge,
+            fontSize: fitted.headerSize,
+            opacity: 0.85,
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
+          {shownHeaders.map((header, index) => (
+            <span key={index}>{header}</span>
+          ))}
+        </div>
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          left: fitted.marginX,
+          top: fitted.marginY,
+          width: fitted.areaWidth,
+          height: fitted.areaHeight,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          fontSize: fitted.fontSize,
+          lineHeight: PASSAGE_LINE_HEIGHT,
+        }}
+      >
+        <div style={{ display: 'flex', gap: fitted.gap, alignItems: 'flex-start' }}>
+          {fitted.columns.map((column, index) => (
+            <div key={index} style={{ width: fitted.columnWidth }}>
+              {column.lines.map((line, i) => (
+                <div
+                  key={i}
+                  style={{
+                    whiteSpace: 'pre',
+                    paddingLeft: `${line.indent * PASSAGE_INDENT_EM}em`,
+                    fontStyle: line.title ? 'italic' : undefined,
+                    opacity: line.title ? 0.85 : undefined,
+                  }}
+                >
+                  {line.label && (
+                    <span
+                      style={{
+                        fontSize: `${PASSAGE_LABEL_SCALE}em`,
+                        verticalAlign: '0.6em',
+                        lineHeight: 0,
+                        opacity: 0.75,
+                      }}
+                    >
+                      {`${line.label} `}
+                    </span>
+                  )}
+                  {line.text}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ ...row, marginTop: '0.4em', fontSize: `${PASSAGE_CREDIT_SCALE}em` }}>
-        {fitted.columns.map((column, index) => (
-          <div
-            key={index}
-            style={{
-              width: fitted.columnWidth,
-              textAlign: 'right',
-              fontWeight: 400,
-              opacity: 0.7,
-            }}
-          >
-            {column.credit}
-          </div>
+      <div
+        style={{
+          ...band,
+          bottom: fitted.edge,
+          fontSize: fitted.creditSize,
+          fontWeight: 400,
+          opacity: 0.7,
+          display: 'flex',
+          justifyContent: credits.length > 1 ? 'space-between' : 'flex-end',
+        }}
+      >
+        {credits.map((credit, index) => (
+          <span key={index}>{credit}</span>
         ))}
       </div>
     </div>
