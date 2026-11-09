@@ -559,6 +559,19 @@ describe('two versions of a song (D31, D32)', () => {
     ]);
     old.close();
   });
+
+  it('pulls everything again once after the upgrade, so songs get their videos and passages', async () => {
+    // A database that synchronized video and passage songs before it knew of them.
+    const earlier = MIGRATIONS.filter((m) => m.version <= 11);
+    const old = openNodeDriver();
+    await migrate(old, earlier);
+    await old.batch([{ sql: `INSERT INTO sync_state (key, value) VALUES ('cursor', '3848')` }]);
+    await migrate(old);
+    expect(
+      await old.select<{ value: string }>(`SELECT value FROM sync_state WHERE key = 'cursor'`),
+    ).toEqual([{ value: '0' }]);
+    old.close();
+  });
 });
 
 describe('song backgrounds, the workspace’s choice', () => {
