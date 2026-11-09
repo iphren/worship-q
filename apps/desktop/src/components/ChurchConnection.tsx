@@ -522,7 +522,7 @@ function Connected() {
         <button
           className="btn"
           disabled={sync.kind === 'syncing'}
-          onClick={() => void cloud.sync()}
+          onClick={() => void cloud.syncNow()}
         >
           {t('church.syncNow')}
         </button>

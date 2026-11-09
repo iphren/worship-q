@@ -41,6 +41,7 @@ import {
   type SyncStatus,
 } from '@worship-q/sync';
 import { native, type LanCredential, type LanStatus } from '../platform/native';
+import { infoDue } from './serverInfo';
 import { BibleClient, BibleRequestError, workspaceVersions, type BibleServer } from './bible';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
@@ -417,7 +418,16 @@ export class CloudController {
       this.editTimer = window.setTimeout(() => void this.syncIfChanged(), SYNC_AFTER_EDIT_MS);
       this.scheduleFontCheck();
     });
-    this.timers.push(window.setInterval(() => void this.sync(), SYNC_EVERY_MS));
+    let tick = 0;
+    this.timers.push(
+      window.setInterval(() => {
+        void this.sync();
+        // What the server offers can change while this app runs (P4.5).
+        if (this.connected && infoDue(this.status_.server, ++tick)) {
+          void this.recheckProtocol().catch(() => undefined);
+        }
+      }, SYNC_EVERY_MS),
+    );
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
     // Before anything that needs the church: the OBS computer's controls work without it.
     await this.startObs().catch(console.error);
@@ -519,6 +529,14 @@ export class CloudController {
   private async refreshState(): Promise<void> {
     this.state = await this.syncStore.getState();
     this.update({ state: this.state });
+  }
+
+  /**
+   * **Sync now**: the content, and what the server offers (its Bible, media, protocol),
+   * which a desktop otherwise asks again only from time to time.
+   */
+  async syncNow(): Promise<void> {
+    await Promise.all([this.sync(), this.recheckProtocol().catch(() => undefined)]);
   }
 
   async sync(): Promise<void> {
