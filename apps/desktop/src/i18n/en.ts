@@ -181,6 +181,7 @@ export const en = {
   'present.locate': 'Go to current slide',
   'present.shortcuts': '← → song · 1 2 3… jump · Space hide/show lyrics · Enter next',
   'present.videoShortcuts': 'Video: Space play/pause · ↑ ↓ 10 s · ← → item · Enter next item',
+  'present.videoLiveShortcuts': '← → song · 1 2 3… jump · Space play/pause video · Enter next',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 

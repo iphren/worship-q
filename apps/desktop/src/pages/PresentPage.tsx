@@ -476,7 +476,13 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   </button>
                 </div>
                 <p className="text-center text-xs text-slate-500">
-                  {t(videoKeys(session) ? 'present.videoShortcuts' : 'present.shortcuts')}
+                  {t(
+                    {
+                      keyed: 'present.videoShortcuts' as const,
+                      live: 'present.videoLiveShortcuts' as const,
+                      none: 'present.shortcuts' as const,
+                    }[videoKeys(session) ?? 'none'],
+                  )}
                 </p>
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
