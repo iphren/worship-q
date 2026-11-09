@@ -19,6 +19,7 @@ import { MediaActions } from './MediaActions';
 import { songMediaKind } from '../app/media';
 import { native } from '../platform/native';
 import { formatDuration } from '@worship-q/session';
+import { useSaveShortcut } from '../lib/saveShortcut';
 import { useScrollMemory } from '../lib/scrollMemory';
 
 export interface SongDraft {
@@ -378,8 +379,12 @@ function WebsiteForm(props: SongFormProps) {
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  useSaveShortcut(formRef, () => void save());
+
   return (
     <form
+      ref={formRef}
       className="flex h-full min-h-0 flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -454,8 +459,13 @@ export function TitleForm(props: {
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // Where the form can stay open, the shortcut keeps it open, as in other editors.
+  useSaveShortcut(formRef, () => void save(!props.onApplied));
+
   return (
     <form
+      ref={formRef}
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -510,8 +520,12 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  useSaveShortcut(formRef, () => void save());
+
   return (
     <form
+      ref={formRef}
       className="flex h-full min-h-0 flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -615,8 +629,13 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // Where the form can stay open, the shortcut keeps it open, as in other editors.
+  useSaveShortcut(formRef, () => void save(!props.onApplied));
+
   return (
     <form
+      ref={formRef}
       className="flex h-full min-h-0 flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
@@ -757,19 +776,17 @@ function LyricsForm(props: SongFormProps) {
     }
   }
 
+  const formRef = useRef<HTMLFormElement>(null);
+  // Where the form can stay open, the shortcut keeps it open, as in other editors.
+  useSaveShortcut(formRef, () => void save(!props.onApplied));
+
   return (
     <form
+      ref={formRef}
       className="flex h-full min-h-0 flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault();
         void save();
-      }}
-      onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-          event.preventDefault();
-          // Where the form can stay open, saving keeps it open, as in other editors.
-          void save(!props.onApplied);
-        }
       }}
     >
       <label>
