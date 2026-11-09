@@ -175,27 +175,35 @@ Not a design; constraints any design must meet:
    shared across churches; a key is a secret and should be handled like one.
 6. Each version marked as bundled, imported or online so the operator knows what works
    offline.
-7. Usage reporting (FUMS) where an API requires it, if confirmed to apply.
+7. Usage reporting (FUMS) wherever an API.Bible passage is shown, on every output.
 
 ## 8. Actions and open questions
 
-- [ ] **Hodder & Stoughton (NIV UK):** permission for an open-source presentation app to hold
-      the NIV text, or confirmation that per-church API access is the right route.
-- [ ] **Hong Kong Bible Society:** status of CUNP 新標點和合本 and RCUV 和合本修訂版 for church
-      projection and for software; is CUNP available through API.Bible or YouVersion?
-- [ ] **Worldwide Bible Society:** terms for CNV 新譯本 projection and software use.
-- [ ] **API.Bible:** does FUMS apply to a desktop slideshow and an OBS overlay; is a Starter key
-      per church acceptable for an open-source app; which copyrighted versions Starter allows.
-- [ ] **Crossway:** the "link to esv.org on each page" rule on a projected slide (a link cannot
-      be followed); confirm "(ESV)" alone is enough on screen as it is for bulletins.
-- [ ] **Crossway, API.Bible:** confirm that a passage the church puts into its own run sheet is
+- [x] **Hodder & Stoughton (NIV UK):** not needed. Nothing is bundled (§9), and the first church gets
+      NIVUK through its own keys on YouVersion and API.Bible (§10).
+- [x] **Hong Kong Bible Society:** status of CUNP 新標點和合本 for church projection and for
+      software. (Answered: CUNP is on neither API.Bible nor YouVersion, §10.) RCUV 和合本修訂版 is
+      not used by the first church and is not pursued.
+- [x] **Worldwide Bible Society:** not pursued. The first church can do without CNV 新譯本.
+- [x] **API.Bible:** resolved by following the terms. The implementation reports the FUMS token
+      wherever an API.Bible passage is shown (slideshow and OBS overlay included), and each church
+      uses its own Starter key. Starter gives three copyrighted picks from a location-dependent
+      list, with no Chinese ones for the UK (§10).
+- [x] **Crossway:** resolved by following the terms. Every ESV passage on screen shows "(ESV)",
+      and the operator's view of an ESV passage and the version's copyright page carry the full
+      notice and a link to www.esv.org.
+- [x] **Crossway, API.Bible:** confirm that a passage the church puts into its own run sheet is
       the church's quotation under church-use permission, and only the app's lookup cache
       follows the API cache rules (§9, point 5).
-- [ ] **YouVersion Platform:** read the official terms (caching, offline, rate limits, NIV) at
-      platform.youversion.com.
-- [ ] **Cambridge University Press:** KJV in an app distributed in the UK.
+- [x] **YouVersion Platform:** official terms and the Biblica and Lockman licences read by the
+      project owner before the first church accepted them; NIV and NIVUK are available (§10).
+- [x] **Cambridge University Press:** not needed. Worship Q does not bundle the KJV; churches
+      get it through an API, and church use of up to 500 verses needs no permission.
 - [x] **Project:** no donation button on worship-q.com (confirmed 9 November 2026).
-- [ ] **Project:** decide whether anyone will ever offer paid hosting of instances, given §5.
+- [x] **Project:** paid hosting is not the project's decision. The MIT licence lets anyone host
+      Worship Q; neither the project owner nor the first church plans to charge for it. Since each church
+      registers its own keys, whoever charged for hosting would answer to the API terms for that
+      use, not the project.
 
 ## 9. Agreed direction
 
@@ -253,6 +261,88 @@ apply, since they decide what layer 2 may show and how.
    instance fetches on their behalf. This affects key exposure, rate limits shared across the
    church's devices, and whether a phone remote can look up a passage.
 
+## 10. Chinese versions wanted by the first church
+
+Researched 9 November 2026 for the five versions the project owner's church uses. "Free Use
+API" is AO Lab's Free Use Bible API (no key); its licence fields are its own metadata, taken
+from eBible.org or the Digital Bible Library, and are not the publisher's statement.
+
+| Version | Rights holder | Church use | Free Use API | Other online sources | Route for Worship Q |
+| --- | --- | --- | --- | --- | --- |
+| **新标点和合本** CUNP (1988) | United Bible Societies; Hong Kong Bible Society is copyright agent | HKBS allows up to 500 verses in books "or other media", incl. worship, without asking (from a 2014 article quoting HKBS; current page not found) | Yes (`cmn_cu1`, `cmn_cuv`), marked **public domain** | YouVersion (CUNP 神版 / 上帝版); developer licence unknown | Usable online now, but the public-domain label conflicts with UBS/HKBS's claim; the 1988 punctuation and paragraphing are copyright (§3). Ask HKBS |
+| **CCB** 当代译本 | Biblica | Biblica allows up to 500 verses in any form without written permission (general policy; not CCB-specific) | Yes: **Biblica Open Chinese Contemporary Bible** (`cmn_cbs`, `cmn_cbt`), CC BY-SA 4.0, text dated 2023 | YouVersion (CCB, CCBT 2023), Bible Gateway | Good: open licence; keep the copyright notice; the Biblica® mark needs Biblica's permission. Check the open text matches the CCB the church reads |
+| **CNV** 新译本 | Worldwide Bible Society 环球圣经公会 | Quotation in any form allowed with credit; works for sale need written permission | No | YouVersion, Bible Gateway, FHL 信望爱 (licensed to FHL for its website) | Needs WBS permission or a licensed API; ask legal@wwbible.org. Note WBS is revising it as 环球圣经译本 |
+| **CSB** 中文标准译本 | Global Bible Initiative | Not published; GBI asks to contact Permissions@GBI.llc | Yes (`cmn_csbs`, `cmn_csbt`), **CC BY-NC-ND 4.0**, whole Bible | YouVersion, Bible Gateway, WeDevote; Digital Bible Library | Good if the licence holds: Worship Q and church use are non-commercial, and showing unaltered verses is not a derivative. GBI's own page does not mention the CC licence, so confirm with GBI |
+| **吕振中译本** (1970) | Published by Hong Kong Bible Society; translator Lü Zhenzhong died 1988 | Unknown | No | FHL 信望爱 website; Logos (paid) | Hardest. FHL treats it as past China's 50-year term; under UK law (author's life + 70 years) it may be protected until 2058, and in Hong Kong (life + 50) until 2038. No open API found. Ask HKBS; may be the one version that needs bundling under a permission |
+
+Not to be confused: **现代标点和合本** (CUVMP, GBI, CC BY-NC-ND, also on the Free Use API) is a
+different modern re-punctuation of the 1919 CUV, not the 1988 新标点和合本.
+
+### What this means
+
+- **Online with no key today:** CCB (open edition) and CSB via the Free Use Bible API.
+- **Online today, rights unclear:** 新标点和合本 via the Free Use Bible API, labelled public
+  domain by eBible.org but claimed by UBS/HKBS. For the church's own use, HKBS's 500-verse
+  quotation allowance probably covers a sermon; for an app serving the whole text, ask HKBS.
+- **Needs permission first:** CNV (Worldwide Bible Society) and 吕振中 (Hong Kong Bible
+  Society). YouVersion may carry CNV under a developer licence; check with an App Key (`GET
+  /v1/licenses`).
+- **API.Bible:** its Chinese catalogue could not be seen without a key; list it with
+  `GET /v1/bibles` once a key exists.
+
+### Checked with keys (9 November 2026)
+
+Using the first church's own YouVersion App Key, API.Bible key and ESV API key:
+
+- **YouVersion, Chinese:** the developer catalogue has only four complete Chinese Bibles:
+  中文标准译本 CSBS/CSBT (IDs 43, 312) and 当代译本 CCB/CCBT (36, 1392), plus a New
+  Testament-only 免费的易读圣经. **新标点和合本, 新译本 and 吕振中 are not offered to developers**,
+  although Bible.com shows the first two. CSB is under YouVersion's "Public Domain and Creative
+  Commons" licence and returns text with no further step; its copyright line is "© 2005, 2008,
+  2011, 2025, 2026 by Global Bible Initiative". CCB needs the "Biblica Fast-track Bible
+  License" accepted in the Platform portal (403 until then).
+- **YouVersion, English:** open versions (BSB, WEB, ASV, etc.) work now; NIV, NIVUK, NIrV and
+  NASB are in the catalogue under Biblica and Lockman fast-track licences, also needing
+  acceptance.
+- **YouVersion API shape:** passages by USFM reference (`JHN.3.16-18`), plain text or HTML,
+  with a localised reference (约翰福音 3:16-18).
+- **ESV API:** works; text arrives with "(ESV)" appended and verse numbers in brackets
+  (both can be switched off).
+- **YouVersion, after the first church accepted the Biblica and Lockman licences:** CCB/CCBT (the full
+  Chinese Contemporary Bible, not the open edition), NIV, NIVUK, NIrV, NASB 1995/2020 and AMP
+  now return text.
+- **API.Bible (Starter, UK, the church's three picks: NKJV, NLT, NIVUK):** 251 Bibles in 140
+  languages. Chinese: only the **Open** CCB (simplified and traditional) and 免费的易读圣经; no
+  新标点和合本, 新译本, 吕振中 or 中文标准译本, and none among the paid picks for the UK.
+  English copyrighted: NIVUK, NKJV, NLT, plus NLT Anglicised (NLTUK) and NLT Catholic Edition.
+  Every passage response carries the copyright line and a **`fumsToken`** in `meta`, which the
+  FUMS rules expect to be reported when the passage is shown.
+
+| Version | YouVersion | API.Bible | ESV API | Free Use API |
+| --- | --- | --- | --- | --- |
+| NIVUK | Yes | Yes | — | — |
+| NIV (US), NIrV, NASB, AMP | Yes | — | — | — |
+| NKJV, NLT, NLTUK | — | Yes | — | — |
+| ESV | — | — | Yes | — |
+| KJV | — | Yes | — | Yes |
+| BSB, WEB, ASV | Yes | Yes | — | Yes |
+| 当代译本 CCB | Yes (full) | Yes (open) | — | Yes (open) |
+| 中文标准译本 CSB | Yes | — | — | Yes |
+| 新标点和合本 | — | — | — | Yes (rights disputed) |
+| 新译本, 吕振中 | — | — | — | — |
+
+Further actions, in addition to §8:
+
+- [ ] **Hong Kong Bible Society:** 新标点和合本 only (church projection and app access). 吕振中译本
+      is not pursued; the first church can do without it.
+- [x] **Worldwide Bible Society:** not pursued; the first church can do without CNV.
+- [x] **Global Bible Initiative:** YouVersion serves the CSB under its "Public Domain and
+      Creative Commons" licence, with the copyright line supplied by the API (§10); show that
+      line.
+- [x] **Biblica:** not needed. The full CCB comes from YouVersion under the accepted Biblica
+      licence; the open edition is only a fallback, credited with the notice its API supplies.
+- [x] **YouVersion and API.Bible:** with keys, list which of the five are licensable (§10).
+
 ## Sources
 
 - [API.Bible — Licensing policies quick reference](https://care.api.bible/article/396-licensing-policies-quick-reference)
@@ -271,6 +361,18 @@ apply, since they decide what layer 2 may show and how.
 - [eBible.org — KJV copyright](https://ebible.org/kjv/copr.htm)
 - [Cambridge University Press — KJV copyright information](https://assets.cambridge.org/97805211/63347/copyright/9780521163347_copyright_info.pdf)
 - [Wikipedia — Chinese Union Version](https://en.wikipedia.org/wiki/Chinese_Union_Version)
+- [Free Use Bible API — available translations](https://bible.helloao.org/api/available_translations.json)
+- [eBible.org — Biblica Open Chinese Contemporary Bible copyright](https://ebible.org/cmncbt/copyright.htm)
+- [eBible.org — 新标点和合本 (simplified) details](https://ebible.org/Scriptures/details.php?id=cmn-cu89s)
+- [Hong Kong Bible Society — CUNP Shen edition](https://www.hkbs.org.hk/en-us/article/615)
+- [Christian Times (2014) — 版權條例草案與堂會事工, quoting HKBS rules](https://christiantimes.org.hk/Common/Reader/News/ShowNews.jsp?Nid=92377&Pid=12&Version=0&Cid=150&Charset=big5_hkscs)
+- [聖經．中文．翻譯 — 由《和合本》的版權問題談起](https://translatebible.com/blog-cuv-copyright/)
+- [聖經．中文．翻譯 — 呂振中譯本](https://translatebible.com/lu-chen-chung/)
+- [信望愛 — 聖經網站版權宣告](https://www.fhl.net/main/fhl/fhl8.html)
+- [Global Bible Initiative — Chinese Standard Bible](https://gbi.llc/initiatives/chinese-standard-bible)
+- [Bible Gateway — Chinese Standard Bible (Simplified)](https://www.biblegateway.com/versions/Chinese-Standard-Bible-Simplified-CSBS)
+- [環球聖經公會 — 聖經新譯本](https://wwbible.org/%E8%81%96%E7%B6%93%E6%96%B0%E8%AD%AF%E6%9C%AC)
+- [YouVersion Platform — licenses API](https://developers.youversion.com/api/licenses)
 - [Bible.com — CUNP (Hong Kong Bible Society)](https://www.bible.com/versions/46)
 - [eBible.org — 新標點和合本 copyright page](https://ebible.org/cmn-cu89t/copyright.htm)
 - [Bible.com — CNV (Worldwide Bible Society)](https://www.bible.com/hy/versions/40-CNV-)
