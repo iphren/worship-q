@@ -28,6 +28,9 @@ import {
   type Website,
   type Workspace,
   VideoSchema,
+  PassageSchema,
+  BibleVersionsSettingSchema,
+  type Passage,
 } from '@worship-q/protocol';
 import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
 import type { SqlDriver, SqlValue, Statement } from './driver';
@@ -55,6 +58,23 @@ const json = <T>(value: SqlValue | undefined, fallback: T): T => {
     return fallback;
   }
 };
+
+/** The setting key of the workspace's Bible versions (B4). */
+export const BIBLE_VERSIONS_KEY = 'bibleVersions';
+
+/** A passage stored as JSON, or received from another device; null when there is none. */
+export function passageOf(value: unknown): Passage | null {
+  let data = value;
+  if (typeof value === 'string') {
+    try {
+      data = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  const parsed = PassageSchema.safeParse(data);
+  return parsed.success ? parsed.data : null;
+}
 
 /**
  * A video stored as JSON, or received from another device; null when there is none or it is
@@ -99,6 +119,7 @@ const CONTENT_COLUMNS = [
   'deck',
   'website',
   'video',
+  'passage',
 ] as const;
 
 /**
@@ -126,6 +147,7 @@ function songContent(row: Row, prefix = ''): SongFields & { lineIds: string[] } 
     deck: json<Deck | null>(at('deck'), null),
     website: json<Website | null>(at('website'), null),
     video: videoOf(at('video')),
+    passage: passageOf(at('passage')),
   };
 }
 
@@ -191,6 +213,7 @@ function toSongRevision(row: Row): SongRevision {
     deck: json<Deck | null>(row.deck, null),
     website: json<Website | null>(row.website, null),
     video: videoOf(row.video),
+    passage: passageOf(row.passage),
     createdAt: text(row.created_at),
   };
 }
@@ -414,8 +437,8 @@ export class Store {
   private revisionInsert(song: Song): Statement {
     return {
       sql: `INSERT INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author, copyright, ccli, year,
-              background_color, background_asset_id, deck, website, video, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              background_color, background_asset_id, deck, website, video, passage, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       params: [
         this.env.newId(),
         song.id,
@@ -432,6 +455,7 @@ export class Store {
         song.deck ? JSON.stringify(song.deck) : null,
         song.website ? JSON.stringify(song.website) : null,
         song.video ? JSON.stringify(song.video) : null,
+        song.passage ? JSON.stringify(song.passage) : null,
         song.updatedAt,
       ],
     };
@@ -479,6 +503,7 @@ export class Store {
       deck: fields.deck ?? null,
       website: fields.website ?? null,
       video: fields.video ?? null,
+      passage: fields.passage ?? null,
       revision: 1,
       createdAt: now,
       updatedAt: now,
@@ -493,8 +518,9 @@ export class Store {
     await this.db.batch([
       {
         sql: `INSERT INTO song (id, workspace_id, title, lyrics, line_ids, author, copyright, ccli, year,
-                background_color, background_asset_id, deck, website, video, revision, created_at, updated_at, origin)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                background_color, background_asset_id, deck, website, video, passage, revision, created_at,
+                updated_at, origin)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params: [
           song.id,
           workspaceId,
@@ -510,6 +536,7 @@ export class Store {
           song.deck ? JSON.stringify(song.deck) : null,
           song.website ? JSON.stringify(song.website) : null,
           song.video ? JSON.stringify(song.video) : null,
+          song.passage ? JSON.stringify(song.passage) : null,
           1,
           now,
           now,
@@ -542,7 +569,8 @@ export class Store {
       next.background?.assetId === current.background?.assetId &&
       JSON.stringify(next.deck) === JSON.stringify(current.deck) &&
       JSON.stringify(next.website) === JSON.stringify(current.website) &&
-      JSON.stringify(next.video) === JSON.stringify(current.video);
+      JSON.stringify(next.video) === JSON.stringify(current.video) &&
+      JSON.stringify(next.passage) === JSON.stringify(current.passage);
     if (unchanged) return current;
     this.validate(next);
 
@@ -586,7 +614,8 @@ export class Store {
     statements.push(
       {
         sql: `UPDATE song SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?, ccli = ?, year = ?,
-                background_color = ?, background_asset_id = ?, deck = ?, website = ?, video = ?, revision = ?,
+                background_color = ?, background_asset_id = ?, deck = ?, website = ?, video = ?, passage = ?,
+                revision = ?,
                 updated_at = ?, origin = ?, use_church_version = 0
               WHERE id = ?`,
         params: [
@@ -602,6 +631,7 @@ export class Store {
           next.deck ? JSON.stringify(next.deck) : null,
           next.website ? JSON.stringify(next.website) : null,
           next.video ? JSON.stringify(next.video) : null,
+          next.passage ? JSON.stringify(next.passage) : null,
           next.revision,
           next.updatedAt,
           next.origin,
@@ -787,7 +817,7 @@ export class Store {
               s.lyrics_text, s.lyrics_pinyin, s.lyrics_initials
        FROM song ${terms.length > 0 ? 'JOIN' : 'LEFT JOIN'} song_search s ON s.song_id = song.id`,
       )}
-       WHERE song.workspace_id = ? AND song.removed_at IS NULL
+       WHERE song.workspace_id = ? AND song.removed_at IS NULL AND song.passage IS NULL
        ${where.map((clause) => `AND ${clause}`).join(' ')}`,
       params,
     );
@@ -1143,6 +1173,34 @@ export class Store {
       }));
     if (statements.length > 0) await this.db.batch(statements);
     return this.getPresentationSettings(workspaceId);
+  }
+
+  /**
+   * The workspace's Bible versions (B4): up to two, in the order of the chips, shared by
+   * every computer of the workspace through content synchronization. Unknown here: what the
+   * church offers, which `effectiveVersions` applies.
+   */
+  async getBibleVersions(workspaceId: string): Promise<string[]> {
+    const [row] = await this.db.select<{ value: string }>(
+      'SELECT value FROM setting WHERE workspace_id = ? AND key = ?',
+      [workspaceId, BIBLE_VERSIONS_KEY],
+    );
+    const parsed = BibleVersionsSettingSchema.safeParse(json<unknown>(row?.value, null));
+    return parsed.success ? parsed.data : [];
+  }
+
+  /** Chooses the workspace's Bible versions; more than two, or one twice, is refused. */
+  async setBibleVersions(workspaceId: string, versions: readonly string[]): Promise<string[]> {
+    const valid = BibleVersionsSettingSchema.parse([...versions]);
+    await this.db.batch([
+      {
+        sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
+              ON CONFLICT (workspace_id, key) DO UPDATE
+              SET value = excluded.value, revision = setting.revision + 1, updated_at = excluded.updated_at`,
+        params: [workspaceId, BIBLE_VERSIONS_KEY, JSON.stringify(valid), this.env.now()],
+      },
+    ]);
+    return valid;
   }
 
   async getChurchSettings(): Promise<ChurchSettings> {

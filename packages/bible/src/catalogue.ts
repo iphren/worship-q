@@ -144,3 +144,20 @@ export function catalogueVersion(id: string): CatalogueVersion | undefined {
 
 /** The prefix of an API.Bible id looked up by abbreviation. */
 export const BY_ABBREVIATION = 'abbr:';
+
+/** At most this many versions are shown side by side (B5). */
+export const MAX_WORKSPACE_VERSIONS = 2;
+
+/**
+ * A workspace's chosen versions as they apply (B4, B19): in the chosen order, only those the
+ * church still offers, each once, at most two. A choice no longer offered is left out here
+ * and shown greyed where the setting is edited.
+ */
+export function effectiveVersions(chosen: readonly string[], offered: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const id of chosen) {
+    if (offered.includes(id) && !out.includes(id)) out.push(id);
+    if (out.length === MAX_WORKSPACE_VERSIONS) break;
+  }
+  return out;
+}

@@ -12,6 +12,7 @@ import {
   MIN_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   VIDEO_PROTOCOL_VERSION,
+  PASSAGE_PROTOCOL_VERSION,
   OutputKindSchema,
   syncWins,
   wellFormed,
@@ -706,14 +707,15 @@ export class Instance {
           : undefined;
         // A desktop older than videos drops a song's `video` when it saves the song, as it
         // does not know the field; the stored video is kept (U20).
-        if (
-          protocol < VIDEO_PROTOCOL_VERSION &&
-          incoming.kind === 'song' &&
-          !('video' in incoming.data)
-        ) {
+        // Likewise a desktop older than passages drops a song's `passage` (P3.5).
+        for (const [field, since] of [
+          ['video', VIDEO_PROTOCOL_VERSION],
+          ['passage', PASSAGE_PROTOCOL_VERSION],
+        ] as const) {
+          if (protocol >= since || incoming.kind !== 'song' || field in incoming.data) continue;
           const stored = (existing ?? church)?.data;
-          const video = stored ? (JSON.parse(text(stored)) as { video?: unknown }).video : null;
-          if (video) incoming = { ...incoming, data: { ...incoming.data, video } };
+          const kept = stored ? (JSON.parse(text(stored)) as Record<string, unknown>)[field] : null;
+          if (kept) incoming = { ...incoming, data: { ...incoming.data, [field]: kept } };
         }
         if (isLibraryKind(incoming.kind)) {
           if (!existing && managed.has(libraryTypeOf(incoming.kind, incoming.data)!)) {
@@ -1256,7 +1258,8 @@ export class Instance {
     for (const own of this.db
       .prepare('SELECT * FROM record WHERE workspace_id = ? AND kind = ?')
       .all(workspaceId, kind)) {
-      if (managed.has(rowType(own))) continue;
+      // A passage lives only in its run sheet, never in a library (B7).
+      if (rowType(own) === null || managed.has(rowType(own))) continue;
       const church = findChurch.get(kind, text(own.key));
       const churchLive = church !== undefined && !removed(church.data);
       if (churchLive && removed(own.data)) {

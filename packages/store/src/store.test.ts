@@ -734,6 +734,101 @@ describe('media items (media uploads plan)', () => {
   });
 });
 
+describe('passage songs (Bible passages P3)', () => {
+  const passage = {
+    reference: 'MRK.15.5-MRK.15.6',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'apibible' as const,
+        copyright: '©',
+        units: [
+          { chapter: 15, verses: [5], label: '5', lines: [{ text: 'But Jesus', indent: 0 }] },
+          { chapter: 15, verses: [6], label: '6', lines: [{ text: 'Now it was', indent: 0 }] },
+        ],
+        fumsToken: 'token',
+      },
+    ],
+  };
+
+  it('keeps a passage with the song and each revision', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark 15:5–6', passage });
+    expect((await store.getSong(song.id))!.passage).toEqual(passage);
+    env.advance(1000);
+    const moved = { ...passage, reference: 'MRK.15.5' };
+    await store.updateSong(song.id, { passage: moved });
+    expect((await store.getSong(song.id))!.passage).toEqual(moved);
+    const revisions = await store.listSongRevisions(song.id);
+    expect(revisions.map((r) => r.passage?.reference)).toEqual(['MRK.15.5-MRK.15.6', 'MRK.15.5']);
+  });
+
+  it('reads a song from before passages as having none', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Grace' });
+    expect((await store.getSong(song.id))!.passage).toBeNull();
+  });
+
+  it('never lists a passage song in the library or its search', async () => {
+    await store.createSong(workspaceId, { title: 'Mark 15:5–6', lyrics: '5 But Jesus', passage });
+    await store.createSong(workspaceId, { title: 'Mark 15', lyrics: 'A song titled like one' });
+    expect((await store.listSongs(workspaceId)).map((s) => s.title)).toEqual(['Mark 15']);
+    expect((await store.listSongs(workspaceId, 'Jesus')).map((s) => s.title)).toEqual([]);
+    expect((await store.listSongs(workspaceId, 'Mark')).map((s) => s.title)).toEqual(['Mark 15']);
+  });
+
+  it('synchronizes a passage item between two stores', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark 15:5–6', passage });
+    const sheet = await store.ensureRunSheet(workspaceId, '2026-11-15');
+    await store.addItem(sheet.id, song.id);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    expect(records.find((r) => r.kind === 'song')!.data.passage).toEqual(passage);
+    expect(records.find((r) => r.kind === 'songRevision')!.data.passage).toEqual(passage);
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect((await other.store.getSong(song.id))!.passage).toEqual(passage);
+    const otherSheet = await other.store.getRunSheetByDate(otherWorkspace, '2026-11-15');
+    expect((await other.store.listItems(otherSheet!.id)).map((i) => i.songId)).toEqual([song.id]);
+    expect(await other.store.listSongs(otherWorkspace)).toEqual([]);
+    other.driver.close();
+  });
+
+  it('drops an unreadable passage received from another device', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark', passage });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song')!;
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, [
+      { ...record, data: { ...record.data, passage: { reference: 'nonsense', texts: [] } } },
+    ]);
+    expect((await other.store.getSong(song.id))!.passage).toBeNull();
+    other.driver.close();
+  });
+});
+
+describe('the workspace’s Bible versions (P3.4)', () => {
+  it('keeps up to two versions in order, and refuses more', async () => {
+    expect(await store.getBibleVersions(workspaceId)).toEqual([]);
+    await store.setBibleVersions(workspaceId, ['CCB', 'NIVUK']);
+    expect(await store.getBibleVersions(workspaceId)).toEqual(['CCB', 'NIVUK']);
+    await expect(store.setBibleVersions(workspaceId, ['CCB', 'NIVUK', 'ESV'])).rejects.toThrow();
+    await expect(store.setBibleVersions(workspaceId, ['CCB', 'CCB'])).rejects.toThrow();
+    expect(await store.getBibleVersions(workspaceId)).toEqual(['CCB', 'NIVUK']);
+  });
+
+  it('reaches the workspace’s other computers', async () => {
+    await store.setBibleVersions(workspaceId, ['NIVUK']);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect(await other.store.getBibleVersions(otherWorkspace)).toEqual(['NIVUK']);
+    other.driver.close();
+  });
+});
+
 describe('pinned songs', () => {
   const titles = async (search = '') =>
     (await store.listSongs(workspaceId, search)).map((song) => song.title);

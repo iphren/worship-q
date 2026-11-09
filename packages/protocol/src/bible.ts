@@ -1,5 +1,18 @@
 /** What the church server answers about the Bible (B17–B26). */
-import type { BibleLanguage, PassageText, Provider, Toc } from '@worship-q/bible';
+import {
+  MAX_WORKSPACE_VERSIONS,
+  type BibleLanguage,
+  type PassageText,
+  type Provider,
+  type Toc,
+} from '@worship-q/bible';
+import { z } from 'zod';
+
+/** A workspace's Bible versions setting (B4): up to two, in order, each once. */
+export const BibleVersionsSettingSchema = z
+  .array(z.string().min(1).max(20))
+  .max(MAX_WORKSPACE_VERSIONS)
+  .refine((versions) => new Set(versions).size === versions.length, 'A version chosen twice');
 
 /** A version the church offers, as devices are told it. */
 export interface BibleVersionInfo {

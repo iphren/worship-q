@@ -7,6 +7,7 @@
  * update rather than failing unpredictably.
  */
 import { z } from 'zod';
+import { PassageColumnSchema, PassageSchema, type PassageColumn } from '@worship-q/bible';
 import { ItemBadgeSchema, type ItemBadge } from './badges';
 import {
   ObsCommandSchema,
@@ -37,11 +38,18 @@ import {
  * to devices declaring the `obs` capability, so version 3 desktops are untouched. Version 5
  * adds video items (media uploads plan, U20, U21): songs with a `video`, which the instance
  * keeps when an older desktop saves the song without it, and video playback in the live
- * state.
+ * state. Version 6 adds Bible passages: songs with a `passage`, kept likewise, and a
+ * `passage` item kind sent only to devices declaring the `passages` capability.
  */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
+/**
+ * The first protocol version that knows songs' `passage` (Bible passages plan, P3.5): the
+ * instance keeps a passage when an older desktop saves the song without it, and a snapshot's
+ * passage items reach older desktops as lyrics.
+ */
+export const PASSAGE_PROTOCOL_VERSION = 6;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -158,6 +166,11 @@ export const CapabilitiesSchema = z.object({
    * which are sent such items as slide decks with nothing to show (U20).
    */
   videos: z.boolean().optional(),
+  /**
+   * Takes passage items in snapshots (protocol version 6). Absent from older devices, which
+   * are sent such items as lyrics.
+   */
+  passages: z.boolean().optional(),
 });
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
@@ -341,13 +354,25 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('videoPlay'), itemId: z.string() }),
   z.object({ type: z.literal('videoPause'), itemId: z.string() }),
   z.object({ type: z.literal('videoSeek'), itemId: z.string(), seconds: z.number().finite() }),
+  /**
+   * Adds a Bible passage to the live run sheet (protocol version 6, B15, B26): the
+   * coordinator makes the item. Without `afterItemId` it goes after the presented item, or
+   * at the end when none is; `present` presents its first slide.
+   */
+  z.object({
+    type: z.literal('addPassage'),
+    passage: PassageSchema,
+    afterItemId: z.string().nullable().optional(),
+    present: z.boolean().optional(),
+  }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 export type RemoteEditCommand = Extract<
   RemoteCommand,
   { type: 'addItem' | 'removeItem' | 'moveItem' }
 >;
-export type RemoteNavigationCommand = Exclude<RemoteCommand, RemoteEditCommand>;
+export type AddPassageCommand = Extract<RemoteCommand, { type: 'addPassage' }>;
+export type RemoteNavigationCommand = Exclude<RemoteCommand, RemoteEditCommand | AddPassageCommand>;
 
 export function isRemoteEdit(command: RemoteCommand): command is RemoteEditCommand {
   return command.type === 'addItem' || command.type === 'removeItem' || command.type === 'moveItem';
@@ -420,10 +445,10 @@ export interface RemoteItemView {
   title: string;
   removed: boolean;
   /**
-   * Lyrics, imported slides, a website or a video; desktops before it was added leave it
-   * out, and `video` came with protocol version 5.
+   * Lyrics, imported slides, a website, a video or a passage; desktops before it was added
+   * leave it out, `video` came with protocol version 5 and `passage` with 6.
    */
-  kind?: 'lyrics' | 'deck' | 'website' | 'video';
+  kind?: 'lyrics' | 'deck' | 'website' | 'video' | 'passage';
   /** Its badge, as the desktop marks it; desktops before it was added leave it out. */
   badge?: ItemBadge;
   /** `block` numbers the song's blocks from 0; desktops before it was added leave it out. */
@@ -437,6 +462,8 @@ export interface RemoteItemView {
     block?: number;
     thumbnail?: string;
     textless?: boolean;
+    /** A passage's slide: each version's verses, side by side. */
+    passage?: { columns: PassageColumn[] };
   }[];
 }
 
@@ -529,11 +556,13 @@ export const SnapshotPieceSchema = z.object({
       autoplay: z.boolean(),
     })
     .optional(),
+  /** A passage's slide: each version's verses, side by side (protocol version 6). */
+  passage: z.object({ columns: z.array(PassageColumnSchema) }).optional(),
 });
 export type SnapshotPiece = z.infer<typeof SnapshotPieceSchema>;
 
-/** How an item is presented; `video` came with protocol version 5 (U21). */
-export const SnapshotKindSchema = z.enum(['lyrics', 'deck', 'website', 'video']);
+/** How an item is presented; `video` came with protocol version 5 (U21), `passage` with 6. */
+export const SnapshotKindSchema = z.enum(['lyrics', 'deck', 'website', 'video', 'passage']);
 
 /** One item of the live run sheet as the snapshot carries it. */
 export const SnapshotItemSchema = z.object({
@@ -889,4 +918,44 @@ export function snapshotWithoutVideos(snapshot: LiveSnapshot): LiveSnapshot {
     items: snapshot.items.map(plain),
     presented: snapshot.presented && plain(snapshot.presented),
   };
+}
+
+/**
+ * A snapshot for a device older than passages (protocol version 6): each passage item
+ * becomes lyrics, the text it already carries, without the columns it cannot read.
+ */
+export function snapshotWithoutPassages(snapshot: LiveSnapshot): LiveSnapshot {
+  const hasPassage =
+    snapshot.items.some((item) => item.kind === 'passage') ||
+    snapshot.presented?.kind === 'passage';
+  if (!hasPassage) return snapshot;
+  const plain = <
+    T extends { kind: SnapshotItem['kind']; badge?: ItemBadge; pieces: SnapshotPiece[] },
+  >(
+    item: T,
+  ): T =>
+    item.kind === 'passage'
+      ? {
+          ...item,
+          kind: 'lyrics',
+          badge: undefined,
+          pieces: item.pieces.map(({ passage: _passage, ...piece }) => piece),
+        }
+      : item;
+  return {
+    ...snapshot,
+    items: snapshot.items.map(plain),
+    presented: snapshot.presented && plain(snapshot.presented),
+  };
+}
+
+/** A snapshot as a device with these capabilities can read it. */
+export function snapshotFor(
+  snapshot: LiveSnapshot,
+  capabilities: Pick<Capabilities, 'videos' | 'passages'> | undefined,
+): LiveSnapshot {
+  let readable = snapshot;
+  if (!capabilities?.videos) readable = snapshotWithoutVideos(readable);
+  if (!capabilities?.passages) readable = snapshotWithoutPassages(readable);
+  return readable;
 }

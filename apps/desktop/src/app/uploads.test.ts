@@ -65,6 +65,7 @@ function harness(
     deck: null,
     website: null,
     video: null,
+    passage: null,
     lineIds: [],
     revision: 1,
     createdAt: '',

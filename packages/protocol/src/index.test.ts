@@ -13,6 +13,10 @@ import {
   libraryTypeOf,
   SnapshotItemSchema,
   snapshotWithoutVideos,
+  snapshotWithoutPassages,
+  snapshotFor,
+  BibleVersionsSettingSchema,
+  effectiveVersions,
   songBadge,
   SongFieldsSchema,
   maxSongYear,
@@ -41,6 +45,7 @@ describe('song fields', () => {
         deck: null,
         website: null,
         video: null,
+        passage: null,
       }),
     ).toEqual({
       title: '耶和华你是我的神',
@@ -53,6 +58,7 @@ describe('song fields', () => {
       deck: null,
       website: null,
       video: null,
+      passage: null,
     });
   });
 
@@ -67,6 +73,7 @@ describe('song fields', () => {
       deck: null,
       website: null,
       video: null,
+      passage: null,
     };
     expect(cleanSongFields({ ...fields, ccli: ' 4702289 ' }).ccli).toBe('4702289');
   });
@@ -182,9 +189,10 @@ describe('speaking an older server’s version (D26)', () => {
   });
 
   it('speaks version 3 to a server not yet updated for OBS control', () => {
-    expect(PROTOCOL_VERSION).toBe(5);
+    expect(PROTOCOL_VERSION).toBe(6);
     expect(negotiateProtocol(3)).toBe(3);
     expect(negotiateProtocol(4)).toBe(4);
+    expect(negotiateProtocol(5)).toBe(5);
     expect(negotiateProtocol(3)).toBeLessThan(OBS_PROTOCOL_VERSION);
   });
 });
@@ -387,5 +395,113 @@ describe('item badges (U12)', () => {
     expect(video?.kind).toBe('deck');
     expect(video?.badge).toBeUndefined();
     expect(pdf?.badge).toBe('pdf');
+  });
+});
+
+describe('passage songs (Bible passages P3)', () => {
+  const passage = {
+    reference: 'JHN.3.16',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'youversion' as const,
+        copyright: '',
+        units: [{ chapter: 3, verses: [16], label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+        fumsToken: null,
+      },
+    ],
+  };
+  const fields = {
+    title: 'John 3:16',
+    lyrics: '16 For God',
+    author: '',
+    copyright: '',
+    ccli: null,
+    year: null,
+    background: null,
+    deck: null,
+    website: null,
+  };
+
+  it('reads a song saved before passages as having none', () => {
+    expect(SongFieldsSchema.parse(fields).passage).toBeNull();
+    expect(SongFieldsSchema.parse({ ...fields, passage }).passage).toEqual(passage);
+  });
+
+  it('keeps a passage song out of every library type, so the Church Library never holds it', () => {
+    expect(libraryTypeOf('song', { passage })).toBeNull();
+    expect(libraryTypeOf('songRevision', { passage })).toBeNull();
+    expect(libraryTypeOf('song', { passage: null })).toBe('songs');
+  });
+
+  it('gives a passage song the Bible badge', () => {
+    expect(songBadge({ deck: null, website: null, passage })).toBe('bible');
+    expect(itemBadge({ kind: 'passage' })).toBe('bible');
+  });
+
+  const snapshot = {
+    items: [
+      {
+        itemId: 'p',
+        songId: 's',
+        title: 'John 3:16',
+        removed: false,
+        kind: 'passage',
+        badge: 'bible',
+        pieces: [{ id: 'v3:16', lines: ['16 For God'], block: 0, passage: { columns: [] } }],
+      },
+      {
+        itemId: 'v',
+        songId: 't',
+        title: 'V',
+        removed: false,
+        kind: 'video',
+        badge: 'video',
+        pieces: [],
+      },
+    ],
+    presented: null,
+  } as unknown as LiveSnapshot;
+
+  it('sends passage items to older devices as lyrics, without their columns', () => {
+    const [p, v] = snapshotWithoutPassages(snapshot).items;
+    expect(p).toEqual({
+      itemId: 'p',
+      songId: 's',
+      title: 'John 3:16',
+      removed: false,
+      kind: 'lyrics',
+      badge: undefined,
+      pieces: [{ id: 'v3:16', lines: ['16 For God'], block: 0 }],
+    });
+    expect(v?.kind).toBe('video');
+  });
+
+  it('makes a snapshot readable by what a device takes', () => {
+    expect(snapshotFor(snapshot, { videos: true, passages: true })).toBe(snapshot);
+    expect(snapshotFor(snapshot, { videos: true }).items.map((i) => i.kind)).toEqual([
+      'lyrics',
+      'video',
+    ]);
+    expect(snapshotFor(snapshot, undefined).items.map((i) => i.kind)).toEqual(['lyrics', 'deck']);
+  });
+});
+
+describe('the workspace’s Bible versions (P3.4)', () => {
+  it('refuses more than two, or one twice', () => {
+    expect(BibleVersionsSettingSchema.safeParse(['NIVUK', 'CCB']).success).toBe(true);
+    expect(BibleVersionsSettingSchema.safeParse(['NIVUK', 'CCB', 'ESV']).success).toBe(false);
+    expect(BibleVersionsSettingSchema.safeParse(['NIVUK', 'NIVUK']).success).toBe(false);
+  });
+
+  it('leaves out a version unknown or no longer offered, keeping the order', () => {
+    expect(effectiveVersions(['CCB', 'NIVUK'], ['NIVUK', 'CCB', 'ESV'])).toEqual(['CCB', 'NIVUK']);
+    expect(effectiveVersions(['XYZ', 'NIVUK'], ['NIVUK'])).toEqual(['NIVUK']);
+    expect(effectiveVersions(['NIVUK', 'ESV', 'CCB'], ['NIVUK', 'ESV', 'CCB'])).toEqual([
+      'NIVUK',
+      'ESV',
+    ]);
+    expect(effectiveVersions(['NIVUK'], [])).toEqual([]);
   });
 });

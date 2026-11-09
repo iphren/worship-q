@@ -33,6 +33,10 @@ export const ITEM_ICON_SHAPES: Record<ItemBadge, ReactNode> = {
       <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </>
   ),
+  // An open book.
+  bible: (
+    <path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+  ),
 };
 
 /**
@@ -45,6 +49,7 @@ export const ITEM_BADGE_COLOURS: Record<ItemBadge, string> = {
   image: 'bg-emerald-500/20 text-emerald-300',
   video: 'bg-violet-500/20 text-violet-300',
   website: 'bg-fuchsia-500/20 text-fuchsia-300',
+  bible: 'bg-teal-500/20 text-teal-300',
 };
 
 /** English names of the kinds, for pages without translations. */
@@ -54,6 +59,7 @@ export const ITEM_BADGE_LABELS: Record<ItemBadge, string> = {
   image: 'Image',
   video: 'Video',
   website: 'Web',
+  bible: 'Bible',
 };
 
 /** A kind's icon on its own, in the current text colour. */

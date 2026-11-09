@@ -468,6 +468,11 @@ export class RemoteHost {
       const change = await this.session.remoteEdit(message.id, command);
       if (change) this.notify(controller.name, change);
       applied = change !== null;
+    } else if (command.type === 'addPassage') {
+      // The phone's passage becomes an item here, as the coordinator (B15, B26).
+      const change = await this.session.remotePassage(message.id, command);
+      if (change) this.notify(controller.name, change);
+      applied = change !== null;
     } else {
       applied = await this.session.remoteCommand(message.id, command);
     }

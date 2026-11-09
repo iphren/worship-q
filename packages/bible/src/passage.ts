@@ -49,6 +49,20 @@ export type PassageText = z.infer<typeof PassageTextSchema>;
 
 export const MAX_PASSAGE_VERSIONS = 2;
 
+/** One column of a slide: a version's units for the slide's verses, and its credit. */
+export const PassageColumnSchema = z.object({
+  version: z.string(),
+  credit: z.string(),
+  units: z.array(
+    z.object({
+      label: z.string(),
+      title: z.boolean().optional(),
+      lines: z.array(PassageLineSchema),
+    }),
+  ),
+});
+export type PassageColumn = z.infer<typeof PassageColumnSchema>;
+
 /** A passage as a run sheet item stores it: the reference, and up to two versions' text. */
 export const PassageSchema = z.object({
   /** USFM, as `toUsfm` writes it. */

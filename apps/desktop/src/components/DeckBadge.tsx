@@ -12,13 +12,16 @@ const LABELS = {
   image: 'songs.imageBadge',
   video: 'songs.videoBadge',
   website: 'songs.websiteBadge',
+  bible: 'songs.bibleBadge',
 } as const;
 
 /**
  * The badge a song gets, or null for an ordinary song. A deck from before decks had a kind
  * is slides, or a PDF when its file was one.
  */
-export function badgeKind(song: Pick<Song, 'deck' | 'website' | 'video'>): BadgeKind | null {
+export function badgeKind(
+  song: Pick<Song, 'deck' | 'website' | 'video'> & { passage?: Song['passage'] },
+): BadgeKind | null {
   return songBadge(song);
 }
 
@@ -27,8 +30,10 @@ export function badgeLabel(kind: BadgeKind): string {
   return t(LABELS[kind]);
 }
 
-/** Marks media and websites wherever songs are listed; nothing for an ordinary song. */
-export function DeckBadge(props: { song: Pick<Song, 'deck' | 'website' | 'video'> }) {
+/** Marks media, websites and passages wherever songs are listed; nothing for an ordinary song. */
+export function DeckBadge(props: {
+  song: Pick<Song, 'deck' | 'website' | 'video'> & { passage?: Song['passage'] };
+}) {
   const kind = badgeKind(props.song);
   if (!kind) return null;
   return <KindBadge kind={kind} />;

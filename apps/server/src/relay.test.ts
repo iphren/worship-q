@@ -67,6 +67,8 @@ async function setup(relayOptions?: RelayOptions) {
       live?: LivePresence;
       /** Takes video items (protocol version 5). */
       videos?: boolean;
+      /** Takes passage items (protocol version 6). */
+      passages?: boolean;
     } = {},
   ) {
     const token = options.token ?? instance.enroll(code, name)!.token;
@@ -99,6 +101,7 @@ async function setup(relayOptions?: RelayOptions) {
         media: true,
         transparency: true,
         ...(options.videos ? { videos: true } : {}),
+        ...(options.passages ? { passages: true } : {}),
       },
       live: options.live,
     });
@@ -863,6 +866,57 @@ describe('video items through the relay (media uploads U20, U21)', () => {
     expect(old.presented).toMatchObject({ kind: 'deck', pieces: [] });
     // Browser output pages come from this server, so they take them.
     expect(page.socket.last<{ snapshot: LiveSnapshot }>().snapshot.items[0]!.kind).toBe('video');
+  });
+});
+
+describe('passage items through the relay (Bible passages P3.5)', () => {
+  const withPassage = (revision: number, coordinatorId: string): LiveSnapshot => {
+    const columns = [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        units: [{ label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+      },
+    ];
+    const item = {
+      itemId: 'i1',
+      songId: 's1',
+      title: 'John 3:16',
+      removed: false,
+      kind: 'passage' as const,
+      badge: 'bible' as const,
+      pieces: [{ id: 'v3:16', lines: ['16 For God'], block: 0, passage: { columns } }],
+    };
+    return {
+      ...snapshot(revision, coordinatorId),
+      items: [item],
+      presented: {
+        itemId: 'i1',
+        pieceId: 'v3:16',
+        songId: 's1',
+        title: 'John 3:16',
+        kind: 'passage',
+        pieces: item.pieces,
+        background: null,
+        websiteUrl: null,
+        previous: false,
+      },
+    };
+  };
+
+  it('passes passage items to desktops that take them, and as lyrics to older ones', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Projector', { withHost: false, videos: true, passages: true });
+    const b = desktop('New laptop', { withHost: false, videos: true, passages: true });
+    const c = desktop('Version 5 laptop', { withHost: false, videos: true });
+    const data: CoordinatorToFollower = { type: 'snapshot', snapshot: withPassage(1, a.deviceId) };
+    a.say({ type: 'toFollower', data });
+    expect(b.socket.last()).toEqual({ type: 'peer', from: a.deviceId, data });
+    const old = c.socket.last<{ data: { snapshot: LiveSnapshot } }>().data.snapshot;
+    expect(old.items[0]).toMatchObject({ kind: 'lyrics', title: 'John 3:16' });
+    expect(old.items[0]!.badge).toBeUndefined();
+    expect(old.items[0]!.pieces).toEqual([{ id: 'v3:16', lines: ['16 For God'], block: 0 }]);
+    expect(old.presented).toMatchObject({ kind: 'lyrics', pieceId: 'v3:16' });
   });
 });
 

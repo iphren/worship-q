@@ -83,6 +83,7 @@ export const en = {
     'To change the slides, edit the original file and import it again. Only the title can be changed here.',
   'songs.newWebsite': 'New website',
   'songs.websiteBadge': 'Web',
+  'songs.bibleBadge': 'Bible',
   'songs.websiteUrl': 'Address',
   'songs.websiteInvalid': 'A web address, such as https://example.org',
   'songs.websiteHint':

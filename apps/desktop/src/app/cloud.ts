@@ -888,6 +888,8 @@ export class CloudController {
       obs: this.obsSupported(),
       // Video items in snapshots (protocol version 5, U21).
       videos: true,
+      // Passage items in snapshots (protocol version 6).
+      passages: true,
     };
   }
 

@@ -4,7 +4,7 @@
  * the budget. The renderer then sizes the text to fit.
  */
 import type { Aligned, AlignedRow } from './align';
-import type { PassageLine } from './passage';
+import type { PassageColumn } from './passage';
 
 export interface PassageBudget {
   /** Estimated lines per column. */
@@ -56,13 +56,6 @@ function cellLines(row: AlignedRow, column: number, budget: PassageBudget): numb
     });
   }
   return total;
-}
-
-/** One column of a slide: a version's units for the slide's verses, and its credit. */
-export interface PassageColumn {
-  version: string;
-  credit: string;
-  units: { label: string; title?: boolean; lines: PassageLine[] }[];
 }
 
 export interface PassagePiece {

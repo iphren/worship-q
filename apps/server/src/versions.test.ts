@@ -130,7 +130,7 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
-  it('gives version 3 and 4 devices what a version 5 device gets, after the OBS and video bumps', async () => {
+  it('gives version 3 to 5 devices what a version 6 device gets, after the OBS, video and passage bumps', async () => {
     const { app, headers, b1 } = await setup();
     const pull = (protocol: number) =>
       app.inject({
@@ -141,13 +141,15 @@ describe('pulling with origins (D31)', () => {
     const three = await pull(3);
     const four = await pull(4);
     const five = await pull(5);
-    expect(PROTOCOL_VERSION).toBe(5);
+    const six = await pull(6);
+    expect(PROTOCOL_VERSION).toBe(6);
     expect(three.statusCode).toBe(200);
     expect(four.statusCode).toBe(200);
     expect(three.json().records).toEqual(four.json().records);
     expect(four.json().records).toEqual(five.json().records);
+    expect(five.json().records).toEqual(six.json().records);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ protocolVersion: 5, minProtocolVersion: 2 });
+    expect(info.json()).toMatchObject({ protocolVersion: 6, minProtocolVersion: 2 });
   });
 
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {
@@ -393,6 +395,100 @@ describe('older desktops and video songs (U20)', () => {
         headers: context.headers(context.c.token, protocol),
       });
       expect(response.statusCode).toBe(200);
+    }
+  });
+});
+
+describe('older desktops and passage songs (P3.5)', () => {
+  const passage = {
+    reference: 'JHN.3.16',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'youversion',
+        copyright: '©',
+        units: [{ chapter: 3, verses: [16], label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+        fumsToken: null,
+      },
+    ],
+  };
+  const push = async (
+    context: Awaited<ReturnType<typeof setup>>,
+    protocol: number,
+    record: SyncRecord,
+  ) =>
+    context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.c.token, protocol),
+      payload: { protocolVersion: protocol, records: [record] },
+    });
+  const stored = (context: Awaited<ReturnType<typeof setup>>) =>
+    context.instance
+      .pull(context.south.id, 0, 500, PROTOCOL_VERSION)
+      .records.find((r) => r.id === 'p1')!.data;
+
+  it('keeps the passage when a version 5 device edits the song', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(context, 6, song('p1', 'John 3:16', time.now(), { passage }));
+    time.advance();
+    const edited = await push(context, 5, {
+      ...song('p1', 'John 3:16 (read)', time.now()),
+      revision: 2,
+    });
+    expect(edited.statusCode).toBe(200);
+    expect(stored(context)).toMatchObject({ title: 'John 3:16 (read)', passage });
+  });
+
+  it('lets a version 6 device remove the passage', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(context, 6, song('p1', 'John 3:16', time.now(), { passage }));
+    time.advance();
+    await push(context, 6, {
+      ...song('p1', 'John 3:16', time.now(), { passage: null }),
+      revision: 2,
+    });
+    expect(stored(context).passage).toBeNull();
+  });
+
+  it('never puts a passage song in the Church Library, even from a managing workspace', async () => {
+    const context = await setup();
+    await context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.a.token, 6),
+      payload: {
+        protocolVersion: 6,
+        records: [song('p1', 'John 3:16', context.time.now(), { passage })],
+      },
+    });
+    expect(context.instance.listChurch('song').map((item) => item.id)).not.toContain('p1');
+    expect(
+      context.instance.listWorkspaceLibrary(context.managing.id, 'song').map((i) => i.id),
+    ).not.toContain('p1');
+  });
+
+  it('leaves passage songs out of a workspace’s library in the admin app', async () => {
+    const context = await setup();
+    await push(context, 6, song('p1', 'John 3:16', context.time.now(), { passage }));
+    await push(context, 6, song('o1', 'Own song', context.time.now()));
+    const ids = context.instance.listWorkspaceLibrary(context.south.id, 'song').map((i) => i.id);
+    expect(ids).toContain('o1');
+    expect(ids).not.toContain('p1');
+  });
+
+  it('still accepts hellos from versions 2 to 5', async () => {
+    const context = await setup();
+    for (const protocol of [2, 3, 4, 5]) {
+      const response = await context.app.inject({
+        method: 'GET',
+        url: '/api/v1/workspace',
+        headers: context.headers(context.c.token, protocol),
+      });
+      expect(response.statusCode, `version ${protocol}`).toBe(200);
     }
   });
 });

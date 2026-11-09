@@ -238,6 +238,15 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE church_version ADD COLUMN video TEXT`,
     ],
   },
+  {
+    // A Bible passage shown instead of lyrics (Bible passages plan, B23), kept as JSON.
+    version: 11,
+    statements: [
+      `ALTER TABLE song ADD COLUMN passage TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN passage TEXT`,
+      `ALTER TABLE church_version ADD COLUMN passage TEXT`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
