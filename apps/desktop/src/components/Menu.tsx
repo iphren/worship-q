@@ -64,14 +64,16 @@ export function Menu(props: { label: string; items: readonly MenuItem[]; trigger
     if (!list.current || !button.current) return;
     const box = button.current.getBoundingClientRect();
     const margin = 8;
-    const height = list.current.scrollHeight;
-    const below = window.innerHeight - box.bottom - margin;
-    const above = box.top - margin;
+    const gap = 4;
+    // The whole box, borders included, as `maxHeight` counts them too.
+    const height = list.current.offsetHeight;
+    const below = window.innerHeight - box.bottom - margin - gap;
+    const above = box.top - margin - gap;
     const upwards = height > below && above > below;
     setPlace({
       right: Math.max(margin, window.innerWidth - box.right),
-      maxHeight: Math.max(0, (upwards ? above : below) - 4),
-      ...(upwards ? { bottom: window.innerHeight - box.top + 4 } : { top: box.bottom + 4 }),
+      maxHeight: Math.max(0, upwards ? above : below),
+      ...(upwards ? { bottom: window.innerHeight - box.top + gap } : { top: box.bottom + gap }),
     });
   }, [open]);
 
