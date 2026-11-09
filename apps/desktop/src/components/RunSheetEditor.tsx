@@ -346,7 +346,7 @@ export function RunSheetEditor(props: {
                     : entry.item.id === props.activeItemId
                       ? 'bg-sky-900/60'
                       : 'bg-slate-900/60'
-                } ${entry.item.id === props.keyedItemId && !drag ? 'ring-2 ring-sky-400 ring-inset' : ''} ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''} ${
+                } ${entry.item.id === props.keyedItemId && !drag ? 'ring-2 ring-indigo-400 ring-inset' : ''} ${drag && entry.item.id !== drag.id ? 'transition-transform duration-150' : ''} ${
                   onSelectItem && !drag
                     ? 'cursor-pointer transition hover:bg-slate-700/70 active:scale-[0.98] active:bg-sky-800/70'
                     : ''

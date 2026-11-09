@@ -36,6 +36,11 @@ function KeyHint(props: { children: string }) {
  * True for the slide an item last showed, so operators see where they left off. Not on the
  * item on screen, which has its own highlight, nor on an item with only one slide.
  */
+/** A song of lyrics, as opposed to a deck, PDF, image, video or website. */
+function isLyrics(song: { deck: unknown; video: unknown; website: unknown }): boolean {
+  return !song.deck && !song.video && !song.website;
+}
+
 function isLastShown(
   live: LiveState | null,
   presented: Presented | null | undefined,
@@ -105,7 +110,7 @@ function Viewer(props: { outputPanel: React.ReactNode }) {
         {entries.map((entry, index) => (
           <section key={entry.item.id} className="relative">
             <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
-              <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
+              <h3 className="min-w-0 truncate text-lg text-slate-50">
                 <span className="mr-2 text-slate-400">{index + 1}</span>
                 <DeckBadge song={entry.song} />
                 {entry.song.title || t('songs.untitled')}
@@ -501,93 +506,113 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               {view && entries.length === 0 && (
                 <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
               )}
-              {entries.map((entry, index) => (
-                <section key={entry.item.id} data-item-id={entry.item.id} className="relative">
-                  <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
-                    <h3 className="min-w-0 truncate text-lg font-bold text-slate-50">
-                      <span className="mr-2 text-slate-400">{index + 1}</span>
-                      <DeckBadge song={entry.song} />
-                      {entry.song.title || t('songs.untitled')}
-                    </h3>
-                    {entry.song.removedAt && (
-                      <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
-                    )}
-                    <span className="flex-1" />
-                    {!entry.song.removedAt && (
-                      <button
-                        className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
-                        onClick={() => setEditingSong(entry.song)}
-                      >
-                        ✎ {t('present.edit')}
-                      </button>
-                    )}
-                  </header>
-                  {entry.pieces.length === 0 && (
-                    <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
-                  )}
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-                    {entry.pieces.map((piece, pieceIndex) => {
-                      const keyLabel =
-                        entry.item.id === keyedItemId ? slideKeyLabel(pieceIndex) : null;
-                      const active =
-                        presented?.itemId === entry.item.id && presented.pieceId === piece.id;
-                      return (
+              {entries.map((entry, index) => {
+                // The item the slide keys act on has an indigo title bar and slide key labels.
+                const keyed = entry.item.id === keyedItemId;
+                return (
+                  <section
+                    key={entry.item.id}
+                    data-item-id={entry.item.id}
+                    aria-current={keyed || undefined}
+                    className="relative"
+                  >
+                    <header
+                      className={`mb-2 flex items-center gap-2 rounded-t-md border-b px-2 pt-1.5 pb-1.5 ${
+                        keyed ? 'border-indigo-400 bg-indigo-500/25' : 'border-slate-700'
+                      }`}
+                    >
+                      <h3 className="min-w-0 truncate text-lg text-slate-50">
+                        <span className={`mr-2 ${keyed ? 'text-indigo-300' : 'text-slate-400'}`}>
+                          {index + 1}
+                        </span>
+                        <DeckBadge song={entry.song} />
+                        {entry.song.title || t('songs.untitled')}
+                      </h3>
+                      {entry.song.removedAt && (
+                        <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
+                      )}
+                      <span className="flex-1" />
+                      {!entry.song.removedAt && (
                         <button
-                          key={piece.id}
-                          ref={active ? activeRef : undefined}
-                          onClick={() => {
-                            if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
-                            follow();
-                            void session.play(entry.item.id, piece.id);
-                          }}
-                          className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
-                            active
-                              ? live.blank
-                                ? 'border-amber-400 bg-amber-900/30'
-                                : 'border-emerald-500 bg-emerald-900/40'
-                              : // Alternate styles by block so slides from one block read as a group.
-                                piece.blockIndex % 2 === 0
-                                ? 'border-slate-700 bg-slate-800 hover:border-slate-500'
-                                : 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
-                          } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                          className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
+                          onClick={() => setEditingSong(entry.song)}
                         >
-                          {keyLabel && (
-                            <kbd className="absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md bg-slate-600 px-1 font-sans text-[10px] leading-4 font-semibold text-slate-200">
-                              {keyLabel}
-                            </kbd>
-                          )}
-                          {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
-                          {entry.song.video ? (
-                            <VideoTile video={entry.song.video} />
-                          ) : piece.image && entry.song.deck ? (
-                            <SlideImage
-                              image={piece.image}
-                              className="w-full rounded-sm"
-                              style={{
-                                aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
-                              }}
-                            />
-                          ) : (
-                            piece.lines.map((line) => (
-                              <span key={line.id} className="block truncate whitespace-pre">
-                                {line.text}
-                              </span>
-                            ))
-                          )}
+                          ✎ {t('present.edit')}
                         </button>
-                      );
-                    })}
-                  </div>
-                  {/* Last, so it paints over the slides. */}
-                  {flash?.itemId === entry.item.id && (
-                    <div
-                      key={flash.count}
-                      className="item-flash pointer-events-none absolute inset-0 rounded-md"
-                      onAnimationEnd={() => setFlash(null)}
-                    />
-                  )}
-                </section>
-              ))}
+                      )}
+                    </header>
+                    {entry.pieces.length === 0 && (
+                      <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
+                    )}
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
+                      {entry.pieces.map((piece, pieceIndex) => {
+                        const keyLabel = keyed ? slideKeyLabel(pieceIndex) : null;
+                        // A lyrics song's second, fourth… block; its slides and key labels shade.
+                        const shaded = isLyrics(entry.song) && piece.blockIndex % 2 === 1;
+                        const active =
+                          presented?.itemId === entry.item.id && presented.pieceId === piece.id;
+                        return (
+                          <button
+                            key={piece.id}
+                            ref={active ? activeRef : undefined}
+                            onClick={() => {
+                              if (entry.item.id !== presented?.itemId)
+                                clickedItemRef.current = true;
+                              follow();
+                              void session.play(entry.item.id, piece.id);
+                            }}
+                            className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
+                              active
+                                ? live.blank
+                                  ? 'border-amber-400 bg-amber-900/30'
+                                  : 'border-emerald-500 bg-emerald-900/40'
+                                : // Alternate a lyrics song's styles by block so its slides read as
+                                  // groups; decks, PDFs, images, videos and websites keep one style.
+                                  shaded
+                                  ? 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
+                                  : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                            } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
+                          >
+                            {keyLabel && (
+                              <kbd
+                                className={`absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md px-1 font-sans text-[10px] leading-4 font-semibold ${shaded ? 'bg-indigo-300 text-indigo-950' : 'bg-indigo-600 text-slate-100'}`}
+                              >
+                                {keyLabel}
+                              </kbd>
+                            )}
+                            {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
+                            {entry.song.video ? (
+                              <VideoTile video={entry.song.video} />
+                            ) : piece.image && entry.song.deck ? (
+                              <SlideImage
+                                image={piece.image}
+                                className="w-full rounded-sm"
+                                style={{
+                                  aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
+                                }}
+                              />
+                            ) : (
+                              piece.lines.map((line) => (
+                                <span key={line.id} className="block truncate whitespace-pre">
+                                  {line.text}
+                                </span>
+                              ))
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Last, so it paints over the slides. */}
+                    {flash?.itemId === entry.item.id && (
+                      <div
+                        key={flash.count}
+                        className="item-flash pointer-events-none absolute inset-0 rounded-md"
+                        onAnimationEnd={() => setFlash(null)}
+                      />
+                    )}
+                  </section>
+                );
+              })}
             </main>
             {presented && !activeInView && (
               <button

@@ -32,7 +32,8 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    otherwise with the next meeting day. To present another date, choose **Go live** on it
    in the calendar.
 4. Click any slide to show it. ↓ and ↑ step through the slides of the current song, and →
-   and ← move to the next or previous song. Enter moves on through the whole run sheet:
+   and ← move to the next or previous song: its title is highlighted in indigo, so you can see
+   which song the keys act on before you show it. Enter moves on through the whole run sheet:
    the next slide, and after the last slide of a song, the first slide of the next one.
    Space hides the lyrics and keeps the background; press Space again to show the same
    slide. (Space does not move to the next slide, as it does in PowerPoint or Keynote.)
