@@ -575,6 +575,24 @@ describe('adding at a place (media uploads U16, U17)', () => {
     ]);
   });
 
+  it('puts a removed item back in its place, as it was', async () => {
+    await session.addSong(SUNDAY, c.id);
+    const middle = await itemOf(1);
+    await session.removeItem(middle.id);
+    expect(await titles()).toEqual(['A', 'C']);
+    await session.restoreItem(middle, (await itemOf(0)).id);
+    expect(await titles()).toEqual(['A', 'B', 'C']);
+    expect((await itemOf(1)).id).toBe(middle.id);
+  });
+
+  it('asks the coordinator for the song again after the same item, from a follower', async () => {
+    const second = await itemOf(1);
+    const sent: unknown[] = [];
+    session.follow({ send: (command) => sent.push(command) });
+    await session.restoreItem(second, (await itemOf(0)).id);
+    expect(sent).toEqual([{ type: 'addItem', songId: b.id, afterItemId: (await itemOf(0)).id }]);
+  });
+
   it('is placed by the coordinator as a phone’s edit is', async () => {
     const first = await itemOf(0);
     await session.remoteEdit('e1', { type: 'addItem', songId: c.id, afterItemId: first.id });

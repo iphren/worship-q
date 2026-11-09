@@ -1071,6 +1071,24 @@ export class Session {
     });
   }
 
+  /**
+   * Undoes `removeItem`: the item comes back in its place, as it was. On a follower, the
+   * live run sheet belongs to the coordinator, which gets the song again after `afterItemId`
+   * (null for first), the item it followed when it was removed.
+   */
+  restoreItem(item: RunSheetItem, afterItemId: string | null): Promise<void> {
+    return this.mutate(async () => {
+      const sheet = await this.store.getRunSheet(item.runSheetId);
+      if (!sheet) return;
+      if (this.relay_ && sheet.date === this.liveDate) {
+        this.relay_.send({ type: 'addItem', songId: item.songId, afterItemId });
+        return;
+      }
+      await this.liveWhenEdited(await this.editable(sheet.date));
+      await this.store.restoreItem(item);
+    });
+  }
+
   /** The live run sheet's items when `itemId` is one of them and this device follows. */
   private liveSnapshotItems(itemId: string): SnapshotItem[] | null {
     const items = this.snapshot_?.items ?? null;

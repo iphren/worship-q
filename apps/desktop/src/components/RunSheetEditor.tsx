@@ -1,4 +1,4 @@
-import type { IsoDate, Song } from '@worship-q/protocol';
+import type { IsoDate, RunSheetItem, Song } from '@worship-q/protocol';
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
@@ -20,7 +20,6 @@ import { KindBadge } from './DeckBadge';
 import { VideoCopyState } from './VideoStatus';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';
-import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
 import { DeckBadge, PinnedMark } from './DeckBadge';
@@ -148,8 +147,31 @@ export function RunSheetEditor(props: {
     if (index <= drag.to && index > drag.from) return -step;
     return 0;
   }
-  const [removingId, setRemovingId] = useState<string | null>(null);
-  const removing = entries.find((entry) => entry.item.id === removingId);
+  // The item just removed, which can be put back for a few seconds.
+  const [removed, setRemoved] = useState<Removed | null>(null);
+  useEffect(() => {
+    if (!removed) return;
+    const timer = window.setTimeout(() => setRemoved(null), UNDO_MS);
+    return () => window.clearTimeout(timer);
+  }, [removed]);
+
+  function remove(itemId: string) {
+    const index = entries.findIndex((entry) => entry.item.id === itemId);
+    const entry = entries[index];
+    if (!entry) return;
+    setRemoved({
+      item: entry.item,
+      afterItemId: index === 0 ? null : (entries[index - 1]?.item.id ?? null),
+      title: entry.song.title || t('songs.untitled'),
+    });
+    void session.removeItem(itemId);
+  }
+
+  function undoRemove() {
+    if (!removed) return;
+    setRemoved(null);
+    void session.restoreItem(removed.item, removed.afterItemId);
+  }
 
   // ── Media (media uploads plan, U16, U17, U26, U27) ──
   const { cloud } = useApp();
@@ -240,7 +262,7 @@ export function RunSheetEditor(props: {
       separated: action === 'remove',
       onSelect: () => {
         if (action === 'edit') setEditingSong(song);
-        else if (action === 'remove') setRemovingId(itemId);
+        else if (action === 'remove') remove(itemId);
         else if (action === 'download') {
           void downloadOriginal(cloud, song).then(setMessage);
         } else void uploadNewVersion(cloud, song).then(setMessage);
@@ -250,8 +272,29 @@ export function RunSheetEditor(props: {
 
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col gap-3">
-      {(message || notes.length > 0) && (
+      {(message || notes.length > 0 || removed) && (
         <div className="space-y-1">
+          {removed && (
+            <p
+              className="flex items-center gap-2 rounded-md bg-slate-900/60 px-2 py-1 text-xs text-slate-200"
+              role="status"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {t('runSheet.removed', { title: removed.title })}
+              </span>
+              <button type="button" className="btn btn-sm" onClick={undoRemove}>
+                {t('common.undo')}
+              </button>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-slate-100"
+                aria-label={t('media.dismiss')}
+                onClick={() => setRemoved(null)}
+              >
+                ✕
+              </button>
+            </p>
+          )}
           {message && <Note text={message} onDismiss={() => setMessage(null)} />}
           {notes.map((upload) => (
             <Note
@@ -440,23 +483,19 @@ export function RunSheetEditor(props: {
       )}
       {props.footer && <div className="mt-auto">{props.footer}</div>}
       {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
-      {editable && removing && (
-        <ConfirmDialog
-          title={t('runSheet.removeTitle', {
-            title: removing.song.title || t('songs.untitled'),
-          })}
-          body={t('runSheet.removeBody')}
-          confirmLabel={t('common.remove')}
-          danger
-          onCancel={() => setRemovingId(null)}
-          onConfirm={() => {
-            setRemovingId(null);
-            void session.removeItem(removing.item.id);
-          }}
-        />
-      )}
     </div>
   );
+}
+
+/** How long a removed item can be put back. */
+const UNDO_MS = 8000;
+
+/** A removed item, with what is needed to put it back where it was. */
+interface Removed {
+  item: RunSheetItem;
+  /** The item it followed, null when it was first. */
+  afterItemId: string | null;
+  title: string;
 }
 
 /** Where dropped files will land: a line above the row it wraps. */

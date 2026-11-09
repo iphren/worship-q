@@ -21,6 +21,7 @@ export const en = {
   'common.cancel': 'Cancel',
   'common.save': 'Save',
   'common.apply': 'Apply',
+  'common.undo': 'Undo',
   'common.saved': 'Saved',
   'common.remove': 'Remove',
   'common.close': 'Close',
@@ -152,8 +153,7 @@ export const en = {
   'runSheet.addHint': 'Add (or double-click the song)',
   'runSheet.edit': 'Edit',
   'runSheet.itemMenu': 'More actions',
-  'runSheet.removeTitle': 'Remove “{title}” from the run sheet?',
-  'runSheet.removeBody': 'The song stays in your library and can be added again.',
+  'runSheet.removed': 'Removed “{title}”',
 
   'present.nothingLive': 'Nothing is live',
   'present.nothingLiveBody': 'Go live with a run sheet to present it on the slideshow screen.',
