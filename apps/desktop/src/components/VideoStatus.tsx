@@ -3,6 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import type { CopyStatus } from '../app/videoCache';
 import { t } from '../i18n';
+import { Icon } from './Icon';
 import { native } from '../platform/native';
 import { videoPosition } from '@worship-q/live-state';
 import { formatDuration } from '@worship-q/session';
@@ -127,15 +128,16 @@ export function VideoControls(props: { file: string | null }) {
         aria-label={t('video.back')}
         onClick={() => void session.videoSeek({ by: -10 })}
       >
-        −10s
+        <Icon name="back10" />
       </button>
       <button
         type="button"
-        className="btn min-w-20 border-violet-500 bg-violet-600 hover:bg-violet-500"
+        className="btn border-violet-500 bg-violet-600 px-4 hover:bg-violet-500"
         title={`${video.playing ? t('video.pause') : t('video.play')} (Space)`}
+        aria-label={video.playing ? t('video.pause') : t('video.play')}
         onClick={() => void session.videoPlay(!video.playing)}
       >
-        {video.playing ? `❚❚ ${t('video.pause')}` : `▶ ${t('video.play')}`}
+        <Icon name={video.playing ? 'pause' : 'play'} />
       </button>
       <button
         type="button"
@@ -144,7 +146,7 @@ export function VideoControls(props: { file: string | null }) {
         aria-label={t('video.forward')}
         onClick={() => void session.videoSeek({ by: 10 })}
       >
-        +10s
+        <Icon name="forward10" />
       </button>
       <span className="w-24 shrink-0 text-center text-xs text-violet-200 tabular-nums">
         {formatDuration(position)} / {formatDuration(duration)}

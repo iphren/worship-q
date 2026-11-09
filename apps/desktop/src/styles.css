@@ -51,7 +51,13 @@ textarea {
   height: 10px;
 }
 
-::-webkit-scrollbar-track,
+/* The track is faintly drawn too, so the bar shows how long the column is. */
+::-webkit-scrollbar-track {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: rgb(30 41 59 / 0.6) padding-box;
+}
+
 ::-webkit-scrollbar-corner {
   background: transparent;
 }

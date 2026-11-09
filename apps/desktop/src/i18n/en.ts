@@ -148,7 +148,7 @@ export const en = {
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
   'runSheet.add': 'Add',
-  'runSheet.addMedia': 'Media',
+  'runSheet.addHint': 'Add (or double-click the song)',
   'runSheet.edit': 'Edit',
   'runSheet.itemMenu': 'More actions',
   'runSheet.removeTitle': 'Remove “{title}” from the run sheet?',

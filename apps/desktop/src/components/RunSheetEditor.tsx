@@ -374,7 +374,7 @@ export function RunSheetEditor(props: {
       </ol>
       {editable && (
         <div
-          className={`flex flex-col gap-1 border-t border-slate-700 pt-3 ${idle ? '' : 'min-h-40 flex-1'}`}
+          className={`flex flex-col gap-1.5 border-t border-slate-700 pt-3 ${idle ? '' : 'min-h-40 flex-1'}`}
         >
           <div className="flex gap-1">
             <input
@@ -392,34 +392,44 @@ export function RunSheetEditor(props: {
             />
             <button
               type="button"
-              className="btn shrink-0"
+              className="btn shrink-0 px-2"
               disabled={!!blocked}
               title={blocked ?? t('media.addTitle')}
+              aria-label={t('media.addTitle')}
               onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
             >
-              + {t('runSheet.addMedia')}…
+              <Icon name="addMedia" />
             </button>
           </div>
           {!idle && (
-            <ul ref={songsRef} className="min-h-0 flex-1 space-y-0.5 overflow-auto">
+            <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
               {songs?.length === 0 && (
                 <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
               )}
               {songs?.map((song) => (
                 <li key={song.id}>
                   <SongPeek song={song}>
-                    <div className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-slate-700/50">
-                      <span className="truncate">
+                    <div
+                      className="flex w-full cursor-default items-stretch gap-2 rounded-md pr-2 text-sm hover:bg-slate-700/50"
+                      onDoubleClick={(event) => {
+                        // A double click on the button has already added the song twice.
+                        if ((event.target as Element).closest('button')) return;
+                        void session.addSong(date, song.id);
+                      }}
+                    >
+                      <button
+                        className="btn shrink-0 px-2 py-0"
+                        title={t('runSheet.addHint')}
+                        aria-label={t('runSheet.add')}
+                        onClick={() => void session.addSong(date, song.id)}
+                      >
+                        <Icon name="add" className="h-4 w-4" />
+                      </button>
+                      <span className="truncate py-1.5">
                         {showPins && pinned?.has(song.id) && <PinnedMark />}
                         <DeckBadge song={song} />
                         {song.title || t('songs.untitled')}
                       </span>
-                      <button
-                        className="btn btn-sm shrink-0"
-                        onClick={() => void session.addSong(date, song.id)}
-                      >
-                        + {t('runSheet.add')}
-                      </button>
                     </div>
                   </SongPeek>
                 </li>

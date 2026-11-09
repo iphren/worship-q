@@ -1,7 +1,8 @@
-import { ITEM_ICON_SHAPES } from '@worship-q/ui';
+import { CONTROL_ICON_SHAPES, ITEM_ICON_SHAPES } from '@worship-q/ui';
 import type { ReactNode } from 'react';
 
-// The icons of item kinds are shared with phones and the admin pages.
+// The icons of item kinds are shared with phones and the admin pages, and those of the
+// controls with phones.
 
 const ICONS = {
   songs: (
@@ -35,14 +36,7 @@ const ICONS = {
       <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14" />
     </>
   ),
-  previous: <path d="M12 19V5M5 12l7-7 7 7" />,
-  next: <path d="M12 5v14M19 12l-7 7-7-7" />,
-  blank: (
-    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20" />
-  ),
-  clear: (
-    <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21M22 21H7M5 11l9 9" />
-  ),
+  ...CONTROL_ICON_SHAPES,
   open: <path d="M6 3l14 9-14 9z" />,
   close: (
     <>

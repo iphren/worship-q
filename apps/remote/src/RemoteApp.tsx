@@ -13,7 +13,7 @@ import {
   type RemoteSongResult,
   type RemoteView,
 } from '@worship-q/protocol';
-import { ItemBadgeMark } from '@worship-q/ui';
+import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { RemoteConnection } from './connection';
 
@@ -168,9 +168,9 @@ function Live({ view }: { view: RemoteView | null }) {
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
   const editing = mode === 'edit' || mode === 'add';
-  const control = `rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40 ${
-    canEdit ? 'text-base' : 'text-lg'
-  }`;
+  const control =
+    'flex items-center justify-center rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40';
+  const controlIcon = 'h-6 w-6';
 
   function openSearch() {
     if (mode !== 'add') setBefore(new Set(view!.items.map((item) => item.itemId)));
@@ -366,39 +366,50 @@ function Live({ view }: { view: RemoteView | null }) {
         <button
           className={`${control} bg-slate-800`}
           disabled={!connected}
+          title="Previous"
+          aria-label="Previous"
           onClick={() => step('previous')}
         >
-          ‹ Prev
+          <ControlIcon name="previous" className={controlIcon} />
         </button>
         <button
           className={`${control} ${view.blank ? 'bg-amber-600 text-white' : 'bg-slate-800'}`}
           disabled={!connected}
+          title={view.blank ? 'Show' : 'Blank'}
+          aria-label={view.blank ? 'Show' : 'Blank'}
+          aria-pressed={view.blank}
           onClick={() => connection.send({ type: view.blank ? 'unblank' : 'blank' })}
         >
-          {view.blank ? 'Show' : 'Blank'}
+          <ControlIcon name="blank" className={controlIcon} />
         </button>
         <button
           className={`${control} bg-slate-800`}
           disabled={!connected || (!view.presented && !view.previousContent)}
+          title="Clear"
+          aria-label="Clear"
           onClick={() => connection.send({ type: 'clear' })}
         >
-          Clear
+          <ControlIcon name="clear" className={controlIcon} />
         </button>
         {canEdit && (
           <button
             className={`${control} ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
             disabled={!connected}
+            title="Add"
+            aria-label="Add"
             onClick={openSearch}
           >
-            + Add
+            <ControlIcon name="addToList" className={controlIcon} />
           </button>
         )}
         <button
           className={`${control} bg-sky-600 text-white`}
           disabled={!connected}
+          title="Next"
+          aria-label="Next"
           onClick={() => step('next')}
         >
-          Next ›
+          <ControlIcon name="next" className={controlIcon} />
         </button>
       </footer>
     </div>
@@ -455,15 +466,21 @@ function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: b
   const seek = (seconds: number) =>
     connection.send({ type: 'videoSeek', itemId: video.itemId, seconds });
   const button =
-    'rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold active:scale-95 disabled:opacity-40';
+    'flex items-center justify-center rounded-lg bg-slate-800 px-3 py-2 active:scale-95 disabled:opacity-40';
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50">
-      <button className={button} disabled={!connected} onClick={() => seek(position - 10)}>
-        −10s
+      <button
+        className={button}
+        disabled={!connected}
+        aria-label="Back 10 seconds"
+        onClick={() => seek(position - 10)}
+      >
+        <ControlIcon name="back10" className="h-6 w-6" />
       </button>
       <button
-        className={`${button} min-w-20 bg-violet-600 text-white`}
+        className={`${button} min-w-16 bg-violet-600 text-white`}
         disabled={!connected}
+        aria-label={video.playing ? 'Pause' : 'Play'}
         onClick={() =>
           connection.send({
             type: video.playing ? 'videoPause' : 'videoPlay',
@@ -471,10 +488,15 @@ function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: b
           })
         }
       >
-        {video.playing ? 'Pause' : 'Play'}
+        <ControlIcon name={video.playing ? 'pause' : 'play'} className="h-6 w-6" />
       </button>
-      <button className={button} disabled={!connected} onClick={() => seek(position + 10)}>
-        +10s
+      <button
+        className={button}
+        disabled={!connected}
+        aria-label="Forward 10 seconds"
+        onClick={() => seek(position + 10)}
+      >
+        <ControlIcon name="forward10" className="h-6 w-6" />
       </button>
       <span className="ml-auto text-xs tabular-nums">
         {clock(position)} / {clock(video.durationSeconds)}
