@@ -253,6 +253,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.2
+      '@worship-q/bible':
+        specifier: workspace:*
+        version: link:../../packages/bible
       '@worship-q/live-state':
         specifier: workspace:*
         version: link:../../packages/live-state
@@ -317,6 +320,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@worship-q/bible':
+        specifier: workspace:*
+        version: link:../bible
       zod:
         specifier: ^4.0.0
         version: 4.6.5

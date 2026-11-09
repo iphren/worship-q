@@ -10,6 +10,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@worship-q/bible": "workspace:*",
     "zod": "^4.0.0"
   }
 }

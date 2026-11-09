@@ -14,6 +14,7 @@ import {
   ChurchSettingsSchema,
   LIBRARY_TYPES,
   libraryTypes,
+  type AdminBible,
   type AdminDevice,
   type AdminLibraryItem,
   type AdminLiveView,
@@ -31,6 +32,7 @@ import type { ObsReports } from './obsReports';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
 import { storageReport } from './storage';
+import type { Bible } from './bible';
 
 export const SESSION_COOKIE = 'wq_admin';
 
@@ -45,6 +47,8 @@ export interface AdminConfig {
   name: string;
   /** Built admin pages, served at /admin/; optional in tests. */
   adminDir?: string;
+  /** The Bible, when the server has one (B17). */
+  bible?: Bible;
 }
 
 declare module 'fastify' {
@@ -488,6 +492,17 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       settings: instance.churchSettings(),
       keys: Object.keys(ChurchSettingsSchema.shape),
     }));
+
+    /** The Bible's keys (set or not, never their values) and versions (B17, B19). */
+    api.get('/api/v1/admin/bible', async () =>
+      config.bible
+        ? config.bible.admin(instance.churchSettings())
+        : ({
+            keys: { youversion: false, apibible: false, esv: false },
+            checked: true,
+            versions: [],
+          } satisfies AdminBible),
+    );
 
     api.put<{ Body: { key?: string; value?: unknown } }>(
       '/api/v1/admin/settings',

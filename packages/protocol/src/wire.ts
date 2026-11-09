@@ -93,6 +93,11 @@ export interface ServerInfo {
    * only, as `decks` says.
    */
   media?: MediaOffer;
+  /**
+   * The church offers at least one Bible version a provider serves (B17, B19). Missing on an
+   * instance from before the Bible.
+   */
+  bible?: boolean;
 }
 
 /** Upload limits in bytes, per kind of file (U1). */
@@ -175,6 +180,11 @@ export const ChurchSettingsSchema = z
     wrapLongLines: z.boolean(),
     slideshowFontFamily: z.string().nullable(),
     subtitleFontFamily: z.string().nullable(),
+    /**
+     * The Bible versions the church offers its workspaces (B19), by Worship Q's version id.
+     * Unset offers none, so a church chooses before its desktops show a Bible.
+     */
+    bibleVersions: z.array(z.string().min(1).max(20)).max(50),
   })
   .partial();
 export type ChurchSettings = z.infer<typeof ChurchSettingsSchema>;

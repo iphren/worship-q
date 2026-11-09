@@ -41,9 +41,15 @@ import {
   type PushResponse,
   type RestoreResponse,
   type ServerInfo,
+  type BiblePassageResponse,
+  type BibleTocResponse,
+  type BibleVersionsResponse,
+  fromUsfm,
+  toUsfm,
 } from '@worship-q/protocol';
 import { z } from 'zod';
 import { registerAdminRoutes } from './admin';
+import { BibleError, versionInfo, type Bible } from './bible';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
 import { convertImage, ImageError } from './images';
@@ -97,6 +103,8 @@ export interface ServerConfig {
   sweep?: boolean;
   /** Upload limits per kind of media (U1); see `mediaLimitsFromEnv`. */
   mediaLimits?: Partial<MediaLimits>;
+  /** Bible passages through the church's provider keys (B17); absent in most tests. */
+  bible?: Bible;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
@@ -269,6 +277,7 @@ export async function buildServer(config: ServerConfig) {
       admin: !!config.oidc,
       codes: !instance.hasAdministrators(),
       media: { images: true, videos: true, limits },
+      bible: config.bible ? config.bible.offered(instance.churchSettings()).length > 0 : false,
     };
     return info;
   });
@@ -398,6 +407,104 @@ export async function buildServer(config: ServerConfig) {
       peers: relay.peers(request.device!.workspaceId),
       coordinatorName: relay.coordinatorName(request.device!.workspaceId),
     }));
+
+    // ── The Bible (B17–B26) ────────────────────────────────────────────────
+
+    const bibleStatus: Record<BibleError['kind'], number> = {
+      'not-offered': 403,
+      'not-found': 404,
+      'too-large': 413,
+      unavailable: 503,
+    };
+    /** Runs a Bible request for a version the church offers, mapping its errors. */
+    const bibleAnswer = async <T>(
+      version: string,
+      reply: FastifyReply,
+      answer: (bible: Bible) => Promise<T>,
+    ): Promise<T | FastifyReply> => {
+      const bible = config.bible;
+      if (!bible || !bible.isOffered(version, instance.churchSettings())) {
+        return reply.code(403).send({ error: 'not-offered' });
+      }
+      try {
+        return await answer(bible);
+      } catch (error) {
+        if (error instanceof BibleError) {
+          return reply
+            .code(bibleStatus[error.kind])
+            .send({ error: error.kind, reason: error.message });
+        }
+        // Never pass a provider's answer on: it might echo a request with its key.
+        app.log.warn({ version, error: (error as Error).message }, 'Bible request failed');
+        return reply.code(503).send({ error: 'unavailable' });
+      }
+    };
+
+    api.get(
+      '/api/v1/bible/versions',
+      async () =>
+        ({
+          versions: (config.bible?.offered(instance.churchSettings()) ?? []).map(versionInfo),
+        }) satisfies BibleVersionsResponse,
+    );
+
+    api.get<{ Params: { version: string }; Querystring: { book?: string; chapter?: string } }>(
+      '/api/v1/bible/:version/toc',
+      async (request, reply) =>
+        bibleAnswer(request.params.version, reply, async (bible) => {
+          const { book, chapter } = request.query;
+          // A chapter whose verses are not known yet is fetched first (B20).
+          if (book && chapter && /^\d+$/.test(chapter)) {
+            await bible.tocs.ensureChapter(request.params.version, book, Number(chapter));
+          }
+          return (await bible.tocs.get(request.params.version)) satisfies BibleTocResponse;
+        }),
+    );
+
+    api.get<{
+      Params: { version: string };
+      Querystring: { ref?: string; device?: string; session?: string };
+    }>('/api/v1/bible/:version/passage', async (request, reply) =>
+      bibleAnswer(request.params.version, reply, async (bible) => {
+        const reference = fromUsfm(String(request.query.ref ?? ''));
+        if (!reference) throw new BibleError('not-found', 'Not a reference');
+        const text = await bible.passages.get(request.params.version, reference);
+        // Every API.Bible passage served is reported (B25).
+        if (text.fumsToken) {
+          bible.fums.report(
+            [text.fumsToken],
+            String(request.query.device ?? request.device!.id),
+            String(request.query.session ?? ''),
+          );
+        }
+        return { reference: toUsfm(reference), text } satisfies BiblePassageResponse;
+      }),
+    );
+
+    api.get<{ Params: { version: string }; Querystring: { q?: string } }>(
+      '/api/v1/bible/:version/search',
+      async (request, reply) =>
+        bibleAnswer(request.params.version, reply, async (bible) =>
+          bible.search(request.params.version, String(request.query.q ?? '').slice(0, 200)),
+        ),
+    );
+
+    /** A saved item's tokens, sent by the coordinator when it is first presented (B25). */
+    api.post<{ Body: { tokens?: unknown; device?: unknown; session?: unknown } }>(
+      '/api/v1/bible/fums',
+      async (request, reply) => {
+        const parsed = z
+          .object({
+            tokens: z.array(z.string().min(1).max(2000)).min(1).max(100),
+            device: z.string().max(100),
+            session: z.string().max(100),
+          })
+          .safeParse(request.body);
+        if (!parsed.success) return reply.code(400).send({ error: 'invalid' });
+        config.bible?.fums.report(parsed.data.tokens, parsed.data.device, parsed.data.session);
+        return reply.code(204).send();
+      },
+    );
 
     // ── Live state backup (D17, D18) ───────────────────────────────────────
 
@@ -845,10 +952,12 @@ export async function buildServer(config: ServerConfig) {
     dataDir: config.dataDir,
     name: config.name,
     adminDir: config.adminDir,
+    bible: config.bible,
   });
 
   app.get('/', async () => ({ name: config.name, app: 'worship-q' }));
   app.addHook('onClose', async () => {
+    config.bible?.stop();
     clearInterval(sweeper);
     if (retention) clearInterval(retention);
   });

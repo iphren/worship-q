@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "@worship-q/bible": "workspace:*",
     "@worship-q/live-state": "workspace:*",
     "@worship-q/lyrics": "workspace:*",
     "@worship-q/protocol": "workspace:*",

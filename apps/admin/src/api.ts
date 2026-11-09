@@ -17,6 +17,7 @@ import {
   type AdminPairingRequest,
   type AdminStorage,
   type AdminWorkspace,
+  type AdminBible,
   type ChurchSettings,
   type LibraryKind,
   type LibraryType,
@@ -143,7 +144,8 @@ export const api = {
     request<{ removed: boolean }>('DELETE', `${ADMIN}/administrators/${encode(id)}`),
 
   settings: () => request<{ settings: ChurchSettings; keys: string[] }>('GET', `${ADMIN}/settings`),
-  setSetting: (key: keyof ChurchSettings, value: number | boolean | string | null) =>
+  bible: () => request<AdminBible>('GET', `${ADMIN}/bible`),
+  setSetting: (key: keyof ChurchSettings, value: number | boolean | string | string[] | null) =>
     request<{ settings: ChurchSettings }>('PUT', `${ADMIN}/settings`, { key, value }),
 
   library: (kind: LibraryKind, search = '') =>

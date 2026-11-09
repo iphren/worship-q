@@ -41,7 +41,86 @@ export function SettingsPage() {
           />
         </div>
       )}
+      {settings && <BibleVersions offered={settings.bibleVersions} onSaved={apply} />}
     </div>
+  );
+}
+
+const PROVIDER_NAMES: Record<string, string> = {
+  youversion: 'YouVersion',
+  apibible: 'API.Bible',
+  esv: 'ESV API',
+  freeuse: 'Free Use Bible API',
+};
+
+/**
+ * The Bible versions the church offers its workspaces (B19). Each shows whether one of its
+ * providers answers with the church's keys, set on the server (B17); the keys themselves
+ * are never shown.
+ */
+function BibleVersions(props: {
+  offered: string[] | undefined;
+  onSaved(settings: ChurchSettings): void;
+}) {
+  const load = useLoad(() => api.bible(), []);
+  const action = useAction();
+  const offered = new Set(props.offered ?? []);
+  const bible = load.data;
+
+  async function toggle(id: string, on: boolean) {
+    const next = (bible?.versions ?? [])
+      .map((version) => version.id)
+      .filter((v) => (v === id ? on : offered.has(v)));
+    const result = await action.run(() =>
+      api.setSetting('bibleVersions', next.length ? next : null),
+    );
+    if (result) props.onSaved(result.settings);
+  }
+
+  return (
+    <Setting
+      title="Bible versions"
+      hint="The versions workspaces may show. Each workspace picks up to two of these. A version needs one of its providers to answer with the keys set on the server."
+      isSet={props.offered !== undefined}
+    >
+      <ErrorText error={load.error} />
+      {bible && (
+        <>
+          <p className="mb-3 text-xs text-slate-400">
+            Keys on the server: YouVersion {bible.keys.youversion ? 'set' : 'not set'} · API.Bible{' '}
+            {bible.keys.apibible ? 'set' : 'not set'} · ESV {bible.keys.esv ? 'set' : 'not set'}
+            {bible.checked ? '' : ' · checking versions…'}
+          </p>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {bible.versions.map((version) => (
+              <li key={version.id}>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={offered.has(version.id)}
+                    disabled={action.busy}
+                    onChange={(event) => void toggle(version.id, event.target.checked)}
+                  />
+                  <span>
+                    <span className="text-white">{version.credit}</span>{' '}
+                    <span className="text-slate-400">{version.name}</span>
+                    <span
+                      className={`block text-xs ${version.available ? 'text-slate-500' : 'text-amber-300'}`}
+                    >
+                      {version.available
+                        ? `Through ${version.providers.map((p) => PROVIDER_NAMES[p] ?? p).join(', then ')}`
+                        : 'Not available with the keys set'}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <ErrorText error={action.error} className="mt-2" />
+    </Setting>
   );
 }
 

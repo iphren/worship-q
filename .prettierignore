@@ -6,3 +6,4 @@ apps/desktop/src-tauri/icons
 docs
 # Written by release-please
 apps/desktop/CHANGELOG.md
+apps/server/src/bible/fixtures

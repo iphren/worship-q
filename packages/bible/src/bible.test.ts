@@ -3,6 +3,7 @@ import {
   BOOKS,
   BUILT_IN_NAMES,
   CATALOGUE,
+  chapterCount,
   PROVIDERS,
   PassageSchema,
   align,
@@ -45,6 +46,12 @@ describe('books (P1.1)', () => {
     expect(BOOKS.filter((b) => b.testament === 'old')).toHaveLength(39);
     expect(BOOKS.find((b) => b.id === 'ACT')!.group).toBe('acts');
     expect(BOOKS.find((b) => b.id === 'PSA')!.group).toBe('poetry');
+  });
+
+  it('counts 1,189 chapters', () => {
+    expect(BOOKS.reduce((sum, book) => sum + chapterCount(book.id), 0)).toBe(1189);
+    expect(chapterCount('PSA')).toBe(150);
+    expect(chapterCount('XYZ')).toBe(0);
   });
 
   it('resolves every alias to exactly one book', () => {
