@@ -1,8 +1,9 @@
 # Worship Q — Bible Passages Plan
 
 **Drafted:** 9 November 2026
-**Status:** User-facing design agreed with the project owner; how the providers' APIs serve it
-is still to be discussed (§5). Nothing is built.
+**Status:** Agreed with the project owner: the user-facing design (B1–B16) and how the APIs
+serve it (B17–B26, §5, confirmed 9 November 2026). Tasks in the
+[task breakdown](bible-passages-task-breakdown.md). Nothing is built.
 **Source:** [Bible Passages Discovery](bible-passages-discovery.md) (rights, versions, agreed
 direction in §9) and [Bible APIs — Technical Discovery](bible-apis-technical-discovery.md)
 (how the APIs behave).
@@ -171,21 +172,24 @@ Typing and browsing drive the same control; each fills in the other.
 
 None on the user-facing design at present; §5 is next.
 
-## 5. Fitting the APIs (to discuss)
+## 5. Fitting the APIs
 
-To be designed next. Constraints already known:
+Proposed with the [task breakdown](bible-passages-task-breakdown.md) and confirmed by the
+project owner on 9 November 2026. They follow the constraints already known: the window must
+feel instant; the church holds the keys and Worship Q holds none (discovery §4); run sheet
+text is the church's quotation while lookups follow each provider's cache rules (discovery
+§9, point 5); credits, FUMS and fallback (discovery §7 and §9); references stored as USFM
+and checked against each version's table of contents (technical discovery §5 and §6).
 
-- **The window must feel instant.** Book, chapter and verse grids come from each version's
-  table of contents saved on the computer, and the song-search pattern matching needs only
-  book names and abbreviations, both without network calls. Text is fetched only for the
-  preview and the presented passage.
-- **The church holds the keys**; Worship Q holds none (discovery §4).
-- **Run sheet text vs lookup cache:** a passage added to a run sheet is the church's quotation
-  and is kept with the item; text fetched while browsing follows each provider's cache rules
-  (discovery §9, point 5).
-- **Credits, FUMS and fallback** follow discovery §7 and §9: copyright line per version,
-  FUMS reporting for API.Bible passages on every output, and providers tried in order for a
-  version several of them serve.
-- **Versification and references** follow the technical discovery §5 and §6: references
-  stored as USFM book, chapter and verses; checked against the chosen version's table of
-  contents.
+| # | Topic | Decision |
+| --- | --- | --- |
+| B17 | Who calls the providers | **The church server**, which holds the church's keys (set by the server administrator, like the sign-in settings) and answers desktops; keys never reach a desktop or a phone. The Bible needs a church connection; a desktop with no church server has no Bible in this release |
+| B18 | Which versions exist | A **catalogue** in the code: each Worship Q version (for example `NIVUK`, `CUNP-S`) names one edition, its language and its providers in fallback order with their own identifiers. Fallback only ever moves between providers of the same edition. The server marks a version available when one of its providers answers with the church's keys |
+| B19 | What a church offers | The administrator chooses the offered versions in the admin app (a church setting); a workspace picks up to two of those (B4) |
+| B20 | Table of contents | The server builds each version's table of contents once from its first working provider (books with their names and abbreviations in the version's language, chapters, verses, joined verses) and keeps it; desktops save a copy, so grids and reference matching need no network. ESV's comes from a built-in English versification table, since its API has none |
+| B21 | Finding references | Parsed on the computer by a shared package, from a built-in table of English and Chinese book names and abbreviations plus the names in each saved table of contents; the same parser serves the Bible window and the song search |
+| B22 | Fetching text | The desktop asks the server for a passage in a version; the server tries the version's providers in order and answers one normalised shape: verse units (a verse, or a joined group with its label), lines kept for poetry, the copyright line, the provider, and its FUMS token. The server keeps fetched text in memory for a short time only, within every provider's cache rules |
+| B23 | What a passage item stores | The reference, and per version: the version, the provider used, the copyright line and the verse units shown. Stored with the item and synchronized like any record, so presenting needs no network and an old run sheet still shows what was shown (discovery §9, point 5) |
+| B24 | Slides | Split by a fixed text budget per slide (wide characters counting double), not by measuring a screen, so every output and phone has the same slides; the renderer then sizes the text to fit, as it does for lyrics |
+| B25 | Usage reporting | When a passage with API.Bible text is first presented, the coordinator asks the server to report its FUMS token, once per item per live session; how the report is made is settled by spike P0.1 |
+| B26 | Phones | Use the Bible through the desktop they are connected to, as song search does today; adding or presenting a passage is a new remote command carrying the passage, which the coordinator turns into an item |
