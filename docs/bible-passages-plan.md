@@ -1,0 +1,191 @@
+# Worship Q — Bible Passages Plan
+
+**Drafted:** 9 November 2026
+**Status:** User-facing design agreed with the project owner; how the providers' APIs serve it
+is still to be discussed (§5). Nothing is built.
+**Source:** [Bible Passages Discovery](bible-passages-discovery.md) (rights, versions, agreed
+direction in §9) and [Bible APIs — Technical Discovery](bible-apis-technical-discovery.md)
+(how the APIs behave).
+
+## 1. The moment it is designed for
+
+The speaker says *"Mark's gospel, chapter 15, verses 5 to 6"*, and the passage is not in the
+run sheet. The operator has a few seconds:
+
+- **An experienced volunteer types it:** `Mark 15:5-6`, `Mar 15:5-6`.
+- **An inexperienced volunteer browses:** a list of books, then chapters, then verses.
+- **Either way**, the passage goes on screen right after the item being presented, and stays
+  in the run sheet afterwards like any other item.
+
+Speakers who have no slides sometimes send their verses in advance; the same window then
+adds them while the run sheet is planned in the calendar.
+
+## 2. Features
+
+### The Bible window
+
+One window, opened from a **Bible** button, from a matched reference in the song search
+(§2, *Song search recognises references*), and from the run sheet editor in the calendar.
+Typing and browsing drive the same control; each fills in the other.
+
+```
+┌ Bible ──────────────────────────────────────────────────────────────┐
+│ [ Mark 15:5-6                                ]    NIVUK ✓  CUNP ✓  + │
+│                                                                     │
+│  Mark › 15 › 5–6                                                    │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │  1  2  3  4 [5  6] 7  8  9 10 11 12 13 14 15 16 17 18 19 20 … │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌──────────────────────────────┬─────────────────────────────────┐ │
+│  │ 5 But Jesus still made no    │ 5 耶稣仍不回答一句话，以致        │ │
+│  │   reply, and Pilate was      │   彼拉多觉得希奇。               │ │
+│  │   amazed.                    │                                 │ │
+│  │ 6 Now it was the custom at   │ 6 每逢这节期，巡抚照众人所要的，   │ │
+│  │   the festival …             │   释放一个囚犯给他们。            │ │
+│  └──────────────────────────────┴─────────────────────────────────┘ │
+│                                  [ Add to run sheet ]  [ Present ▶ ] │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+- **Typing a reference.** Tolerant of the forms volunteers use: full names and abbreviations
+  (`Mark`, `Mar`, `Mk`), Chinese names and abbreviations (`马可福音`, `可`), separators
+  (`15:5-6`, `15 5-6`, `15.5-6`), and Chinese chapter/verse words (`马可福音15章5-6节`).
+  The resolved reference and its text appear as the volunteer types, so they can check before
+  showing it.
+- **Partial input moves the browser on.** `Mark` opens the chapter grid; `Mark 15` opens the
+  verse grid with nothing selected. An ambiguous prefix (`Jo`) lists the matching books (Job,
+  Joel, John, Jonah, Joshua).
+- **Browsing.** Books in Bible order, Old and New Testament apart and grouped (Law, History,
+  Poetry, Prophets, Gospels, Letters …), named in the language of the first selected version.
+  Then a grid of chapter numbers, then a grid of verse numbers.
+- **Choosing a range, like booking a hotel.** Click the first verse, then the last; the
+  verses in between are highlighted. Clicking one verse twice chooses that verse alone. A range
+  into the next chapter is a small extra step ("continue into chapter 16"), since it is rare.
+- **Breadcrumb.** `Mark › 15 › 5–6` shows each step; clicking a step goes back to it.
+
+### Versions
+
+- **Shown, not hidden.** The selected versions are chips beside the search box. **+** adds a
+  version from those the church server allows; a chip can be removed or dragged to reorder.
+- **A workspace setting.** The selected versions and their order belong to the workspace and
+  are shared by all its computers, so every operator gets the same versions without choosing.
+  Changing the chips in the Bible window changes the workspace setting; it is also shown in
+  the workspace's settings.
+- **Up to two versions, side by side.** Each version is a column in the order of the chips,
+  on the preview and on the slides; not one version after another.
+- **The church server decides what is offered.** It filters the versions its devices may use
+  (discovery §9); a workspace selects from that list.
+
+### Adding and presenting
+
+- **Present ▶** (main action, Enter) is only on the Present tab, where something is always
+  live, even if it is an empty live state. It adds the passage to the live run sheet **right
+  after the item being presented** and presents it at once. When no item is being presented
+  (an empty run sheet, or the screen was cleared), it adds the passage at the end of the live
+  run sheet.
+- **Add to run sheet** adds it in the same place without presenting it, for when the speaker
+  announces a passage ahead of reading it.
+- **In the calendar**, the window offers **Add to run sheet** only, adding the passage like a
+  song is added there.
+- **A passage is a run sheet item** in its own right: it appears in the run sheet, is kept
+  after the service like any item, and can be moved and removed like one. Its title is the
+  reference (`Mark 15:5–6`).
+
+### Editing a passage item
+
+- **Edit opens the Bible window** on the item's reference and versions, from the item's Edit
+  button or its **⋯ → Edit…** menu action.
+- **Everything can be changed:** book, chapter, verses and versions (for example, moving a
+  prepared passage to a newer version). Saving replaces the item's passage in place, keeping
+  its position in the run sheet.
+- **A passage item keeps its own versions.** Changing the workspace's versions affects new
+  passages only; an existing item changes only when it is edited.
+
+### Not on the subtitle overlay
+
+- The subtitle overlay implies the words are being spoken or sung at that moment, which is not
+  always true for a passage on screen. **Passages are not shown on the subtitle overlay**; it
+  stays empty while a passage item is live.
+- To show a passage on the stream, the operator switches OBS to a scene with the slides (with
+  the OBS control, where it is set up).
+
+### Phone remote
+
+- The remote can do **everything except edit an existing passage item**: search and browse,
+  choose versions, **Present ▶**, **Add to run sheet**, and step through a passage's slides.
+
+### Slides
+
+- **Split automatically**, like lyrics: as many verses per slide as fit, never splitting a
+  verse across slides.
+- **Versions side by side** on each slide, kept in step: a slide shows the same verses in every
+  column, so a slide boundary falls only where it falls in every version.
+- **Joined verses, leniently.** When a version joins verses (当代译本 prints 1 Chronicles
+  16:12–13 as one) and the chosen range cuts the joined verse in half, that version shows the
+  whole joined verse, labelled `12-13`. The other version shows just the verses chosen. A slide
+  boundary never falls inside a joined verse.
+- **Missing verses are skipped.** When a verse exists in one version only (Revelation 12:18 is
+  in 当代译本, not in NIVUK), the other column simply leaves it out. Nothing like "verse not
+  found" is ever shown on screen.
+- **The operator is told, the audience is not.** When a passage has a joined or missing verse,
+  the operator sees a short warning in the Bible window's preview and on the item in the run
+  sheet, for example *"当代译本 joins verses 12–13"* or *"NIVUK has no Revelation 12:18"*. If
+  the speaker asks why the screen looks different from their Bible, the operator can explain.
+  The warning never appears on the slideshow or any output.
+- **Verse numbers** shown, and each column carries its version's credit (`NIVUK`, `CUNP`, …),
+  as the publishers require (discovery §7).
+
+### Song search recognises references
+
+- The existing song search on the Present page and in the calendar's run sheet editor also
+  recognises Bible references, by **local pattern matching only, with no API call**, so typing
+  stays instant.
+- When the text looks like a reference (`Mark 15:5`, `可15:5`), the results show a row for it,
+  for example **📖 Mark 15:5 — open in Bible**. Choosing it opens the Bible window at that
+  reference instead of adding anything; the volunteer checks the text there and presents or
+  adds it.
+- Songs still match as usual, so a song whose title looks like a reference is not lost.
+
+## 3. Decisions
+
+| # | Topic | Decision |
+| --- | --- | --- |
+| B1 | Entry points | A **Bible** button on the Present page next to song search, the same in the calendar's run sheet editor, and a reference typed into either song search |
+| B2 | One control for typing and browsing | The search box, breadcrumb and grids show the same selection; changing one updates the others |
+| B3 | Range selection | First and last verse, as in a date-range picker; one verse by choosing it twice; crossing a chapter is a separate small step |
+| B4 | Versions are a workspace setting | Selected versions and their order are shared by the workspace's computers, editable from the Bible window's chips and from settings; not remembered per computer |
+| B5 | Multiple versions | At most two, shown side by side as columns, in chip order, on preview and slides |
+| B6 | Where Present adds | Present is only on the Present tab. It adds right after the item being presented in the live run sheet, or at the end when none is being presented |
+| B7 | Passages live in the run sheet | Every shown passage is a run sheet item, kept after the service; no separate list of recent passages |
+| B8 | Calendar | The Bible window is available in the calendar's run sheet editor, for verses sent in advance |
+| B9 | Song search | Recognises references by local pattern matching only, never calling an API; a match opens the Bible window rather than adding an item |
+| B10 | Slides | Split automatically by whole verses, versions kept in step, verse numbers and version credits shown |
+| B11 | Editing an item | Edit (button or **⋯ → Edit…**) opens the Bible window; reference and versions can all change; the item keeps its place. An item keeps its own versions when the workspace setting changes |
+| B12 | Subtitle overlay | Passages are never shown on it; it stays empty while a passage is live. The stream shows passages through an OBS scene with the slides |
+| B13 | Joined verses | Lenient: a range that cuts a joined verse shows the whole joined verse in that version; slides never break inside one |
+| B14 | Verse missing in one version | That column leaves it out; no "not found" text ever reaches the screen |
+| B15 | Phone remote | Everything except editing an existing passage item |
+| B16 | Operator warnings | Joined or missing verses are explained to the operator (Bible window preview, run sheet item), never on any output |
+
+## 4. Open questions
+
+None on the user-facing design at present; §5 is next.
+
+## 5. Fitting the APIs (to discuss)
+
+To be designed next. Constraints already known:
+
+- **The window must feel instant.** Book, chapter and verse grids come from each version's
+  table of contents saved on the computer, and the song-search pattern matching needs only
+  book names and abbreviations, both without network calls. Text is fetched only for the
+  preview and the presented passage.
+- **The church holds the keys**; Worship Q holds none (discovery §4).
+- **Run sheet text vs lookup cache:** a passage added to a run sheet is the church's quotation
+  and is kept with the item; text fetched while browsing follows each provider's cache rules
+  (discovery §9, point 5).
+- **Credits, FUMS and fallback** follow discovery §7 and §9: copyright line per version,
+  FUMS reporting for API.Bible passages on every output, and providers tried in order for a
+  version several of them serve.
+- **Versification and references** follow the technical discovery §5 and §6: references
+  stored as USFM book, chapter and verses; checked against the chosen version's table of
+  contents.

@@ -5,6 +5,7 @@
 them, and open platforms. It is not a technical design and not legal advice. Publisher terms
 were read from their public pages on the date above; they change, and several points below
 are marked as unconfirmed. Get written confirmation from a publisher before relying on it.
+**See also:** [Bible APIs — Technical Discovery](bible-apis-technical-discovery.md).
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md), §17
 scope table: *Bible passages — Later.*
 
@@ -333,7 +334,7 @@ Using the first church's own YouVersion App Key, API.Bible key and ESV API key:
 
 Further actions, in addition to §8:
 
-- [ ] **Hong Kong Bible Society:** 新标点和合本 only (church projection and app access). 吕振中译本
+- [x] **Hong Kong Bible Society:** 新标点和合本 only (church projection and app access). 吕振中译本
       is not pursued; the first church can do without it.
 - [x] **Worldwide Bible Society:** not pursued; the first church can do without CNV.
 - [x] **Global Bible Initiative:** YouVersion serves the CSB under its "Public Domain and
