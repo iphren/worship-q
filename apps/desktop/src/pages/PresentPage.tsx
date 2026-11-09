@@ -330,7 +330,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
         {previous && (
           <div className="notice border-sky-600 bg-sky-900/40 text-sky-100">
             <strong>{t('present.previousContent')}</strong>
-            <span>{t('present.previousContentBody')}</span>
+            <span className="flex-1">{t('present.previousContentBody')}</span>
+            <button className="btn btn-sm" onClick={() => void session.clear()}>
+              {t('present.clear')}
+            </button>
           </div>
         )}
       </div>
