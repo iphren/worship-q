@@ -65,7 +65,11 @@ desktop and phone interfaces have no automated tests; they are covered by the wa
 - **A whole chapter** is what is added when a chapter is open with no verse chosen.
 - **Larger text:** passages aim at 6 % of the height instead of B24's 5 %, after trying it
   on screen, with the budget the spike measured for 6 %: 8 estimated lines per column, 25
-  Latin or 10 Chinese characters to a line side by side (46 and 21 for one version).
+  Latin or 10 Chinese characters to a line side by side (46 and 21 for one version). Accepted
+  exception: on Windows, whose Segoe UI fits about an eighth fewer English characters to a
+  line than macOS's font, an English poetry slide side by side can need one line more and be
+  drawn a little smaller (Psalm 103 with CCB: one of 13 slides at 5.7 %); every other slide
+  measured is drawn at 6 % (see the [spike](../spikes/bible.md), P0.3).
 - **Text below 4 %:** a slide is drawn at its target size, shrinking to fit down to 4 %;
   only a slide that cannot fit even at 4 % (one very long verse) goes smaller, so no text is
   cut off.
