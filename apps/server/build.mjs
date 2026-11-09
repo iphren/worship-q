@@ -13,6 +13,7 @@ await build({
   packages: 'external',
   // The shared packages are source, so they are bundled.
   alias: {
+    '@worship-q/bible': '../../packages/bible/src/index.ts',
     '@worship-q/protocol': '../../packages/protocol/src/index.ts',
     '@worship-q/lyrics': '../../packages/lyrics/src/index.ts',
     '@worship-q/live-state': '../../packages/live-state/src/index.ts',
