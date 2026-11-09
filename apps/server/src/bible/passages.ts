@@ -4,7 +4,6 @@
  * briefly and within every provider's rules (the ESV's 500 verses), and never on disk.
  */
 import {
-  catalogueVersion,
   toUsfm,
   tocBook,
   validate,
@@ -118,7 +117,7 @@ export class Passages {
   }
 
   async get(version: string, reference: Reference): Promise<PassageText> {
-    const catalogue = catalogueVersion(version);
+    const catalogue = this.availability.catalogue.find((v) => v.id === version);
     if (!catalogue) throw new BibleError('not-offered', `Unknown version ${version}`);
     const key = `${version}|${toUsfm(reference)}`;
     const hit = this.cached(key);

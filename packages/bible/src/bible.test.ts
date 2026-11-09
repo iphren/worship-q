@@ -597,6 +597,16 @@ describe('the catalogue (P1.8)', () => {
     }
   });
 
+  it('names every version distinctly, Chinese editions by their script', () => {
+    const credits = CATALOGUE.map((version) => version.credit);
+    expect(new Set(credits).size).toBe(credits.length);
+    for (const version of CATALOGUE) {
+      if (version.language === 'zh-Hans') expect(version.credit).toMatch(/（简）$/);
+      if (version.language === 'zh-Hant') expect(version.credit).toMatch(/（繁）$/);
+    }
+    expect(CATALOGUE.find((version) => version.id === 'NIVUK')!.credit).toBe('NIV (UK)');
+  });
+
   it('starts with the first church’s versions', () => {
     for (const id of [
       'NIVUK',

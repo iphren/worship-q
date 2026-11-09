@@ -21,7 +21,10 @@ export interface CatalogueVersion {
   id: string;
   /** The edition's full name. */
   name: string;
-  /** Shown at the foot of a column and on chips. */
+  /**
+   * The short name shown on chips, in the admin app and at the foot of each column on the
+   * slide; Chinese editions say their script. Never stored as an id, so it can change.
+   */
   credit: string;
   language: BibleLanguage;
   providers: ProviderEntry[];
@@ -31,7 +34,7 @@ export const CATALOGUE: readonly CatalogueVersion[] = [
   {
     id: 'NIVUK',
     name: 'New International Version (Anglicised)',
-    credit: 'NIVUK',
+    credit: 'NIV (UK)',
     language: 'en',
     providers: [
       { provider: 'youversion', id: '113' },
@@ -82,21 +85,21 @@ export const CATALOGUE: readonly CatalogueVersion[] = [
   {
     id: 'CUNP-S',
     name: '新标点和合本（简体）',
-    credit: '和合本',
+    credit: '和合本（简）',
     language: 'zh-Hans',
     providers: [{ provider: 'freeuse', id: 'cmn_cu1' }],
   },
   {
     id: 'CUNP-T',
     name: '新標點和合本（繁體）',
-    credit: '和合本',
+    credit: '和合本（繁）',
     language: 'zh-Hant',
     providers: [{ provider: 'freeuse', id: 'cmn_cuv' }],
   },
   {
     id: 'CCB',
     name: '当代译本（简体）',
-    credit: '当代译本',
+    credit: '当代译本（简）',
     language: 'zh-Hans',
     providers: [
       { provider: 'youversion', id: '36' },
@@ -107,7 +110,7 @@ export const CATALOGUE: readonly CatalogueVersion[] = [
   {
     id: 'CCBT',
     name: '當代譯本（繁體）',
-    credit: '當代譯本',
+    credit: '當代譯本（繁）',
     language: 'zh-Hant',
     providers: [
       { provider: 'youversion', id: '1392' },
@@ -117,7 +120,7 @@ export const CATALOGUE: readonly CatalogueVersion[] = [
   {
     id: 'CSBS',
     name: '中文标准译本（简体）',
-    credit: '中文标准译本',
+    credit: '中文标准译本（简）',
     language: 'zh-Hans',
     providers: [
       { provider: 'youversion', id: '43' },
@@ -127,7 +130,7 @@ export const CATALOGUE: readonly CatalogueVersion[] = [
   {
     id: 'CSBT',
     name: '中文標準譯本（繁體）',
-    credit: '中文標準譯本',
+    credit: '中文標準譯本（繁）',
     language: 'zh-Hant',
     providers: [
       { provider: 'youversion', id: '312' },
