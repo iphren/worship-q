@@ -1,9 +1,10 @@
 /**
  * This computer's copies of videos (media uploads plan, U8, U9). Every video in a run sheet
  * dated today or later is fetched ahead of time, one at a time, earliest run sheet first, so
- * a service never streams from the server. A copy nothing upcoming uses is deleted; the copy
- * made by uploading a video is kept on the day it was made. A pass runs after each pull and
- * each run sheet edit.
+ * a service never streams from the server. The live run sheet's videos count too, even once
+ * its date has passed, so a run sheet kept live past its day still plays. A copy nothing
+ * upcoming or live uses is deleted; the copy made by uploading a video is kept on the day it
+ * was made. A pass runs after each pull and each run sheet edit.
  */
 import type { IsoDate } from '@worship-q/protocol';
 
@@ -18,6 +19,8 @@ export interface VideoCacheDeps {
   today(): IsoDate;
   /** The videos of run sheets dated `from` or later, earliest first. */
   wanted(from: IsoDate): Promise<{ file: string; date: IsoDate }[]>;
+  /** The date of the run sheet that is live, if any. */
+  liveDate(): IsoDate | null;
   /** The copies this computer has, complete ones only. */
   list(): Promise<string[]>;
   /** Fetches a copy; fails with the native core's code. False when not connected. */
@@ -88,9 +91,24 @@ export class VideoCache {
     for (const listener of this.listeners) listener();
   }
 
+  /**
+   * The videos to keep, in fetch order: a live run sheet dated before today first (its own
+   * videos only, not those of run sheets between it and today), then today's and later.
+   */
+  private async wanted(today: IsoDate): Promise<{ file: string; date: IsoDate }[]> {
+    const upcoming = await this.deps.wanted(today);
+    const live = this.deps.liveDate();
+    if (!live || live >= today) return upcoming;
+    // Each video comes with its earliest date from `live` on, so the live run sheet's are
+    // exactly those dated `live`.
+    const past = (await this.deps.wanted(live)).filter((video) => video.date === live);
+    const files = new Set(past.map((video) => video.file));
+    return [...past, ...upcoming.filter((video) => !files.has(video.file))];
+  }
+
   private async once(): Promise<void> {
     const today = this.deps.today();
-    const wanted = await this.deps.wanted(today);
+    const wanted = await this.wanted(today);
     const wantedFiles = new Set(wanted.map((video) => video.file));
     // An upload's copy counts on the day it was made, and is forgotten after.
     const uploads = Object.fromEntries(

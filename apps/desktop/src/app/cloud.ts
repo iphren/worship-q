@@ -647,6 +647,7 @@ export class CloudController {
     return {
       today: () => this.session.today(),
       wanted: (from) => this.session.store.videosFrom(this.session.workspace.id, from),
+      liveDate: () => this.session.liveDate,
       list: () => native.listVideos(),
       fetch: async (file, onProgress) => {
         const { server, deviceToken } = this.state ?? {};

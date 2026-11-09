@@ -9,6 +9,7 @@ function harness() {
   const failing = new Set<string>();
   let uploads: Record<string, string> = {};
   let connected = true;
+  let live: string | null = null;
   const deps: VideoCacheDeps = {
     today: () => today,
     wanted: async (from) => {
@@ -19,6 +20,7 @@ function harness() {
       }
       return [...earliest].map(([file, date]) => ({ file, date }));
     },
+    liveDate: () => live,
     list: async () => [...copies],
     fetch: async (file, progress) => {
       if (failing.has(file)) throw new Error('disk-full');
@@ -42,6 +44,7 @@ function harness() {
     failing,
     setToday: (date: string) => (today = date),
     setConnected: (value: boolean) => (connected = value),
+    setLive: (date: string | null) => (live = date),
   };
 }
 
@@ -55,6 +58,27 @@ describe('the video cache (U8, U9)', () => {
     expect(h.fetched).toEqual(['today.mp4', 'next.mp4']);
     expect(h.cache.status('today.mp4')).toEqual({ kind: 'ready' });
     expect(h.cache.status('past.mp4')).toBeUndefined();
+  });
+
+  it('keeps and fetches the live run sheet’s videos after its date has passed', async () => {
+    const h = harness();
+    h.runSheets.set('2026-11-08', ['live.mp4', 'kept.mp4']);
+    h.runSheets.set('2026-11-12', ['between.mp4']);
+    h.runSheets.set('2026-11-15', ['next.mp4']);
+    h.setLive('2026-11-08');
+    h.copies.add('kept.mp4');
+    h.setToday('2026-11-09');
+    await h.cache.pass();
+    expect(h.fetched).toEqual(['live.mp4', 'between.mp4', 'next.mp4']);
+    expect(h.cache.status('kept.mp4')).toEqual({ kind: 'ready' });
+
+    h.setToday('2026-11-13');
+    await h.cache.pass();
+    expect([...h.copies].sort()).toEqual(['kept.mp4', 'live.mp4', 'next.mp4']);
+
+    h.setLive('2026-11-15');
+    await h.cache.pass();
+    expect([...h.copies]).toEqual(['next.mp4']);
   });
 
   it('fetches the earliest run sheet’s first, one at a time', async () => {
