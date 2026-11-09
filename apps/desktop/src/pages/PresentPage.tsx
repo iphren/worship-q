@@ -618,7 +618,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             </main>
             {presented && !activeInView && (
               <button
-                className={`absolute right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
+                className={`absolute right-4 bottom-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
                   live.blank
                     ? 'border-amber-400 text-amber-300'
                     : 'border-emerald-500 text-emerald-300'
