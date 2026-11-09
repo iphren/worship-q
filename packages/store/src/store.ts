@@ -547,7 +547,13 @@ export class Store {
     this.validate(next);
 
     next.lineIds = assignLineIds(current, next.lyrics, () => this.env.newId());
-    next.revision = current.revision + 1;
+    // After every revision kept, not just the song's own: a synced copy edited later but
+    // fewer times wins by its time and can leave the song numbered below its history.
+    const [kept] = await this.db.select<Row>(
+      'SELECT MAX(revision) AS top FROM song_revision WHERE song_id = ?',
+      [id],
+    );
+    next.revision = Math.max(current.revision, Number(kept?.top ?? 0)) + 1;
     next.updatedAt = this.env.now();
     const statements: Statement[] = [];
     // Editing a church song in a workspace that does not manage the Church Library makes

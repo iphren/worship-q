@@ -181,6 +181,20 @@ describe('songs', () => {
     ]);
   });
 
+  it('numbers an edit after every revision kept, when the song is behind them', async () => {
+    // As after a sync: a copy from another device, edited later but fewer times, wins and
+    // lowers the song's revision; the revisions numbered above it are kept.
+    const song = await store.createSong(workspaceId, { title: 'Song', lyrics: 'a' });
+    await store.updateSong(song.id, { lyrics: 'b' });
+    await store.updateSong(song.id, { lyrics: 'c' });
+    await driver.batch([{ sql: 'UPDATE song SET revision = 1 WHERE id = ?', params: [song.id] }]);
+
+    const edited = await store.updateSong(song.id, { lyrics: 'd' });
+
+    expect(edited.revision).toBe(4);
+    expect((await store.listSongRevisions(song.id)).map((r) => r.revision)).toEqual([1, 2, 3, 4]);
+  });
+
   it('creates no revision when nothing changed', async () => {
     const song = await store.createSong(workspaceId, { title: 'Song', lyrics: 'a' });
     const same = await store.updateSong(song.id, { title: 'Song', lyrics: 'a' });
