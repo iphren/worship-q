@@ -705,6 +705,38 @@ describe('media items (media uploads plan)', () => {
     other.driver.close();
   });
 
+  it('takes the fields an older build dropped when the same versions are pulled to refresh', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song' && r.id === song.id)!;
+    const revision = records.find((r) => r.kind === 'songRevision' && r.data.songId === song.id)!;
+    // Pulled by a build that knew nothing of videos.
+    const dropped = (r: typeof record) => ({ ...r, data: { ...r.data, video: null } });
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    const sync = new SyncStore(other.store);
+    await sync.applyRemote(otherWorkspace, [dropped(record), dropped(revision)]);
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+
+    // An ordinary pull keeps the version it has.
+    await sync.applyRemote(otherWorkspace, [record, revision]);
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+
+    // A refreshing pull, after the upgrade, takes the same version again.
+    const applied = await sync.applyRemote(otherWorkspace, [record, revision], { refresh: true });
+    expect(applied.songs.has(song.id)).toBe(true);
+    expect((await other.store.getSong(song.id))!.video).toEqual(video);
+    expect((await other.store.listSongRevisions(song.id)).map((r) => r.video)).toEqual([video]);
+
+    // A song changed here since, and not yet pushed, is newer and stays as it is.
+    env.advance(1000);
+    await other.store.updateSong(song.id, { video: null });
+    await sync.applyRemote(otherWorkspace, [record], { refresh: true });
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+    other.driver.close();
+  });
+
   it('lists the videos of run sheets from a date, each at its earliest date', async () => {
     const song = await store.createSong(workspaceId, { title: 'Welcome', video });
     const other = await store.createSong(workspaceId, {

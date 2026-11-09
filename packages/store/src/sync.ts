@@ -46,6 +46,12 @@ export interface SyncState {
   joinedAt: string | null;
   /** Position in the instance's change feed reached by the last pull. */
   cursor: number;
+  /**
+   * The protocol version of the build that last pulled to the end of the feed. A build with a
+   * newer one pulls everything again first, so records saved by an older build get the fields
+   * it did not know. Null before the first such pull.
+   */
+  pulledProtocol: number | null;
   /** Local changes up to this instant have been pushed. */
   pushedThrough: string | null;
   lastSyncAt: string | null;
@@ -91,6 +97,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   workspaceName: null,
   joinedAt: null,
   cursor: 0,
+  pulledProtocol: null,
   pushedThrough: null,
   lastSyncAt: null,
   lastBackupAt: null,
@@ -133,6 +140,8 @@ const parse = (value: SqlValue | undefined): unknown => {
 export class SyncStore {
   /** The device token when it lives in the system keychain rather than here (D23). */
   private memoryToken: string | null = null;
+  /** True while a refreshing pull is applied; see `applyRemote`. */
+  private refreshing = false;
 
   constructor(private readonly store: Store) {}
 
@@ -320,8 +329,45 @@ export class SyncStore {
   /**
    * Applies records received from the instance to the workspace, keeping only those that
    * win over what is here. Everything is applied in one transaction.
+   *
+   * With `refresh`, a record the same version as the one here is applied too. A build saves
+   * only the fields it knows, so a record pulled by an older build lacks any added since;
+   * the instance still has them, and a refreshing pull from the start takes them again.
    */
-  async applyRemote(workspaceId: string, records: readonly SyncRecord[]): Promise<AppliedChanges> {
+  async applyRemote(
+    workspaceId: string,
+    records: readonly SyncRecord[],
+    { refresh = false }: { refresh?: boolean } = {},
+  ): Promise<AppliedChanges> {
+    this.refreshing = refresh;
+    try {
+      return await this.applyRecords(workspaceId, records);
+    } finally {
+      this.refreshing = false;
+    }
+  }
+
+  /**
+   * Whether a record from the instance replaces what is here: when it is newer, or, in a
+   * refreshing pull, the same version.
+   */
+  private wins(
+    incoming: Pick<SyncRecord, 'revision' | 'updatedAt'>,
+    current: Pick<SyncRecord, 'revision' | 'updatedAt'> | null,
+  ): boolean {
+    return (
+      syncWins(incoming, current) ||
+      (this.refreshing &&
+        current !== null &&
+        incoming.updatedAt === current.updatedAt &&
+        incoming.revision === current.revision)
+    );
+  }
+
+  private async applyRecords(
+    workspaceId: string,
+    records: readonly SyncRecord[],
+  ): Promise<AppliedChanges> {
     const changes: AppliedChanges = {
       songs: new Set(),
       runSheets: new Set(),
@@ -375,7 +421,9 @@ export class SyncStore {
           );
           break;
         case 'songRevision':
-          if (await known(str(record.data.songId))) statements.push(applySongRevision(record));
+          if (await known(str(record.data.songId))) {
+            statements.push(...applySongRevision(record, this.refreshing));
+          }
           break;
         case 'runSheet':
           statements.push(...(await this.applyRunSheet(workspaceId, record, changes, known)));
@@ -402,7 +450,7 @@ export class SyncStore {
   ): Promise<Statement[]> {
     if (record.id !== workspaceId) return [];
     const current = await this.current('SELECT * FROM workspace WHERE id = ?', [workspaceId]);
-    if (!syncWins(record, current)) return [];
+    if (!this.wins(record, current)) return [];
     changes.workspace = true;
     const { data } = record;
     return [
@@ -437,7 +485,7 @@ export class SyncStore {
         }
       : null;
     const origin = record.origin ?? null;
-    if (!syncWins(record, current)) {
+    if (!this.wins(record, current)) {
       // The same record, but the instance now says whose it is (D31).
       if (row && origin && optional(row.origin) !== origin) {
         return [
@@ -492,7 +540,7 @@ export class SyncStore {
     const becomesOwn = current !== null && origin === 'workspace' && currentOrigin === 'church';
     const becomesChurch = current !== null && origin === 'church' && currentOrigin === 'workspace';
     const statements: Statement[] = [];
-    if (!becomesOwn && !becomesChurch && !syncWins(record, current)) {
+    if (!becomesOwn && !becomesChurch && !this.wins(record, current)) {
       // The same record, but the instance now says whose it is.
       if (current && origin && currentOrigin !== origin) {
         statements.push({
@@ -594,7 +642,7 @@ export class SyncStore {
     const taken =
       arriving &&
       (!saved ||
-        syncWins(arriving, saved) ||
+        this.wins(arriving, saved) ||
         (arriving.origin !== undefined && optional(saved.row.origin) !== arriving.origin));
     const own = taken
       ? {
@@ -629,7 +677,7 @@ export class SyncStore {
     const current = await this.current('SELECT * FROM church_version WHERE song_id = ?', [
       record.id,
     ]);
-    if (!syncWins(record, current)) return [];
+    if (!this.wins(record, current)) return [];
     if (inUse) changes.songs.add(record.id);
     const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
     const deck = deckOf(d.deck);
@@ -714,7 +762,7 @@ export class SyncStore {
           ])
         ).length,
       );
-    if (current && !opened && !syncWins(record, current)) return statements;
+    if (current && !opened && !this.wins(record, current)) return statements;
 
     changes.runSheets.add(record.id);
     const items: Row[] = [];
@@ -764,7 +812,7 @@ export class SyncStore {
       workspaceId,
       record.key,
     ]);
-    if (!syncWins(record, current)) return [];
+    if (!this.wins(record, current)) return [];
     changes.settings = true;
     return [
       {
@@ -897,36 +945,48 @@ function songData(row: Row): Record<string, unknown> {
   };
 }
 
-function applySongRevision(record: SyncRecord): Statement {
+/**
+ * A song's revision from the instance. Revisions never change, so one already here is kept,
+ * except in a refreshing pull, where it is saved again with the fields this build knows.
+ */
+function applySongRevision(record: SyncRecord, refresh: boolean): Statement[] {
   const d = record.data;
   const background = (d.background ?? null) as { color?: unknown; assetId?: unknown } | null;
-  return {
+  const fields = [
+    str(d.title),
+    str(d.lyrics),
+    JSON.stringify(Array.isArray(d.lineIds) ? d.lineIds : []),
+    str(d.author),
+    str(d.copyright),
+    strOrNull(d.ccli),
+    numOrNull(d.year),
+    background ? strOrNull(background.color) : null,
+    background ? strOrNull(background.assetId) : null,
+    deckOf(d.deck) ? JSON.stringify(d.deck) : null,
+    websiteOf(d.website) ? JSON.stringify(d.website) : null,
+    videoOf(d.video) ? JSON.stringify(videoOf(d.video)) : null,
+    passageOf(d.passage) ? JSON.stringify(passageOf(d.passage)) : null,
+  ];
+  const statements: Statement[] = [];
+  if (refresh) {
+    statements.push({
+      sql: `UPDATE song_revision SET title = ?, lyrics = ?, line_ids = ?, author = ?, copyright = ?,
+              ccli = ?, year = ?, background_color = ?, background_asset_id = ?, deck = ?,
+              website = ?, video = ?, passage = ?
+            WHERE id = ?`,
+      params: [...fields, record.id],
+    });
+  }
+  statements.push({
     // A revision another device numbered the same as one here is kept out; the song itself
     // still settles on the winning content.
     sql: `INSERT OR IGNORE INTO song_revision (id, song_id, revision, title, lyrics, line_ids, author,
             copyright, ccli, year, background_color, background_asset_id, deck, website, video, passage,
             created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    params: [
-      record.id,
-      str(d.songId),
-      Number(d.revision ?? 1),
-      str(d.title),
-      str(d.lyrics),
-      JSON.stringify(Array.isArray(d.lineIds) ? d.lineIds : []),
-      str(d.author),
-      str(d.copyright),
-      strOrNull(d.ccli),
-      numOrNull(d.year),
-      background ? strOrNull(background.color) : null,
-      background ? strOrNull(background.assetId) : null,
-      deckOf(d.deck) ? JSON.stringify(d.deck) : null,
-      websiteOf(d.website) ? JSON.stringify(d.website) : null,
-      videoOf(d.video) ? JSON.stringify(videoOf(d.video)) : null,
-      passageOf(d.passage) ? JSON.stringify(passageOf(d.passage)) : null,
-      record.updatedAt,
-    ],
-  };
+    params: [record.id, str(d.songId), Number(d.revision ?? 1), ...fields, record.updatedAt],
+  });
+  return statements;
 }
 
 /** A deck received from another device, or null when there is none or it is unreadable. */

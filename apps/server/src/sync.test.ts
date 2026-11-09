@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LIBRARY_TYPES } from '@worship-q/protocol';
+import { LIBRARY_TYPES, PROTOCOL_VERSION } from '@worship-q/protocol';
 import { Session } from '@worship-q/session';
 import { migrate, Store, SyncStore, type StoreEnv } from '@worship-q/store';
 import { openNodeDriver } from '@worship-q/store/testing';
@@ -226,6 +226,49 @@ describe('synchronization between two devices', () => {
       'https://example.org/live',
       'https://example.org/stream',
     ]);
+  });
+
+  it('pulls everything again after an upgrade, taking what the older build left out', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance, PROTOCOL_VERSION);
+    const video = {
+      file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',
+      source: 'Welcome.mp4',
+      width: 1920,
+      height: 1080,
+      durationSeconds: 42.5,
+      bytes: 12_345_678,
+      autoplay: false,
+    };
+    const song = await branch.session.createSong({ title: 'Welcome', video });
+    await branch.connect(code, 'upload');
+    clock.advance();
+    const home = await device('home', clock, instance, PROTOCOL_VERSION);
+    await home.connect(code, 'replace');
+    expect((await home.syncStore.getState()).pulledProtocol).toBe(PROTOCOL_VERSION);
+
+    // As a build older than videos saved it, and had pulled with.
+    const forget = async (pulledProtocol: number) => {
+      await home.store.db.batch([
+        { sql: 'UPDATE song SET video = NULL WHERE id = ?', params: [song.id] },
+        { sql: 'UPDATE song_revision SET video = NULL WHERE song_id = ?', params: [song.id] },
+      ]);
+      await home.syncStore.setState({ pulledProtocol });
+    };
+    const videos = async () => [
+      (await home.store.getSong(song.id))!.video,
+      ...(await home.store.listSongRevisions(song.id)).map((r) => r.video),
+    ];
+
+    // A build with nothing new to know carries on from where it was.
+    await forget(PROTOCOL_VERSION);
+    await home.client.run();
+    expect(await videos()).toEqual([null, null]);
+
+    await forget(PROTOCOL_VERSION - 1);
+    await home.client.run();
+    expect(await videos()).toEqual([video, video]);
+    expect((await home.syncStore.getState()).pulledProtocol).toBe(PROTOCOL_VERSION);
   });
 
   it('brings a lyrics fix made at home to the presented song, keeping the position', async () => {
