@@ -201,7 +201,7 @@ function VersionedSongForm(props: SongFormProps & { song: Song }) {
 }
 
 /**
- * The Title label, with how the item has been used: "Title · Last used on Sunday 1st Nov ·
+ * The Title label, with how the item has been used: "Title · Last used on Sunday 1st Nov 2026 ·
  * Used in 3 run sheets". "Last used" is the latest run sheet up to today; the count takes in
  * every run sheet, planned ones too.
  */
@@ -211,28 +211,36 @@ function TitleLabel(props: { song: Song | null }) {
   const usage = useQuery(async () => (id ? session.store.songUsage(id) : null), [id]);
   const today = session.today();
   const last = usage?.filter((date) => date <= today).at(-1);
-  const stats = !usage
-    ? []
-    : usage.length === 0
-      ? [t('songs.unused')]
-      : [
-          ...(last ? [t('songs.lastUsed', { date: formatDate(last) })] : []),
-          usage.length === 1 ? t('songs.usedOnce') : t('songs.usedIn', { count: usage.length }),
-        ];
+  const stat = 'font-normal tracking-normal normal-case';
+  // The count in blue inside the plain "Used in {count} run sheets" text.
+  const [before = '', after = ''] = t(
+    usage?.length === 1 ? 'songs.usedOnce' : 'songs.usedIn',
+  ).split('{count}');
   return (
     <span className="label">
       {t('songs.title')}
-      {stats.map((stat) => (
-        <span
-          key={stat}
-          className={`font-normal tracking-normal normal-case ${
-            usage?.length ? 'text-emerald-300' : 'text-amber-300'
-          }`}
-        >
+      {usage?.length === 0 && (
+        <span className={stat}>
           {' · '}
-          {stat}
+          <span className="text-amber-300">{t('songs.unused')}</span>
         </span>
-      ))}
+      )}
+      {last && (
+        <span className={stat}>
+          {' · '}
+          <span className="text-emerald-300">
+            {t('songs.lastUsed', { date: `${formatDate(last)} ${last.slice(0, 4)}` })}
+          </span>
+        </span>
+      )}
+      {!!usage?.length && (
+        <span className={stat}>
+          {' · '}
+          {before}
+          <span className="text-sky-300">{usage.length}</span>
+          {after}
+        </span>
+      )}
     </span>
   );
 }

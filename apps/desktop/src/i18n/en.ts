@@ -50,7 +50,7 @@ export const en = {
   'songs.select': 'Select something from the library, or add something new.',
   'songs.title': 'Title',
   'songs.lastUsed': 'Last used on {date}',
-  'songs.usedOnce': 'Used in 1 run sheet',
+  'songs.usedOnce': 'Used in {count} run sheet',
   'songs.usedIn': 'Used in {count} run sheets',
   'songs.unused': 'Not used in any run sheet',
   'songs.author': 'Author',
