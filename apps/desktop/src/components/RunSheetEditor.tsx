@@ -276,13 +276,17 @@ export function RunSheetEditor(props: {
         <div className="space-y-1">
           {removed && (
             <p
-              className="flex items-center gap-2 rounded-md bg-slate-900/60 px-2 py-1 text-xs text-slate-200"
+              className="flex items-center gap-2 rounded-md bg-slate-700/70 px-2 py-1 text-xs text-slate-100 ring-1 ring-slate-500/60"
               role="status"
             >
               <span className="min-w-0 flex-1 truncate">
                 {t('runSheet.removed', { title: removed.title })}
               </span>
-              <button type="button" className="btn btn-sm" onClick={undoRemove}>
+              <button
+                type="button"
+                className="btn btn-sm border-slate-500 bg-slate-600 hover:bg-slate-500"
+                onClick={undoRemove}
+              >
                 {t('common.undo')}
               </button>
               <button
