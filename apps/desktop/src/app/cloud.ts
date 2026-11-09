@@ -179,7 +179,8 @@ export class CloudController {
       versions: async () => {
         const offered = await this.bible.versions();
         const chosen = await session.store.getBibleVersions(session.workspace.id);
-        return { offered, versions: workspaceVersions(chosen, offered) };
+        const church = (await session.store.getChurchSettings()).bibleDefaultVersions ?? [];
+        return { offered, versions: workspaceVersions(chosen, offered, church) };
       },
       setVersions: async (versions) => {
         await session.setBibleVersions(versions);

@@ -95,6 +95,7 @@ against a server with the church's three keys, offering at least NIVUK and 当�
 | Scenario | Result |
 | --- | --- |
 | The admin app's **Bible versions** lists the versions with their providers; tick NIVUK and 当代译本 | |
+| A church default of 当代译本（简） then NIV (UK): a workspace that never chose shows them on its chips, desktop and phone; one that chose keeps its own | |
 | The Bible button is disabled with its reason before any version is offered, and on a desktop not connected | |
 | Typed: `Mark 15:5-6`, `mk15.5-6`, `马可福音15章5-6节`, `可１５：５`; `Jo` lists five books | |
 | Browsed: book, chapter, first and last verse, one verse twice, a third click; **Continue into chapter 16**; the breadcrumb back | |

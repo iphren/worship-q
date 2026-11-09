@@ -244,13 +244,19 @@ export class BibleClient {
   }
 }
 
-/** The workspace's versions that apply, from its setting and what the church offers (B4). */
+/**
+ * The workspace's versions that apply (B4): its own choice of those the church offers; with
+ * none, the church's default versions; with none of those either, the first offered, so the
+ * window always has a version.
+ */
 export function workspaceVersions(
   chosen: readonly string[],
   offered: readonly BibleVersionInfo[],
+  churchDefault: readonly string[] = [],
 ): string[] {
   const ids = offered.map((v) => v.id);
-  const applied = effectiveVersions(chosen, ids);
-  // With nothing chosen, the church's first offered version is used, so the window works.
-  return applied.length > 0 ? applied : ids.slice(0, 1);
+  const own = effectiveVersions(chosen, ids);
+  if (own.length > 0) return own;
+  const church = effectiveVersions(churchDefault, ids);
+  return church.length > 0 ? church : ids.slice(0, 1);
 }

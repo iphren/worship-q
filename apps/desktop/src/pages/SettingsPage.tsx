@@ -668,13 +668,14 @@ function BibleVersionsSection() {
     };
   }, [cloud, offersBible]);
   const chosen = useQuery(() => session.store.getBibleVersions(session.workspace.id), []);
-  if (!offersBible || !offered || !chosen) return null;
+  const church = useQuery(() => session.store.getChurchSettings(), []);
+  if (!offersBible || !offered || !chosen || !church) return null;
   return (
     <Section title={t('bible.workspaceVersions')} hint={t('bible.workspaceVersionsHint')}>
       <VersionChips
         offered={offered}
         chosen={chosen}
-        versions={workspaceVersions(chosen, offered)}
+        versions={workspaceVersions(chosen, offered, church.bibleDefaultVersions)}
         onChange={(next) => void session.setBibleVersions(next)}
       />
     </Section>

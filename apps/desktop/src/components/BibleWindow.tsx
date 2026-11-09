@@ -74,9 +74,13 @@ function useVersions(mode: BibleWindowMode) {
   const [chosen, setChosen] = useState<string[] | null>(
     mode.kind === 'edit' ? (mode.song.passage?.texts.map((text) => text.version) ?? []) : null,
   );
+  const [churchDefault, setChurchDefault] = useState<string[]>([]);
   useEffect(() => {
     let cancelled = false;
     void cloud.bible.versions().then((list) => !cancelled && setOffered(list));
+    void session.store
+      .getChurchSettings()
+      .then((church) => !cancelled && setChurchDefault(church.bibleDefaultVersions ?? []));
     if (mode.kind === 'add') {
       void session.store
         .getBibleVersions(session.workspace.id)
@@ -95,8 +99,8 @@ function useVersions(mode: BibleWindowMode) {
       const ids = offered.map((v) => v.id);
       return chosen.filter((id) => ids.includes(id)).slice(0, MAX_WORKSPACE_VERSIONS);
     }
-    return workspaceVersions(chosen, offered);
-  }, [offered, chosen, mode.kind]);
+    return workspaceVersions(chosen, offered, churchDefault);
+  }, [offered, chosen, churchDefault, mode.kind]);
   const change = (next: string[]) => {
     setChosen(next);
     // The chips change the workspace's setting, for every computer of it (B4); when editing,

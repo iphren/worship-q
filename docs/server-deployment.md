@@ -354,7 +354,8 @@ versions are available and through which provider.
 **Choose the offered versions** in the admin app: **Church defaults → Bible versions** lists
 every version Worship Q knows, says whether a provider answers for it with the keys set, and
 offers the ticked ones to every workspace. Until a version is ticked, desktops say the church
-offers no Bible. Each workspace then picks up to two of them, shown side by side.
+offers no Bible. **Default for workspaces** chooses up to two of them, shown side by side on
+every desktop and phone of a workspace until it picks its own.
 
 The server checks each version once at start and daily, falls back from one provider to the
 next for the same edition when one fails, and keeps each version's table of contents in

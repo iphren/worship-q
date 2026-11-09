@@ -440,4 +440,14 @@ describe('the workspace’s versions (P4.4)', () => {
     expect(workspaceVersions(['ESV'], offered)).toEqual(['NIVUK']);
     expect(workspaceVersions([], [])).toEqual([]);
   });
+
+  it('uses the church’s default versions until the workspace chooses its own', () => {
+    expect(workspaceVersions([], offered, ['CCB', 'NIVUK'])).toEqual(['CCB', 'NIVUK']);
+    expect(workspaceVersions(['NIVUK'], offered, ['CCB'])).toEqual(['NIVUK']);
+    // A default the church no longer offers is left out.
+    expect(workspaceVersions([], offered, ['ESV', 'CCB'])).toEqual(['CCB']);
+    expect(workspaceVersions([], offered, ['ESV'])).toEqual(['NIVUK']);
+    // A workspace whose choices are all gone falls back to the church's default.
+    expect(workspaceVersions(['ESV'], offered, ['CCB'])).toEqual(['CCB']);
+  });
 });

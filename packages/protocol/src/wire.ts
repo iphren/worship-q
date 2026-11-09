@@ -205,6 +205,12 @@ export const ChurchSettingsSchema = z
      * Unset offers none, so a church chooses before its desktops show a Bible.
      */
     bibleVersions: z.array(z.string().min(1).max(20)).max(50),
+    /**
+     * The versions, up to two in order, a workspace shows until it chooses its own (B4):
+     * the window's chips start from these on every desktop and phone. Ones the church no
+     * longer offers are left out.
+     */
+    bibleDefaultVersions: z.array(z.string().min(1).max(20)).max(2),
   })
   .partial();
 export type ChurchSettings = z.infer<typeof ChurchSettingsSchema>;
