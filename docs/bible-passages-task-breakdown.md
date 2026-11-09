@@ -2,8 +2,8 @@
 
 **Drafted:** 9 November 2026
 **Status:** Agreed 9 November 2026, with the plan's B17–B26. P0 done: see the
-[spike results](spikes/bible.md), whose recorded responses are P2.2's fixtures. P1–P7, P8.2
-and P8.3 built on the `bible-passages` branch; the walkthrough (P8.1) is next. See the
+[spike results](spikes/bible.md), whose recorded responses are P2.2's fixtures. P1–P8.4 done
+and accepted on the `bible-passages` branch; release (P8.5) follows merging. See the
 [acceptance record](acceptance/bible-passages.md).
 **Source:** [Bible Passages Plan](bible-passages-plan.md), referred to here as "the plan", the
 [Bible Passages Discovery](bible-passages-discovery.md) and the

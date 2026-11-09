@@ -1,6 +1,6 @@
 # Bible Passages — Acceptance record
 
-**Date:** 9 November 2026; built on the `bible-passages` branch, walkthrough not yet done
+**Date:** 9 November 2026; built on the `bible-passages` branch, walkthrough done the same day
 **Source:** [Bible Passages Plan](../bible-passages-plan.md), [task breakdown](../bible-passages-task-breakdown.md) P8.
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`),
@@ -46,11 +46,11 @@ desktop and phone interfaces have no automated tests; they are covered by the wa
 | P6.5 usage on presenting | Done | `session` “usage reporting (B25)” |
 | P7.1–P7.2 phones | Done | `packages/remote/src/index.test.ts` “the Bible on phones”; `relay.test.ts` (forwarded; refused below protocol 6) |
 | P7.3 phone screen | By walkthrough | `apps/remote/src/Bible.tsx` |
-| P8.1 walkthrough | To do | Checklist below |
+| P8.1 walkthrough | Done | Table below; every scenario passed |
 | P8.2 deployment guide | Done | `server-deployment.md` “Bible passages”, the three keys, “Updating for Bible passages”; `apps/server/compose.yaml` |
 | P8.3 volunteer guide | Done | `volunteer-guide.md` “Bible passages” |
-| P8.4 spec write-back | After the walkthrough | |
-| P8.5 release | After the walkthrough | |
+| P8.4 spec write-back | Done | `worship-q-requirements-and-architecture.md` §11 “Bible passages”, §7 and the scope matrix |
+| P8.5 release | After merging | By release-please, once `bible-passages` is merged into `main` |
 
 ## Changes from the plan
 
@@ -81,11 +81,30 @@ desktop and phone interfaces have no automated tests; they are covered by the wa
 - **Phones** can also read and change the workspace's versions (`bibleVersions`,
   `bibleSetVersions`), as the desktop's chips do.
 
-## Not yet proven against the live providers
+- **The church's default versions:** the admin app chooses up to two of the offered versions
+  as the church's default (`bibleDefaultVersions`); a workspace that has not chosen its own
+  shows them, on desktops and phones.
+- **Short names** say the Chinese editions' script, `和合本（简）` and `和合本（繁）`, and NIVUK is
+  shown as `NIV (UK)`; stored version ids are unchanged.
+- **The Bible background:** Settings → Background has a Bible tab, one background for every
+  passage apart from songs' backgrounds, black until another is chosen.
+- **The slide's frame:** the whole passage's reference at the top and the credits at the
+  bottom keep fixed places, at the top left and bottom right for one version and at both
+  corners for two, the reference in each version's language; the reference and verse numbers
+  are cyan (`#00E6FF`), as is the Bible badge; a passage of several slides shows `1 / 3` at the
+  bottom centre. A passage's slides are not shaded in turn as a song's verses are.
+- **The phone's library search** offers **Open … in the Bible** for a typed reference, as the
+  desktop's does.
+- **What the server offers is noticed while desktops run:** versions not yet checked just
+  after the server starts count as available; desktops ask for the server's info every minute
+  while it offers no Bible, every ten minutes otherwise, when church settings change, and on
+  **Sync now**.
 
-The adapters are tested on the spike's recorded passages. These shapes were not recorded and
-are read as the providers' documentation describes them, tested on hand-made answers; check
-them in the walkthrough with the church's keys:
+## Checked against the live providers
+
+The adapters are tested on the spike's recorded passages. These shapes were not recorded; they
+were read as the providers' documentation describes them, tested on hand-made answers, and
+confirmed in the walkthrough with the church's keys:
 
 - YouVersion's `/bibles/{id}/index` (book, chapter and verse ids and titles; how a joined verse
   appears), and `/search-verses`.
@@ -101,23 +120,26 @@ against a server with the church's three keys, offering at least NIVUK and 当�
 
 | Scenario | Result |
 | --- | --- |
-| The admin app's **Bible versions** lists the versions with their providers; tick NIVUK and 当代译本 | |
-| A church default of 当代译本（简） then NIV (UK): a workspace that never chose shows them on its chips, desktop and phone; one that chose keeps its own | |
-| The Bible button is disabled with its reason before any version is offered, and on a desktop not connected | |
-| Typed: `Mark 15:5-6`, `mk15.5-6`, `马可福音15章5-6节`, `可１５：５`; `Jo` lists five books | |
-| Browsed: book, chapter, first and last verse, one verse twice, a third click; **Continue into chapter 16**; the breadcrumb back | |
-| Searched by words: `love your enemies`, `上帝爱世人`; a version with no search says so | |
-| `马可福音15章5-6节` in the calendar's song search opens the window on Mark 15:5–6 with NIVUK and 当代译本 side by side; **Add to run sheet** adds it at the end (P4 milestone) | |
-| During a live service, Present adds the passage right after the song on screen and shows it; with nothing on screen it goes at the end (§3.6) | |
-| The slideshow and a browser slideshow show it side by side with verse numbers and credits; the subtitle overlay stays empty; OBS's slides scene shows it on the stream | |
-| A long passage (John 3) splits into slides of whole verses; ⇧/⇩ and the phone step through them | |
-| 1 Chronicles 16:13–14 with 当代译本: 12–13 shown whole in its column, the note in the window and on the item, never on screen; Revelation 12:17–18 with NIVUK first, then 当代译本 first | |
-| Psalm 151 says NIVUK ends at 150 and offers Psalm 150; nothing is presented | |
-| **Edit…** on a passage item: change the verses, then the versions; the item keeps its place; the workspace's chips are unchanged | |
-| Chips: add, remove, reorder; the follower desktop and **Settings → Bible versions** show the change | |
-| The phone: **Add a Bible passage**, browse, preview, Add and Present; its slides show both columns | |
-| The phone's library search: `Mark 15:5` and `可15:5` offer **Open … in the Bible** above the songs, which opens the Bible screen there; `Amazing grace` does not | |
-| The YouVersion key removed and the server restarted: NIVUK comes through API.Bible | |
-| The server unreachable: the window says new passages need a connection; a passage item from last week presents | |
-| A version 2.1 desktop beside these items: it shows the passage as lyrics, and renaming the item there keeps the passage | |
-| API.Bible usage reported, as API.Bible's dashboard shows, for NKJV passages previewed and presented | |
+| The admin app's **Bible versions** lists the versions with their providers; tick NIVUK and 当代译本 | Passed |
+| A church default of 当代译本（简） then NIV (UK): a workspace that never chose shows them on its chips, desktop and phone; one that chose keeps its own | Passed |
+| The Bible button is disabled with its reason before any version is offered, and on a desktop not connected | Passed |
+| Typed: `Mark 15:5-6`, `mk15.5-6`, `马可福音15章5-6节`, `可１５：５`; `Jo` lists five books | Passed |
+| Browsed: book, chapter, first and last verse, one verse twice, a third click; **Continue into chapter 16**; the breadcrumb back | Passed |
+| Searched by words: `love your enemies`, `上帝爱世人`; a version with no search says so | Passed |
+| `马可福音15章5-6节` in the calendar's song search opens the window on Mark 15:5–6 with NIVUK and 当代译本 side by side; **Add to run sheet** adds it at the end (P4 milestone) | Passed |
+| During a live service, Present adds the passage right after the song on screen and shows it; with nothing on screen it goes at the end (§3.6) | Passed |
+| The slideshow and a browser slideshow show it side by side with verse numbers and credits; the subtitle overlay stays empty; OBS's slides scene shows it on the stream | Passed |
+| A long passage (John 3) splits into slides of whole verses; ⇧/⇩ and the phone step through them | Passed |
+| 1 Chronicles 16:13–14 with 当代译本: 12–13 shown whole in its column, the note in the window and on the item, never on screen; Revelation 12:17–18 with NIVUK first, then 当代译本 first | Passed |
+| Psalm 151 says NIVUK ends at 150 and offers Psalm 150; nothing is presented | Passed |
+| **Edit…** on a passage item: change the verses, then the versions; the item keeps its place; the workspace's chips are unchanged | Passed |
+| Chips: add, remove, reorder; the follower desktop and **Settings → Bible versions** show the change | Passed |
+| The phone: **Add a Bible passage**, browse, preview, Add and Present; its slides show both columns | Passed |
+| The phone's library search: `Mark 15:5` and `可15:5` offer **Open … in the Bible** above the songs, which opens the Bible screen there; `Amazing grace` does not | Passed |
+| The YouVersion key removed and the server restarted: NIVUK comes through API.Bible | Passed |
+| The server unreachable: the window says new passages need a connection; a passage item from last week presents | Passed |
+| A version 2.1 desktop beside these items: it shows the passage as lyrics, and renaming the item there keeps the passage | Passed |
+| API.Bible usage reported, as API.Bible's dashboard shows, for NKJV passages previewed and presented | Passed |
+| The Bible background: black by default; another chosen on the Bible tab; Slideshow background follows the workspace's; songs keep their own | Passed |
+| The slide's reference and credits at fixed places for one and two versions, in cyan; `1 / 3` on a passage of several slides; slides not shaded in turn on the desktop and phones | Passed |
+| A desktop started while the server was restarting: its Bible button comes on within a minute, and at once on **Sync now** | Passed |
