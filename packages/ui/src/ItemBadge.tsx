@@ -49,7 +49,7 @@ export const ITEM_BADGE_COLOURS: Record<ItemBadge, string> = {
   image: 'bg-emerald-500/20 text-emerald-300',
   video: 'bg-violet-500/20 text-violet-300',
   website: 'bg-fuchsia-500/20 text-fuchsia-300',
-  bible: 'bg-teal-500/20 text-teal-300',
+  bible: 'bg-[#00E6FF]/20 text-[#00E6FF]',
 };
 
 /** English names of the kinds, for pages without translations. */

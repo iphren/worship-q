@@ -69,9 +69,9 @@ describe('badge colours (U12)', () => {
     passage: { reference: 'MRK.15.5-MRK.15.6', texts: [] },
   } as never;
 
-  it('gives a passage the Bible badge, in teal (P5.3)', () => {
+  it('gives a passage the Bible badge, in the slides' cyan (P5.3)', () => {
     expect(badgeKind(passage)).toBe('bible');
-    expect(html(passage)).toContain('text-teal-300');
+    expect(html(passage)).toContain('text-[#00E6FF]');
     expect(html(passage)).toContain('Bible');
   });
 
