@@ -38,6 +38,12 @@ describe('a passage slide’s reference and credits (P6.3)', () => {
     );
   });
 
+  it('draws the reference and the verse numbers in the operator’s blue', () => {
+    const shown = html([column('NIVUK', 'NIV (UK)', ['But Jesus'])]);
+    expect(shown).toMatch(/color:#0084d1[^>]*><span>Mark 15:5–8/);
+    expect(shown).toMatch(/color:#0084d1[^>]*>5 <\/span>But Jesus/);
+  });
+
   it('puts one version’s credit at the lower right, and two at the lower left and right', () => {
     const one = html([column('NIVUK', 'NIV (UK)', ['But Jesus'])]);
     expect(one).toMatch(/justify-content:flex-end[^>]*><span>NIV \(UK\)<\/span>/);

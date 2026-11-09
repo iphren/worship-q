@@ -12,6 +12,7 @@ import {
   contrastTextColor,
   fitPassage,
   fitSong,
+  PASSAGE_ACCENT,
   PASSAGE_INDENT_EM,
   PASSAGE_LABEL_SCALE,
   PASSAGE_LINE_HEIGHT,
@@ -585,7 +586,7 @@ function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }
             ...band,
             top: fitted.edge,
             fontSize: fitted.headerSize,
-            opacity: 0.85,
+            color: PASSAGE_ACCENT,
             display: 'flex',
             justifyContent: 'space-between',
           }}
@@ -628,7 +629,7 @@ function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }
                         fontSize: `${PASSAGE_LABEL_SCALE}em`,
                         verticalAlign: '0.6em',
                         lineHeight: 0,
-                        opacity: 0.75,
+                        color: PASSAGE_ACCENT,
                       }}
                     >
                       {`${line.label} `}

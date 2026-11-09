@@ -256,6 +256,11 @@ export const PASSAGE_FLOOR_RATIO = 0.04;
 /** The gap between two columns, as a fraction of the output width. */
 export const PASSAGE_COLUMN_GAP = 0.03;
 export const PASSAGE_LINE_HEIGHT = 1.5;
+/**
+ * The colour of a passage's reference and verse numbers: the operator's blue, Tailwind's
+ * sky-600 as the Next button has it, written as hex for older browsers such as OBS's.
+ */
+export const PASSAGE_ACCENT = '#0084d1';
 /** Verse numbers are small and raised. */
 export const PASSAGE_LABEL_SCALE = 0.6;
 /**
