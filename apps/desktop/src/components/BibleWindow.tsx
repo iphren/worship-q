@@ -322,10 +322,11 @@ export function BibleWindow(props: {
     >
       <div className="flex h-[70vh] min-h-0 flex-col gap-3">
         {unavailable && <p className="text-amber-300">{unavailable}</p>}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* The versions stay on their own line under the search box, whatever its width. */}
+        <div className="flex flex-col gap-2">
           <input
             ref={inputRef}
-            className="field min-w-64 flex-1"
+            className="field"
             type="search"
             autoCorrect="off"
             autoCapitalize="off"
@@ -480,7 +481,9 @@ export function VersionChips(props: {
       })}
       {!full && addable.length > 0 && (
         <select
-          className="field w-auto py-0.5 text-xs"
+          className="field py-0.5 text-xs"
+          // As wide as its choices, not the whole line.
+          style={{ width: 'auto' }}
           aria-label={t('bible.addVersion')}
           title={t('bible.addVersion')}
           value=""
