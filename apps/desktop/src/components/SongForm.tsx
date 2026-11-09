@@ -97,6 +97,11 @@ type SongFormProps = {
   /** Open on the lyrics, for quick fixes while live; decks and websites hide their title. */
   quick?: boolean;
   onSaved(song: Song): void;
+  /**
+   * Shows an Apply button, which saves and stays open; this is given the saved song, and
+   * must pass it back as `song` so the form is no longer changed.
+   */
+  onApplied?(song: Song): void;
   onDirtyChange?(dirty: boolean): void;
   actions?: ReactNode;
   /** With no song, adds a website instead of a song. */
@@ -425,18 +430,25 @@ function WebsiteForm(props: SongFormProps) {
 }
 
 /** Just the title of a deck or website, for renaming while live. */
-export function TitleForm(props: { song: Song; onSaved(song: Song): void; actions?: ReactNode }) {
+export function TitleForm(props: {
+  song: Song;
+  onSaved(song: Song): void;
+  onApplied?(song: Song): void;
+  actions?: ReactNode;
+}) {
   const session = useSession();
   const { song } = props;
   const [title, setTitle] = useState(song.title);
   const [saving, setSaving] = useState(false);
   const canSave = title.trim() !== song.title && title.trim() !== '' && !saving;
 
-  async function save() {
+  async function save(close = true) {
     if (!canSave) return;
     setSaving(true);
     try {
-      props.onSaved(await session.saveSong(song.id, { title: title.trim() }));
+      const result = await session.saveSong(song.id, { title: title.trim() });
+      if (close) props.onSaved(result);
+      else props.onApplied?.(result);
     } finally {
       setSaving(false);
     }
@@ -461,6 +473,7 @@ export function TitleForm(props: { song: Song; onSaved(song: Song): void; action
       </label>
       <div className="flex items-center justify-end gap-2">
         {props.actions}
+        {props.onApplied && <ApplyButton disabled={!canSave} onApply={() => void save(false)} />}
         <button type="submit" className="btn btn-primary" disabled={!canSave}>
           {t('common.save')}
         </button>
@@ -552,6 +565,15 @@ function DeckForm(props: SongFormProps & { song: Song; deck: Deck }) {
   );
 }
 
+/** Saves and keeps the form open, beside Save, which closes it. */
+function ApplyButton(props: { disabled: boolean; onApply(): void }) {
+  return (
+    <button type="button" className="btn" disabled={props.disabled} onClick={props.onApply}>
+      {t('common.apply')}
+    </button>
+  );
+}
+
 /** Bytes in MB with one decimal. */
 const megabytes = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1);
 
@@ -573,7 +595,7 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
   const canSave = !saving && ((changed && title.trim() !== '') || switched);
   const url = useQuery(() => native.videoUrl(video.file).catch(() => null), [video.file]);
 
-  async function save() {
+  async function save(close = true) {
     if (!canSave) return;
     setSaving(true);
     try {
@@ -586,7 +608,8 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
         : await props.version!.commit();
       setTitle(result.title);
       setAutoplay(result.video?.autoplay ?? false);
-      props.onSaved(result);
+      if (close) props.onSaved(result);
+      else props.onApplied?.(result);
     } finally {
       setSaving(false);
     }
@@ -651,6 +674,7 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
       )}
       <div className="mt-auto flex items-center justify-end gap-2">
         {props.actions}
+        {props.onApplied && <ApplyButton disabled={!canSave} onApply={() => void save(false)} />}
         <button type="submit" className="btn btn-primary" disabled={!canSave}>
           {t('common.save')}
         </button>
@@ -710,7 +734,7 @@ function LyricsForm(props: SongFormProps) {
     (song ? fieldsSavable || background.changed || switched : fieldsSavable);
   const set = (patch: Partial<SongDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
-  async function save() {
+  async function save(close = true) {
     if (!canSave) return;
     setSaving(true);
     try {
@@ -726,7 +750,8 @@ function LyricsForm(props: SongFormProps) {
       if (!result) return;
       if (background.changed) await session.setSongBackground(result.id, background.value);
       if (switched) result = await props.version!.commit();
-      props.onSaved(result);
+      if (close) props.onSaved(result);
+      else props.onApplied?.(result);
     } finally {
       setSaving(false);
     }
@@ -742,7 +767,8 @@ function LyricsForm(props: SongFormProps) {
       onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 's') {
           event.preventDefault();
-          void save();
+          // Where the form can stay open, saving keeps it open, as in other editors.
+          void save(!props.onApplied);
         }
       }}
     >
@@ -904,6 +930,7 @@ function LyricsForm(props: SongFormProps) {
       </div>
       <div className="flex items-center justify-end gap-2">
         {props.actions}
+        {props.onApplied && <ApplyButton disabled={!canSave} onApply={() => void save(false)} />}
         <button type="submit" className="btn btn-primary" disabled={!canSave}>
           {t('common.save')}
         </button>
