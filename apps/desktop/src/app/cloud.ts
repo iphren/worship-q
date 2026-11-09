@@ -14,6 +14,8 @@ import {
   OBS_PROTOCOL_VERSION,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
+  type BiblePassageResponse,
+  type BibleVersionsResponse,
   type Capabilities,
   type DesktopToRelay,
   type HostToRemote,
@@ -39,6 +41,7 @@ import {
   type SyncStatus,
 } from '@worship-q/sync';
 import { native, type LanCredential, type LanStatus } from '../platform/native';
+import { BibleClient, BibleRequestError, type BibleServer } from './bible';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
 import { mediaOffer, type MediaOffer } from './media';
@@ -122,6 +125,8 @@ export class CloudController {
   readonly uploads: MediaUploads;
   /** This computer's copies of the videos of upcoming run sheets (U8, U9). */
   readonly videos: VideoCache;
+  /** The church's Bible, through the church server (B17, P4.1). */
+  readonly bible: BibleClient;
   private videoTimer: number | undefined;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
@@ -164,6 +169,11 @@ export class CloudController {
       () => this.state?.deviceId ?? null,
     );
     this.client = this.makeClient();
+    this.bible = new BibleClient(
+      () => this.bibleServer(),
+      () => (typeof localStorage === 'undefined' ? null : localStorage),
+      () => this.state?.server ?? '',
+    );
     this.uploads = new MediaUploads(this.uploadDeps());
     this.videos = new VideoCache(this.videoCacheDeps());
     let readyVideos = 0;
@@ -290,6 +300,66 @@ export class CloudController {
     this.link?.capabilitiesChanged();
     // The hello carries the version and the capabilities; a fresh connection says the new ones.
     this.relay?.reconnect();
+  }
+
+  /**
+   * The church server's Bible routes, while this computer is connected to a server that
+   * offers a Bible; null otherwise, when the window uses what it saved (P4.1).
+   */
+  private bibleServer(): BibleServer | null {
+    const { server, deviceToken } = this.state ?? {};
+    if (!server || !deviceToken || this.status_.server?.bible === false) return null;
+    const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+      const headers: Record<string, string> = {
+        [PROTOCOL_HEADER]: String(this.protocolVersion),
+        authorization: `Bearer ${deviceToken}`,
+      };
+      if (body !== undefined) headers['content-type'] = 'application/json';
+      const response = await fetch(`${server}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        const answer = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          reason?: string;
+        };
+        const code = answer.error;
+        throw new BibleRequestError(
+          code === 'not-offered' ||
+            code === 'not-found' ||
+            code === 'too-large' ||
+            code === 'unavailable'
+            ? code
+            : 'unavailable',
+          answer.reason ?? `${response.status}`,
+        );
+      }
+      return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+    };
+    const v = (version: string) => encodeURIComponent(version);
+    return {
+      versions: async () =>
+        (await request<BibleVersionsResponse>('GET', '/api/v1/bible/versions')).versions,
+      toc: (version, chapter) =>
+        request(
+          'GET',
+          `/api/v1/bible/${v(version)}/toc${chapter ? `?book=${chapter.book}&chapter=${chapter.chapter}` : ''}`,
+        ),
+      passage: async (version, usfm, device, session) =>
+        (
+          await request<BiblePassageResponse>(
+            'GET',
+            `/api/v1/bible/${v(version)}/passage?ref=${encodeURIComponent(usfm)}&device=${device}&session=${session}`,
+          )
+        ).text,
+      search: (version, query) =>
+        request('GET', `/api/v1/bible/${v(version)}/search?q=${encodeURIComponent(query)}`),
+      reportUsage: (tokens, device, session) =>
+        request('POST', '/api/v1/bible/fums', { tokens, device, session }),
+    };
   }
 
   /** A request to the instance with this device's token and the protocol version. */

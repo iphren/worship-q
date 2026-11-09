@@ -127,6 +127,12 @@ describe('the Bible’s routes (P2.6)', () => {
     expect((await get('/api/v1/bible/versions')).json()).toEqual({ versions: [] });
   });
 
+  it('names the hash of the contents once they are built, so desktops refresh only on a change', async () => {
+    const { get } = await setup();
+    const toc = (await get('/api/v1/bible/NIVUK/toc')).json();
+    expect((await get('/api/v1/bible/versions')).json().versions[0].tocHash).toBe(toc.hash);
+  });
+
   it('says in the info whether the church offers a Bible', async () => {
     const { get, instance } = await setup();
     expect((await get('/api/v1/info', false)).json().bible).toBe(true);

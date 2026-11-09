@@ -444,7 +444,10 @@ export async function buildServer(config: ServerConfig) {
       '/api/v1/bible/versions',
       async () =>
         ({
-          versions: (config.bible?.offered(instance.churchSettings()) ?? []).map(versionInfo),
+          versions: (config.bible?.offered(instance.churchSettings()) ?? []).map((version) => {
+            const tocHash = config.bible!.tocs.peekHash(version.id);
+            return { ...versionInfo(version), ...(tocHash ? { tocHash } : {}) };
+          }),
         }) satisfies BibleVersionsResponse,
     );
 

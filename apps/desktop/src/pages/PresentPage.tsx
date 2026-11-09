@@ -9,6 +9,7 @@ import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../component
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
+import { PassageWarnings } from '../components/PassageWarnings';
 import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
@@ -541,6 +542,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                         </button>
                       )}
                     </header>
+                    <PassageWarnings song={entry.song} className="mb-2 px-2" />
                     {entry.pieces.length === 0 && (
                       <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
                     )}

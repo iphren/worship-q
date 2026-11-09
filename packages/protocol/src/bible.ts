@@ -20,6 +20,11 @@ export interface BibleVersionInfo {
   name: string;
   credit: string;
   language: BibleLanguage;
+  /**
+   * The hash of the version's contents the server holds, so a computer refreshes its saved
+   * copy only when they changed (P4.1); absent before they were first built.
+   */
+  tocHash?: string;
 }
 
 /** `GET /api/v1/bible/versions` */

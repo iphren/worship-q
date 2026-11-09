@@ -107,6 +107,11 @@ export class TocStore {
     return promise;
   }
 
+  /** The hash of the saved contents, without building them; undefined when none are saved. */
+  peekHash(version: string): string | undefined {
+    return this.read(version)?.hash;
+  }
+
   /** The version's contents with their hash, built the first time it is asked for. */
   async get(version: string): Promise<{ toc: Toc; hash: string }> {
     let saved = this.read(version);
