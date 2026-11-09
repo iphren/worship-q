@@ -99,8 +99,24 @@ per-line estimate captures.
   Single-version slides hold about twice as much (55 Latin, 25 Chinese characters per line).
 - [x] **Spare line:** the budget packs to 10, so a misjudged wrap or a slightly wider font only
   makes the renderer shrink the text a little, never below the 4 % floor.
-- [ ] **Windows:** Segoe UI and Microsoft YaHei are a little wider than San Francisco and
-  PingFang; to be checked when P6.3 is tried on Windows, where the spare line should absorb it.
+- [x] **Windows** (9 November 2026, Windows 11, headless Edge, which is WebView2's engine;
+  Segoe UI and Microsoft YaHei), with the same NIVUK and CCB chapters from YouVersion: the
+  spare line absorbs the difference, and no slide needs the text smaller than 5 %. At 5 % in
+  two columns, Chinese fits as on macOS (23.2–23.6 weight per line for prose, 20.8 for poetry,
+  against 23.5 and 21); English fits about an eighth less (25.3–26.5 for prose and 20.5 for
+  poetry, against 30 and 25), Segoe UI being wider than San Francisco. Packing John 3,
+  Romans 8 and Psalm 103 with P1.7's budget (10 estimated lines, 30 Latin or 12 Chinese
+  characters per line side by side, 55 and 25 alone; rows paired in verse order) and measuring
+  every slide: 102 slides, side by side and in each version alone, all fit at 5 %. The fullest
+  side-by-side slides take exactly the 11 lines that fit, so on Windows the spare line is used
+  up there and the budget should not be loosened.
+- [x] **Windows at 6 %** (after passages moved to 6 %, with the budget of 8 estimated lines,
+  25 Latin or 10 Chinese characters per line side by side, 46 and 21 alone), measured the same
+  way: 150 slides; all but one are drawn at 6 %, the fullest taking exactly the 9 lines that
+  fit. One side-by-side slide of Psalm 103 needs 10 lines, English poetry's short lines each
+  wrapping on their own, and is drawn at 5.7 %, well above the 4 % floor. Accepted rather than
+  tightening the budget, which would add slides on both systems for a barely visible
+  difference.
 
 ## P0.4 — Provider limits
 

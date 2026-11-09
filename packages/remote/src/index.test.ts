@@ -441,3 +441,149 @@ describe('videos on phones (media uploads M5.5, M6.6)', () => {
     expect(lastTo('p1')).toEqual({ type: 'ack', id: 'v1', applied: true });
   });
 });
+
+describe('the Bible on phones (P7.1, P7.2, B15, B26)', () => {
+  const toc = { version: 'NIVUK', books: [{ book: 'MRK', name: 'Mark', chapters: [45, null] }] };
+  const passage = {
+    reference: 'MRK.15.5',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'youversion' as const,
+        copyright: '',
+        units: [
+          { chapter: 15, verses: [5], label: '5', lines: [{ text: 'But Jesus', indent: 0 }] },
+        ],
+        fumsToken: null,
+      },
+    ],
+  };
+  const calls: string[] = [];
+  const bible = {
+    versions: async () => ({
+      offered: [{ id: 'NIVUK', name: 'NIV', credit: 'NIVUK', language: 'en' as const }],
+      versions: ['NIVUK'],
+    }),
+    setVersions: async (versions: string[]) => void calls.push(`set ${versions.join(',')}`),
+    toc: async (version: string, chapter?: { book: string; chapter: number }) => {
+      calls.push(`toc ${version}${chapter ? ` ${chapter.book}.${chapter.chapter}` : ''}`);
+      return toc;
+    },
+    passage: async () => passage,
+    search: async () => ({ references: ['MRK.15.5'], searched: true }),
+  };
+
+  beforeEach(() => {
+    calls.length = 0;
+    host.setBible(bible);
+  });
+
+  it('answers each request through the desktop, with the workspace’s versions', async () => {
+    await approved('p1');
+    await host.message('p1', { type: 'bibleVersions', id: 'v' });
+    expect(lastTo('p1')).toEqual({
+      type: 'bibleVersions',
+      id: 'v',
+      offered: [{ id: 'NIVUK', name: 'NIV', credit: 'NIVUK', language: 'en' }],
+      versions: ['NIVUK'],
+    });
+    await host.message('p1', {
+      type: 'bibleToc',
+      id: 't',
+      version: 'NIVUK',
+      book: 'MRK',
+      chapter: 2,
+    });
+    expect(lastTo('p1')).toEqual({ type: 'bibleToc', id: 't', toc });
+    expect(calls).toContain('toc NIVUK MRK.2');
+    await host.message('p1', {
+      type: 'biblePassage',
+      id: 'p',
+      reference: 'MRK.15.5',
+      versions: ['NIVUK'],
+    });
+    expect(lastTo('p1')).toEqual({ type: 'biblePassage', id: 'p', passage });
+    await host.message('p1', { type: 'bibleSearch', id: 's', version: 'NIVUK', query: 'love' });
+    expect(lastTo('p1')).toEqual({
+      type: 'bibleSearch',
+      id: 's',
+      references: ['MRK.15.5'],
+      searched: true,
+    });
+    await host.message('p1', { type: 'bibleSetVersions', versions: ['NIVUK'] });
+    expect(calls).toContain('set NIVUK');
+  });
+
+  it('refuses a version the church does not offer', async () => {
+    await approved('p1');
+    await host.message('p1', { type: 'bibleToc', id: 't', version: 'ESV' });
+    expect(lastTo('p1')).toEqual({ type: 'bibleToc', id: 't', toc: null, error: 'not-offered' });
+    await host.message('p1', {
+      type: 'biblePassage',
+      id: 'p',
+      reference: 'MRK.15.5',
+      versions: ['NIVUK', 'ESV'],
+    });
+    expect(lastTo('p1')).toMatchObject({ passage: null, error: 'not-offered' });
+    await host.message('p1', { type: 'bibleSearch', id: 's', version: 'ESV', query: 'x' });
+    expect(lastTo('p1')).toMatchObject({ references: [], error: 'not-offered' });
+  });
+
+  it('says offline when the desktop has no Bible, and passes on a refused passage', async () => {
+    await approved('p1');
+    host.setBible({
+      ...bible,
+      passage: async () => {
+        throw Object.assign(new Error('nope'), { code: 'not-found' });
+      },
+    });
+    await host.message('p1', {
+      type: 'biblePassage',
+      id: 'p',
+      reference: 'MRK.15.5',
+      versions: ['NIVUK'],
+    });
+    expect(lastTo('p1')).toMatchObject({ passage: null, error: 'not-found' });
+    host.setBible(null);
+    await host.message('p1', { type: 'bibleToc', id: 't', version: 'NIVUK' });
+    expect(lastTo('p1')).toMatchObject({ toc: null, error: 'offline' });
+  });
+
+  it('ignores Bible requests from a connection not approved', async () => {
+    const invite = host.invite();
+    await host.message('p2', {
+      type: 'hello',
+      protocolVersion: PROTOCOL_VERSION,
+      name: 'X',
+      invite,
+    });
+    await host.message('p2', { type: 'bibleVersions', id: 'v' });
+    expect(sent.filter((e) => e.to === 'p2').map((e) => e.message.type)).toEqual(['pending']);
+  });
+
+  it('adds a phone’s passage after the presented item, and presents it when asked', async () => {
+    const b = await session.createSong({ title: 'B', lyrics: 'b1' });
+    await session.addSong(session.today(), b.id);
+    const view = (await session.viewLive())!;
+    await session.play(view.entries[0]!.item.id, view.entries[0]!.pieces[0]!.id);
+    await approved('p1', 'Sam');
+    await host.message('p1', {
+      type: 'command',
+      id: 'c1',
+      command: { type: 'addPassage', passage, present: true },
+    });
+    expect(lastTo('p1')).toEqual({ type: 'ack', id: 'c1', applied: true });
+    const titles = (await session.viewLive())!.entries.map((entry) => entry.song.title);
+    expect(titles).toEqual(['Amazing Grace', 'Mark 15:5', 'B']);
+    expect(session.live!.presented!.pieceId).toBe('v15:5');
+    expect(host.notices.map((n) => n.change.title)).toContain('Mark 15:5');
+    // The phone sees the passage's slide with its columns.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const fresh = [...sent].reverse().find((s) => s.message.type === 'view')?.message;
+    const item =
+      fresh?.type === 'view' ? fresh.view.items.find((i) => i.title === 'Mark 15:5') : null;
+    expect(item).toMatchObject({ kind: 'passage', badge: 'bible' });
+    expect(item!.pieces[0]!.passage!.columns[0]!.credit).toBe('NIVUK');
+  });
+});

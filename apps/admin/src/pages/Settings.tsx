@@ -41,7 +41,134 @@ export function SettingsPage() {
           />
         </div>
       )}
+      {settings && (
+        <BibleVersions
+          offered={settings.bibleVersions}
+          defaults={settings.bibleDefaultVersions}
+          onSaved={apply}
+        />
+      )}
     </div>
+  );
+}
+
+const PROVIDER_NAMES: Record<string, string> = {
+  youversion: 'YouVersion',
+  apibible: 'API.Bible',
+  esv: 'ESV API',
+  freeuse: 'Free Use Bible API',
+};
+
+/**
+ * The Bible versions the church offers its workspaces (B19). Each shows whether one of its
+ * providers answers with the church's keys, set on the server (B17); the keys themselves
+ * are never shown.
+ */
+function BibleVersions(props: {
+  offered: string[] | undefined;
+  defaults: string[] | undefined;
+  onSaved(settings: ChurchSettings): void;
+}) {
+  const load = useLoad(() => api.bible(), []);
+  const action = useAction();
+  const offered = new Set(props.offered ?? []);
+  const bible = load.data;
+
+  async function toggle(id: string, on: boolean) {
+    const next = (bible?.versions ?? [])
+      .map((version) => version.id)
+      .filter((v) => (v === id ? on : offered.has(v)));
+    const result = await action.run(() =>
+      api.setSetting('bibleVersions', next.length ? next : null),
+    );
+    if (result) props.onSaved(result.settings);
+  }
+
+  // The default versions, from those offered and available, in the catalogue's order.
+  const choosable = (bible?.versions ?? []).filter((v) => offered.has(v.id) && v.available);
+  const defaults = (props.defaults ?? []).filter((id) => choosable.some((v) => v.id === id));
+  async function setDefault(index: 0 | 1, id: string) {
+    const next = [...defaults];
+    if (id) next[index] = id;
+    else next.splice(index, 1);
+    const cleaned = next.filter((v, i) => v && next.indexOf(v) === i).slice(0, 2);
+    const result = await action.run(() =>
+      api.setSetting('bibleDefaultVersions', cleaned.length ? cleaned : null),
+    );
+    if (result) props.onSaved(result.settings);
+  }
+
+  return (
+    <Setting
+      title="Bible versions"
+      hint="The versions workspaces may show. Each workspace picks up to two of these. A version needs one of its providers to answer with the keys set on the server."
+      isSet={props.offered !== undefined}
+    >
+      <ErrorText error={load.error} />
+      {bible && (
+        <>
+          <p className="mb-3 text-xs text-slate-400">
+            Keys on the server: YouVersion {bible.keys.youversion ? 'set' : 'not set'} · API.Bible{' '}
+            {bible.keys.apibible ? 'set' : 'not set'} · ESV {bible.keys.esv ? 'set' : 'not set'}
+            {bible.checked ? '' : ' · checking versions…'}
+          </p>
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-slate-300">Default for workspaces:</span>
+            {([0, 1] as const).map((index) => (
+              <select
+                key={index}
+                className={`${INPUT} w-auto`}
+                aria-label={index === 0 ? 'Default version' : 'Second default version'}
+                value={defaults[index] ?? UNSET}
+                disabled={action.busy || (index === 1 && !defaults[0])}
+                onChange={(event) => void setDefault(index, event.target.value)}
+              >
+                <option value={UNSET}>
+                  {index === 0 ? 'None (the first offered)' : 'No second version'}
+                </option>
+                {choosable
+                  .filter((v) => v.id !== defaults[index === 0 ? 1 : 0])
+                  .map((version) => (
+                    <option key={version.id} value={version.id}>
+                      {version.credit} · {version.name}
+                    </option>
+                  ))}
+              </select>
+            ))}
+          </div>
+          <p className="-mt-2 mb-3 text-xs text-slate-500">
+            Shown side by side on every desktop and phone until a workspace chooses its own.
+          </p>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {bible.versions.map((version) => (
+              <li key={version.id}>
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={offered.has(version.id)}
+                    disabled={action.busy}
+                    onChange={(event) => void toggle(version.id, event.target.checked)}
+                  />
+                  <span>
+                    <span className="text-white">{version.credit}</span>{' '}
+                    <span className="text-slate-400">{version.name}</span>
+                    <span
+                      className={`block text-xs ${version.available ? 'text-slate-500' : 'text-amber-300'}`}
+                    >
+                      {version.available
+                        ? `Through ${version.providers.map((p) => PROVIDER_NAMES[p] ?? p).join(', then ')}`
+                        : 'Not available with the keys set'}
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <ErrorText error={action.error} className="mt-2" />
+    </Setting>
   );
 }
 

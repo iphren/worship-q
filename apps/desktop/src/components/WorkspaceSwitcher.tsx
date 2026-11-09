@@ -87,7 +87,7 @@ export function WorkspaceList() {
     <div className="space-y-2 text-sm">
       <ul className="divide-y divide-slate-700 rounded-md border border-slate-700">
         {workspaces.map((entry) => (
-          <li key={entry.id} className="flex items-center gap-3 px-3 py-2">
+          <li key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
             <div className="min-w-0 flex-1">
               <p
                 className={`truncate font-medium ${entry.active ? 'text-emerald-300' : ''}`}
@@ -98,12 +98,6 @@ export function WorkspaceList() {
               <p className="truncate text-xs text-slate-400">
                 {entry.server ? entry.server.replace(/^https?:\/\//, '') : t('workspaces.local')}
               </p>
-              {entry.active && problem && (
-                <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-300">
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-400" />
-                  <span className="min-w-0 break-words">{problem}</span>
-                </p>
-              )}
             </div>
             {entry.active ? (
               <>
@@ -159,6 +153,15 @@ export function WorkspaceList() {
                   {t('workspaces.switch')}
                 </button>
               </>
+            )}
+            {entry.active && problem && (
+              <p
+                className="flex basis-full items-center gap-1.5 text-xs text-amber-300"
+                title={problem.detail}
+              >
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                <span className="truncate">{problem.summary}</span>
+              </p>
             )}
           </li>
         ))}
@@ -227,7 +230,7 @@ export function WorkspaceButton() {
   const [open, setOpen] = useState(false);
   // Shown once there is a choice to make, or a church connection to keep an eye on.
   if (!workspaces || (workspaces.length < 2 && !joined)) return null;
-  const label = [name, joined ? problem : t('workspaces.local'), t('workspaces.choose')]
+  const label = [name, joined ? problem?.summary : t('workspaces.local'), t('workspaces.choose')]
     .filter(Boolean)
     .join(' · ');
   const initials = name

@@ -61,6 +61,19 @@ describe('badge colours (U12)', () => {
   } as never;
   const lyrics = { title: 'Song', deck: null, website: null, video: null } as never;
   const html = (song: never) => renderToStaticMarkup(createElement(DeckBadge, { song }));
+  const passage = {
+    title: 'Mark 15:5–6',
+    deck: null,
+    website: null,
+    video: null,
+    passage: { reference: 'MRK.15.5-MRK.15.6', texts: [] },
+  } as never;
+
+  it('gives a passage the Bible badge, in the slides’ cyan (P5.3)', () => {
+    expect(badgeKind(passage)).toBe('bible');
+    expect(html(passage)).toContain('text-[#00E6FF]');
+    expect(html(passage)).toContain('Bible');
+  });
 
   it('gives each kind its own colour and label', () => {
     expect(badgeKind(deck('a.pptx'))).toBe('slides');

@@ -25,7 +25,19 @@ import {
   videoPosition,
 } from '@worship-q/live-state';
 import { buildPieces, type Piece } from '@worship-q/lyrics';
-import { songBadge } from '@worship-q/protocol';
+import {
+  align,
+  catalogueVersion,
+  formatReference,
+  passagePieces,
+  passagePlainText,
+  passageReference,
+  songBadge,
+  type AddPassageCommand,
+  type Passage,
+  type PassageColumn,
+  type PassagePiece,
+} from '@worship-q/protocol';
 import type {
   BackgroundAsset,
   Command,
@@ -66,6 +78,11 @@ export interface SessionOptions {
    * it only shows the one it is sent. Defaults to an operator device.
    */
   role?: DeviceRole;
+  /**
+   * Reports API.Bible usage tokens of a passage item when it is first presented in a live
+   * session (B25), with an identifier for that live session. Called on the coordinator only.
+   */
+  reportUsage?: (tokens: string[], liveSession: string) => void;
 }
 
 /**
@@ -97,15 +114,82 @@ export const WEBSITE_PIECE_ID = 'website';
 /** Identifier of a video item's one piece (U14). */
 export const VIDEO_PIECE_ID = 'video';
 
+const slidesOf = new WeakMap<Passage, PassagePiece[]>();
+
 /**
- * A song's pieces: its lyrics in groups of lines, one per image of an imported deck, or a
- * single one for a website. A deck's pieces count each slide as a block, so the clicks of one
- * slide read as a group.
+ * A passage's slides (B10, B24): its versions aligned and split by the text budget, the same
+ * on every device. Worked out once per passage object.
  */
-export function songPieces(
-  song: Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'> & { video?: Song['video'] },
-  linesPerPiece: number,
-): Piece[] {
+export function passageSlides(passage: Passage): PassagePiece[] {
+  let slides = slidesOf.get(passage);
+  if (!slides) {
+    slides = passagePieces(align(passage));
+    slidesOf.set(passage, slides);
+  }
+  return slides;
+}
+
+/** A passage slide's text as lines, from its first version, for devices that show lyrics. */
+export function passageSlideLines(columns: readonly PassageColumn[]): string[] {
+  return (columns[0]?.units ?? []).flatMap((unit) =>
+    unit.lines.map((line, i) => (i === 0 && unit.label ? `${unit.label} ${line.text}` : line.text)),
+  );
+}
+
+/**
+ * The fields of the song holding a passage (B23): the reference as its title, in the first
+ * version's language, and the text as lyrics for devices older than passages.
+ */
+export function passageSongFields(
+  passage: Passage,
+): Pick<SongFields, 'title' | 'lyrics' | 'passage'> {
+  const reference = passageReference(passage);
+  const language = catalogueVersion(passage.texts[0]?.version ?? '')?.language ?? 'en';
+  return {
+    title: reference ? formatReference(reference, language) : passage.reference,
+    lyrics: passagePlainText(passage),
+    passage,
+  };
+}
+
+/**
+ * The whole passage's reference in each version's language, one per column, for the slide's
+ * header: `Mark 15:5–6` above an English column, `马可福音 15:5-6` above a Chinese one.
+ */
+export function passageHeaders(passage: Passage): string[] {
+  const reference = passageReference(passage);
+  return passage.texts.map((text) =>
+    reference
+      ? formatReference(reference, catalogueVersion(text.version)?.language ?? 'en')
+      : passage.reference,
+  );
+}
+
+/** The API.Bible usage tokens a passage carries (B25). */
+export function passageTokens(passage: Passage): string[] {
+  return passage.texts.flatMap((text) => (text.fumsToken ? [text.fumsToken] : []));
+}
+
+type PieceSource = Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'> & {
+  video?: Song['video'];
+  passage?: Song['passage'];
+};
+
+/**
+ * A song's pieces: its lyrics in groups of lines, one per image of an imported deck, a
+ * single one for a website, or a passage's slides. A deck's pieces count each slide as a
+ * block, so the clicks of one slide read as a group.
+ */
+export function songPieces(song: PieceSource, linesPerPiece: number): Piece[] {
+  if (song.passage) {
+    // One block: a passage's slides are not shaded in turn as a song's verses are.
+    return passageSlides(song.passage).map((slide, indexInBlock) => ({
+      id: slide.id,
+      blockIndex: 0,
+      indexInBlock,
+      lines: passageSlideLines(slide.columns).map((text, i) => ({ id: `${slide.id}:${i}`, text })),
+    }));
+  }
   if (song.video) return [{ id: VIDEO_PIECE_ID, blockIndex: 0, indexInBlock: 0, lines: [] }];
   if (song.website) {
     const { url } = song.website;
@@ -138,10 +222,11 @@ export function songPieces(
   });
 }
 
-/** How a song is presented: as lyrics, as imported slides, as a web page or as a video. */
+/** How a song is presented: as lyrics, imported slides, a web page, a video or a passage. */
 export function songKind(
-  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video'] },
+  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video']; passage?: Song['passage'] },
 ): SnapshotItem['kind'] {
+  if (song.passage) return 'passage';
   return song.video ? 'video' : song.website ? 'website' : song.deck ? 'deck' : 'lyrics';
 }
 
@@ -156,6 +241,20 @@ export function formatDuration(seconds: number): string {
 
 /** A song's pieces as the snapshot and the phones' view carry them (plan M1.6). */
 export function snapshotPieces(song: Song, pieces: readonly Piece[]): SnapshotPiece[] {
+  if (song.passage) {
+    // Each slide carries both columns, so phones and followers show what the screen does.
+    const slides = passageSlides(song.passage);
+    const headers = passageHeaders(song.passage);
+    return pieces.map((piece) => {
+      const columns = slides.find((slide) => slide.id === piece.id)?.columns ?? [];
+      return {
+        id: piece.id,
+        lines: piece.lines.map((line) => line.text),
+        block: piece.blockIndex,
+        passage: { columns, headers },
+      };
+    });
+  }
   if (song.video) {
     // Phones show the title and duration in place of a slide (M5.5).
     const { file, durationSeconds, width, height, autoplay } = song.video;
@@ -230,6 +329,8 @@ function entryFromSnapshot(
             bytes: 0,
           }
         : null,
+    // A passage arrives with its slides' columns, which the frame draws from the snapshot.
+    passage: null,
     lineIds: [],
     revision: 1,
     createdAt: now,
@@ -323,6 +424,9 @@ export class Session {
   private relay_: LiveRelay | null = null;
   /** The coordinator's last snapshot while following, for rendering content not here yet. */
   private snapshot_: LiveSnapshot | null = null;
+  /** Passage items whose usage was reported, by live session and item (B25). */
+  private readonly reported = new Set<string>();
+  private readonly reportUsage: SessionOptions['reportUsage'];
 
   private constructor(
     readonly store: Store,
@@ -332,6 +436,7 @@ export class Session {
   ) {
     this.expiryMs = options.expiryMs ?? DEFAULT_EXPIRY_MS;
     this.role = options.role ?? 'operator';
+    this.reportUsage = options.reportUsage;
     this.day_ = this.today();
   }
 
@@ -480,7 +585,10 @@ export class Session {
 
   private async setLive(state: LiveState | null): Promise<void> {
     if (state === this.live_) return;
-    if (state?.presented !== this.live_?.presented) this.browsedItemId_ = null;
+    if (state?.presented !== this.live_?.presented) {
+      this.browsedItemId_ = null;
+      if (state?.presented) await this.reportPassage(state);
+    }
     this.live_ = state;
     if (state) {
       await this.store.saveLiveState(this.workspace_.id, state);
@@ -490,6 +598,23 @@ export class Session {
       await this.store.clearLiveState(this.workspace_.id);
       this.liveDate_ = null;
     }
+  }
+
+  /**
+   * On the coordinator, a passage item first presented in a live session has its stored
+   * API.Bible tokens reported through the server, once per item per session (B25).
+   */
+  private async reportPassage(state: LiveState): Promise<void> {
+    const presented = state.presented;
+    if (!presented || !this.reportUsage || this.relay_ || this.isViewer) return;
+    if (state.status !== 'live') return;
+    const key = `${state.startedAt}|${presented.itemId}`;
+    if (this.reported.has(key)) return;
+    const song = await this.store.getSong(presented.songId);
+    const tokens = song?.passage ? passageTokens(song.passage) : [];
+    if (tokens.length === 0) return;
+    this.reported.add(key);
+    this.reportUsage(tokens, `live-${Date.parse(state.startedAt)}`);
   }
 
   // ── Start, heartbeat ─────────────────────────────────────────────────────
@@ -1040,6 +1165,89 @@ export class Session {
     });
   }
 
+  /**
+   * Adds a Bible passage to a date's run sheet as a new item (B6, B7). In the live run sheet,
+   * without `afterItemId` it goes right after the item being presented, or at the end when
+   * none is; elsewhere at the end. `present` presents its first slide. From a follower it is
+   * sent to the coordinator, which makes the item, and nothing is returned.
+   */
+  addPassage(
+    date: IsoDate,
+    passage: Passage,
+    options: { afterItemId?: string | null; present?: boolean } = {},
+  ): Promise<RunSheetItem | null> {
+    return this.mutate(async () => {
+      const sheet = await this.editable(date);
+      if (this.relay_ && date === this.liveDate) {
+        this.relay_.send({
+          type: 'addPassage',
+          passage,
+          ...(options.afterItemId !== undefined ? { afterItemId: options.afterItemId } : {}),
+          ...(options.present ? { present: true } : {}),
+        });
+        return null;
+      }
+      await this.liveWhenEdited(sheet);
+      return (await this.placePassage(sheet, passage, options)).item;
+    });
+  }
+
+  /** Makes a passage's song and item, places it, and presents it when asked. */
+  private async placePassage(
+    sheet: RunSheet,
+    passage: Passage,
+    options: { afterItemId?: string | null; present?: boolean },
+  ): Promise<{ item: RunSheetItem; title: string }> {
+    const items = await this.store.listItems(sheet.id);
+    const index = (itemId: string) => items.findIndex((item) => item.id === itemId);
+    const live = this.isLive && this.live_?.runSheetId === sheet.id ? this.live_ : null;
+    let at = items.length;
+    if (options.afterItemId === null) at = 0;
+    else if (options.afterItemId !== undefined) {
+      if (index(options.afterItemId) >= 0) at = index(options.afterItemId) + 1;
+    } else if (live?.presented && live.presented.runSheetId === sheet.id) {
+      // After the item being presented; at the end when it has gone (B6).
+      const presented = index(live.presented.itemId);
+      if (presented >= 0) at = presented + 1;
+    }
+    const song = await this.store.createSong(this.workspace_.id, passageSongFields(passage));
+    const item = await this.store.addItem(sheet.id, song.id, at);
+    if (options.present && live) {
+      const first = songPieces(song, 1)[0];
+      if (first) await this.apply({ type: 'playPiece', itemId: item.id, pieceId: first.id });
+    }
+    return { item, title: song.title };
+  }
+
+  /**
+   * A passage from a phone or another operator device, added to the live run sheet by the
+   * coordinator (B15, B26). Null when nothing is live, or the same identifier was applied.
+   */
+  remotePassage(id: string, command: AddPassageCommand): Promise<RunSheetChange | null> {
+    return this.mutate(async () => {
+      if (!this.isLive || !this.live_ || this.relay_ || this.remoteEditIds.includes(id)) {
+        return null;
+      }
+      const sheet = await this.store.getRunSheet(this.live_.runSheetId);
+      if (!sheet) return null;
+      const { item, title } = await this.placePassage(sheet, command.passage, {
+        afterItemId: command.afterItemId,
+        present: command.present,
+      });
+      this.remoteEditIds.push(id);
+      if (this.remoteEditIds.length > REMOTE_EDIT_MEMORY) this.remoteEditIds.shift();
+      return { kind: 'added', item, title };
+    });
+  }
+
+  /**
+   * Saves an edited passage into its item's song, as the song's next revision; the item
+   * keeps its place (B11). The presented slide follows as for any edit.
+   */
+  savePassage(songId: string, passage: Passage): Promise<Song> {
+    return this.saveSong(songId, passageSongFields(passage));
+  }
+
   moveItem(itemId: string, toIndex: number): Promise<void> {
     return this.mutate(async () => {
       const liveItems = this.liveSnapshotItems(itemId);
@@ -1241,6 +1449,16 @@ export class Session {
     return this.mutate(() => this.store.setSongBackground(this.workspace_.id, songId, background));
   }
 
+  /** Chooses the workspace's Bible versions, for every computer of the workspace (B4). */
+  setBibleVersions(versions: readonly string[]): Promise<string[]> {
+    return this.mutate(() => this.store.setBibleVersions(this.workspace_.id, versions));
+  }
+
+  /** Chooses the background of every Bible passage, apart from songs'; null is the slideshow's. */
+  setBibleBackground(background: SongBackground | null): Promise<void> {
+    return this.mutate(() => this.store.setBibleBackground(this.workspace_.id, background));
+  }
+
   updateOutputProfile(
     patch: OutputProfilePatch,
     kind: OutputKind = 'slideshow',
@@ -1403,6 +1621,10 @@ export class Session {
         return this.remoteEdit(id, command).then((change) =>
           change ? { result: 'applied', change } : { result: 'rejected' },
         );
+      case 'addPassage':
+        return this.remotePassage(id, command).then((change) =>
+          change ? { result: 'applied', change } : { result: 'rejected' },
+        );
       case 'goLive':
         return this.mutate(async () => {
           if (this.live_?.appliedCommandIds.includes(id)) return { result: 'duplicate' };
@@ -1527,6 +1749,7 @@ export class Session {
       : carriedPieces
         ? song.background
         : await this.store.getSongBackground(song);
+    const carriedPassage = carriedPieces !== null && carried?.kind === 'passage';
     const background =
       song?.deck || song?.website || song?.video
         ? { color: '#000000', assetId: null }
@@ -1569,6 +1792,24 @@ export class Session {
           at: clock.at,
           durationSeconds: clock.durationSeconds,
         };
+      }
+    } else if (presented && song && (song.passage || carriedPassage)) {
+      // Drawn on the slideshow only: the subtitle overlay stays empty while a passage is live,
+      // as the words are not being spoken or sung at that moment (B12).
+      const carriedPiece = carriedPieces?.find((piece) => piece.id === presented.pieceId);
+      const slideIds = song.passage
+        ? passageSlides(song.passage).map((slide) => slide.id)
+        : (carriedPieces ?? []).map((piece) => piece.id);
+      const columns = song.passage
+        ? passageSlides(song.passage).find((slide) => slide.id === presented.pieceId)?.columns
+        : carriedPiece?.passage?.columns;
+      const page = { number: slideIds.indexOf(presented.pieceId) + 1, count: slideIds.length };
+      const headers = song.passage
+        ? passageHeaders(song.passage)
+        : (carriedPiece?.passage?.headers ?? [song.title]);
+      frame.pieceId = columns ? presented.pieceId : null;
+      if (columns && kind === 'slideshow' && !frame.blank) {
+        frame.passage = { columns, headers, page };
       }
     } else if (presented && song?.website) {
       // The page is shown by the slideshow window only; a subtitle overlay shows nothing.

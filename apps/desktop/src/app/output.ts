@@ -8,7 +8,7 @@ import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/
 import type { Session } from '@worship-q/session';
 import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
 import { t } from '../i18n';
-import { type PresentAction, runPresentAction } from '../lib/shortcuts';
+import { type KeyPress, presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
 import { native } from '../platform/native';
 
 export const OUTPUT_WINDOW = 'output';
@@ -16,7 +16,10 @@ export const FRAME_EVENT = 'output-frame';
 export const READY_EVENT = 'output-ready';
 /** Sent when Esc is pressed on the output window or the system asks to close it. */
 export const CLOSE_REQUEST_EVENT = 'output-close-request';
-/** Sent by the output window when a presenting shortcut is pressed on it. */
+/**
+ * Sent by the output window when a presenting shortcut is pressed on it, with the key; this
+ * window decides what it does.
+ */
 export const ACTION_EVENT = 'output-action';
 /** Sent to the output window when the audio output is changed in Settings (U24). */
 export const AUDIO_OUTPUT_EVENT = 'output-audio-output';
@@ -91,8 +94,11 @@ export class OutputController {
     this.cleanup.push(await listen(READY_EVENT, () => void this.send()));
     this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.close()));
     this.cleanup.push(
-      await listen<PresentAction>(ACTION_EVENT, (event) => {
-        if (this.session.isLive) runPresentAction(this.session, event.payload);
+      await listen<KeyPress>(ACTION_EVENT, (event) => {
+        if (!this.session.isLive) return;
+        // Decided here, as for a key pressed on this window, so both windows agree.
+        const action = presentAction(event.payload, { video: videoKeys(this.session) });
+        if (action) runPresentAction(this.session, action);
       }),
     );
     const timer = window.setInterval(() => void this.syncWindow(), MONITOR_POLL_MS);

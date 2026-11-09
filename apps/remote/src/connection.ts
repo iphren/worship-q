@@ -35,6 +35,11 @@ export type RemoteState =
   | { kind: 'no-workspace' }
   | { kind: 'update-needed' };
 
+type BibleAnswer = Extract<
+  HostToRemote,
+  { type: 'bibleVersions' | 'bibleToc' | 'biblePassage' | 'bibleSearch' }
+>;
+
 const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
 /** The relay is pinged this often; a ping left unanswered means the connection is gone. */
 const PING_MS = 15_000;
@@ -72,6 +77,8 @@ export class RemoteConnection {
    */
   private helloVersion = PROTOCOL_VERSION;
   private readonly obsAsks = new Map<string, (result: ObsResult) => void>();
+  /** Bible requests waiting for the desktop's answer (B26). */
+  private readonly bibleAsks = new Map<string, (answer: BibleAnswer | null) => void>();
   private obsImage_: (ObsSnapshot & { receivedAt: number }) | null = null;
   /** The OBS screen is open; said again on every connection, as desktops forget it. */
   private obsWatching = false;
@@ -189,6 +196,8 @@ export class RemoteConnection {
       this.searches.clear();
       for (const resolve of this.obsAsks.values()) resolve({ ok: false, error: 'not-connected' });
       this.obsAsks.clear();
+      for (const resolve of this.bibleAsks.values()) resolve(null);
+      this.bibleAsks.clear();
       // Closing a dead connection can take long to finish, so this does not wait for it.
       socket.close();
       if (this.stopped) return;
@@ -275,10 +284,72 @@ export class RemoteConnection {
         this.obsImage_ = { image: message.image, takenAt: message.takenAt, receivedAt: Date.now() };
         for (const listener of [...this.imageListeners]) listener();
         return;
+      case 'bibleVersions':
+      case 'bibleToc':
+      case 'biblePassage':
+      case 'bibleSearch':
+        this.bibleAsks.get(message.id)?.(message);
+        this.bibleAsks.delete(message.id);
+        return;
       case 'ack':
       case 'pong':
         return;
     }
+  }
+
+  /**
+   * Asks the desktop about the Bible; resolves with its answer, or null when the connection
+   * is lost or no answer comes within fifteen seconds.
+   */
+  private ask(request: Record<string, unknown>): Promise<BibleAnswer | null> {
+    if (!this.connected) return Promise.resolve(null);
+    const id = this.newId();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.bibleAsks.delete(id);
+        resolve(null);
+      }, 15_000);
+      this.bibleAsks.set(id, (answer) => {
+        clearTimeout(timer);
+        resolve(answer);
+      });
+      this.socket!.send(JSON.stringify({ ...request, id }));
+    });
+  }
+
+  async bibleVersions(): Promise<Extract<BibleAnswer, { type: 'bibleVersions' }> | null> {
+    const answer = await this.ask({ type: 'bibleVersions' });
+    return answer?.type === 'bibleVersions' ? answer : null;
+  }
+
+  async bibleToc(
+    version: string,
+    chapter?: { book: string; chapter: number },
+  ): Promise<Extract<BibleAnswer, { type: 'bibleToc' }> | null> {
+    const answer = await this.ask({ type: 'bibleToc', version, ...chapter });
+    return answer?.type === 'bibleToc' ? answer : null;
+  }
+
+  async biblePassage(
+    reference: string,
+    versions: string[],
+  ): Promise<Extract<BibleAnswer, { type: 'biblePassage' }> | null> {
+    const answer = await this.ask({ type: 'biblePassage', reference, versions });
+    return answer?.type === 'biblePassage' ? answer : null;
+  }
+
+  async bibleSearch(
+    version: string,
+    query: string,
+  ): Promise<Extract<BibleAnswer, { type: 'bibleSearch' }> | null> {
+    const answer = await this.ask({ type: 'bibleSearch', version, query });
+    return answer?.type === 'bibleSearch' ? answer : null;
+  }
+
+  /** Changes the workspace's Bible versions, as the desktop's chips do (B4). */
+  setBibleVersions(versions: string[]): void {
+    if (!this.connected) return;
+    this.socket!.send(JSON.stringify({ type: 'bibleSetVersions', versions }));
   }
 
   /** The latest live monitor image, while the OBS screen is open (M4.2, M5.2). */

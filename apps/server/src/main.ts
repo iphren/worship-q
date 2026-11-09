@@ -2,6 +2,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildServer } from './app';
+import { Bible, bibleKeysFromEnv } from './bible';
 import { openDatabase } from './db';
 import { convertDeck, deckTools, deckToolsAvailable } from './decks/convert';
 import { Instance } from './instance';
@@ -23,6 +24,13 @@ if (!oidcConfig) {
   );
 }
 const retentionDays = retentionDaysFromEnv(process.env);
+// The church's Bible keys stay on this server (B17); only whether each is set is logged.
+const bibleKeys = bibleKeysFromEnv(process.env);
+const bible = new Bible({ dataDir, keys: bibleKeys });
+console.log(
+  `Bible keys set: YouVersion ${!!bibleKeys.youversion}, API.Bible ${!!bibleKeys.apibible}, ESV ${!!bibleKeys.esv}`,
+);
+bible.start((message) => console.log(message));
 const { app } = await buildServer({
   instance,
   dataDir,
@@ -31,6 +39,7 @@ const { app } = await buildServer({
   administrators: (process.env.WORSHIP_Q_ADMINS ?? '').split(',').filter((e) => e.trim()),
   retentionDays,
   mediaLimits: mediaLimitsFromEnv(process.env),
+  bible,
   adminDir: process.env.WORSHIP_Q_ADMIN_DIR ?? new URL('../admin', import.meta.url).pathname,
   convertDeck: decks
     ? (source, outDir, workDir) =>

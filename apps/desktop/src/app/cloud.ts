@@ -14,6 +14,8 @@ import {
   OBS_PROTOCOL_VERSION,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
+  type BiblePassageResponse,
+  type BibleVersionsResponse,
   type Capabilities,
   type DesktopToRelay,
   type HostToRemote,
@@ -39,6 +41,8 @@ import {
   type SyncStatus,
 } from '@worship-q/sync';
 import { native, type LanCredential, type LanStatus } from '../platform/native';
+import { infoDue } from './serverInfo';
+import { BibleClient, BibleRequestError, workspaceVersions, type BibleServer } from './bible';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
 import { mediaOffer, type MediaOffer } from './media';
@@ -122,6 +126,8 @@ export class CloudController {
   readonly uploads: MediaUploads;
   /** This computer's copies of the videos of upcoming run sheets (U8, U9). */
   readonly videos: VideoCache;
+  /** The church's Bible, through the church server (B17, P4.1). */
+  readonly bible: BibleClient;
   private videoTimer: number | undefined;
   private readonly syncStore: SyncStore;
   private client: SyncClient;
@@ -164,6 +170,29 @@ export class CloudController {
       () => this.state?.deviceId ?? null,
     );
     this.client = this.makeClient();
+    this.bible = new BibleClient(
+      () => this.bibleServer(),
+      () => (typeof localStorage === 'undefined' ? null : localStorage),
+      () => this.state?.server ?? '',
+    );
+    // Phones use the Bible through this desktop (B26).
+    this.host.setBible({
+      versions: async () => {
+        const offered = await this.bible.versions();
+        const chosen = await session.store.getBibleVersions(session.workspace.id);
+        const church = (await session.store.getChurchSettings()).bibleDefaultVersions ?? [];
+        return { offered, versions: workspaceVersions(chosen, offered, church) };
+      },
+      setVersions: async (versions) => {
+        await session.setBibleVersions(versions);
+      },
+      toc: (version, chapter) =>
+        chapter
+          ? this.bible.tocWithChapter(version, chapter.book, chapter.chapter)
+          : this.bible.toc(version),
+      passage: (versions, reference) => this.bible.passage(versions, reference),
+      search: (version, query) => this.bible.search(version, query),
+    });
     this.uploads = new MediaUploads(this.uploadDeps());
     this.videos = new VideoCache(this.videoCacheDeps());
     let readyVideos = 0;
@@ -292,6 +321,68 @@ export class CloudController {
     this.relay?.reconnect();
   }
 
+  /**
+   * The church server's Bible routes, while this computer is connected to a server that
+   * offers a Bible; null otherwise, when the window uses what it saved (P4.1).
+   */
+  private bibleServer(): BibleServer | null {
+    const { server, deviceToken } = this.state ?? {};
+    // Asked even when the server's last info said it had no Bible: that may be out of date,
+    // and the server refuses a version it does not offer.
+    if (!server || !deviceToken) return null;
+    const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+      const headers: Record<string, string> = {
+        [PROTOCOL_HEADER]: String(this.protocolVersion),
+        authorization: `Bearer ${deviceToken}`,
+      };
+      if (body !== undefined) headers['content-type'] = 'application/json';
+      const response = await fetch(`${server}${path}`, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) {
+        const answer = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          reason?: string;
+        };
+        const code = answer.error;
+        throw new BibleRequestError(
+          code === 'not-offered' ||
+            code === 'not-found' ||
+            code === 'too-large' ||
+            code === 'unavailable'
+            ? code
+            : 'unavailable',
+          answer.reason ?? `${response.status}`,
+        );
+      }
+      return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+    };
+    const v = (version: string) => encodeURIComponent(version);
+    return {
+      versions: async () =>
+        (await request<BibleVersionsResponse>('GET', '/api/v1/bible/versions')).versions,
+      toc: (version, chapter) =>
+        request(
+          'GET',
+          `/api/v1/bible/${v(version)}/toc${chapter ? `?book=${chapter.book}&chapter=${chapter.chapter}` : ''}`,
+        ),
+      passage: async (version, usfm, device, session) =>
+        (
+          await request<BiblePassageResponse>(
+            'GET',
+            `/api/v1/bible/${v(version)}/passage?ref=${encodeURIComponent(usfm)}&device=${device}&session=${session}`,
+          )
+        ).text,
+      search: (version, query) =>
+        request('GET', `/api/v1/bible/${v(version)}/search?q=${encodeURIComponent(query)}`),
+      reportUsage: (tokens, device, session) =>
+        request('POST', '/api/v1/bible/fums', { tokens, device, session }),
+    };
+  }
+
   /** A request to the instance with this device's token and the protocol version. */
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
     const { server, deviceToken } = this.state ?? {};
@@ -327,7 +418,16 @@ export class CloudController {
       this.editTimer = window.setTimeout(() => void this.syncIfChanged(), SYNC_AFTER_EDIT_MS);
       this.scheduleFontCheck();
     });
-    this.timers.push(window.setInterval(() => void this.sync(), SYNC_EVERY_MS));
+    let tick = 0;
+    this.timers.push(
+      window.setInterval(() => {
+        void this.sync();
+        // What the server offers can change while this app runs (P4.5).
+        if (this.connected && infoDue(this.status_.server, ++tick)) {
+          void this.recheckProtocol().catch(() => undefined);
+        }
+      }, SYNC_EVERY_MS),
+    );
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
     // Before anything that needs the church: the OBS computer's controls work without it.
     await this.startObs().catch(console.error);
@@ -429,6 +529,14 @@ export class CloudController {
   private async refreshState(): Promise<void> {
     this.state = await this.syncStore.getState();
     this.update({ state: this.state });
+  }
+
+  /**
+   * **Sync now**: the content, and what the server offers (its Bible, media, protocol),
+   * which a desktop otherwise asks again only from time to time.
+   */
+  async syncNow(): Promise<void> {
+    await Promise.all([this.sync(), this.recheckProtocol().catch(() => undefined)]);
   }
 
   async sync(): Promise<void> {
@@ -888,6 +996,8 @@ export class CloudController {
       obs: this.obsSupported(),
       // Video items in snapshots (protocol version 5, U21).
       videos: true,
+      // Passage items in snapshots (protocol version 6).
+      passages: true,
     };
   }
 
@@ -1058,6 +1168,8 @@ export class CloudController {
         switch (message.type) {
           case 'changed':
             void this.sync();
+            // Church settings may have changed what the server offers, such as its Bible.
+            void this.recheckProtocol().catch(() => undefined);
             return;
           case 'message':
             void this.host.message(message.from, message.data);

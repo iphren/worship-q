@@ -247,3 +247,186 @@ export function contrastTextColor(background: string): '#000000' | '#ffffff' {
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return luminance > 0.4 ? '#000000' : '#ffffff';
 }
+
+// ── Bible passages (B10, B24) ───────────────────────────────────────────────
+
+/** Passage text aims at 6 % of the output height and is never drawn below 4 % (spike P0.3). */
+export const PASSAGE_TARGET_RATIO = 0.06;
+export const PASSAGE_FLOOR_RATIO = 0.04;
+/** The gap between two columns, as a fraction of the output width. */
+export const PASSAGE_COLUMN_GAP = 0.03;
+export const PASSAGE_LINE_HEIGHT = 1.5;
+/** The colour of a passage's reference and verse numbers: a bright cyan. */
+export const PASSAGE_ACCENT = '#00E6FF';
+/** Verse numbers are small and raised. */
+export const PASSAGE_LABEL_SCALE = 0.6;
+/**
+ * The passage's reference at the top and the versions' credits at the bottom keep fixed
+ * places on every slide: this far from the screen's edge, at these sizes, all as fractions
+ * of the height. The verses fit between them.
+ */
+export const PASSAGE_EDGE_RATIO = 0.03;
+export const PASSAGE_HEADER_RATIO = 0.035;
+export const PASSAGE_CREDIT_RATIO = 0.025;
+/** Where the verses start and end, as fractions of the height. */
+export const PASSAGE_TEXT_TOP = 0.09;
+export const PASSAGE_TEXT_BOTTOM = 0.91;
+/** A poetry line's indent, in em. */
+export const PASSAGE_INDENT_EM = 1.5;
+
+/** Text split into the pieces a line may break between: words, CJK characters, punctuation. */
+function wrapChunks(text: string): string[] {
+  const chunks: string[] = [];
+  let previous = '';
+  for (const char of Array.from(text)) {
+    const canBreak =
+      previous !== '' &&
+      ((/\s/.test(previous) && !/\s/.test(char)) ||
+        ((isWide(char) || isWide(previous)) && !/\s/.test(char))) &&
+      !CLOSING.includes(char) &&
+      !OPENING.includes(previous);
+    if (canBreak || chunks.length === 0) chunks.push(char);
+    else chunks[chunks.length - 1] += char;
+    previous = char;
+  }
+  return chunks;
+}
+
+/**
+ * Wraps `text` into lines no wider than `width` em, breaking between words and between CJK
+ * characters, never before closing punctuation. `firstIndent` em is taken from the first
+ * line, for a verse number. A word wider than a line is broken where it must be.
+ */
+export function wrapText(text: string, width: number, measure: Measure, firstIndent = 0): string[] {
+  const lines: string[] = [];
+  let line = '';
+  let room = width - firstIndent;
+  const push = () => {
+    lines.push(line.trimEnd());
+    line = '';
+    room = width;
+  };
+  for (const chunk of wrapChunks(text.trim())) {
+    const candidate = line + chunk;
+    if (measure(candidate.trimEnd()) <= room + EPSILON || line === '') {
+      if (line === '' && measure(chunk.trimEnd()) > room + EPSILON) {
+        // Too wide for any line: broken by characters.
+        for (const char of Array.from(chunk)) {
+          if (line !== '' && measure((line + char).trimEnd()) > room + EPSILON) push();
+          line += char;
+        }
+      } else {
+        line = candidate;
+      }
+    } else {
+      push();
+      line = chunk.trimStart();
+    }
+  }
+  if (line.trim() !== '' || lines.length === 0) push();
+  return lines;
+}
+
+export interface PassageInputColumn {
+  credit: string;
+  units: { label: string; title?: boolean; lines: { text: string; indent: number }[] }[];
+}
+
+/** One visual line of a passage column. */
+export interface PassageVisualLine {
+  text: string;
+  /** The verse number drawn before it, on a verse's first line only. */
+  label: string | null;
+  indent: number;
+  title: boolean;
+}
+
+export interface FittedPassage {
+  /** One size for every column (B24). */
+  fontSize: number;
+  /** The verses' area: from `marginX` at each side, from `marginY` down `areaHeight`. */
+  marginX: number;
+  marginY: number;
+  areaWidth: number;
+  areaHeight: number;
+  /** The reference above and the credits below, at fixed places and sizes. */
+  edge: number;
+  headerSize: number;
+  creditSize: number;
+  columnWidth: number;
+  gap: number;
+  columns: { credit: string; lines: PassageVisualLine[] }[];
+}
+
+/**
+ * Fits a passage slide: the columns side by side at one size, aiming at 5 % of the height
+ * and shrinking to fit, never below 4 %. Only a slide that cannot fit even then, a single
+ * very long verse, goes smaller, so no text is ever cut off.
+ */
+export function fitPassage(
+  columns: readonly PassageInputColumn[],
+  width: number,
+  height: number,
+  measure: Measure,
+  scale = 1,
+): FittedPassage {
+  const marginX = width * SAFE_MARGIN;
+  const marginY = height * PASSAGE_TEXT_TOP;
+  const areaWidth = width - marginX * 2;
+  const areaHeight = height * (PASSAGE_TEXT_BOTTOM - PASSAGE_TEXT_TOP);
+  const count = Math.max(1, columns.length);
+  const gap = count > 1 ? width * PASSAGE_COLUMN_GAP : 0;
+  const columnWidth = (areaWidth - gap * (count - 1)) / count;
+  const labelWidth = (label: string) => measure(label) * PASSAGE_LABEL_SCALE + measure(' ');
+
+  const layoutAt = (size: number) =>
+    columns.map((column) => ({
+      credit: column.credit,
+      lines: column.units.flatMap((unit) =>
+        unit.lines.flatMap((line, index) => {
+          const label = index === 0 && unit.label && !unit.title ? unit.label : null;
+          const available = Math.max(0.5, columnWidth / size - line.indent * PASSAGE_INDENT_EM);
+          return wrapText(line.text, available, measure, label ? labelWidth(label) : 0).map(
+            (text, i): PassageVisualLine => ({
+              text,
+              label: i === 0 ? label : null,
+              indent: line.indent,
+              title: !!unit.title,
+            }),
+          );
+        }),
+      ),
+    }));
+  const fits = (size: number) =>
+    layoutAt(size).every(
+      (column) => column.lines.length * size * PASSAGE_LINE_HEIGHT <= areaHeight + EPSILON,
+    );
+  const largest = (low: number, high: number) => {
+    for (let i = 0; i < 40 && high - low > 0.05; i++) {
+      const middle = (low + high) / 2;
+      if (fits(middle)) low = middle;
+      else high = middle;
+    }
+    return low;
+  };
+
+  const target = height * PASSAGE_TARGET_RATIO * scale;
+  const floor = Math.min(target, height * PASSAGE_FLOOR_RATIO);
+  let fontSize: number;
+  if (fits(target)) fontSize = target;
+  else if (fits(floor)) fontSize = largest(floor, target);
+  else fontSize = Math.max(1, largest(0, floor));
+  return {
+    fontSize,
+    marginX,
+    marginY,
+    areaWidth,
+    areaHeight,
+    edge: height * PASSAGE_EDGE_RATIO,
+    headerSize: height * PASSAGE_HEADER_RATIO,
+    creditSize: height * PASSAGE_CREDIT_RATIO,
+    columnWidth,
+    gap,
+    columns: layoutAt(fontSize),
+  };
+}

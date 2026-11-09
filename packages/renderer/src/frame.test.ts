@@ -255,3 +255,58 @@ describe('following the live clock (M6.3)', () => {
     expect(drifted(9.4, 10)).toBe(true);
   });
 });
+
+describe('passage frames (P6.2)', () => {
+  const columns = [
+    {
+      version: 'NIVUK',
+      credit: 'NIVUK',
+      units: [{ label: '5', lines: [{ text: 'But Jesus', indent: 0 }] }],
+    },
+    {
+      version: 'CCB',
+      credit: '当代译本',
+      units: [{ label: '5', lines: [{ text: '耶稣', indent: 0 }] }],
+    },
+  ];
+  const presented = (blank = false) =>
+    snapshot(
+      {
+        itemId: 'i1',
+        pieceId: 'v15:5',
+        songId: 's1',
+        title: 'Mark 15:5',
+        kind: 'passage',
+        pieces: [{ id: 'v15:5', lines: ['5 But Jesus'], passage: { columns } }],
+        background: { color: '#203040', assetId: null },
+        websiteUrl: null,
+        previous: false,
+      },
+      blank,
+    );
+  const frame = (kind: 'slideshow' | 'subtitle', blank = false) =>
+    buildFrame({ kind, look, fileUrl, fontAvailable: true, snapshot: presented(blank) });
+
+  it('draws a passage on the slideshow, side by side, on the song’s background', () => {
+    const shown = frame('slideshow');
+    // Under the whole passage's reference, the item's title.
+    expect(shown.passage).toEqual({
+      columns,
+      headers: ['Mark 15:5'],
+      page: { number: 1, count: 1 },
+    });
+    expect(shown.pieceId).toBe('v15:5');
+    expect(shown.song).toBeNull();
+    expect(shown.background.color).toBe('#203040');
+  });
+
+  it('draws nothing on the subtitle overlay', () => {
+    const shown = frame('subtitle');
+    expect(shown.passage ?? null).toBeNull();
+    expect(shown.song).toBeNull();
+  });
+
+  it('hides it while blank', () => {
+    expect(frame('slideshow', true).passage ?? null).toBeNull();
+  });
+});

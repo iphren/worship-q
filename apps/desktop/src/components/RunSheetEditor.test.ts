@@ -84,6 +84,12 @@ describe('the run sheet item menu (U27)', () => {
     ]);
   });
 
+  it('offers a passage Edit and Remove, never Download original or Upload new version (P5.2)', () => {
+    const passage = { reference: 'MRK.15.5', texts: [] };
+    expect(names(itemActions(song({ passage }), state))).toEqual(['edit', 'remove']);
+    expect(names(itemActions(song({ passage }), { ...state, editable: false }))).toEqual([]);
+  });
+
   it('offers media all four, Remove last', () => {
     for (const fields of [{ deck }, { deck: { ...deck, kind: 'image' } }, { video }]) {
       expect(names(itemActions(song(fields), state))).toEqual([

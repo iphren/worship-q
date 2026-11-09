@@ -12,7 +12,7 @@ import {
 } from '@worship-q/protocol';
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useApp, useQuery, useSession } from '../app/context';
+import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
@@ -29,6 +29,9 @@ import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
 import { AudioSettings } from '../components/AudioSettings';
+import { VersionChips } from '../components/BibleWindow';
+import { workspaceVersions } from '../app/bible';
+import type { BibleVersionInfo } from '@worship-q/protocol';
 
 const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
 const BACKUP_EXTENSION = 'worshipq';
@@ -80,6 +83,37 @@ function OnScreenSongBackground(props: { song: Song }) {
   return <SongBackgroundFields value={value} onChange={change} />;
 }
 
+/** The background of every Bible passage, saved after a short pause as a song's is. */
+function BibleBackground(props: { value: SongBackground | null }) {
+  const session = useSession();
+  const [value, setValue] = useState(props.value);
+  const timer = useRef<number | undefined>(undefined);
+  const pending = useRef<(() => void) | null>(null);
+  useEffect(() => () => pending.current?.(), []);
+
+  function change(background: SongBackground | null) {
+    setValue(background);
+    window.clearTimeout(timer.current);
+    pending.current = () => {
+      window.clearTimeout(timer.current);
+      pending.current = null;
+      void session.setBibleBackground(background);
+    };
+    timer.current = window.setTimeout(() => pending.current?.(), 400);
+  }
+
+  return (
+    <SongBackgroundFields
+      value={value}
+      onChange={change}
+      own={{
+        label: t('settings.bibleBackgroundOwn'),
+        hint: t('settings.bibleBackgroundOwnHint'),
+      }}
+    />
+  );
+}
+
 export function SettingsPage() {
   const { output } = useApp();
   const session = useSession();
@@ -102,21 +136,44 @@ export function SettingsPage() {
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
-  // Only a song of lyrics has a background of its own: slides and websites are shown on black.
+  const presentedSong = useQuery(
+    async () => (onScreenId ? await session.store.getSong(onScreenId) : null),
+    [onScreenId],
+  );
+  // Only a song of lyrics has a background of its own: slides and websites are shown on
+  // black, and passages on the Bible background.
   const onScreen = useQuery(async () => {
-    const song = onScreenId ? await session.store.getSong(onScreenId) : null;
-    if (!song || song.deck || song.website) return null;
+    const song = presentedSong;
+    if (!song || song.deck || song.website || song.video || song.passage) return null;
     // The background it is shown on: the workspace's choice, not only what the song carries.
     return { ...song, background: await session.store.getSongBackground(song) };
-  }, [onScreenId]);
+  }, [presentedSong]);
+  const passageOnScreen = !!presentedSong?.passage;
+  const bibleBackground = useQuery(() => session.store.getBibleBackground(workspaceId), []);
   const [fonts, setFonts] = useState<string[]>([]);
   const [version, setVersion] = useState('');
   const [missing, setMissing] = useState('');
   const [restoreFrom, setRestoreFrom] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
-  const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'song'>('workspace');
+  const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'bible' | 'song'>(
+    'workspace',
+  );
   // The song tab only exists while a song is on screen.
-  const backgroundTab = onScreen ? chosenBackgroundTab : 'workspace';
+  const backgroundTab =
+    chosenBackgroundTab === 'song' && !onScreen ? 'workspace' : chosenBackgroundTab;
+  const backgroundTabs = onScreen
+    ? (['workspace', 'bible', 'song'] as const)
+    : (['workspace', 'bible'] as const);
+  // Which background the screen shows now, for the tab's dot.
+  const backgroundInUse: 'workspace' | 'bible' | 'song' | null = passageOnScreen
+    ? bibleBackground
+      ? 'bible'
+      : 'workspace'
+    : onScreen
+      ? onScreen.background
+        ? 'song'
+        : 'workspace'
+      : null;
 
   useEffect(() => {
     void native.listFontFamilies().then(setFonts);
@@ -286,55 +343,61 @@ export function SettingsPage() {
           hint={
             backgroundTab === 'song'
               ? t('settings.songBackgroundHint')
-              : onScreen?.background
-                ? t('settings.backgroundCovered')
-                : t('settings.backgroundWorkspaceHint')
+              : backgroundTab === 'bible'
+                ? t('settings.bibleBackgroundHint')
+                : onScreen?.background
+                  ? t('settings.backgroundCovered')
+                  : t('settings.backgroundWorkspaceHint')
           }
         >
-          {onScreen && (
-            <div role="tablist" className="flex gap-1 border-b border-slate-700">
-              {(['workspace', 'song'] as const).map((key) => {
-                // The background the song on screen is shown on now: its own, or the workspace's.
-                const inUse = (key === 'song') === Boolean(onScreen.background);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    role="tab"
-                    aria-selected={backgroundTab === key}
-                    title={inUse ? t('settings.backgroundInUse') : undefined}
-                    className={`relative -mb-px flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
-                      // Only the song's title gives way to a narrow window.
-                      key === 'workspace' ? 'shrink-0' : 'min-w-0'
-                    } ${
-                      backgroundTab === key
-                        ? 'border-sky-500 text-slate-100'
-                        : 'border-transparent text-slate-400 hover:text-slate-200'
-                    }`}
-                    onClick={() => setBackgroundTab(key)}
-                  >
-                    {inUse && (
-                      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
-                    )}
-                    <span className="min-w-0 truncate">
-                      {key === 'workspace'
-                        ? t('settings.backgroundWorkspace')
+          <div role="tablist" className="flex gap-1 border-b border-slate-700">
+            {backgroundTabs.map((key) => {
+              // The background the item on screen is shown on now.
+              const inUse = key === backgroundInUse;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={backgroundTab === key}
+                  title={inUse ? t('settings.backgroundInUse') : undefined}
+                  className={`relative -mb-px flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
+                    // Only the song's title gives way to a narrow window.
+                    key === 'song' ? 'min-w-0' : 'shrink-0'
+                  } ${
+                    backgroundTab === key
+                      ? 'border-sky-500 text-slate-100'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                  onClick={() => setBackgroundTab(key)}
+                >
+                  {inUse && (
+                    <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                  )}
+                  <span className="min-w-0 truncate">
+                    {key === 'workspace'
+                      ? t('settings.backgroundWorkspace')
+                      : key === 'bible'
+                        ? t('settings.bibleBackground')
                         : t('settings.songBackground', {
-                            title: onScreen.title || t('songs.untitled'),
+                            title: onScreen?.title || t('songs.untitled'),
                           })}
-                    </span>
-                    {inUse && <span className="sr-only">{t('settings.backgroundInUse')}</span>}
-                  </button>
-                );
-              })}
+                  </span>
+                  {inUse && <span className="sr-only">{t('settings.backgroundInUse')}</span>}
+                </button>
+              );
+            })}
+          </div>
+          {backgroundTab === 'bible' ? (
+            <div role="tabpanel" className="space-y-3">
+              {bibleBackground !== undefined && <BibleBackground value={bibleBackground} />}
             </div>
-          )}
-          {backgroundTab === 'song' && onScreen ? (
+          ) : backgroundTab === 'song' && onScreen ? (
             <div role="tabpanel" className="space-y-3">
               <OnScreenSongBackground key={onScreen.id} song={onScreen} />
             </div>
           ) : (
-            <div role={onScreen ? 'tabpanel' : undefined} className="space-y-3">
+            <div role="tabpanel" className="space-y-3">
               <BackgroundPicker
                 color={profile.backgroundColor}
                 assetId={profile.backgroundAssetId}
@@ -473,6 +536,8 @@ export function SettingsPage() {
             </span>
           </label>
         </Section>
+
+        <BibleVersionsSection />
 
         <Section title={t('outputs.title')} hint={t('outputs.hint')}>
           <div>
@@ -641,5 +706,38 @@ export function SettingsPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * The workspace's Bible versions (B4), the same setting as the Bible window's chips; shown
+ * while the church server offers a Bible.
+ */
+function BibleVersionsSection() {
+  const { cloud } = useApp();
+  const session = useSession();
+  const status = useCloud();
+  const offersBible = !!status.server?.bible;
+  const [offered, setOffered] = useState<BibleVersionInfo[] | null>(null);
+  useEffect(() => {
+    if (!offersBible) return;
+    let cancelled = false;
+    void cloud.bible.versions().then((list) => !cancelled && setOffered(list));
+    return () => {
+      cancelled = true;
+    };
+  }, [cloud, offersBible]);
+  const chosen = useQuery(() => session.store.getBibleVersions(session.workspace.id), []);
+  const church = useQuery(() => session.store.getChurchSettings(), []);
+  if (!offersBible || !offered || !chosen || !church) return null;
+  return (
+    <Section title={t('bible.workspaceVersions')} hint={t('bible.workspaceVersionsHint')}>
+      <VersionChips
+        offered={offered}
+        chosen={chosen}
+        versions={workspaceVersions(chosen, offered, church.bibleDefaultVersions)}
+        onChange={(next) => void session.setBibleVersions(next)}
+      />
+    </Section>
   );
 }

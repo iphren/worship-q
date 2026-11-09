@@ -1,5 +1,7 @@
 import {
+  formatReference,
   itemBadge,
+  songSearchReference,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
   outputElapsed,
@@ -15,6 +17,7 @@ import {
 } from '@worship-q/protocol';
 import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { PassageColumns, PhoneBible } from './Bible';
 import { RemoteConnection } from './connection';
 
 const connection = new RemoteConnection(window.location);
@@ -122,7 +125,9 @@ function Live({ view }: { view: RemoteView | null }) {
   // away from what this phone is about to tap.
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
-  const [mode, setMode] = useState<'present' | 'edit' | 'add'>('present');
+  const [mode, setMode] = useState<'present' | 'edit' | 'add' | 'bible'>('present');
+  // A reference typed into the library search, which the Bible screen opens on.
+  const [bibleFrom, setBibleFrom] = useState<string | undefined>(undefined);
   // The OBS screen opens over whichever of the others was showing, which stays as it was
   // underneath (its search, its scroll) and comes back when the screen closes.
   const [obsOpen, setObsOpen] = useState(false);
@@ -167,7 +172,7 @@ function Live({ view }: { view: RemoteView | null }) {
 
   if (!view) return <Message title="Connecting…" />;
   const canEdit = view.editable === true;
-  const editing = mode === 'edit' || mode === 'add';
+  const editing = mode === 'edit' || mode === 'add' || mode === 'bible';
   const control =
     'flex items-center justify-center rounded-xl py-4 font-semibold active:scale-[0.98] disabled:opacity-40';
   const controlIcon = 'h-6 w-6';
@@ -234,14 +239,35 @@ function Live({ view }: { view: RemoteView | null }) {
           search and scroll position underneath. */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
-          {mode === 'add' ? (
-            <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
+          {mode === 'bible' ? (
+            <PhoneBible
+              connection={connection}
+              connected={connected && canEdit}
+              initial={bibleFrom}
+              onDone={() => setMode('edit')}
+            />
+          ) : mode === 'add' ? (
+            <AddSongs
+              view={view}
+              connected={connected && canEdit}
+              onDone={() => setMode('edit')}
+              onOpenBible={(text) => {
+                setBibleFrom(text);
+                setMode('bible');
+              }}
+            />
           ) : mode === 'edit' ? (
             <EditRunSheet
               view={view}
               connected={connected && canEdit}
               before={before}
               onAdd={openSearch}
+              onBible={() => {
+                setBefore(new Set(view.items.map((item) => item.itemId)));
+                setBibleFrom(undefined);
+                setMode('bible');
+                setObsOpen(false);
+              }}
             />
           ) : (
             <div className="relative min-h-0 flex-1">
@@ -286,8 +312,9 @@ function Live({ view }: { view: RemoteView | null }) {
                                 ? view.blank
                                   ? 'border-amber-400 bg-amber-900/50'
                                   : 'border-emerald-500 bg-emerald-900/50 text-white'
-                                : // Alternate styles by block, as on the desktop.
-                                  (piece.block ?? 0) % 2 === 0
+                                : // A song's blocks alternate, as on the desktop; slides,
+                                  // passages and the rest are drawn alike.
+                                  !shadesBlocks(item) || (piece.block ?? 0) % 2 === 0
                                   ? 'border-slate-700 bg-slate-900'
                                   : 'border-sky-700 bg-sky-900/60'
                             }`}
@@ -308,6 +335,8 @@ function Live({ view }: { view: RemoteView | null }) {
                               />
                             ) : item.kind === 'video' ? (
                               <div>▶ Video · {piece.lines[0] ?? ''}</div>
+                            ) : piece.passage ? (
+                              <PassageColumns columns={piece.passage.columns} />
                             ) : (
                               piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
                             )}
@@ -327,7 +356,7 @@ function Live({ view }: { view: RemoteView | null }) {
                   onClick={() =>
                     activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
                   }
-                  className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                  className={`absolute right-4 bottom-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
                     view.blank
                       ? 'border-amber-400 text-amber-300'
                       : 'border-emerald-500 text-emerald-300'
@@ -549,6 +578,7 @@ function EditRunSheet(props: {
   connected: boolean;
   before: ReadonlySet<string> | null;
   onAdd(): void;
+  onBible(): void;
 }) {
   const { view, connected, before } = props;
   const firstNewRef = useRef<HTMLLIElement>(null);
@@ -657,8 +687,23 @@ function EditRunSheet(props: {
       >
         + Add an item
       </button>
+      <button
+        className="w-full rounded-lg border border-dashed border-teal-700 py-3 text-[15px] font-semibold text-teal-300 active:scale-[0.98] disabled:opacity-40"
+        disabled={!connected}
+        onClick={props.onBible}
+      >
+        📖 Add a Bible passage
+      </button>
     </main>
   );
+}
+
+/**
+ * Whether an item's blocks are shaded in turn: a song's verses are, as on the desktop.
+ * Desktops from before kinds were sent leave the kind out; their items are taken as songs.
+ */
+function shadesBlocks(item: { kind?: RemoteItemView['kind'] }): boolean {
+  return item.kind === undefined || item.kind === 'lyrics';
 }
 
 /** An item's badge, as the desktop marks it; nothing for an ordinary song. */
@@ -668,9 +713,17 @@ function ItemMark(props: { item: { kind?: RemoteItemView['kind']; badge?: ItemBa
 }
 
 /** The library search, as on the presenting computer, adding songs to the live run sheet. */
-function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void }) {
+function AddSongs(props: {
+  view: RemoteView;
+  connected: boolean;
+  onDone(): void;
+  /** Opens the Bible screen on a reference typed here (B9). */
+  onOpenBible(text: string): void;
+}) {
   const { view, connected } = props;
   const [query, setQuery] = useState('');
+  // A reference typed into the search, found on the phone alone; songs are still listed.
+  const reference = songSearchReference(query);
   const [results, setResults] = useState<{ query: string; songs: RemoteSongResult[] } | null>(null);
   // Titles of the songs added from this search, so the phone shows each one worked.
   const [added, setAdded] = useState<string[]>([]);
@@ -767,7 +820,19 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
             )}
           </li>
         )}
-        {results?.songs.length === 0 && !searching && (
+        {reference && (
+          <li>
+            <button
+              className="flex w-full items-center gap-2 rounded-lg border border-[#00E6FF]/40 bg-slate-900 p-3 text-left text-[15px] font-semibold text-[#00E6FF] active:scale-[0.98] disabled:opacity-40"
+              disabled={!connected}
+              onClick={() => props.onOpenBible(query.trim())}
+            >
+              <ItemBadgeMark badge="bible" />
+              Open {formatReference(reference)} in the Bible
+            </button>
+          </li>
+        )}
+        {results?.songs.length === 0 && !searching && !reference && (
           <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
         )}
         {results?.songs.map((song) => {

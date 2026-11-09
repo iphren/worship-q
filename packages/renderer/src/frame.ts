@@ -80,6 +80,20 @@ export function buildFrame(input: FrameInput): OutputFrame {
     }
     return frame;
   }
+  if (presented.kind === 'passage') {
+    // On the slideshow only: the subtitle overlay stays empty while a passage is live (B12).
+    const piece = presented.pieces.find((p) => p.id === presented.pieceId);
+    frame.pieceId = piece ? piece.id : null;
+    if (piece?.passage && kind === 'slideshow' && !frame.blank) {
+      // From a desktop before headers were sent: the item's title, the first version's.
+      frame.passage = {
+        columns: piece.passage.columns,
+        headers: piece.passage.headers ?? [presented.title],
+        page: { number: presented.pieces.indexOf(piece) + 1, count: presented.pieces.length },
+      };
+    }
+    return frame;
+  }
   if (presented.kind === 'deck') {
     const page = presented.pieces.find((piece) => piece.id === presented.pieceId);
     frame.pieceId = page ? page.id : null;

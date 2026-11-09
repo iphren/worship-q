@@ -10,7 +10,13 @@ import {
 import { EMPTY_FRAME, type OutputFrame, type OutputVideo } from '@worship-q/protocol';
 import {
   contrastTextColor,
+  fitPassage,
   fitSong,
+  PASSAGE_ACCENT,
+  PASSAGE_INDENT_EM,
+  PASSAGE_LABEL_SCALE,
+  PASSAGE_LINE_HEIGHT,
+  type FittedPassage,
   outputGeometry,
   subtitleGeometry,
   type Measure,
@@ -71,6 +77,17 @@ interface Layer {
 interface Lyrics extends Layer {
   lines: string[];
   style: CSSProperties;
+}
+
+interface PassageLayer extends Layer {
+  fitted: FittedPassage;
+  /** The whole passage's reference in each version's language, the same on every slide. */
+  headers: string[];
+  /** Which slide this is of how many; null for a frame from before pages were sent. */
+  page: { number: number; count: number } | null;
+  color: string;
+  fontFamily: string;
+  textShadow: string;
 }
 
 interface Picture extends Layer {
@@ -251,6 +268,42 @@ export function Slide({
     [piece, fitted, songId, pieceId, fontFamily, color, onMedia, subtitle],
   );
 
+  // A passage's slide (B10, B24): its versions side by side at one size, on the slideshow only.
+  const passageColumns = !subtitle && !frame.blank ? (frame.passage?.columns ?? null) : null;
+  const passage = useMemo<PassageLayer | null>(() => {
+    if (!passageColumns || width <= 0 || height <= 0) return null;
+    const fitted = fitPassage(
+      passageColumns,
+      width,
+      height,
+      measure ?? createCanvasMeasure(fontFamily),
+      frame.scale,
+    );
+    return {
+      key: `passage:${pieceId}:${passageColumns.map((column) => column.version).join('|')}`,
+      fitted,
+      headers: frame.passage?.headers ?? [],
+      page: frame.passage?.page ?? null,
+      color,
+      fontFamily: cssFontFamily(fontFamily),
+      textShadow: onMedia ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)' : 'none',
+    };
+    // fontsReady: measure again once fonts have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    passageColumns,
+    width,
+    height,
+    measure,
+    fontFamily,
+    frame.scale,
+    pieceId,
+    frame.passage?.page?.count,
+    color,
+    onMedia,
+    fontsReady,
+  ]);
+
   const pictureUrl = frame.picture?.url ?? null;
   const picture = useMemo<Picture | null>(
     () => (pictureUrl ? { key: pictureUrl, url: pictureUrl } : null),
@@ -259,6 +312,7 @@ export function Slide({
 
   const backgrounds = useCrossfade(background, transition, false);
   const lyricLayers = useCrossfade(lyrics, transition, true);
+  const passageLayers = useCrossfade(passage, transition, true);
   // The next slide covers the last one as it fades in; only going blank fades a slide out.
   const pictureLayers = useCrossfade(picture, transition, picture === null);
 
@@ -282,6 +336,9 @@ export function Slide({
       ))}
       {lyricLayers.layers.map((layer) => (
         <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
+      ))}
+      {passageLayers.layers.map((layer) => (
+        <PassageBlock key={layer.key} ref={passageLayers.ref(layer.key)} passage={layer} />
       ))}
       {frame.video && frame.video.url && (
         <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} sinkId={sinkId} />
@@ -489,6 +546,136 @@ function LyricsBlock(props: { lyrics: Lyrics; ref: Ref<HTMLDivElement> }) {
           {line}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A passage's slide: the whole passage's reference at the top and the versions' credits at
+ * the bottom, both at the left and right corners for two versions, and at the top left and
+ * bottom right for one; the verses of each version side by side between them, top-aligned so
+ * they start level. The reference and the credits keep their places on every slide; only the
+ * verses change.
+ */
+function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }) {
+  const { fitted, color, fontFamily, textShadow, headers, page } = props.passage;
+  // One reference per column; two that read the same are shown once, at the left.
+  const shownHeaders =
+    headers.length > 1 && headers[0] === headers[1] ? headers.slice(0, 1) : headers;
+  const credits = fitted.columns.map((column) => column.credit);
+  const band: CSSProperties = {
+    position: 'absolute',
+    left: fitted.marginX,
+    width: fitted.areaWidth,
+    lineHeight: PASSAGE_LINE_HEIGHT,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
+  return (
+    <div
+      ref={props.ref}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        color,
+        fontFamily,
+        textShadow,
+        fontWeight: FONT_WEIGHT,
+      }}
+    >
+      {shownHeaders.length > 0 && (
+        <div
+          style={{
+            ...band,
+            top: fitted.edge,
+            fontSize: fitted.headerSize,
+            color: PASSAGE_ACCENT,
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
+          {shownHeaders.map((header, index) => (
+            <span key={index}>{header}</span>
+          ))}
+        </div>
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          left: fitted.marginX,
+          top: fitted.marginY,
+          width: fitted.areaWidth,
+          height: fitted.areaHeight,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          fontSize: fitted.fontSize,
+          lineHeight: PASSAGE_LINE_HEIGHT,
+        }}
+      >
+        <div style={{ display: 'flex', gap: fitted.gap, alignItems: 'flex-start' }}>
+          {fitted.columns.map((column, index) => (
+            <div key={index} style={{ width: fitted.columnWidth }}>
+              {column.lines.map((line, i) => (
+                <div
+                  key={i}
+                  style={{
+                    whiteSpace: 'pre',
+                    paddingLeft: `${line.indent * PASSAGE_INDENT_EM}em`,
+                    fontStyle: line.title ? 'italic' : undefined,
+                    opacity: line.title ? 0.85 : undefined,
+                  }}
+                >
+                  {line.label && (
+                    <span
+                      style={{
+                        fontSize: `${PASSAGE_LABEL_SCALE}em`,
+                        verticalAlign: '0.6em',
+                        lineHeight: 0,
+                        color: PASSAGE_ACCENT,
+                      }}
+                    >
+                      {`${line.label} `}
+                    </span>
+                  )}
+                  {line.text}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div
+        style={{
+          ...band,
+          bottom: fitted.edge,
+          fontSize: fitted.creditSize,
+          fontWeight: 400,
+          opacity: 0.7,
+          display: 'flex',
+          justifyContent: credits.length > 1 ? 'space-between' : 'flex-end',
+        }}
+      >
+        {credits.map((credit, index) => (
+          <span key={index}>{credit}</span>
+        ))}
+      </div>
+      {/* Which slide of the passage, at the bottom centre, when it has more than one. */}
+      {page && page.count > 1 && page.number > 0 && (
+        <div
+          style={{
+            ...band,
+            bottom: fitted.edge,
+            fontSize: fitted.creditSize,
+            fontWeight: 400,
+            opacity: 0.7,
+            textAlign: 'center',
+          }}
+        >
+          {`${page.number} / ${page.count}`}
+        </div>
+      )}
     </div>
   );
 }

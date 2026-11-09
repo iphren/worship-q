@@ -153,6 +153,8 @@ export function BackgroundPicker(props: {
 export function SongBackgroundFields(props: {
   value: SongBackground | null;
   onChange(value: SongBackground | null): void;
+  /** The second choice's label and hint, for a background other than a song's own. */
+  own?: { label: string; hint: string };
 }) {
   const session = useSession();
   const profile = useQuery(() => session.store.getOutputProfile(session.workspace.id), []);
@@ -187,8 +189,10 @@ export function SongBackgroundFields(props: {
             }
           />
           <span>
-            {t('songs.backgroundOwn')}
-            <span className="block text-xs text-slate-400">{t('songs.backgroundOwnHint')}</span>
+            {props.own?.label ?? t('songs.backgroundOwn')}
+            <span className="block text-xs text-slate-400">
+              {props.own?.hint ?? t('songs.backgroundOwnHint')}
+            </span>
           </span>
         </label>
       </fieldset>

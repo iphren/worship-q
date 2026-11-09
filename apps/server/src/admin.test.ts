@@ -647,6 +647,23 @@ describe('church defaults', () => {
     const shown = await app.inject({ method: 'GET', url: '/api/v1/admin/settings', headers });
     expect(shown.json().keys).toContain('slideshowFontFamily');
   });
+
+  it('sets the church’s default Bible versions, two at most, and sends them to desktops', async () => {
+    const { app, signIn, instance } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const put = (value: unknown) =>
+      app.inject({
+        method: 'PUT',
+        url: '/api/v1/admin/settings',
+        headers,
+        payload: { key: 'bibleDefaultVersions', value },
+      });
+    expect((await put(['CCB', 'NIVUK'])).json().settings).toEqual({
+      bibleDefaultVersions: ['CCB', 'NIVUK'],
+    });
+    expect((await put(['CCB', 'NIVUK', 'ESV'])).statusCode).toBe(400);
+    expect(instance.churchSettings().bibleDefaultVersions).toEqual(['CCB', 'NIVUK']);
+  });
 });
 
 describe('byteRange', () => {

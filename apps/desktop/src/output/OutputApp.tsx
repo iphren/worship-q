@@ -9,7 +9,7 @@ import {
   FRAME_EVENT,
   READY_EVENT,
 } from '../app/output';
-import { presentAction } from '../lib/shortcuts';
+import { keyPress, presentAction } from '../lib/shortcuts';
 import { deviceSettings, findDevice } from '../app/deviceSettings';
 import { listAudioDevices } from '../components/AudioSettings';
 import { native } from '../platform/native';
@@ -35,11 +35,11 @@ export function OutputApp() {
     const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') return void emit(CLOSE_REQUEST_EVENT);
-      // The operator window owns the presentation; this window only passes the keys on.
-      const action = presentAction(event, { video: !!videoLive.current });
-      if (!action) return;
+      // The operator window owns the presentation and decides what a key does, as only it
+      // knows where the slide keys are; this window only passes the keys on.
+      if (!presentAction(event, { video: videoLive.current ? 'keyed' : null })) return;
       event.preventDefault();
-      void emit(ACTION_EVENT, action);
+      void emit(ACTION_EVENT, keyPress(event));
     };
     // A windowed slideshow has no title bar; it is moved by dragging anywhere on it.
     const onMouseDown = (event: MouseEvent) => {

@@ -9,6 +9,7 @@ import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../component
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { SlidePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
+import { PassageWarnings } from '../components/PassageWarnings';
 import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
@@ -475,7 +476,13 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                   </button>
                 </div>
                 <p className="text-center text-xs text-slate-500">
-                  {t(videoKeys(session) ? 'present.videoShortcuts' : 'present.shortcuts')}
+                  {t(
+                    {
+                      keyed: 'present.videoShortcuts' as const,
+                      live: 'present.videoLiveShortcuts' as const,
+                      none: 'present.shortcuts' as const,
+                    }[videoKeys(session) ?? 'none'],
+                  )}
                 </p>
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
@@ -541,6 +548,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                         </button>
                       )}
                     </header>
+                    <PassageWarnings song={entry.song} className="mb-2 px-2" />
                     {entry.pieces.length === 0 && (
                       <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
                     )}
@@ -616,7 +624,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             </main>
             {presented && !activeInView && (
               <button
-                className={`absolute right-4 bottom-4 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
+                className={`absolute right-4 bottom-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
                   live.blank
                     ? 'border-amber-400 text-amber-300'
                     : 'border-emerald-500 text-emerald-300'

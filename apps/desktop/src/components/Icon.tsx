@@ -106,6 +106,7 @@ const ICONS = {
   pdf: ITEM_ICON_SHAPES.pdf,
   image: ITEM_ICON_SHAPES.image,
   video: ITEM_ICON_SHAPES.video,
+  bible: ITEM_ICON_SHAPES.bible,
   more: (
     <>
       <circle cx="5" cy="12" r="1" />

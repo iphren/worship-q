@@ -334,7 +334,11 @@ export class SyncClient {
   }
 
   private async pull(state: SyncState): Promise<void> {
-    let cursor = state.cursor;
+    // A build that knows fields its predecessor did not pulls everything again, applying the
+    // same versions of records too, since the predecessor saved them without those fields.
+    // Every change to what a record holds comes with a new protocol version.
+    const refresh = (state.pulledProtocol ?? 0) < PROTOCOL_VERSION;
+    let cursor = refresh ? 0 : state.cursor;
     const records: SyncRecord[] = [];
     let page: PullResponse;
     // Everything is gathered first, so a run sheet is never applied before its songs.
@@ -360,7 +364,7 @@ export class SyncClient {
     }
     const changes: AppliedChanges = await this.session.applyRemote(async () => {
       await this.session.store.setChurchSettings(page.church);
-      return this.sync.applyRemote(workspaceId, records);
+      return this.sync.applyRemote(workspaceId, records, { refresh });
     });
     let wanted = changes.backgroundFiles;
     if (!this.filesChecked) {
@@ -374,7 +378,7 @@ export class SyncClient {
     for (const fileName of await this.files.missing(wanted)) {
       await this.files.download(fileName).catch((error) => console.warn(fileName, error));
     }
-    await this.sync.setState({ cursor });
+    await this.sync.setState({ cursor, pulledProtocol: PROTOCOL_VERSION });
   }
 
   // ── Connecting ───────────────────────────────────────────────────────────

@@ -28,13 +28,16 @@ export async function boot(): Promise<Booted> {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   // Viewer mode belongs to this computer, not to the workspace (plan M3.1).
   const role = deviceSettings.get().viewerMode ? 'viewer' : 'operator';
+  let cloud: CloudController | null = null;
   const { session, start } = await Session.open(store, { now: () => new Date() }, timezone, {
     role,
+    // API.Bible's tokens of a passage presented live go through the church server (B25).
+    reportUsage: (tokens, liveSession) => cloud?.bible.reportUsage(tokens, liveSession),
   });
   window.setInterval(() => void session.heartbeat(), HEARTBEAT_MS);
   const output = new OutputController(session);
   await output.start();
-  const cloud = new CloudController(session, output);
+  cloud = new CloudController(session, output);
   // The app opens without waiting for the network.
   void cloud.start().catch(console.error);
   const updates = new UpdateController(output);

@@ -238,6 +238,22 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE church_version ADD COLUMN video TEXT`,
     ],
   },
+  {
+    // A Bible passage shown instead of lyrics (Bible passages plan, B23), kept as JSON.
+    version: 11,
+    statements: [
+      `ALTER TABLE song ADD COLUMN passage TEXT`,
+      `ALTER TABLE song_revision ADD COLUMN passage TEXT`,
+      `ALTER TABLE church_version ADD COLUMN passage TEXT`,
+    ],
+  },
+  {
+    // Everything is pulled again from the start once: a computer that synced video or
+    // passage songs with a build older than those features kept them without their `video`
+    // and `passage`, and would otherwise never fetch them again.
+    version: 12,
+    statements: [`UPDATE sync_state SET value = '0' WHERE key = 'cursor'`],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

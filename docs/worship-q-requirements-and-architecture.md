@@ -337,7 +337,7 @@ Automatic translation is a **later, optional editing aid**, not a dependency of 
 
 ### Agreed planning experience
 
-The calendar replaces a separate user-managed “Service” concept. Workspace operators manage **song-only dated run sheets** in v1. Bible passages and uploaded slide decks are later features. Trusted coworkers can pair a home device to the workspace and prepare content remotely; plans synchronize to authorized presentation equipment.
+The calendar replaces a separate user-managed “Service” concept. Workspace operators manage dated run sheets of songs, media items (§11) and Bible passages (§11). Trusted coworkers can pair a home device to the workspace and prepare content remotely; plans synchronize to authorized presentation equipment.
 
 Users can search songs, add/reorder/remove items, and browse previous dates to reuse content. Distinguish the browsed date, the date being edited, the active (live) date/run sheet, and the piece currently on screen.
 
@@ -550,6 +550,19 @@ Decided in the [Media Uploads Plan](media-uploads-plan.md) (U1–U27); the libra
 - **Playback.** The live state carries the presented video's clock (position at a moment, playing or not) and where each video item was left, by run sheet item, for the life of the live state. A video item waits paused on entry unless **Autoplay** is on; blanking pauses it and unblanking resumes only what blanking paused. Followers move the coordinator's clock onto their own. The slideshow window alone plays the sound, on the audio output chosen in this computer's Settings.
 - **Older desktops.** A desktop before protocol version 5 sees an image item as a one-page deck and a video item as an item with nothing to show; the server keeps a song's video when such a desktop saves the song.
 
+### Bible passages (implemented, protocol version 6)
+
+Decided in the [Bible Passages Plan](bible-passages-plan.md) (B1–B26); built by its [task breakdown](bible-passages-task-breakdown.md) and accepted in the [acceptance record](acceptance/bible-passages.md).
+
+- **Providers and keys.** The church server calls YouVersion, API.Bible, the ESV API and the Free Use Bible API with the church's own keys (`WORSHIP_Q_YOUVERSION_KEY`, `WORSHIP_Q_API_BIBLE_KEY`, `WORSHIP_Q_ESV_KEY`), which never reach a device or the admin app. Worship Q's version catalogue names each edition's providers in fallback order; fallback never changes the edition. Versions are checked at start and daily.
+- **What a church offers.** The administrator ticks the offered versions in the admin app and may choose up to two as the church's default; a workspace picks up to two of the offered versions, shown side by side, else uses the church's default. The choice synchronizes to every computer of the workspace and to phones.
+- **The Bible window.** A **Bible** button beside the song search on the Present page and in the calendar opens one search box that takes references in English and Chinese (`Mark 15:5-6`, `马可福音15章5-6节`) or words to search, with book, chapter and verse grids, version chips and a side-by-side preview. A reference typed into the song search, on the desktop or a phone, offers to open it. Tables of contents are kept on each computer, so typing and browsing need no network; a reference not in the version is refused, never clamped.
+- **Passage items.** A passage is a run sheet item: a song with a `passage` (its USFM reference and each version's verse units, copyright line and API.Bible usage token), never in a library or the Church Library. **Present ▶** adds it right after the item on screen, or at the end, and shows it; **Add to run sheet** adds it there without showing it; **Edit…** changes its verses or versions in place. Joined and missing verses are explained to the operator under the item, never on screen.
+- **Slides.** Passages are split by a fixed text budget into slides of whole verses, the versions in step, the same on every screen; text aims at 6 % of the height and never goes below 4 % unless one verse cannot fit otherwise. Each slide shows the whole passage's reference at the top and the versions' credits at the bottom, at fixed places, the reference and verse numbers in cyan, and `1 / 3` when there are several. Passages have their own background, black until another is chosen, and never appear on the subtitle overlay.
+- **Phones** browse, search, preview, add and present passages through their desktop; they never edit one.
+- **Usage reporting.** API.Bible's usage tokens are reported by the server for every passage it serves and, through the server, when a saved item is first presented in a live session.
+- **Older desktops.** A desktop before protocol version 6 sees a passage item as lyrics; the server keeps a song's passage when such a desktop saves the song, and the relay refuses passages it cannot read.
+
 ## 12. Phone-to-TV presentation
 
 ### Agreed scenario
@@ -731,7 +744,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | LAN coordination and cloud relay | Proposed v1 architecture |
 | Subtitle overlay, including OBS integration | Agreed terminology; proposed v1 integration scope |
 | Full offline editing and conflict synchronization | Proposed target; rules open |
-| Bible passages | Later; see the [Bible Passages Plan](bible-passages-plan.md) and [Discovery](bible-passages-discovery.md) |
+| Bible passages | Implemented (protocol version 6); see §11 and the [Bible Passages Plan](bible-passages-plan.md) |
 | Uploaded slide decks, PowerPoint/PDF handling | Later; formats/workflow open |
 | Automatic translation | Later, optional |
 | Native mobile applications | User preference; release timing open |

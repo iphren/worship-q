@@ -1,11 +1,20 @@
-import type { IsoDate, RunSheetItem, Song } from '@worship-q/protocol';
-import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import {
+  formatReference,
+  songSearchReference,
+  type IsoDate,
+  type Reference,
+  type RunSheetItem,
+  type Song,
+} from '@worship-q/protocol';
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { useEdgeScroll } from '../lib/edgeScroll';
 import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';
 import { native } from '../platform/native';
+import { BibleWindow } from './BibleWindow';
 import { ItemEditDialog } from './ItemEditDialog';
+import { PassageWarnings } from './PassageWarnings';
 import { canReplace, downloadOriginal, originalNotKept, uploadNewVersion } from './MediaActions';
 import { Menu, type MenuItem } from './Menu';
 import { itemActions, mergeRows } from './runSheetRows';
@@ -177,6 +186,15 @@ export function RunSheetEditor(props: {
   const { cloud } = useApp();
   const status = useCloud();
   const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
+  // The Bible needs the church server, which offers it (B17); the button says why not.
+  const bibleUnavailable = !connected
+    ? t('bible.needsChurch')
+    : status.server?.bible
+      ? null
+      : t('bible.notOfferedAny');
+  const [bible, setBible] = useState<{ initial: Reference | null } | null>(null);
+  // A reference typed into the song search, found on this computer alone (B9).
+  const searchReference = useMemo(() => songSearchReference(search), [search]);
   const blocked = useMediaBlocked();
   const uploads = useUploads();
   const aimed = uploads.filter(
@@ -386,6 +404,7 @@ export function RunSheetEditor(props: {
                     <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                   )}
                   {entry.song.video && <VideoCopyState file={entry.song.video.file} />}
+                  <PassageWarnings song={entry.song} />
                   {versions.map((upload) => (
                     <span key={upload.id} className="mt-1 block">
                       <UploadBar upload={upload} compact={upload.stage.kind === 'uploading'} />
@@ -440,6 +459,16 @@ export function RunSheetEditor(props: {
             <button
               type="button"
               className="btn shrink-0 px-2"
+              disabled={!!bibleUnavailable}
+              title={bibleUnavailable ?? t('bible.open')}
+              aria-label={t('bible.open')}
+              onClick={() => setBible({ initial: null })}
+            >
+              <Icon name="bible" />
+            </button>
+            <button
+              type="button"
+              className="btn shrink-0 px-2"
               disabled={!!blocked}
               title={blocked ?? t('media.addTitle')}
               aria-label={t('media.addTitle')}
@@ -450,7 +479,21 @@ export function RunSheetEditor(props: {
           </div>
           {!idle && (
             <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
-              {songs?.length === 0 && (
+              {searchReference && (
+                <li>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-teal-200 hover:bg-slate-700/50 disabled:opacity-50"
+                    disabled={!!bibleUnavailable}
+                    title={bibleUnavailable ?? undefined}
+                    onClick={() => setBible({ initial: searchReference })}
+                  >
+                    <Icon name="bible" className="h-4 w-4" />
+                    {t('bible.reference', { reference: formatReference(searchReference) })}
+                  </button>
+                </li>
+              )}
+              {songs?.length === 0 && !searchReference && (
                 <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
               )}
               {songs?.map((song) => (
@@ -487,6 +530,22 @@ export function RunSheetEditor(props: {
       )}
       {props.footer && <div className="mt-auto">{props.footer}</div>}
       {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
+      {bible && (
+        <BibleWindow
+          mode={{
+            kind: 'add',
+            date,
+            // Present ▶ is on the Present tab only, for the live run sheet (B6).
+            present: props.searchOnly === true && date === session.liveDate,
+          }}
+          initial={bible.initial}
+          onClose={() => {
+            // Opened from a reference typed into the song search: that search is done with.
+            if (bible.initial) setSearch('');
+            setBible(null);
+          }}
+        />
+      )}
     </div>
   );
 }

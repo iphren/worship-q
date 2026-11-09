@@ -56,6 +56,7 @@ function fieldsOf(draft: SongDraft) {
     deck: null,
     website: null,
     video: null,
+    passage: null,
   });
   return fields;
 }

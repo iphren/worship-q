@@ -559,6 +559,19 @@ describe('two versions of a song (D31, D32)', () => {
     ]);
     old.close();
   });
+
+  it('pulls everything again once after the upgrade, so songs get their videos and passages', async () => {
+    // A database that synchronized video and passage songs before it knew of them.
+    const earlier = MIGRATIONS.filter((m) => m.version <= 11);
+    const old = openNodeDriver();
+    await migrate(old, earlier);
+    await old.batch([{ sql: `INSERT INTO sync_state (key, value) VALUES ('cursor', '3848')` }]);
+    await migrate(old);
+    expect(
+      await old.select<{ value: string }>(`SELECT value FROM sync_state WHERE key = 'cursor'`),
+    ).toEqual([{ value: '0' }]);
+    old.close();
+  });
 });
 
 describe('song backgrounds, the workspace’s choice', () => {
@@ -692,6 +705,38 @@ describe('media items (media uploads plan)', () => {
     other.driver.close();
   });
 
+  it('takes the fields an older build dropped when the same versions are pulled to refresh', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song' && r.id === song.id)!;
+    const revision = records.find((r) => r.kind === 'songRevision' && r.data.songId === song.id)!;
+    // Pulled by a build that knew nothing of videos.
+    const dropped = (r: typeof record) => ({ ...r, data: { ...r.data, video: null } });
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    const sync = new SyncStore(other.store);
+    await sync.applyRemote(otherWorkspace, [dropped(record), dropped(revision)]);
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+
+    // An ordinary pull keeps the version it has.
+    await sync.applyRemote(otherWorkspace, [record, revision]);
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+
+    // A refreshing pull, after the upgrade, takes the same version again.
+    const applied = await sync.applyRemote(otherWorkspace, [record, revision], { refresh: true });
+    expect(applied.songs.has(song.id)).toBe(true);
+    expect((await other.store.getSong(song.id))!.video).toEqual(video);
+    expect((await other.store.listSongRevisions(song.id)).map((r) => r.video)).toEqual([video]);
+
+    // A song changed here since, and not yet pushed, is newer and stays as it is.
+    env.advance(1000);
+    await other.store.updateSong(song.id, { video: null });
+    await sync.applyRemote(otherWorkspace, [record], { refresh: true });
+    expect((await other.store.getSong(song.id))!.video).toBeNull();
+    other.driver.close();
+  });
+
   it('lists the videos of run sheets from a date, each at its earliest date', async () => {
     const song = await store.createSong(workspaceId, { title: 'Welcome', video });
     const other = await store.createSong(workspaceId, {
@@ -730,6 +775,145 @@ describe('media items (media uploads plan)', () => {
     const applied = await new SyncStore(other.store).applyRemote(otherWorkspace, [record]);
     expect(applied.backgroundFiles).toEqual(['deck-1-001.jpg']);
     expect((await other.store.getSong(song.id))!.deck?.kind).toBe('image');
+    other.driver.close();
+  });
+});
+
+describe('passage songs (Bible passages P3)', () => {
+  const passage = {
+    reference: 'MRK.15.5-MRK.15.6',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIVUK',
+        provider: 'apibible' as const,
+        copyright: '©',
+        units: [
+          { chapter: 15, verses: [5], label: '5', lines: [{ text: 'But Jesus', indent: 0 }] },
+          { chapter: 15, verses: [6], label: '6', lines: [{ text: 'Now it was', indent: 0 }] },
+        ],
+        fumsToken: 'token',
+      },
+    ],
+  };
+
+  it('keeps a passage with the song and each revision', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark 15:5–6', passage });
+    expect((await store.getSong(song.id))!.passage).toEqual(passage);
+    env.advance(1000);
+    const moved = { ...passage, reference: 'MRK.15.5' };
+    await store.updateSong(song.id, { passage: moved });
+    expect((await store.getSong(song.id))!.passage).toEqual(moved);
+    const revisions = await store.listSongRevisions(song.id);
+    expect(revisions.map((r) => r.passage?.reference)).toEqual(['MRK.15.5-MRK.15.6', 'MRK.15.5']);
+  });
+
+  it('reads a song from before passages as having none', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Grace' });
+    expect((await store.getSong(song.id))!.passage).toBeNull();
+  });
+
+  it('never lists a passage song in the library or its search', async () => {
+    await store.createSong(workspaceId, { title: 'Mark 15:5–6', lyrics: '5 But Jesus', passage });
+    await store.createSong(workspaceId, { title: 'Mark 15', lyrics: 'A song titled like one' });
+    expect((await store.listSongs(workspaceId)).map((s) => s.title)).toEqual(['Mark 15']);
+    expect((await store.listSongs(workspaceId, 'Jesus')).map((s) => s.title)).toEqual([]);
+    expect((await store.listSongs(workspaceId, 'Mark')).map((s) => s.title)).toEqual(['Mark 15']);
+  });
+
+  it('synchronizes a passage item between two stores', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark 15:5–6', passage });
+    const sheet = await store.ensureRunSheet(workspaceId, '2026-11-15');
+    await store.addItem(sheet.id, song.id);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    expect(records.find((r) => r.kind === 'song')!.data.passage).toEqual(passage);
+    expect(records.find((r) => r.kind === 'songRevision')!.data.passage).toEqual(passage);
+
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect((await other.store.getSong(song.id))!.passage).toEqual(passage);
+    const otherSheet = await other.store.getRunSheetByDate(otherWorkspace, '2026-11-15');
+    expect((await other.store.listItems(otherSheet!.id)).map((i) => i.songId)).toEqual([song.id]);
+    expect(await other.store.listSongs(otherWorkspace)).toEqual([]);
+    other.driver.close();
+  });
+
+  it('drops an unreadable passage received from another device', async () => {
+    const song = await store.createSong(workspaceId, { title: 'Mark', passage });
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const record = records.find((r) => r.kind === 'song')!;
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, [
+      { ...record, data: { ...record.data, passage: { reference: 'nonsense', texts: [] } } },
+    ]);
+    expect((await other.store.getSong(song.id))!.passage).toBeNull();
+    other.driver.close();
+  });
+});
+
+describe('the Bible background', () => {
+  const passage = {
+    reference: 'JHN.3.16',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIV (UK)',
+        provider: 'youversion' as const,
+        copyright: '',
+        units: [{ chapter: 3, verses: [16], label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+        fumsToken: null,
+      },
+    ],
+  };
+  const blue = { color: '#102040', assetId: null };
+
+  it('shows every passage on it, and never a song', async () => {
+    const reading = await store.createSong(workspaceId, { title: 'John 3:16', passage });
+    const song = await store.createSong(workspaceId, { title: 'Grace' });
+    // Black until the workspace chooses another.
+    expect(await store.getSongBackground(reading)).toEqual({ color: '#000000', assetId: null });
+    await store.setBibleBackground(workspaceId, blue);
+    expect(await store.getBibleBackground(workspaceId)).toEqual(blue);
+    expect(await store.getSongBackground(reading)).toEqual(blue);
+    expect(await store.getSongBackground(song)).toBeNull();
+    // A song's own background never reaches passages, nor the other way.
+    await store.setSongBackground(workspaceId, song.id, { color: '#ff0000', assetId: null });
+    expect(await store.getSongBackground(reading)).toEqual(blue);
+    // Chosen to follow the slideshow background.
+    await store.setBibleBackground(workspaceId, null);
+    expect(await store.getSongBackground(reading)).toBeNull();
+  });
+
+  it('reaches the workspace’s other computers', async () => {
+    await store.setBibleBackground(workspaceId, blue);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect(await other.store.getBibleBackground(otherWorkspace)).toEqual(blue);
+    other.driver.close();
+  });
+});
+
+describe('the workspace’s Bible versions (P3.4)', () => {
+  it('keeps up to two versions in order, and refuses more', async () => {
+    expect(await store.getBibleVersions(workspaceId)).toEqual([]);
+    await store.setBibleVersions(workspaceId, ['CCB', 'NIVUK']);
+    expect(await store.getBibleVersions(workspaceId)).toEqual(['CCB', 'NIVUK']);
+    await expect(store.setBibleVersions(workspaceId, ['CCB', 'NIVUK', 'ESV'])).rejects.toThrow();
+    await expect(store.setBibleVersions(workspaceId, ['CCB', 'CCB'])).rejects.toThrow();
+    expect(await store.getBibleVersions(workspaceId)).toEqual(['CCB', 'NIVUK']);
+  });
+
+  it('reaches the workspace’s other computers', async () => {
+    await store.setBibleVersions(workspaceId, ['NIVUK']);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect(await other.store.getBibleVersions(otherWorkspace)).toEqual(['NIVUK']);
     other.driver.close();
   });
 });

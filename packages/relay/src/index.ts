@@ -19,7 +19,10 @@ import {
   isCompatibleProtocol,
   OutputToRelaySchema,
   RemoteToHostSchema,
-  snapshotWithoutVideos,
+  isBibleMessage,
+  type HostToRemote,
+  type RemoteToHost,
+  snapshotFor,
   type Capabilities,
   type DesktopToRelay,
   type DeviceRole,
@@ -545,6 +548,19 @@ export class Relay {
               return;
             }
             if (!coordinator || coordinator === desktop) return;
+            if (
+              data.data.type === 'command' &&
+              data.data.command.type === 'addPassage' &&
+              !coordinator.capabilities?.passages
+            ) {
+              // A coordinator older than passages cannot make the item (protocol 6).
+              send(desktop.socket, {
+                type: 'peer',
+                from: coordinator.deviceId,
+                data: { type: 'ack', id: data.data.id, applied: false },
+              } satisfies RelayToDesktop);
+              return;
+            }
             send(coordinator.socket, {
               type: 'peer',
               from: desktop.deviceId,
@@ -573,16 +589,16 @@ export class Relay {
             }
             const peer: RelayToDesktop = { type: 'peer', from: desktop.deviceId, data: data.data };
             // A desktop older than video items is sent them as decks with nothing to show
-            // (U20, U21), which it can read.
-            const older: RelayToDesktop | null =
-              data.data.type === 'snapshot'
-                ? {
-                    ...peer,
-                    data: { ...data.data, snapshot: snapshotWithoutVideos(data.data.snapshot) },
-                  }
-                : null;
-            const forDesktop = (each: Desktop) =>
-              older && !each.capabilities?.videos ? older : peer;
+            // (U20, U21), and one older than passages is sent them as lyrics (P3.5): what
+            // it can read.
+            const snapshot = data.data.type === 'snapshot' ? data.data : null;
+            const forDesktop = (each: Desktop): RelayToDesktop => {
+              if (!snapshot) return peer;
+              const readable = snapshotFor(snapshot.snapshot, each.capabilities);
+              return readable === snapshot.snapshot
+                ? peer
+                : { ...peer, data: { ...snapshot, snapshot: readable } };
+            };
             if (message.to) {
               for (const each of room.desktops) {
                 if (each.deviceId === message.to) send(each.socket, forDesktop(each));
@@ -661,7 +677,20 @@ export class Relay {
           return;
         }
         if (remote.desktop) {
-          send(remote.desktop.socket, { type: 'message', from: remote.id, data: parsed.data });
+          const message = parsed.data;
+          // A desktop older than passages could not read the Bible's messages (protocol 6):
+          // a phone's passage is refused, and its Bible requests answered as offline.
+          if (!remote.desktop.capabilities?.passages) {
+            if (message.type === 'command' && message.command.type === 'addPassage') {
+              return send(socket, {
+                type: 'ack',
+                id: message.id,
+                applied: false,
+              } satisfies HostToRemote);
+            }
+            if (isBibleMessage(message)) return refuseBible(socket, message);
+          }
+          send(remote.desktop.socket, { type: 'message', from: remote.id, data: message });
         }
       },
       close: () => {
@@ -723,5 +752,28 @@ export class Relay {
         if (room.outputs.delete(output)) this.announce(room, output.workspaceId);
       },
     };
+  }
+}
+
+/** Answers a phone's Bible request for a desktop that cannot (protocol 6). */
+function refuseBible(socket: Socket, message: RemoteToHost): void {
+  const answer = (data: HostToRemote) => send(socket, data);
+  switch (message.type) {
+    case 'bibleVersions':
+      return answer({ type: 'bibleVersions', id: message.id, offered: [], versions: [] });
+    case 'bibleToc':
+      return answer({ type: 'bibleToc', id: message.id, toc: null, error: 'offline' });
+    case 'biblePassage':
+      return answer({ type: 'biblePassage', id: message.id, passage: null, error: 'offline' });
+    case 'bibleSearch':
+      return answer({
+        type: 'bibleSearch',
+        id: message.id,
+        references: [],
+        searched: false,
+        error: 'offline',
+      });
+    default:
+      return;
   }
 }

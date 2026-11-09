@@ -49,24 +49,37 @@ export function slideKeyLabel(slide: number): string | null {
   return SLIDE_KEYS[slide]?.toUpperCase() ?? null;
 }
 
-type KeyPress = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>;
+/** A key press as the slideshow window passes it on to the operator window. */
+export type KeyPress = Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey'>;
+
+/** Just what `presentAction` reads of a key press, so it can be sent between windows. */
+export function keyPress(event: KeyPress): KeyPress {
+  const { key, metaKey, ctrlKey, altKey } = event;
+  return { key, metaKey, ctrlKey, altKey };
+}
+
+/**
+ * What the keys do to a live video (M6.5): nothing without one (null); play or pause it while
+ * the slide keys are on another item (`live`); and also jump through it while they are on the
+ * video item (`keyed`).
+ */
+export type VideoKeys = 'keyed' | 'live' | null;
 
 /**
  * The action of a key. Up and Down move within the keyed item and Left and Right between
  * items; Space hides or shows the lyrics and Enter moves on through the whole run sheet. While
- * a video item is live and the slide keys are on it (`video`), Space plays or pauses and Up
- * and Down jump back and forward through the video (U21, M6.5); every other key does what it
- * does otherwise.
+ * a video item is live, Space plays or pauses it instead, wherever the slide keys are; while
+ * the slide keys are on it, Up and Down jump back and forward through it (U21, M6.5). Every
+ * other key does what it does otherwise.
  */
 export function presentAction(
   event: KeyPress,
-  context: { video?: boolean } = {},
+  context: { video?: VideoKeys } = {},
 ): PresentAction | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
-  if (context.video) {
+  if (context.video && event.key === ' ') return 'video-toggle';
+  if (context.video === 'keyed') {
     switch (event.key) {
-      case ' ':
-        return 'video-toggle';
       case 'ArrowUp':
         return 'video-back';
       case 'ArrowDown':
@@ -155,13 +168,16 @@ export function runPresentAction(session: PresentControls, action: PresentAction
 }
 
 /**
- * Whether the keys act on a live video (M6.5): a video item is presented, and the slide keys
- * have not been moved to another item.
+ * What the keys do to a live video (M6.5): `keyed` while the slide keys have not been moved to
+ * another item, `live` while they have, null without a live video.
  */
 export function videoKeys(session: {
   readonly video: { itemId: string } | null;
   readonly browsedItemId: string | null;
-}): boolean {
+}): VideoKeys {
   const video = session.video;
-  return !!video && (session.browsedItemId === null || session.browsedItemId === video.itemId);
+  if (!video) return null;
+  return session.browsedItemId === null || session.browsedItemId === video.itemId
+    ? 'keyed'
+    : 'live';
 }

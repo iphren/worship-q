@@ -253,6 +253,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.2
+      '@worship-q/bible':
+        specifier: workspace:*
+        version: link:../../packages/bible
       '@worship-q/live-state':
         specifier: workspace:*
         version: link:../../packages/live-state
@@ -296,6 +299,12 @@ importers:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/bible:
+    dependencies:
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.5
+
   packages/calendar: {}
 
   packages/live-state:
@@ -311,6 +320,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@worship-q/bible':
+        specifier: workspace:*
+        version: link:../bible
       zod:
         specifier: ^4.0.0
         version: 4.6.5
@@ -345,9 +357,15 @@ importers:
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
       '@worship-q/live-state':
         specifier: workspace:*
         version: link:../live-state
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
 
   packages/search:
     dependencies:

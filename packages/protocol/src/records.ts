@@ -1,3 +1,4 @@
+import { PassageSchema, type PassageColumn } from '@worship-q/bible';
 import { z } from 'zod';
 
 /** Calendar date without a time, as `YYYY-MM-DD`. */
@@ -149,6 +150,12 @@ export const SongFieldsSchema = z.object({
    * saved before videos existed.
    */
   video: VideoSchema.nullable().default(null),
+  /**
+   * A Bible passage, shown instead of the lyrics (Bible passages plan, B23); null for an
+   * ordinary song, and on songs saved before passages existed. `lyrics` then holds the
+   * passage as plain text, for devices older than passages.
+   */
+  passage: PassageSchema.nullable().default(null),
 });
 export type SongFields = z.infer<typeof SongFieldsSchema>;
 
@@ -191,6 +198,7 @@ export function cleanSongFields(fields: SongFields): SongFields {
     deck: fields.deck,
     website: fields.website,
     video: fields.video,
+    passage: fields.passage,
   };
 }
 
@@ -206,10 +214,13 @@ export type LibraryType = (typeof LIBRARY_TYPES)[number];
 /** Which Church Library type a record is; null for a kind the Church Library does not hold. */
 export function libraryTypeOf(
   kind: string,
-  data: { deck?: unknown; website?: unknown; video?: unknown } | null | undefined,
+  data:
+    { deck?: unknown; website?: unknown; video?: unknown; passage?: unknown } | null | undefined,
 ): LibraryType | null {
   if (kind === 'background') return 'backgrounds';
   if (kind !== 'song' && kind !== 'songRevision') return null;
+  // A passage lives only in the run sheet that holds it, never in a library (B7).
+  if (data?.passage) return null;
   if (data?.deck || data?.video) return 'slides';
   if (data?.website) return 'websites';
   return 'songs';
@@ -494,6 +505,18 @@ export interface OutputFrame {
    * clock for it. Hidden while blank. Never on the subtitle overlay.
    */
   video?: OutputVideo | null;
+  /**
+   * A Bible passage's slide (B10): each version's verses as a column, side by side, with its
+   * credit, and above each column the whole passage's reference in its version's language
+   * (`Mark 15:5–6`, `马可福音 15:5-6`), the same on every slide. Hidden while blank; never on
+   * the subtitle overlay (B12).
+   */
+  passage?: {
+    columns: PassageColumn[];
+    headers: string[];
+    /** Which slide of the passage this is, from 1, and how many it has. */
+    page?: { number: number; count: number };
+  } | null;
   /**
    * Words shown instead of lyrics, such as **Waiting for presentation** on a viewer's
    * slideshow (decision D16). Never shown on the subtitle overlay.

@@ -8,7 +8,7 @@ import type { Song } from './records';
 /** What a media song shows. */
 export type MediaKind = 'slides' | 'pdf' | 'image' | 'video';
 
-export const ItemBadgeSchema = z.enum(['slides', 'pdf', 'image', 'video', 'website']);
+export const ItemBadgeSchema = z.enum(['slides', 'pdf', 'image', 'video', 'website', 'bible']);
 /** The kinds of item that carry a badge; an ordinary song carries none. */
 export type ItemBadge = z.infer<typeof ItemBadgeSchema>;
 
@@ -24,8 +24,9 @@ export function songMediaKind(
 
 /** The badge a song gets, or null for an ordinary song. */
 export function songBadge(
-  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video'] },
+  song: Pick<Song, 'deck' | 'website'> & { video?: Song['video']; passage?: Song['passage'] },
 ): ItemBadge | null {
+  if (song.passage) return 'bible';
   if (song.website) return 'website';
   return songMediaKind(song);
 }
@@ -35,7 +36,7 @@ export function songBadge(
  * has only its kind, so imported slides of every sort read as slides.
  */
 export function itemBadge(item: {
-  kind?: 'lyrics' | 'deck' | 'website' | 'video';
+  kind?: 'lyrics' | 'deck' | 'website' | 'video' | 'passage';
   badge?: ItemBadge;
 }): ItemBadge | null {
   if (item.badge) return item.badge;
@@ -45,6 +46,8 @@ export function itemBadge(item: {
     case 'website':
     case 'video':
       return item.kind;
+    case 'passage':
+      return 'bible';
     default:
       return null;
   }

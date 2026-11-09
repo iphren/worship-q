@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  keyPress,
   presentAction,
   runPresentAction,
   slideKeyLabel,
@@ -67,8 +68,8 @@ describe('presentAction', () => {
 });
 
 describe('keys while a video item is live (M6.5)', () => {
-  const video = (key: string) =>
-    presentAction({ key, metaKey: false, ctrlKey: false, altKey: false }, { video: true });
+  const video = (key: string, keys: 'keyed' | 'live' = 'keyed') =>
+    presentAction({ key, metaKey: false, ctrlKey: false, altKey: false }, { video: keys });
 
   it('plays or pauses with Space, also while blank, instead of hiding the lyrics', () => {
     expect(video(' ')).toBe('video-toggle');
@@ -97,13 +98,40 @@ describe('keys while a video item is live (M6.5)', () => {
     expect(press('ArrowDown')).toBe('slide-next');
   });
 
-  it('acts on the video only while the slide keys are on it', () => {
+  it('keeps Space on the video, and Up and Down on the slides, once the keys move away', () => {
+    expect(video(' ', 'live')).toBe('video-toggle');
+    expect(video('ArrowDown', 'live')).toBe('slide-next');
+    expect(video('ArrowUp', 'live')).toBe('slide-previous');
+    expect(video('ArrowRight', 'live')).toBe('item-next');
+    expect(video('1', 'live')).toEqual({ slide: 0 });
+  });
+
+  it('jumps through the video only while the slide keys are on it', () => {
     const live = { itemId: 'v' };
-    expect(videoKeys({ video: live, browsedItemId: null })).toBe(true);
-    expect(videoKeys({ video: live, browsedItemId: 'v' })).toBe(true);
-    // A video item keyed without presenting it, or another item keyed: the slide keys.
-    expect(videoKeys({ video: live, browsedItemId: 'song' })).toBe(false);
-    expect(videoKeys({ video: null, browsedItemId: 'v' })).toBe(false);
+    expect(videoKeys({ video: live, browsedItemId: null })).toBe('keyed');
+    expect(videoKeys({ video: live, browsedItemId: 'v' })).toBe('keyed');
+    // Another item keyed: Space still plays or pauses the video.
+    expect(videoKeys({ video: live, browsedItemId: 'song' })).toBe('live');
+    // A video item keyed without presenting it: the slide keys.
+    expect(videoKeys({ video: null, browsedItemId: 'v' })).toBeNull();
+  });
+
+  it('passes on only what decides a key, from the slideshow window', () => {
+    // A whole event cannot be sent between windows; what decides the key can.
+    const event = {
+      key: 'ArrowDown',
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: true,
+      target: {},
+    };
+    expect(keyPress(event)).toEqual({
+      key: 'ArrowDown',
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
   });
 });
 
