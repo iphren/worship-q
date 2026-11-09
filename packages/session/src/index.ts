@@ -182,10 +182,11 @@ type PieceSource = Pick<Song, 'lyrics' | 'lineIds' | 'deck' | 'website'> & {
  */
 export function songPieces(song: PieceSource, linesPerPiece: number): Piece[] {
   if (song.passage) {
-    return passageSlides(song.passage).map((slide, blockIndex) => ({
+    // One block: a passage's slides are not shaded in turn as a song's verses are.
+    return passageSlides(song.passage).map((slide, indexInBlock) => ({
       id: slide.id,
-      blockIndex,
-      indexInBlock: 0,
+      blockIndex: 0,
+      indexInBlock,
       lines: passageSlideLines(slide.columns).map((text, i) => ({ id: `${slide.id}:${i}`, text })),
     }));
   }

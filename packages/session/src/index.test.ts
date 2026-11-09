@@ -1579,6 +1579,24 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect(await session.remotePassage('c1', { type: 'addPassage', passage: mark })).toBeNull();
   });
 
+  it('puts a long passage’s slides in one block, never shaded in turn', async () => {
+    const long: Passage = {
+      reference: 'MRK.15.1-MRK.15.12',
+      texts: [
+        text(
+          'NIVUK',
+          'NIVUK',
+          Array.from({ length: 12 }, (_, i) => [i + 1, 'x'.repeat(50)] as [number, string]),
+        ),
+      ],
+    };
+    const item = await session.addPassage(SUNDAY, long);
+    const entry = (await session.viewDate(SUNDAY)).entries.find((e) => e.item.id === item!.id)!;
+    expect(entry.pieces.length).toBeGreaterThan(1);
+    expect(entry.pieces.map((p) => p.blockIndex)).toEqual(entry.pieces.map(() => 0));
+    expect(entry.pieces.map((p) => p.indexInBlock)).toEqual(entry.pieces.map((_, i) => i));
+  });
+
   it('gives the same slides from the database and from a snapshot, ids kept when saved again', async () => {
     const item = await session.addPassage(SUNDAY, mark, { present: true });
     const entry = (await session.viewLive())!.entries.find((e) => e.item.id === item!.id)!;
@@ -1589,6 +1607,8 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect(carried.badge).toBe('bible');
     expect(carried.pieces.map((p) => p.id)).toEqual(entry.pieces.map((p) => p.id));
     expect(carried.pieces[0]!.passage!.columns.map((c) => c.credit)).toEqual(['NIVUK', '当代译本']);
+    // Every slide in one block, so none is shaded as a song's second verse would be.
+    expect(carried.pieces.every((piece) => piece.block === 0)).toBe(true);
     expect(carried.pieces[0]!.lines).toEqual([
       '5 But Jesus still made no reply.',
       '6 Now it was the custom at the festival.',
