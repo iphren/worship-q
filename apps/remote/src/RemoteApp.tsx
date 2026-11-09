@@ -355,7 +355,7 @@ function Live({ view }: { view: RemoteView | null }) {
                   onClick={() =>
                     activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
                   }
-                  className={`absolute right-4 bottom-4 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                  className={`absolute right-4 bottom-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
                     view.blank
                       ? 'border-amber-400 text-amber-300'
                       : 'border-emerald-500 text-emerald-300'
