@@ -347,9 +347,13 @@ function songBackgroundStatement(
 
 /**
  * The background of every Bible passage in the workspace, apart from songs' backgrounds; the
- * same value as a song background's, null or missing for the slideshow background.
+ * same value as a song background's, null for the slideshow background. Until one is chosen,
+ * passages are shown on black.
  */
 export const BIBLE_BACKGROUND_KEY = 'bibleBackground';
+
+/** Passages' background until the workspace chooses another. */
+export const DEFAULT_BIBLE_BACKGROUND: SongBackground = { color: '#000000', assetId: null };
 
 /** The setting that pins a song to the top of the library for the whole workspace. */
 export const songPinKey = (songId: string) => `songPin.${songId}`;
@@ -717,13 +721,17 @@ export class Store {
     return chosen === undefined ? song.background : chosen;
   }
 
-  /** The background of every Bible passage; null is the slideshow background. */
+  /**
+   * The background of every Bible passage: black until the workspace chooses another; null
+   * is the slideshow background.
+   */
   async getBibleBackground(workspaceId: string): Promise<SongBackground | null> {
     const rows = await this.db.select<{ value: string }>(
       'SELECT value FROM setting WHERE workspace_id = ? AND key = ?',
       [workspaceId, BIBLE_BACKGROUND_KEY],
     );
-    return parseSongBackground(rows[0]?.value) ?? null;
+    const chosen = parseSongBackground(rows[0]?.value);
+    return chosen === undefined ? DEFAULT_BIBLE_BACKGROUND : chosen;
   }
 
   /** Chooses the background of every Bible passage; null is the slideshow background. */

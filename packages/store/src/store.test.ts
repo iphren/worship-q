@@ -827,7 +827,8 @@ describe('the Bible background', () => {
   it('shows every passage on it, and never a song', async () => {
     const reading = await store.createSong(workspaceId, { title: 'John 3:16', passage });
     const song = await store.createSong(workspaceId, { title: 'Grace' });
-    expect(await store.getSongBackground(reading)).toBeNull();
+    // Black until the workspace chooses another.
+    expect(await store.getSongBackground(reading)).toEqual({ color: '#000000', assetId: null });
     await store.setBibleBackground(workspaceId, blue);
     expect(await store.getBibleBackground(workspaceId)).toEqual(blue);
     expect(await store.getSongBackground(reading)).toEqual(blue);
@@ -835,6 +836,7 @@ describe('the Bible background', () => {
     // A song's own background never reaches passages, nor the other way.
     await store.setSongBackground(workspaceId, song.id, { color: '#ff0000', assetId: null });
     expect(await store.getSongBackground(reading)).toEqual(blue);
+    // Chosen to follow the slideshow background.
     await store.setBibleBackground(workspaceId, null);
     expect(await store.getSongBackground(reading)).toBeNull();
   });

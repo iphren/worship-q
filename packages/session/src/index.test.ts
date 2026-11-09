@@ -1614,6 +1614,14 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect((await session.frame(mediaUrl)).passage ?? null).toBeNull();
   });
 
+  it('is shown on black until a Bible background is chosen', async () => {
+    await session.updateOutputProfile({ backgroundColor: '#336699' });
+    await session.addPassage(SUNDAY, mark, { present: true });
+    expect((await session.frame(mediaUrl)).background.color).toBe('#000000');
+    await session.setBibleBackground(null);
+    expect((await session.frame(mediaUrl)).background.color).toBe('#336699');
+  });
+
   it('is shown on the workspace’s Bible background, apart from songs’ backgrounds', async () => {
     await session.setSongBackground(a.id, { color: '#ff0000', assetId: null });
     await session.setBibleBackground({ color: '#102040', assetId: null });
