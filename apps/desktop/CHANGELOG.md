@@ -1,5 +1,62 @@
 # Changelog
 
+## [2.2.0](https://github.com/iphren/worship-q/compare/v2.1.0...v2.2.0) (2026-11-09)
+
+
+### Features
+
+* a background for Bible passages, apart from songs' ([c7315e2](https://github.com/iphren/worship-q/commit/c7315e2f13a1d5d9f7e166e52f0ca1f43f2c7d9f))
+* a passage's reference and verse numbers in cyan ([30cc79b](https://github.com/iphren/worship-q/commit/30cc79b0c0252dc4b009f88be9af1783dbabc393))
+* a passage's reference and verse numbers in the operator's blue ([919ccc7](https://github.com/iphren/worship-q/commit/919ccc7d5481cc71f9e8fa8436c6afa77ea85d08))
+* Bible passages at 6% of the screen's height ([1be6afc](https://github.com/iphren/worship-q/commit/1be6afc7a963eb6919f2ca6fa836c9d6cd6852f9))
+* Bible passages on black until a background is chosen ([be6bb65](https://github.com/iphren/worship-q/commit/be6bb65c446b4119f9acba189659591b9e61fde6))
+* **bible:** books, references, parser, contents, passages, alignment and slides ([917b3f1](https://github.com/iphren/worship-q/commit/917b3f1260229685b69f5603e6ac9d5c73d1fe25))
+* **bible:** short names that tell simplified and traditional apart ([c194492](https://github.com/iphren/worship-q/commit/c1944922783446adfa10076d839581f90cf06430))
+* **desktop:** ⌘S / Ctrl+S saves every editor form ([2fa6ee7](https://github.com/iphren/worship-q/commit/2fa6ee7f39cfb68fc38f9131e5756388506788b5))
+* **desktop:** a scribbling pencil in place of the Edit window's title ([640cd81](https://github.com/iphren/worship-q/commit/640cd81c6045f0d8f9941189c68c82f65e1a1838))
+* **desktop:** Apply in the Edit window saves and stays open ([0c4e63b](https://github.com/iphren/worship-q/commit/0c4e63b5c93b4cc99569a207f2e1168a16127cef))
+* **desktop:** clear screen button on the previous content banner ([9679529](https://github.com/iphren/worship-q/commit/9679529b3b9029db2439d72df700117333de8117))
+* **desktop:** confirm before unpinning a library item ([3f947dc](https://github.com/iphren/worship-q/commit/3f947dc1f8eb4b20f381e231d809b8a5a0eeb135))
+* **desktop:** glance at the run sheet after adding from the library ([f00c165](https://github.com/iphren/worship-q/commit/f00c165de209a97f0818913f59108146e972496f))
+* **desktop:** highlight the item the slide keys act on ([ec4f496](https://github.com/iphren/worship-q/commit/ec4f49603e3568b6c28685a98430019c79229d94))
+* **desktop:** make the removed-item notice easier to notice ([861c505](https://github.com/iphren/worship-q/commit/861c505833890c0e592a25967a9ad0956ef1eb15))
+* **desktop:** remove a run sheet item at once, with Undo ([d4c5361](https://github.com/iphren/worship-q/commit/d4c53614e30dd55f319c41be5e0be43acc989280))
+* **desktop:** scroll a long run sheet while dragging near its edges ([7bb7ef9](https://github.com/iphren/worship-q/commit/7bb7ef900fb7288edd2469cb7a6c394fdcec511f))
+* **desktop:** show the year and colour the library usage stats ([76e2440](https://github.com/iphren/worship-q/commit/76e24404b53a1bc3883fad999fe6538bba568689))
+* **desktop:** Space hides lyrics, Enter moves on, arrows seek a live video ([459f43c](https://github.com/iphren/worship-q/commit/459f43c9593ddfd373f66d625f96a2bdaa79c4e2))
+* **desktop:** the Bible window, passage items and the workspace's versions ([8130a89](https://github.com/iphren/worship-q/commit/8130a897333a2ff218f273c5728c5bf5d92c0462))
+* icon buttons, double-click to add songs, and a visible scroll track ([17392b7](https://github.com/iphren/worship-q/commit/17392b7a6de56101a1b5e460631be14bfadf4e3d))
+* item-kind icons on phones and the admin page, and a mute toggle in the admin preview ([1d1fa3b](https://github.com/iphren/worship-q/commit/1d1fa3bffd0bbca39a026ef69392defaf3bca1ea))
+* list chosen versions as selected, and hide the list at two ([ee0d841](https://github.com/iphren/worship-q/commit/ee0d8411663c2bc214d28053d61ae9301600c4d5))
+* number a Bible passage's slides, as 1 / 3, when it has several ([8cbaf7d](https://github.com/iphren/worship-q/commit/8cbaf7d3177213d73c0f3cdaff0888e3826825c0))
+* passage songs in the records, the store and protocol 6 ([01523da](https://github.com/iphren/worship-q/commit/01523dacb261525b4494658ff2ccaee230ff722a))
+* present Bible passages side by side on the slideshow and browser outputs ([1d92d69](https://github.com/iphren/worship-q/commit/1d92d693a5011d098291d75438c22929591af4f0))
+* **scripts:** a laid-out summary when the server update finishes ([dde04ea](https://github.com/iphren/worship-q/commit/dde04eaf39d42bf1f0bbe2ba8f1b5902e65e9c0b))
+* **server:** Bible providers, availability, contents, passages and routes ([60de4bf](https://github.com/iphren/worship-q/commit/60de4bf68ac9ce3ec7b2d6e1da4e7014eea50fe9))
+* the Bible badge in the slides' cyan ([0714246](https://github.com/iphren/worship-q/commit/071424638495e32eb0062642438b1273120c3afa))
+* the Bible on phones, through the desktop they are connected to ([a3ebbaa](https://github.com/iphren/worship-q/commit/a3ebbaae7633b0462bd43e709f3382b3c74de847))
+* the church's default Bible versions, chosen in the admin app ([13920e5](https://github.com/iphren/worship-q/commit/13920e5399ef96077303874a70ded44bfbcce551))
+* the passage's reference and the versions' credits at fixed places on its slides ([836de87](https://github.com/iphren/worship-q/commit/836de8798ee90942baff59f436fe1784dde67a13))
+
+
+### Bug Fixes
+
+* **desktop:** a short church problem on its own line in the workspace list ([50b4755](https://github.com/iphren/worship-q/commit/50b4755f1f7b8a9a51c1f3e109a37ccd5fce8d0f))
+* **desktop:** keep and download the live run sheet's videos after its date ([653d11e](https://github.com/iphren/worship-q/commit/653d11e7053510238b3532c7b8e895201c78ab50))
+* **desktop:** keep the Bible window's versions on their own line under the search box ([5f4721d](https://github.com/iphren/worship-q/commit/5f4721dacc387261920dc607fdfac8b1bac3d1a2))
+* **desktop:** keep the locate button above the Last shown chip ([0625078](https://github.com/iphren/worship-q/commit/0625078dc661cae0ac6d4c2093f30fb0346e86ae))
+* **desktop:** notice what the server offers while the app runs, and on Sync now ([4b538dd](https://github.com/iphren/worship-q/commit/4b538ddea3083efd7e3f0239c4b5cee947ae29b9))
+* **desktop:** open a menu upwards when it only just does not fit below ([743035f](https://github.com/iphren/worship-q/commit/743035faa5559bd2af3ad83b73654ab14d67e73e))
+* **desktop:** switch the audio output while a video is playing ([94c16f8](https://github.com/iphren/worship-q/commit/94c16f8b22640c77dbbcc0ba213d0c388e46e52c))
+* **desktop:** the operator window reopens at its minimum size on a Retina display ([3c25219](https://github.com/iphren/worship-q/commit/3c252193c0bd8a2078eeca1c11e2eec231d72416))
+* **desktop:** the same video keys on the slideshow window as on the operator window ([6c23cab](https://github.com/iphren/worship-q/commit/6c23cab60de62503621cf3cceff23ee088cd41dc))
+* draw a passage's slides alike, without alternating shading ([7840627](https://github.com/iphren/worship-q/commit/784062764d6d67f4bac191f2372f28e04586394d))
+* improve output formatting in server info display ([fa13bb0](https://github.com/iphren/worship-q/commit/fa13bb0a1e0506dd50bb169acaf766c41442a231))
+* offer the Bible straight after the server starts, and notice changes on desktops ([5f8e22e](https://github.com/iphren/worship-q/commit/5f8e22e63eab7b15ec9e01dd9254faab009a6ead))
+* **store:** number a song edit after every revision kept ([dea5b43](https://github.com/iphren/worship-q/commit/dea5b43e7a961c443cd8d2bb1d1c807e6ca29574))
+* **store:** pull everything again once, so synced songs get their videos and passages ([05beff0](https://github.com/iphren/worship-q/commit/05beff0a9c220c69ecd18f4871f69cd9953d25f7))
+* **sync:** pull everything again after a protocol upgrade, taking fields older builds dropped ([7fe7df3](https://github.com/iphren/worship-q/commit/7fe7df382f3ba9d2082830084cc9ed55e54cd026))
+
 ## [2.1.0](https://github.com/iphren/worship-q/compare/v2.0.0...v2.1.0) (2026-11-08)
 
 
