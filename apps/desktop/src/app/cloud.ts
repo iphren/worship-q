@@ -326,7 +326,9 @@ export class CloudController {
    */
   private bibleServer(): BibleServer | null {
     const { server, deviceToken } = this.state ?? {};
-    if (!server || !deviceToken || this.status_.server?.bible === false) return null;
+    // Asked even when the server's last info said it had no Bible: that may be out of date,
+    // and the server refuses a version it does not offer.
+    if (!server || !deviceToken) return null;
     const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
       const headers: Record<string, string> = {
         [PROTOCOL_HEADER]: String(this.protocolVersion),
@@ -1148,6 +1150,8 @@ export class CloudController {
         switch (message.type) {
           case 'changed':
             void this.sync();
+            // Church settings may have changed what the server offers, such as its Bible.
+            void this.recheckProtocol().catch(() => undefined);
             return;
           case 'message':
             void this.host.message(message.from, message.data);

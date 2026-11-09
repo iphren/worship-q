@@ -55,7 +55,7 @@ const index = {
   ],
 };
 
-async function setup(offered: string[] = ['NIVUK']) {
+async function setup(offered: string[] = ['NIVUK'], options: { unchecked?: boolean } = {}) {
   const instance = new Instance(openDatabase(':memory:'));
   const { workspace, code } = instance.createWorkspace('North');
   const device = instance.enroll(code, 'Desk')!;
@@ -87,7 +87,7 @@ async function setup(offered: string[] = ['NIVUK']) {
       return new Response(`{"echo":"${url}"}`, { status: 500 });
     },
   });
-  await bible.availability.refresh();
+  if (!options.unchecked) await bible.availability.refresh();
   const { app } = await buildServer({
     instance,
     dataDir: '/nonexistent',
@@ -131,6 +131,14 @@ describe('the Bible’s routes (P2.6)', () => {
     const { get } = await setup();
     const toc = (await get('/api/v1/bible/NIVUK/toc')).json();
     expect((await get('/api/v1/bible/versions')).json().versions[0].tocHash).toBe(toc.hash);
+  });
+
+  it('says the church offers a Bible straight after start, before the first check', async () => {
+    const { get } = await setup(['NIVUK'], { unchecked: true });
+    expect((await get('/api/v1/info', false)).json().bible).toBe(true);
+    expect(
+      (await get('/api/v1/bible/versions')).json().versions.map((v: { id: string }) => v.id),
+    ).toEqual(['NIVUK']);
   });
 
   it('says in the info whether the church offers a Bible', async () => {

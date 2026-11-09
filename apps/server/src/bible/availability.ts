@@ -96,7 +96,9 @@ export class Availability {
     if (!entry) return [];
     return entry.providers.filter((p) => {
       if (!this.adapters[p.provider].configured) return false;
-      const state = this.states.get(this.key(version, p.provider));
+      // Not checked yet, as just after start: tried rather than left out, so the Bible is
+      // offered at once; the first check settles it within seconds.
+      const state = this.states.get(this.key(version, p.provider)) ?? 'unknown';
       return state === 'usable' || state === 'unknown';
     });
   }

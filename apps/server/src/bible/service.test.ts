@@ -190,6 +190,13 @@ describe('availability (P2.3)', () => {
     expect(availability.available('ESV')).toBe(true);
   });
 
+  it('offers versions before the first check has finished, as just after start', () => {
+    const { availability } = setup();
+    expect(availability.hasChecked).toBe(false);
+    expect(availability.usable('NIVUK').map((p) => p.provider)).toEqual(['youversion', 'apibible']);
+    expect(availability.available('ESV')).toBe(true);
+  });
+
   it('keeps trying a provider it could not reach, rather than dropping it', async () => {
     const { availability } = setup({ esv: fake('esv', { check: 'throw' }) });
     await availability.refresh();
