@@ -90,8 +90,14 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Closing the operator window closes the output with it.
             if window.label() == "main" {
-                if let WindowEvent::Destroyed = event {
-                    window.app_handle().exit(0);
+                match event {
+                    WindowEvent::Destroyed => window.app_handle().exit(0),
+                    // The restored size can arrive in another display's pixels, and the
+                    // scale factor is only settled once the window is on its display.
+                    WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                        grow_to_minimum(window);
+                    }
+                    _ => {}
                 }
             }
             // Closing the output from the system closes the slideshow like the interface does,
@@ -172,9 +178,15 @@ pub fn run() {
 ///
 /// The saved size is in physical pixels, so a window saved on a standard display and reopened
 /// on a high-density one comes back at a fraction of its size, and macOS does not apply the
-/// minimum size to sizes set by the app.
+/// minimum size to sizes set by the app. The check is repeated on resizes and scale changes
+/// (`on_window_event`), because during setup the scale factor can still be the old display's.
 fn restore_main_window(window: &tauri::WebviewWindow) {
     let _ = window.restore_state(WINDOW_STATE_FLAGS);
+    grow_to_minimum(&window.as_ref().window());
+}
+
+/// Grows the operator window to its configured minimum size if it is smaller.
+fn grow_to_minimum(window: &tauri::Window) {
     if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
         return;
     }
