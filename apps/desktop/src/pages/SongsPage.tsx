@@ -47,6 +47,8 @@ export function SongsPage() {
   const [dirty, setDirty] = useState(false);
   const [pending, setPending] = useState<{ song: Song | null; website?: boolean } | null>(null);
   const [removing, setRemoving] = useState<{ song: Song; usage: IsoDate[] } | null>(null);
+  /** The pinned item the operator asked to unpin, waiting for them to confirm. */
+  const [unpinning, setUnpinning] = useState<Song | null>(null);
   /** The `Editing.key` of a song just added to the run sheet; cleared after a moment. */
   const [added, setAdded] = useState<number | null>(null);
   useEffect(() => {
@@ -220,7 +222,9 @@ export function SongsPage() {
                       aria-label={t(isPinned ? 'library.unpin' : 'library.pin')}
                       aria-pressed={isPinned}
                       title={t(isPinned ? 'library.unpin' : 'library.pin')}
-                      onClick={() => void session.setSongPinned(song.id, !isPinned)}
+                      onClick={() =>
+                        isPinned ? setUnpinning(song) : void session.setSongPinned(song.id, true)
+                      }
                     >
                       <Icon name="pin" className="h-3.5 w-3.5" />
                     </button>
@@ -293,6 +297,18 @@ export function SongsPage() {
           onConfirm={() => {
             open(pending.song, pending.website);
             setPending(null);
+          }}
+        />
+      )}
+      {unpinning && (
+        <ConfirmDialog
+          title={t('library.unpinTitle', { title: unpinning.title || t('songs.untitled') })}
+          body={t('library.unpinBody')}
+          confirmLabel={t('library.unpin')}
+          onCancel={() => setUnpinning(null)}
+          onConfirm={() => {
+            void session.setSongPinned(unpinning.id, false);
+            setUnpinning(null);
           }}
         />
       )}

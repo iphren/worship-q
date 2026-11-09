@@ -46,6 +46,9 @@ export const en = {
   'library.webNoMatch': 'No website matches “{search}”.',
   'library.pin': 'Pin to top',
   'library.unpin': 'Unpin',
+  'library.unpinTitle': 'Unpin “{title}”?',
+  'library.unpinBody':
+    'It will no longer be kept at the top of the library, here and on this workspace’s other computers.',
   'library.pinned': 'Pinned',
   'songs.new': 'New song',
   'songs.untitled': 'Untitled song',
