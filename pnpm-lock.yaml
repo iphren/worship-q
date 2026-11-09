@@ -296,6 +296,12 @@ importers:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)
 
+  packages/bible:
+    dependencies:
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.5
+
   packages/calendar: {}
 
   packages/live-state:
