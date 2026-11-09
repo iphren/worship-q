@@ -1,5 +1,7 @@
 import {
+  formatReference,
   itemBadge,
+  songSearchReference,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
   outputElapsed,
@@ -124,6 +126,8 @@ function Live({ view }: { view: RemoteView | null }) {
   const followUntilRef = useRef(0);
   const [activeInView, setActiveInView] = useState(true);
   const [mode, setMode] = useState<'present' | 'edit' | 'add' | 'bible'>('present');
+  // A reference typed into the library search, which the Bible screen opens on.
+  const [bibleFrom, setBibleFrom] = useState<string | undefined>(undefined);
   // The OBS screen opens over whichever of the others was showing, which stays as it was
   // underneath (its search, its scroll) and comes back when the screen closes.
   const [obsOpen, setObsOpen] = useState(false);
@@ -239,10 +243,19 @@ function Live({ view }: { view: RemoteView | null }) {
             <PhoneBible
               connection={connection}
               connected={connected && canEdit}
+              initial={bibleFrom}
               onDone={() => setMode('edit')}
             />
           ) : mode === 'add' ? (
-            <AddSongs view={view} connected={connected && canEdit} onDone={() => setMode('edit')} />
+            <AddSongs
+              view={view}
+              connected={connected && canEdit}
+              onDone={() => setMode('edit')}
+              onOpenBible={(text) => {
+                setBibleFrom(text);
+                setMode('bible');
+              }}
+            />
           ) : mode === 'edit' ? (
             <EditRunSheet
               view={view}
@@ -251,6 +264,7 @@ function Live({ view }: { view: RemoteView | null }) {
               onAdd={openSearch}
               onBible={() => {
                 setBefore(new Set(view.items.map((item) => item.itemId)));
+                setBibleFrom(undefined);
                 setMode('bible');
                 setObsOpen(false);
               }}
@@ -690,9 +704,17 @@ function ItemMark(props: { item: { kind?: RemoteItemView['kind']; badge?: ItemBa
 }
 
 /** The library search, as on the presenting computer, adding songs to the live run sheet. */
-function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void }) {
+function AddSongs(props: {
+  view: RemoteView;
+  connected: boolean;
+  onDone(): void;
+  /** Opens the Bible screen on a reference typed here (B9). */
+  onOpenBible(text: string): void;
+}) {
   const { view, connected } = props;
   const [query, setQuery] = useState('');
+  // A reference typed into the search, found on the phone alone; songs are still listed.
+  const reference = songSearchReference(query);
   const [results, setResults] = useState<{ query: string; songs: RemoteSongResult[] } | null>(null);
   // Titles of the songs added from this search, so the phone shows each one worked.
   const [added, setAdded] = useState<string[]>([]);
@@ -789,7 +811,19 @@ function AddSongs(props: { view: RemoteView; connected: boolean; onDone(): void 
             )}
           </li>
         )}
-        {results?.songs.length === 0 && !searching && (
+        {reference && (
+          <li>
+            <button
+              className="flex w-full items-center gap-2 rounded-lg border border-[#00E6FF]/40 bg-slate-900 p-3 text-left text-[15px] font-semibold text-[#00E6FF] active:scale-[0.98] disabled:opacity-40"
+              disabled={!connected}
+              onClick={() => props.onOpenBible(query.trim())}
+            >
+              <ItemBadgeMark badge="bible" />
+              Open {formatReference(reference)} in the Bible
+            </button>
+          </li>
+        )}
+        {results?.songs.length === 0 && !searching && !reference && (
           <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
         )}
         {results?.songs.map((song) => {

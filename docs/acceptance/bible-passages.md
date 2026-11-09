@@ -109,6 +109,7 @@ against a server with the church's three keys, offering at least NIVUK and 当�
 | **Edit…** on a passage item: change the verses, then the versions; the item keeps its place; the workspace's chips are unchanged | |
 | Chips: add, remove, reorder; the follower desktop and **Settings → Bible versions** show the change | |
 | The phone: **Add a Bible passage**, browse, preview, Add and Present; its slides show both columns | |
+| The phone's library search: `Mark 15:5` and `可15:5` offer **Open … in the Bible** above the songs, which opens the Bible screen there; `Amazing grace` does not | |
 | The YouVersion key removed and the server restarted: NIVUK comes through API.Bible | |
 | The server unreachable: the window says new passages need a connection; a passage item from last week presents | |
 | A version 2.1 desktop beside these items: it shows the passage as lyrics, and renaming the item there keeps the passage | |

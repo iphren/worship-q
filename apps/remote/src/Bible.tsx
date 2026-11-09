@@ -49,13 +49,17 @@ const ERRORS: Record<string, string> = {
 export function PhoneBible(props: {
   connection: RemoteConnection;
   connected: boolean;
+  /** Text to open on, such as a reference typed into the library search. */
+  initial?: string;
   onDone(added: string | null): void;
 }) {
   const { connection, connected } = props;
   const [offered, setOffered] = useState<BibleVersionInfo[] | null>(null);
   const [versions, setVersions] = useState<string[]>([]);
   const [toc, setToc] = useState<Toc | null>(null);
-  const [state, setState] = useState<BibleWindowState>(INITIAL);
+  const [state, setState] = useState<BibleWindowState>(() =>
+    props.initial ? typed(props.initial, null) : INITIAL,
+  );
   const [preview, setPreview] = useState<
     | { kind: 'idle' }
     | { kind: 'loading' }

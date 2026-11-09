@@ -126,7 +126,8 @@ beside the song search on the Present page (or in the calendar's run sheet edito
   a scene with the slides.
 - New passages need the church server; passages already in a run sheet present offline.
 - On a **phone**, **Edit → Add a Bible passage** does the same, except editing a passage
-  already added.
+  already added. A reference typed into the phone's library search offers **Open … in the
+  Bible** too.
 
 ## Settings
 
