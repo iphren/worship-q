@@ -63,7 +63,10 @@ desktop and phone interfaces have no automated tests; they are covered by the wa
   12:17–18 becomes 12:17 in NIVUK), so its column shows what it has and the missing verse is
   warned of; the first version decides whether the reference exists.
 - **A whole chapter** is what is added when a chapter is open with no verse chosen.
-- **Text below 4 %:** a slide is drawn at 5 % of the height, shrinking to fit down to 4 %;
+- **Larger text:** passages aim at 6 % of the height instead of B24's 5 %, after trying it
+  on screen, with the budget the spike measured for 6 %: 8 estimated lines per column, 25
+  Latin or 10 Chinese characters to a line side by side (46 and 21 for one version).
+- **Text below 4 %:** a slide is drawn at its target size, shrinking to fit down to 4 %;
   only a slide that cannot fit even at 4 % (one very long verse) goes smaller, so no text is
   cut off.
 - **Older desktops** are told apart by a `passages` capability, as videos were, rather than by

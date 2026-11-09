@@ -14,9 +14,12 @@ export interface PassageBudget {
   wide: number;
 }
 
-/** Spike P0.3: text at 5 % of the height, 11 lines fit, one kept spare. */
-export const SIDE_BY_SIDE_BUDGET: PassageBudget = { lines: 10, latin: 30, wide: 12 };
-export const SINGLE_BUDGET: PassageBudget = { lines: 10, latin: 55, wide: 25 };
+/**
+ * Text at 6 % of the height (spike P0.3's measurements): 9 lines fit, one kept spare; 25
+ * Latin or 10 Chinese characters to a line side by side, and 46 or 21 across the screen.
+ */
+export const SIDE_BY_SIDE_BUDGET: PassageBudget = { lines: 8, latin: 25, wide: 10 };
+export const SINGLE_BUDGET: PassageBudget = { lines: 8, latin: 46, wide: 21 };
 
 export function budgetFor(versions: number): PassageBudget {
   return versions > 1 ? SIDE_BY_SIDE_BUDGET : SINGLE_BUDGET;

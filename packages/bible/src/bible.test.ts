@@ -488,10 +488,10 @@ describe('slides (§3.3)', () => {
   });
 
   it('splits a long passage into whole rows, never splitting a joined unit', () => {
-    // With its label, each verse is two lines side by side; five fit in ten lines.
-    const en = verses(12, 'x'.repeat(50));
-    const zh = verses(12, '字'.repeat(10), true);
-    zh.splice(4, 2, unit(1, [5, 6], '字'.repeat(10)));
+    // With its label, each verse is two lines side by side; four fit in eight lines.
+    const en = verses(12, 'x'.repeat(40));
+    const zh = verses(12, '字'.repeat(8), true);
+    zh.splice(4, 2, unit(1, [5, 6], '字'.repeat(8)));
     const pieces = passagePieces(align(passage(en, zh)));
     for (const piece of pieces) {
       expect(piece.rows.length).toBeGreaterThan(0);
@@ -526,33 +526,33 @@ describe('slides (§3.3)', () => {
 
   it('lets the longer column decide where a slide ends', () => {
     const en = verses(6, 'Short.');
-    const zh = verses(6, '字'.repeat(34), true); // three lines each side by side
+    const zh = verses(6, '字'.repeat(17), true); // two lines each side by side
     const pieces = passagePieces(align(passage(en, zh)));
-    expect(pieces.map((p) => p.rows.length)).toEqual([3, 3]);
+    expect(pieces.map((p) => p.rows.length)).toEqual([4, 2]);
   });
 
   it('counts wide characters by their width, mixed text character by character', () => {
     const budget = SIDE_BY_SIDE_BUDGET;
-    expect(estimateLines('x'.repeat(30), budget)).toBe(1);
-    expect(estimateLines('x'.repeat(31), budget)).toBe(2);
-    expect(estimateLines('字'.repeat(12), budget)).toBe(1);
-    expect(estimateLines('字'.repeat(13), budget)).toBe(2);
-    // Six wide characters take half a line, as fifteen Latin ones do.
-    expect(estimateLines('字'.repeat(6) + 'x'.repeat(15), budget)).toBe(1);
-    expect(estimateLines('字'.repeat(6) + 'x'.repeat(16), budget)).toBe(2);
+    expect(estimateLines('x'.repeat(25), budget)).toBe(1);
+    expect(estimateLines('x'.repeat(26), budget)).toBe(2);
+    expect(estimateLines('字'.repeat(10), budget)).toBe(1);
+    expect(estimateLines('字'.repeat(11), budget)).toBe(2);
+    // Five wide characters take half a line, as twelve or thirteen Latin ones do.
+    expect(estimateLines('字'.repeat(5) + 'x'.repeat(12), budget)).toBe(1);
+    expect(estimateLines('字'.repeat(5) + 'x'.repeat(13), budget)).toBe(2);
     expect(estimateLines('', budget)).toBe(1);
   });
 
   it('holds more on a single-version slide', () => {
     expect(budgetFor(1).latin).toBeGreaterThan(budgetFor(2).latin);
-    const en = verses(6, 'x'.repeat(50));
+    const en = verses(6, 'x'.repeat(40));
     expect(passagePieces(align(passage(en)))).toHaveLength(1);
     expect(
       passagePieces(
         align(
           passage(
             en,
-            en.map((u) => ({ ...u, lines: [line('x'.repeat(50))] })),
+            en.map((u) => ({ ...u, lines: [line('x'.repeat(40))] })),
           ),
         ),
       ),

@@ -250,8 +250,8 @@ export function contrastTextColor(background: string): '#000000' | '#ffffff' {
 
 // ── Bible passages (B10, B24) ───────────────────────────────────────────────
 
-/** Passage text aims at 5 % of the output height and is never drawn below 4 % (spike P0.3). */
-export const PASSAGE_TARGET_RATIO = 0.05;
+/** Passage text aims at 6 % of the output height and is never drawn below 4 % (spike P0.3). */
+export const PASSAGE_TARGET_RATIO = 0.06;
 export const PASSAGE_FLOOR_RATIO = 0.04;
 /** The gap between two columns, as a fraction of the output width. */
 export const PASSAGE_COLUMN_GAP = 0.03;
