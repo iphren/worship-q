@@ -312,8 +312,9 @@ function Live({ view }: { view: RemoteView | null }) {
                                 ? view.blank
                                   ? 'border-amber-400 bg-amber-900/50'
                                   : 'border-emerald-500 bg-emerald-900/50 text-white'
-                                : // Alternate styles by block, as on the desktop.
-                                  (piece.block ?? 0) % 2 === 0
+                                : // A song's blocks alternate, as on the desktop; slides,
+                                  // passages and the rest are drawn alike.
+                                  !shadesBlocks(item) || (piece.block ?? 0) % 2 === 0
                                   ? 'border-slate-700 bg-slate-900'
                                   : 'border-sky-700 bg-sky-900/60'
                             }`}
@@ -695,6 +696,14 @@ function EditRunSheet(props: {
       </button>
     </main>
   );
+}
+
+/**
+ * Whether an item's blocks are shaded in turn: a song's verses are, as on the desktop.
+ * Desktops from before kinds were sent leave the kind out; their items are taken as songs.
+ */
+function shadesBlocks(item: { kind?: RemoteItemView['kind'] }): boolean {
+  return item.kind === undefined || item.kind === 'lyrics';
 }
 
 /** An item's badge, as the desktop marks it; nothing for an ordinary song. */
