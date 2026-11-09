@@ -332,6 +332,7 @@ function songBackgroundStatement(
   songId: string,
   background: SongBackground | null,
   now: string,
+  key = songBackgroundKey(songId),
 ): Statement {
   const value = background
     ? { backgroundColor: background.color, backgroundAssetId: background.assetId }
@@ -340,9 +341,15 @@ function songBackgroundStatement(
     sql: `INSERT INTO setting (workspace_id, key, value, revision, updated_at) VALUES (?, ?, ?, 1, ?)
           ON CONFLICT (workspace_id, key) DO UPDATE
           SET value = excluded.value, revision = setting.revision + 1, updated_at = excluded.updated_at`,
-    params: [workspaceId, songBackgroundKey(songId), JSON.stringify(value), now],
+    params: [workspaceId, key, JSON.stringify(value), now],
   };
 }
+
+/**
+ * The background of every Bible passage in the workspace, apart from songs' backgrounds; the
+ * same value as a song background's, null or missing for the slideshow background.
+ */
+export const BIBLE_BACKGROUND_KEY = 'bibleBackground';
 
 /** The setting that pins a song to the top of the library for the whole workspace. */
 export const songPinKey = (songId: string) => `songPin.${songId}`;
@@ -704,8 +711,26 @@ export class Store {
    * carries from before backgrounds were the workspace's; null is the slideshow background.
    */
   async getSongBackground(song: Song): Promise<SongBackground | null> {
+    // A passage is shown on the workspace's Bible background, never a song's own.
+    if (song.passage) return this.getBibleBackground(song.workspaceId);
     const chosen = await this.getSongBackgroundSetting(song.workspaceId, song.id);
     return chosen === undefined ? song.background : chosen;
+  }
+
+  /** The background of every Bible passage; null is the slideshow background. */
+  async getBibleBackground(workspaceId: string): Promise<SongBackground | null> {
+    const rows = await this.db.select<{ value: string }>(
+      'SELECT value FROM setting WHERE workspace_id = ? AND key = ?',
+      [workspaceId, BIBLE_BACKGROUND_KEY],
+    );
+    return parseSongBackground(rows[0]?.value) ?? null;
+  }
+
+  /** Chooses the background of every Bible passage; null is the slideshow background. */
+  async setBibleBackground(workspaceId: string, background: SongBackground | null): Promise<void> {
+    await this.db.batch([
+      songBackgroundStatement(workspaceId, '', background, this.env.now(), BIBLE_BACKGROUND_KEY),
+    ]);
   }
 
   /** Chooses a song's background for the workspace; null is the slideshow background. */

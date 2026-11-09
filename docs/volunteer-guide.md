@@ -119,6 +119,8 @@ beside the song search on the Present page (or in the calendar's run sheet edito
 - **Notes under a passage** (ⓘ) explain why it may look different from the speaker's Bible:
   a version that joins two verses into one (当代译本 joins 1 Chronicles 16:12–13), or one that
   has no such verse (NIVUK has no Revelation 12:18). The screen never shows these notes.
+- Passages have **their own background**: **Settings → Background → Bible** sets one for every
+  passage, apart from songs' backgrounds; without one they use the workspace background.
 - Passages are **not shown on the subtitle overlay**. To show one on the stream, switch OBS to
   a scene with the slides.
 - New passages need the church server; passages already in a run sheet present offline.

@@ -808,6 +808,48 @@ describe('passage songs (Bible passages P3)', () => {
   });
 });
 
+describe('the Bible background', () => {
+  const passage = {
+    reference: 'JHN.3.16',
+    texts: [
+      {
+        version: 'NIVUK',
+        credit: 'NIV (UK)',
+        provider: 'youversion' as const,
+        copyright: '',
+        units: [{ chapter: 3, verses: [16], label: '16', lines: [{ text: 'For God', indent: 0 }] }],
+        fumsToken: null,
+      },
+    ],
+  };
+  const blue = { color: '#102040', assetId: null };
+
+  it('shows every passage on it, and never a song', async () => {
+    const reading = await store.createSong(workspaceId, { title: 'John 3:16', passage });
+    const song = await store.createSong(workspaceId, { title: 'Grace' });
+    expect(await store.getSongBackground(reading)).toBeNull();
+    await store.setBibleBackground(workspaceId, blue);
+    expect(await store.getBibleBackground(workspaceId)).toEqual(blue);
+    expect(await store.getSongBackground(reading)).toEqual(blue);
+    expect(await store.getSongBackground(song)).toBeNull();
+    // A song's own background never reaches passages, nor the other way.
+    await store.setSongBackground(workspaceId, song.id, { color: '#ff0000', assetId: null });
+    expect(await store.getSongBackground(reading)).toEqual(blue);
+    await store.setBibleBackground(workspaceId, null);
+    expect(await store.getSongBackground(reading)).toBeNull();
+  });
+
+  it('reaches the workspace’s other computers', async () => {
+    await store.setBibleBackground(workspaceId, blue);
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    const other = await createTestStore();
+    const otherWorkspace = (await other.store.ensureWorkspace('Europe/London')).id;
+    await new SyncStore(other.store).applyRemote(otherWorkspace, records);
+    expect(await other.store.getBibleBackground(otherWorkspace)).toEqual(blue);
+    other.driver.close();
+  });
+});
+
 describe('the workspace’s Bible versions (P3.4)', () => {
   it('keeps up to two versions in order, and refuses more', async () => {
     expect(await store.getBibleVersions(workspaceId)).toEqual([]);

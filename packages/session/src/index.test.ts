@@ -1614,6 +1614,20 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     expect((await session.frame(mediaUrl)).passage ?? null).toBeNull();
   });
 
+  it('is shown on the workspace’s Bible background, apart from songs’ backgrounds', async () => {
+    await session.setSongBackground(a.id, { color: '#ff0000', assetId: null });
+    await session.setBibleBackground({ color: '#102040', assetId: null });
+    await session.addPassage(SUNDAY, mark, { present: true });
+    expect((await session.frame(mediaUrl)).background.color).toBe('#102040');
+    // Followers and browser outputs get it with the snapshot.
+    expect((await session.buildSnapshot('A'))!.presented!.background).toEqual({
+      color: '#102040',
+      assetId: null,
+    });
+    await playAt(0, 0);
+    expect((await session.frame(mediaUrl)).background.color).toBe('#ff0000');
+  });
+
   it('draws a passage a follower does not have yet from the snapshot', async () => {
     await session.addPassage(SUNDAY, mark, { present: true });
     const snapshot = { ...(await session.buildSnapshot('A'))!, revision: 1 };

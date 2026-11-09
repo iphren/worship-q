@@ -233,8 +233,14 @@ export const en = {
   'settings.backgroundCovered':
     'The song on screen has its own background, so this one shows again after it.',
   'settings.backgroundWorkspace': 'Workspace',
-  'settings.backgroundWorkspaceHint': 'Shown behind every song that has no background of its own.',
+  'settings.backgroundWorkspaceHint':
+    'Shown behind every song that has no background of its own, and behind Bible passages unless the Bible tab sets one.',
   'settings.songBackground': 'Song · {title}',
+  'settings.bibleBackground': 'Bible',
+  'settings.bibleBackgroundHint':
+    'Shown behind every Bible passage, apart from songs’ backgrounds. Changes reach every computer of the workspace.',
+  'settings.bibleBackgroundOwn': 'A background for Bible passages',
+  'settings.bibleBackgroundOwnHint': 'Every passage is shown on it, whatever the songs use.',
   'settings.backgroundInUse': 'In use on screen now',
   'settings.songBackgroundHint': 'The song on screen now. Changes are saved with the song.',
   'settings.backup': 'Backup',

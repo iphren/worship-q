@@ -1439,6 +1439,11 @@ export class Session {
     return this.mutate(() => this.store.setBibleVersions(this.workspace_.id, versions));
   }
 
+  /** Chooses the background of every Bible passage, apart from songs'; null is the slideshow's. */
+  setBibleBackground(background: SongBackground | null): Promise<void> {
+    return this.mutate(() => this.store.setBibleBackground(this.workspace_.id, background));
+  }
+
   updateOutputProfile(
     patch: OutputProfilePatch,
     kind: OutputKind = 'slideshow',
