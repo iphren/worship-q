@@ -10,7 +10,13 @@ import {
 import { EMPTY_FRAME, type OutputFrame, type OutputVideo } from '@worship-q/protocol';
 import {
   contrastTextColor,
+  fitPassage,
   fitSong,
+  PASSAGE_CREDIT_SCALE,
+  PASSAGE_INDENT_EM,
+  PASSAGE_LABEL_SCALE,
+  PASSAGE_LINE_HEIGHT,
+  type FittedPassage,
   outputGeometry,
   subtitleGeometry,
   type Measure,
@@ -71,6 +77,13 @@ interface Layer {
 interface Lyrics extends Layer {
   lines: string[];
   style: CSSProperties;
+}
+
+interface PassageLayer extends Layer {
+  fitted: FittedPassage;
+  color: string;
+  fontFamily: string;
+  textShadow: string;
 }
 
 interface Picture extends Layer {
@@ -251,6 +264,39 @@ export function Slide({
     [piece, fitted, songId, pieceId, fontFamily, color, onMedia, subtitle],
   );
 
+  // A passage's slide (B10, B24): its versions side by side at one size, on the slideshow only.
+  const passageColumns = !subtitle && !frame.blank ? (frame.passage?.columns ?? null) : null;
+  const passage = useMemo<PassageLayer | null>(() => {
+    if (!passageColumns || width <= 0 || height <= 0) return null;
+    const fitted = fitPassage(
+      passageColumns,
+      width,
+      height,
+      measure ?? createCanvasMeasure(fontFamily),
+      frame.scale,
+    );
+    return {
+      key: `passage:${pieceId}:${passageColumns.map((column) => column.version).join('|')}`,
+      fitted,
+      color,
+      fontFamily: cssFontFamily(fontFamily),
+      textShadow: onMedia ? '0 0 0.12em rgba(0,0,0,0.9), 0 0.04em 0.08em rgba(0,0,0,0.8)' : 'none',
+    };
+    // fontsReady: measure again once fonts have loaded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    passageColumns,
+    width,
+    height,
+    measure,
+    fontFamily,
+    frame.scale,
+    pieceId,
+    color,
+    onMedia,
+    fontsReady,
+  ]);
+
   const pictureUrl = frame.picture?.url ?? null;
   const picture = useMemo<Picture | null>(
     () => (pictureUrl ? { key: pictureUrl, url: pictureUrl } : null),
@@ -259,6 +305,7 @@ export function Slide({
 
   const backgrounds = useCrossfade(background, transition, false);
   const lyricLayers = useCrossfade(lyrics, transition, true);
+  const passageLayers = useCrossfade(passage, transition, true);
   // The next slide covers the last one as it fades in; only going blank fades a slide out.
   const pictureLayers = useCrossfade(picture, transition, picture === null);
 
@@ -282,6 +329,9 @@ export function Slide({
       ))}
       {lyricLayers.layers.map((layer) => (
         <LyricsBlock key={layer.key} ref={lyricLayers.ref(layer.key)} lyrics={layer} />
+      ))}
+      {passageLayers.layers.map((layer) => (
+        <PassageBlock key={layer.key} ref={passageLayers.ref(layer.key)} passage={layer} />
       ))}
       {frame.video && frame.video.url && (
         <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} sinkId={sinkId} />
@@ -489,6 +539,84 @@ function LyricsBlock(props: { lyrics: Lyrics; ref: Ref<HTMLDivElement> }) {
           {line}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * A passage's columns side by side, top-aligned so verses start level, with each column's
+ * credit at its foot; the whole block is centred in the area. Verse numbers are small and
+ * raised; poetry keeps its indent.
+ */
+function PassageBlock(props: { passage: PassageLayer; ref: Ref<HTMLDivElement> }) {
+  const { fitted, color, fontFamily, textShadow } = props.passage;
+  const row: CSSProperties = { display: 'flex', gap: fitted.gap };
+  return (
+    <div
+      ref={props.ref}
+      style={{
+        position: 'absolute',
+        left: fitted.marginX,
+        top: fitted.marginY,
+        width: fitted.areaWidth,
+        height: fitted.areaHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        color,
+        fontFamily,
+        fontSize: fitted.fontSize,
+        lineHeight: PASSAGE_LINE_HEIGHT,
+        fontWeight: FONT_WEIGHT,
+        textShadow,
+      }}
+    >
+      <div style={{ ...row, alignItems: 'flex-start' }}>
+        {fitted.columns.map((column, index) => (
+          <div key={index} style={{ width: fitted.columnWidth }}>
+            {column.lines.map((line, i) => (
+              <div
+                key={i}
+                style={{
+                  whiteSpace: 'pre',
+                  paddingLeft: `${line.indent * PASSAGE_INDENT_EM}em`,
+                  fontStyle: line.title ? 'italic' : undefined,
+                  opacity: line.title ? 0.85 : undefined,
+                }}
+              >
+                {line.label && (
+                  <span
+                    style={{
+                      fontSize: `${PASSAGE_LABEL_SCALE}em`,
+                      verticalAlign: '0.6em',
+                      lineHeight: 0,
+                      opacity: 0.75,
+                    }}
+                  >
+                    {`${line.label} `}
+                  </span>
+                )}
+                {line.text}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ ...row, marginTop: '0.4em', fontSize: `${PASSAGE_CREDIT_SCALE}em` }}>
+        {fitted.columns.map((column, index) => (
+          <div
+            key={index}
+            style={{
+              width: fitted.columnWidth,
+              textAlign: 'right',
+              fontWeight: 400,
+              opacity: 0.7,
+            }}
+          >
+            {column.credit}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

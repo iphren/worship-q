@@ -80,6 +80,15 @@ export function buildFrame(input: FrameInput): OutputFrame {
     }
     return frame;
   }
+  if (presented.kind === 'passage') {
+    // On the slideshow only: the subtitle overlay stays empty while a passage is live (B12).
+    const piece = presented.pieces.find((p) => p.id === presented.pieceId);
+    frame.pieceId = piece ? piece.id : null;
+    if (piece?.passage && kind === 'slideshow' && !frame.blank) {
+      frame.passage = { columns: piece.passage.columns };
+    }
+    return frame;
+  }
   if (presented.kind === 'deck') {
     const page = presented.pieces.find((piece) => piece.id === presented.pieceId);
     frame.pieceId = page ? page.id : null;

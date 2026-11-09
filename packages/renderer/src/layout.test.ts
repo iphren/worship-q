@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   breakCandidates,
   contrastTextColor,
+  fitPassage,
   fitSong,
+  wrapText,
+  PASSAGE_FLOOR_RATIO,
+  PASSAGE_TARGET_RATIO,
   outputGeometry,
   type FitOptions,
   type Measure,
@@ -171,5 +175,91 @@ describe('contrastTextColor', () => {
     expect(contrastTextColor('#ffffff')).toBe('#000000');
     expect(contrastTextColor('#ffe680')).toBe('#000000');
     expect(contrastTextColor('nonsense')).toBe('#ffffff');
+  });
+});
+
+describe('wrapping passage text', () => {
+  it('breaks Latin text between words', () => {
+    // Half an em per character: nine characters to a 4.5 em line.
+    expect(wrapText('one two three four', 4.5, measure)).toEqual(['one two', 'three', 'four']);
+  });
+
+  it('breaks Chinese text between characters, never before closing punctuation', () => {
+    expect(wrapText('耶稣仍不回答，以致彼拉多', 3, measure)).toEqual([
+      '耶稣仍',
+      '不回',
+      '答，以',
+      '致彼拉',
+      '多',
+    ]);
+  });
+
+  it('keeps room for a verse number on the first line', () => {
+    expect(wrapText('one two', 3.5, measure, 1)).toEqual(['one', 'two']);
+    expect(wrapText('one two', 3.5, measure)).toEqual(['one two']);
+  });
+
+  it('breaks a word wider than a line where it must', () => {
+    expect(wrapText('abcdefgh', 2, measure)).toEqual(['abcd', 'efgh']);
+  });
+});
+
+describe('fitting a passage (P6.3, B24)', () => {
+  const column = (credit: string, verses: string[]) => ({
+    credit,
+    units: verses.map((text, i) => ({ label: String(i + 1), lines: [{ text, indent: 0 }] })),
+  });
+
+  it('draws a short passage at 5 % of the height', () => {
+    const fitted = fitPassage(
+      [column('NIVUK', ['Jesus wept.']), column('CCB', ['耶稣哭了。'])],
+      1920,
+      1080,
+      measure,
+    );
+    expect(fitted.fontSize).toBeCloseTo(1080 * PASSAGE_TARGET_RATIO);
+    expect(fitted.columns.map((c) => c.credit)).toEqual(['NIVUK', 'CCB']);
+    expect(fitted.columns[0]!.lines[0]).toEqual({
+      text: 'Jesus wept.',
+      label: '1',
+      indent: 0,
+      title: false,
+    });
+  });
+
+  it('uses one size for both columns, the longer column deciding it', () => {
+    const long = column(
+      'CCB',
+      Array.from({ length: 12 }, () => '字'.repeat(30)),
+    );
+    const short = column('NIVUK', ['Short.']);
+    const fitted = fitPassage([short, long], 1920, 1080, measure);
+    expect(fitted.fontSize).toBeLessThan(1080 * PASSAGE_TARGET_RATIO);
+    const alone = fitPassage([short, column('CCB', ['短。'])], 1920, 1080, measure);
+    expect(alone.fontSize).toBeGreaterThan(fitted.fontSize);
+    // The short column is drawn at the long column's size.
+    expect(fitted.columns).toHaveLength(2);
+  });
+
+  it('never goes below 4 % for a slide that fits there', () => {
+    // Thirteen lines fit at 4 % and not at 5 %.
+    const lines = Array.from({ length: 13 }, () => 'Short.');
+    const fitted = fitPassage([column('A', lines), column('B', lines)], 1920, 1080, measure);
+    expect(fitted.fontSize).toBeGreaterThanOrEqual(1080 * PASSAGE_FLOOR_RATIO - 0.1);
+    expect(fitted.fontSize).toBeLessThanOrEqual(1080 * PASSAGE_TARGET_RATIO);
+  });
+
+  it('shrinks further only a slide that cannot fit at 4 %, so nothing is cut off', () => {
+    const huge = column('A', [Array.from({ length: 2000 }, () => 'word').join(' ')]);
+    const fitted = fitPassage([huge], 1920, 1080, measure);
+    expect(fitted.fontSize).toBeLessThan(1080 * PASSAGE_FLOOR_RATIO);
+    const height = fitted.columns[0]!.lines.length * fitted.fontSize * 1.5;
+    expect(height).toBeLessThanOrEqual(fitted.areaHeight);
+  });
+
+  it('draws a single version across the whole width', () => {
+    const fitted = fitPassage([column('NIVUK', ['Jesus wept.'])], 1920, 1080, measure);
+    expect(fitted.gap).toBe(0);
+    expect(fitted.columnWidth).toBeCloseTo(fitted.areaWidth);
   });
 });

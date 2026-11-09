@@ -1,5 +1,5 @@
 import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
-import type { OutputFrame } from '@worship-q/protocol';
+import type { OutputFrame, Passage } from '@worship-q/protocol';
 import { Store } from '@worship-q/store';
 import {
   createTestEnv,
@@ -11,6 +11,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   ReadOnlyDateError,
   Session,
+  passageSongFields,
+  songKind,
   songPieces,
   VIDEO_PIECE_ID,
   WEBSITE_PIECE_ID,
@@ -1437,5 +1439,250 @@ describe('video items (media uploads M5.4, M6.1)', () => {
     session.follow({ send: (command) => sent.push(command) });
     await session.videoPlay(true);
     expect(sent).toEqual([{ type: 'videoPlay', itemId: session.live!.presented!.itemId }]);
+  });
+});
+
+describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
+  const text = (
+    version: string,
+    credit: string,
+    verses: [number, string][],
+    token: string | null = null,
+  ) => ({
+    version,
+    credit,
+    provider: (token ? 'apibible' : 'youversion') as 'apibible' | 'youversion',
+    copyright: '©',
+    units: verses.map(([verse, words]) => ({
+      chapter: 15,
+      verses: [verse],
+      label: String(verse),
+      lines: [{ text: words, indent: 0 }],
+    })),
+    fumsToken: token,
+  });
+  const mark: Passage = {
+    reference: 'MRK.15.5-MRK.15.6',
+    texts: [
+      text('NIVUK', 'NIVUK', [
+        [5, 'But Jesus still made no reply.'],
+        [6, 'Now it was the custom at the festival.'],
+      ]),
+      text('CCB', '当代译本', [
+        [5, '耶稣仍不回答。'],
+        [6, '每逢这节期，巡抚释放一个囚犯。'],
+      ]),
+    ],
+  };
+  let a: Awaited<ReturnType<typeof song>>;
+  let b: Awaited<ReturnType<typeof song>>;
+  beforeEach(async () => {
+    a = await song('A', 'a1\na2');
+    b = await song('B', 'b1');
+    await plan(SUNDAY, [a.id, b.id]);
+    await reopen();
+  });
+  const titles = async () => (await session.viewDate(SUNDAY)).entries.map((e) => e.song.title);
+
+  it('makes the passage a run sheet item titled by its reference', async () => {
+    const item = await session.addPassage(SUNDAY, mark);
+    const entry = (await session.viewDate(SUNDAY)).entries.find((e) => e.item.id === item!.id)!;
+    expect(entry.song.title).toBe('Mark 15:5–6');
+    expect(entry.song.passage).toEqual(mark);
+    expect(entry.song.lyrics).toBe(
+      '5 But Jesus still made no reply.\n\n6 Now it was the custom at the festival.',
+    );
+    expect(songKind(entry.song)).toBe('passage');
+    // Kept out of the library (B7).
+    expect((await store.listSongs(session.workspace.id)).map((s) => s.title)).toEqual(['A', 'B']);
+  });
+
+  it('titles a passage in its first version’s language', () => {
+    expect(passageSongFields({ ...mark, texts: [mark.texts[1]!, mark.texts[0]!] }).title).toBe(
+      '马可福音 15:5-6',
+    );
+  });
+
+  it('goes right after the item being presented, and Add leaves the screen as it is', async () => {
+    await playAt(0, 0);
+    const before = session.live!.presented;
+    await session.addPassage(SUNDAY, mark);
+    expect(await titles()).toEqual(['A', 'Mark 15:5–6', 'B']);
+    expect(session.live!.presented).toEqual(before);
+    expect(await shown()).toEqual(['a1', 'a2']);
+  });
+
+  it('goes at the end when nothing is presented', async () => {
+    await session.addPassage(SUNDAY, mark);
+    expect(await titles()).toEqual(['A', 'B', 'Mark 15:5–6']);
+    await playAt(0, 0);
+    await session.clear();
+    await session.addPassage(SUNDAY, mark);
+    expect(await titles()).toEqual(['A', 'B', 'Mark 15:5–6', 'Mark 15:5–6']);
+  });
+
+  it('goes at the end when the presented item has been removed', async () => {
+    await playAt(0, 0);
+    await session.removeItem((await session.viewDate(SUNDAY)).entries[0]!.item.id);
+    await session.addPassage(SUNDAY, mark);
+    expect(await titles()).toEqual(['B', 'Mark 15:5–6']);
+  });
+
+  it('presents its first slide with Present', async () => {
+    await playAt(1, 0);
+    const item = await session.addPassage(SUNDAY, mark, { present: true });
+    expect(session.live!.presented).toMatchObject({ itemId: item!.id, pieceId: 'v15:5' });
+    expect(await titles()).toEqual(['A', 'B', 'Mark 15:5–6']);
+  });
+
+  it('adds at the end in the calendar, presenting nothing', async () => {
+    await session.editRunSheet(NEXT_SUNDAY);
+    await playAt(0, 0);
+    const before = session.live!.presented;
+    await session.addPassage(NEXT_SUNDAY, mark, { present: true });
+    expect((await session.viewDate(NEXT_SUNDAY)).entries.map((e) => e.song.title)).toEqual([
+      'Mark 15:5–6',
+    ]);
+    expect(session.live!.presented).toEqual(before);
+  });
+
+  it('is sent to the coordinator from a follower', async () => {
+    const sent: unknown[] = [];
+    session.follow({ send: (command) => sent.push(command) });
+    expect(await session.addPassage(SUNDAY, mark, { present: true })).toBeNull();
+    await session.addPassage(SUNDAY, mark, { afterItemId: null });
+    expect(sent).toEqual([
+      { type: 'addPassage', passage: mark, present: true },
+      { type: 'addPassage', passage: mark, afterItemId: null },
+    ]);
+  });
+
+  it('from a phone or a follower, lands after the presented item on the coordinator (B15)', async () => {
+    await playAt(0, 0);
+    const change = await session.remotePassage('c1', { type: 'addPassage', passage: mark });
+    expect(change).toMatchObject({ kind: 'added', title: 'Mark 15:5–6' });
+    expect(await titles()).toEqual(['A', 'Mark 15:5–6', 'B']);
+    // The same command again is applied once.
+    expect(await session.remotePassage('c1', { type: 'addPassage', passage: mark })).toBeNull();
+    const outcome = await session.applyOperatorCommand(
+      'c2',
+      { type: 'addPassage', passage: mark, present: true },
+      { kind: 'phone', grantId: 'g', name: 'Phone' },
+    );
+    expect(outcome.result).toBe('applied');
+    expect(session.live!.presented!.pieceId).toBe('v15:5');
+    expect(await titles()).toEqual(['A', 'Mark 15:5–6', 'Mark 15:5–6', 'B']);
+  });
+
+  it('is refused from a phone while nothing is live', async () => {
+    await session.endPresentation();
+    expect(await session.remotePassage('c1', { type: 'addPassage', passage: mark })).toBeNull();
+  });
+
+  it('gives the same slides from the database and from a snapshot, ids kept when saved again', async () => {
+    const item = await session.addPassage(SUNDAY, mark, { present: true });
+    const entry = (await session.viewLive())!.entries.find((e) => e.item.id === item!.id)!;
+    expect(entry.pieces.map((p) => p.id)).toEqual(['v15:5']);
+    const snapshot = (await session.buildSnapshot('A'))!;
+    const carried = snapshot.items.find((i) => i.itemId === item!.id)!;
+    expect(carried.kind).toBe('passage');
+    expect(carried.badge).toBe('bible');
+    expect(carried.pieces.map((p) => p.id)).toEqual(entry.pieces.map((p) => p.id));
+    expect(carried.pieces[0]!.passage!.columns.map((c) => c.credit)).toEqual(['NIVUK', '当代译本']);
+    expect(carried.pieces[0]!.lines).toEqual([
+      '5 But Jesus still made no reply.',
+      '6 Now it was the custom at the festival.',
+    ]);
+    // Saved again unchanged: the same slide stays live.
+    await session.savePassage(entry.song.id, JSON.parse(JSON.stringify(mark)) as Passage);
+    expect(session.live!.presented!.pieceId).toBe('v15:5');
+    expect(
+      songPieces({ ...entry.song, passage: JSON.parse(JSON.stringify(mark)) }, 2).map((p) => p.id),
+    ).toEqual(['v15:5']);
+  });
+
+  it('draws the slide side by side on the slideshow, and nothing on the subtitle overlay (B12)', async () => {
+    await session.addPassage(SUNDAY, mark, { present: true });
+    const slideshow = await session.frame(mediaUrl);
+    expect(slideshow.passage!.columns.map((c) => c.version)).toEqual(['NIVUK', 'CCB']);
+    expect(slideshow.pieceId).toBe('v15:5');
+    expect(slideshow.song).toBeNull();
+    const subtitle = await session.frame(mediaUrl, 'subtitle');
+    expect(subtitle.passage ?? null).toBeNull();
+    expect(subtitle.song).toBeNull();
+    await session.setBlank(true);
+    expect((await session.frame(mediaUrl)).passage ?? null).toBeNull();
+  });
+
+  it('draws a passage a follower does not have yet from the snapshot', async () => {
+    await session.addPassage(SUNDAY, mark, { present: true });
+    const snapshot = { ...(await session.buildSnapshot('A'))!, revision: 1 };
+    const other = await createTestStore(undefined, createTestEnv('2026-10-11T09:00:00.000Z'));
+    const follower = (await Session.open(other.store, { now: () => env.date() }, 'UTC')).session;
+    follower.follow({ send: () => undefined });
+    await follower.applySnapshot(snapshot);
+    const frame = await follower.frame(mediaUrl);
+    expect(frame.passage!.columns[1]!.units[0]!.lines[0]!.text).toBe('耶稣仍不回答。');
+    expect((await follower.frame(mediaUrl, 'subtitle')).song).toBeNull();
+    other.driver.close();
+  });
+
+  it('follows an edit to the passage in place, keeping the item’s position (B11)', async () => {
+    const item = await session.addPassage(SUNDAY, mark);
+    const songId = (await session.viewDate(SUNDAY)).entries.find((e) => e.item.id === item!.id)!
+      .song.id;
+    const changed: Passage = {
+      reference: 'MRK.15.5',
+      texts: [text('ESV', 'ESV', [[5, 'But Jesus made no further answer.']])],
+    };
+    const saved = await session.savePassage(songId, changed);
+    expect(saved.title).toBe('Mark 15:5');
+    expect(saved.revision).toBe(2);
+    expect(await titles()).toEqual(['A', 'B', 'Mark 15:5']);
+  });
+
+  describe('usage reporting (B25)', () => {
+    const tokened: Passage = {
+      ...mark,
+      texts: [
+        text(
+          'NIVUK',
+          'NIVUK',
+          [
+            [5, 'But Jesus'],
+            [6, 'Now'],
+          ],
+          'TOKEN-1',
+        ),
+        mark.texts[1]!,
+      ],
+    };
+    let reports: [string[], string][];
+    beforeEach(async () => {
+      reports = [];
+      ({ session } = await Session.open(store, { now: () => env.date() }, 'UTC', {
+        reportUsage: (tokens, live) => reports.push([tokens, live]),
+      }));
+    });
+
+    it('reports a passage’s tokens once per item per live session', async () => {
+      const item = await session.addPassage(SUNDAY, tokened, { present: true });
+      await playAt(0, 0);
+      await session.play(item!.id, 'v15:5');
+      expect(reports).toEqual([[['TOKEN-1'], `live-${Date.parse(session.live!.startedAt)}`]]);
+    });
+
+    it('reports nothing for a passage from other providers, or a song', async () => {
+      await session.addPassage(SUNDAY, mark, { present: true });
+      await playAt(0, 0);
+      expect(reports).toEqual([]);
+    });
+
+    it('never reports from a follower', async () => {
+      const item = await session.addPassage(SUNDAY, tokened);
+      session.follow({ send: () => undefined });
+      await session.play(item!.id, 'v15:5');
+      expect(reports).toEqual([]);
+    });
   });
 });
