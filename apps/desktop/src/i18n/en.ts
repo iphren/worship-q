@@ -372,6 +372,13 @@ export const en = {
   'church.lastBackup': 'Last off-site backup: {time}',
   'church.noBackup': 'No off-site backup yet, one is made every 12 hours while the app is open.',
   'church.backupFailed': 'The backup could not be sent: {error}',
+  'church.problemRevoked': 'Disconnected by the server’s administrator',
+  'church.problemAppUpdate': 'Update Worship Q to keep synchronizing',
+  'church.problemServerUpdate': 'The server needs updating',
+  'church.problemTokenRefused': 'The keychain refused the church credential',
+  'church.problemTokenMissing': 'The church credential is missing',
+  'church.problemSync': 'Could not synchronize',
+  'church.problemBackup': 'The backup could not be sent',
   'church.disconnect': 'Disconnect…',
   'church.disconnectTitle': 'Disconnect from the church server?',
   'church.disconnectBody':

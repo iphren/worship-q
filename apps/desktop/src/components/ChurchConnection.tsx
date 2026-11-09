@@ -24,20 +24,33 @@ function timeText(iso: string | null | undefined): string {
   });
 }
 
+/** What is wrong with the church connection: a short summary, and the full explanation. */
+export interface ChurchProblem {
+  summary: string;
+  detail: string;
+}
+
 /**
  * What is wrong with the church connection, to flag outside Settings; null when nothing is,
  * or when this computer is not connected to a church.
  */
-export function useChurchProblem(): string | null {
+export function useChurchProblem(): ChurchProblem | null {
   const { state, sync, backup, credentials } = useCloud();
   if (!state?.joinedAt) return null;
-  if (sync.kind === 'revoked') return t('church.revoked');
+  const problem = (summary: string, detail: string) => ({ summary, detail });
+  if (sync.kind === 'revoked') return problem(t('church.problemRevoked'), t('church.revoked'));
   if (sync.kind === 'update-needed')
-    return t(sync.by === 'server' ? 'church.syncUpdateNeededServer' : 'church.syncUpdateNeeded');
-  if (credentials === 'refused') return t('church.tokenRefused');
-  if (credentials === 'missing') return t('church.tokenMissing');
-  if (sync.kind === 'error') return t('church.syncError', { error: sync.message });
-  if (backup.kind === 'failed') return t('church.backupFailed', { error: backup.message });
+    return sync.by === 'server'
+      ? problem(t('church.problemServerUpdate'), t('church.syncUpdateNeededServer'))
+      : problem(t('church.problemAppUpdate'), t('church.syncUpdateNeeded'));
+  if (credentials === 'refused')
+    return problem(t('church.problemTokenRefused'), t('church.tokenRefused'));
+  if (credentials === 'missing')
+    return problem(t('church.problemTokenMissing'), t('church.tokenMissing'));
+  if (sync.kind === 'error')
+    return problem(t('church.problemSync'), t('church.syncError', { error: sync.message }));
+  if (backup.kind === 'failed')
+    return problem(t('church.problemBackup'), t('church.backupFailed', { error: backup.message }));
   return null;
 }
 
