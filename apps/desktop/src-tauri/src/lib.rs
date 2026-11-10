@@ -8,6 +8,7 @@ mod cloud;
 mod db;
 mod files;
 mod fonts;
+mod instances;
 mod keychain;
 mod lan;
 mod media;
@@ -46,6 +47,7 @@ pub fn run() {
                 restore_main_window(&window);
             }
             let root = app.path().app_data_dir()?;
+            app.manage(instances::Instances::start(app.handle().clone(), &root));
             let dir = workspaces::active_dir(&root);
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
             // The configured scope covers only the first workspace's backgrounds.
@@ -114,6 +116,7 @@ pub fn run() {
             db::db_batch,
             fonts::list_font_families,
             fonts::font_missing_chars,
+            instances::other_instances,
             open_website,
             output::open_output,
             output::close_output,

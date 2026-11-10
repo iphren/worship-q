@@ -13,6 +13,7 @@ import {
   type Page,
 } from './app/context';
 import { Icon, type IconName } from './components/Icon';
+import { InstanceBanner } from './components/InstanceBanner';
 import { LiveBanners } from './components/LiveBanners';
 import { LiveRoleBadge } from './components/LiveRole';
 import {
@@ -104,6 +105,7 @@ function Shell({ booted }: { booted: Booted }) {
       <div className="flex h-full">
         <Sidebar page={page} />
         <div className="flex min-w-0 flex-1 flex-col">
+          <InstanceBanner />
           <LiveBanners />
           <RemoteRequestsBanner />
           <RemoteEditsBanner />

@@ -17,8 +17,11 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
-use std::io::SeekFrom;
+use std::io::{Read, SeekFrom, Write};
+use std::net::{SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::{AppHandle, Manager, State, Wry};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::sync::watch;
@@ -32,6 +35,8 @@ pub struct Overlay {
     slideshow_frames: watch::Sender<String>,
     /// Why the server could not start, if it could not.
     pub error: Mutex<Option<String>>,
+    /// Something else already had the address when this copy started.
+    taken: AtomicBool,
 }
 
 impl Overlay {
@@ -42,8 +47,42 @@ impl Overlay {
             frames,
             slideshow_frames,
             error: Mutex::new(None),
+            taken: AtomicBool::new(false),
         }
     }
+
+    /// True while another copy of the app holds the overlay address. This also finds a
+    /// version from before copies marked themselves as running (`instances`), though only
+    /// from the copy opened second, which is the one left without the address.
+    pub fn held_by_another_copy(&self) -> bool {
+        self.taken.load(Ordering::Relaxed) && answers_as_worship_q()
+    }
+}
+
+/// Asks whatever holds the overlay address for the subtitle page, to tell the app from
+/// another program on the same port.
+fn answers_as_worship_q() -> bool {
+    let address = SocketAddr::from(([127, 0, 0, 1], OVERLAY_PORT));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(300)) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
+    if stream
+        .write_all(b"GET /overlay/subtitle HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+        .is_err()
+    {
+        return false;
+    }
+    let mut answer = Vec::new();
+    let _ = stream.take(16 * 1024).read_to_end(&mut answer);
+    is_worship_q(&String::from_utf8_lossy(&answer))
+}
+
+/// The subtitle page itself, or in development the redirect to it on the Vite server.
+fn is_worship_q(answer: &str) -> bool {
+    answer.contains("<title>Worship Q Subtitles</title>")
+        || answer.contains(&format!("/overlay.html?port={OVERLAY_PORT}"))
 }
 
 #[derive(Clone)]
@@ -81,7 +120,13 @@ pub fn start(app: &AppHandle<Wry>) {
                     *handle.state::<Overlay>().error.lock().unwrap() = Some(e.to_string());
                 }
             }
-            Err(e) => *handle.state::<Overlay>().error.lock().unwrap() = Some(e.to_string()),
+            Err(e) => {
+                let overlay = handle.state::<Overlay>();
+                if e.kind() == std::io::ErrorKind::AddrInUse {
+                    overlay.taken.store(true, Ordering::Relaxed);
+                }
+                *overlay.error.lock().unwrap() = Some(e.to_string());
+            }
         }
     });
 }
@@ -303,6 +348,18 @@ pub fn overlay_status(overlay: State<'_, Overlay>) -> (String, Option<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognises_the_app_on_the_overlay_address() {
+        let page = "HTTP/1.0 200 OK\r\n\r\n<!doctype html><title>Worship Q Subtitles</title>";
+        assert!(is_worship_q(page));
+        let redirect = "HTTP/1.0 307 Temporary Redirect\r\nlocation: http://localhost:1420/overlay.html?port=47310\r\n\r\n";
+        assert!(is_worship_q(redirect));
+        assert!(!is_worship_q(
+            "HTTP/1.0 200 OK\r\n\r\n<title>Something else</title>"
+        ));
+        assert!(!is_worship_q(""));
+    }
 
     #[test]
     fn ranges() {
