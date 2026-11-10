@@ -60,7 +60,7 @@ How delay was measured:
 | Monitor device | `setSinkId` inside the native script call, before connecting and again on every change | It needs a gesture, and a gesture lapses if the unlock before it is slow. From the native call it takes 0–3 ms and the delay stays flat, also on an element that has played for a minute (L6) |
 | A muted capture track | On `mute`, ask for the input again and `replaceTrack` | Another window of the app that asks for the microphone, as the slideshow does when an output device is saved, mutes the broadcast's track for good. Asking again brings it back in a third of a second (L7) |
 | The display on the broadcasting computer | Keep it awake while the switch is on | With the display asleep WebKit starts no capture, and after some minutes its audio runs short (L9) |
-| Watching the input device | `devicechange`, with the periodic listing kept as a second look | On macOS the event came within a second both ways, and the track ended 0.2 s after the device went (L8). Windows is untested |
+| Watching the input device | The track's `ended` for a device going; `devicechange` and the periodic listing for one returning | With a real USB microphone `ended` came at once every time, but `devicechange` came 8 s late once on unplugging. On plugging it came within a second every time (L8). Windows is untested |
 | STUN | `stun:stun.l.google.com:19302` by default; `stun:stun.cloudflare.com:3478` is as good | Both answered in 9 ms (L13) |
 | TURN credential | Valid for a few minutes; a fresh one for every new connection | coturn checks the expiry only when an allocation is made. A session outlived its credential by ten minutes, through its refreshes (L13) |
 
@@ -200,9 +200,9 @@ The real slideshow window was opened while the main window was listening or broa
 
 ## L8 — Input devices coming and going
 
-An aggregate device around VB-Cable stood in for a USB interface: made and removed in
-CoreAudio, which to the system and the webview is a device appearing and going. A real plug
-is still to try.
+First an aggregate device around VB-Cable stood in for a USB interface: made and removed in
+CoreAudio, which to the system and the webview is a device appearing and going. Then the real
+thing, below.
 
 - [x] **Going:** `devicechange` fired within half a second. The capture track fired `ended`
       0.2 s later (`readyState` `ended`), and the periodic listing saw it at its next turn.
@@ -212,6 +212,31 @@ is still to try.
       built-in microphone and back: 33–66 ms each, `signalingState` stayed `stable`, and the
       listener heard the sound return without reconnecting. Each new capture has the start
       stumble of L5.
+
+**A real USB microphone (AT2020USB+), unplugged and plugged back three times** during one
+four-minute broadcast from the real app, at the hub it shares with two other audio devices.
+The page did what the plan describes: when the track had ended and the device was listed
+again, it took it and called `replaceTrack`.
+
+| | Unplugged: track `ended` | Unplugged: `devicechange` | Plugged: `devicechange` with the device | Taken again |
+| --- | --- | --- | --- | --- |
+| 1 | at once | **8 s later** | 0.6 s after the hub's other devices | 84 ms |
+| 2 | at once | 0.4 s before | 0.7 s after | 109 ms |
+| 3 | at once | 0.4 s after | 0.9 s after | 90 ms |
+
+- [x] **`ended` is the signal for a device going.** It came every time, with the listing
+      agreeing in the same second. `devicechange` came 8 s late once, so it cannot be the
+      only watch.
+- [x] **`devicechange` is enough for a device returning.** It fired each time within a second
+      of the device being listed, and the three-second listing never had to step in.
+- [x] **The broadcast came back by itself each time,** on the same connection, with no
+      renegotiation. The listener concealed about half a second as the device went, heard
+      silence while it was out, and sound again within two seconds of the plug.
+- [x] **The return is late for a while.** After each return the Chrome listener's buffer
+      climbed to 0.7–1.4 s and took 12–20 s to come back under 150 ms: the start stumble of L5,
+      larger on this device, and L10's late audio. A WebKit listener would hold it longer.
+      This makes the reconnect of L10 worth building: on a return, listeners could simply
+      connect afresh.
 
 ## L9 — The display asleep on the broadcasting computer
 
@@ -344,11 +369,11 @@ All of it needs hardware or a network this Mac does not have.
 - [ ] Windows (WebView2) as sender and receiver, with its permission handler on the main
       window: capture, `devicechange`, `setSinkId`, whether another window's `getUserMedia`
       mutes the capture there, and display sleep.
-- [ ] A real USB interface: plugging and unplugging it, and the start stumble (L5) on it.
 - [ ] The display asleep for several minutes with a microphone capture running (L9).
 - [ ] The released, notarised build: only the system's microphone prompt for the main window
       is new there.
 - [ ] Internet path: a listener on a home connection and on mobile data, with the public STUN
       server alone and then with coturn beside the server on Linux; two hours on one relay.
 - [ ] Venue upload on a real connection with five and ten remote listeners.
-- [ ] A reconnect by the listener when its buffer stays high (L10).
+- [ ] A reconnect by the listener when its buffer stays high, or whenever the broadcaster
+      takes its input again (L8, L10).
