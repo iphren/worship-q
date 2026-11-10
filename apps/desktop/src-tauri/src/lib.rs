@@ -114,6 +114,7 @@ pub fn run() {
             db::db_batch,
             fonts::list_font_families,
             fonts::font_missing_chars,
+            open_website,
             output::open_output,
             output::close_output,
             output::window_output,
@@ -172,6 +173,26 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");
+}
+
+const WEBSITE: &str = "https://worship-q.com";
+
+/// Opens the app's website in the browser, where the latest version is. The address is fixed
+/// here, so the interface cannot be made to open anything else.
+#[tauri::command]
+fn open_website() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = std::process::Command::new("rundll32");
+        command.arg("url.dll,FileProtocolHandler");
+        command
+    };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg(WEBSITE).spawn().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Restores the operator window where it was left, then grows it back to the minimum size.

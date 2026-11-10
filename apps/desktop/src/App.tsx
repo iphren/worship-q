@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { NewerDatabaseError } from '@worship-q/store';
 import { useEffect, useMemo, useState } from 'react';
@@ -40,7 +41,7 @@ let booting: Promise<Booted> | undefined;
 type BootState =
   | { status: 'loading' }
   | { status: 'ready'; booted: Booted }
-  | { status: 'failed'; message: string };
+  | { status: 'failed'; message: string; newer: boolean };
 
 export function App() {
   const [state, setState] = useState<BootState>({ status: 'loading' });
@@ -54,20 +55,31 @@ export function App() {
         setState({
           status: 'failed',
           message: newer ? t('app.newerData') : `${t('app.failed')} ${String(error)}`,
+          newer,
         });
       },
     );
   }, []);
 
   if (state.status === 'loading') return <Centered>{t('app.loading')}</Centered>;
-  if (state.status === 'failed') return <Centered>{state.message}</Centered>;
+  if (state.status === 'failed') return <Centered website={state.newer}>{state.message}</Centered>;
   return <Shell booted={state.booted} />;
 }
 
-function Centered(props: { children: string }) {
+/** A message in place of the app; `website` adds where to get the latest version. */
+function Centered(props: { children: string; website?: boolean }) {
   return (
-    <div className="flex h-full items-center justify-center p-8 text-center text-slate-400">
-      {props.children}
+    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-slate-400">
+      <span>{props.children}</span>
+      {props.website && (
+        <button
+          className="text-sky-400 underline underline-offset-4 hover:text-sky-300"
+          title={t('app.websiteHint')}
+          onClick={() => void invoke('open_website').catch((error) => console.error(error))}
+        >
+          worship-q.com
+        </button>
+      )}
     </div>
   );
 }

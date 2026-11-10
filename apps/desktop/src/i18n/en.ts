@@ -4,8 +4,11 @@ export const en = {
   'app.windowTitle': '{workspace} · {date}',
   'app.loading': 'Opening your workspace…',
   'app.failed': 'Worship Q could not open its data.',
+  'app.openTwice':
+    'Worship Q is open more than once on this computer. Close one: two copies get in each other’s way.',
   'app.newerData':
     'This data was saved by a newer version of Worship Q. Please update the app to open it.',
+  'app.websiteHint': 'Opens the website, where the latest version is.',
 
   'nav.songs': 'Library',
   'nav.calendar': 'Calendar',
