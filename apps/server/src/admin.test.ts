@@ -1641,7 +1641,7 @@ describe('live audio for the admin app (A14, A21, A22)', () => {
 describe('run sheets for the admin app', () => {
   async function runSheetSetup() {
     const context = await setup({ administrators: ['pat@example.org'] });
-    const { app, instance, signIn } = context;
+    const { instance, signIn } = context;
     const { headers } = await signIn('pat@example.org');
     const { workspace, code } = instance.createWorkspace('North');
     instance.setCodesEnabled(workspace.id, true);
