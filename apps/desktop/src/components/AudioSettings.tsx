@@ -1,5 +1,12 @@
 import { emitTo } from '@tauri-apps/api/event';
-import { CLIP_DB, meterFraction, PeakHold, peakDb, type BrowserTrack } from '@worship-q/audio';
+import {
+  CLIP_DB,
+  meterFraction,
+  PeakHold,
+  peakDb,
+  rmsDb,
+  type BrowserTrack,
+} from '@worship-q/audio';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useAudio } from '../app/context';
 import {
@@ -227,8 +234,9 @@ function LevelMeter() {
     let frame = 0;
     const read = () => {
       analyser.getFloatTimeDomainData(samples);
-      const { level, peak } = hold.push(peakDb(samples), performance.now());
-      bar.style.width = `${meterFraction(level) * 100}%`;
+      // The bar is the average level, the tick the held peak.
+      const { peak } = hold.push(peakDb(samples), performance.now());
+      bar.style.width = `${meterFraction(rmsDb(samples)) * 100}%`;
       peakMark.style.left = `${meterFraction(peak) * 100}%`;
       peakMark.className = `absolute top-0 h-full w-0.5 ${peak >= CLIP_DB ? 'bg-red-500' : 'bg-slate-200'}`;
       frame = requestAnimationFrame(read);

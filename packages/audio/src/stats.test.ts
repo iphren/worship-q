@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { meterFraction, PeakHold, peakDb, METER_FLOOR_DB } from './meter';
+import { meterFraction, PeakHold, peakDb, rmsDb, METER_FLOOR_DB } from './meter';
 import { DelayMeter, readStats, type StatsSample } from './stats';
 
 const sample = (patch: Partial<StatsSample>): StatsSample => ({
@@ -133,6 +133,21 @@ describe('the level meter (M2.4)', () => {
     expect(peakDb(Float32Array.from([1, -1]))).toBe(0);
     expect(meterFraction(-60)).toBe(0);
     expect(meterFraction(0)).toBe(1);
+  });
+
+  it('shows a quiet room as a sliver and keeps the loud end', () => {
+    // Halfway in dB is a little over a third of the bar, not half.
+    expect(meterFraction(-30)).toBeCloseTo(0.354, 2);
+    expect(meterFraction(-45)).toBeLessThan(0.15);
+    expect(meterFraction(-6)).toBeGreaterThan(0.85);
+  });
+
+  it('reads the average level, below the peak of the same samples', () => {
+    expect(rmsDb(Float32Array.from([0.1, -0.1, 0.1, -0.1]))).toBeCloseTo(-20);
+    const noise = Float32Array.from([0.02, -0.002, 0.003, -0.002, 0.001, -0.003, 0.002, -0.001]);
+    expect(rmsDb(noise)).toBeLessThan(peakDb(noise) - 6);
+    expect(rmsDb(new Float32Array(8))).toBe(METER_FLOOR_DB);
+    expect(rmsDb([])).toBe(METER_FLOOR_DB);
   });
 
   it('holds a peak for a second of elapsed time, however far apart the readings', () => {

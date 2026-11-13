@@ -20,9 +20,27 @@ export function peakDb(samples: ArrayLike<number>): number {
   return Math.max(METER_FLOOR_DB, 20 * Math.log10(peak));
 }
 
+/** The average level (RMS) of a block of samples in dBFS, at least the floor. */
+export function rmsDb(samples: ArrayLike<number>): number {
+  if (samples.length === 0) return METER_FLOOR_DB;
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i]! * samples[i]!;
+  const rms = Math.sqrt(sum / samples.length);
+  if (rms <= 0) return METER_FLOOR_DB;
+  return Math.max(METER_FLOOR_DB, 20 * Math.log10(rms));
+}
+
+/**
+ * How much the quiet end of the meter is pressed down: the noise of a quiet room, around
+ * -45 dBFS on an interface with its gain up, reads as a sliver, and the bar moves mostly
+ * for real sound.
+ */
+const METER_CURVE = 1.5;
+
 /** A level in dBFS as a share of the meter, 0 to 1. */
 export function meterFraction(db: number): number {
-  return Math.min(1, Math.max(0, (db - METER_FLOOR_DB) / -METER_FLOOR_DB));
+  const linear = Math.min(1, Math.max(0, (db - METER_FLOOR_DB) / -METER_FLOOR_DB));
+  return linear ** METER_CURVE;
 }
 
 /** Holds the highest level for a second of elapsed time. */
