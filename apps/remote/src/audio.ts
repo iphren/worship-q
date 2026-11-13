@@ -122,7 +122,3 @@ export function phoneDelayText(delay: DelayFigure | null): string | null {
   const path = delay.path === 'relayed' ? 'Relayed' : delay.path === 'direct' ? 'Direct' : null;
   return path ? `${figure} · ${path}` : figure;
 }
-
-/** The note of A24, shown beside the button. */
-export const LOCK_NOTE =
-  'The sound may stop when the screen locks or the browser goes to the background.';

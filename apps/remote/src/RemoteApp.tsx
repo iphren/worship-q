@@ -18,7 +18,7 @@ import {
 import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PassageColumns, PhoneBible } from './Bible';
-import { LOCK_NOTE, PhoneListen, phoneDelayText, phoneListenText } from './audio';
+import { PhoneListen, phoneDelayText, phoneListenText } from './audio';
 import { RemoteConnection } from './connection';
 
 const connection = new RemoteConnection(window.location);
@@ -978,7 +978,7 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
           aria-hidden="true"
         />
         <span className="min-w-0 flex-1 truncate text-sm">
-          {audio ? `Live audio from ${audio.ownerName}` : phoneListenText(state.status)}
+          {audio ? 'Listen' : phoneListenText(state.status)}
         </span>
         <button
           className={`rounded-lg px-4 py-1.5 active:scale-[0.98] ${
@@ -994,7 +994,6 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
       </div>
       {on && <p className="pt-1 text-xs text-slate-400">{phoneListenText(state.status)}</p>}
       {delay && <p className="text-xs text-slate-500">{delay}</p>}
-      {on && <p className="text-xs text-slate-500">{LOCK_NOTE}</p>}
     </div>
   );
 }

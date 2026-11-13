@@ -226,12 +226,15 @@ the chosen interface is not plugged in, and the sound comes back by itself when 
 **Bring this window into view** means the window is minimised or covered and the system will
 not start the microphone until it is seen.
 
-**Listening.** On any other computer, the Present page shows **Live audio from …** with a
-**Listen** button. Nothing plays until you press it, and it is off again after a restart.
-It plays on the **Listen plays on** device chosen in Settings, such as your headphones, which
-you can change while listening. Phones have the same button under the run sheet title. The
-small figure under it is the network and buffer delay, and **Direct** or **Relayed**. Up to
-ten can listen at once.
+**Listening.** On any other computer, the Present page shows **Listen** with a headphones
+button; the button becomes a stop icon while listening. Nothing plays until you press it, and
+it is off again after a restart. It plays on the **Listen plays on** device chosen in
+Settings, such as your headphones, which you can change while listening. Phones have the same
+button under the run sheet title. The figure beside it is the network and buffer delay, and
+**Direct** or **Relayed**. Up to ten can listen at once.
+
+**On a phone,** the sound may stop when the screen locks or the browser goes to the
+background. Keep the screen on and the browser in front while listening.
 
 If another computer turns on **Broadcast live audio**, it takes over and this one turns off;
 turn it on again to take it back.
