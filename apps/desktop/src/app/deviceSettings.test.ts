@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createDeviceSettings, findDevice, pickableDevices } from './deviceSettings';
+import {
+  createDeviceSettings,
+  findDevice,
+  isBuiltInInput,
+  pickableDevices,
+} from './deviceSettings';
 
 describe('device settings (M3.1)', () => {
   it('keeps viewer mode across a restart, in storage outside the workspace database', () => {
@@ -17,7 +22,7 @@ describe('device settings (M3.1)', () => {
   });
 
   it('falls back to an operator device when storage is missing or damaged', () => {
-    const defaults = { viewerMode: false, audioOutput: null, audioInput: null };
+    const defaults = { viewerMode: false, audioOutput: null, audioInput: null, audioMonitor: null };
     expect(createDeviceSettings(() => null).get()).toEqual(defaults);
     const broken = { getItem: () => '{not json', setItem: () => undefined };
     expect(createDeviceSettings(() => broken).get()).toEqual(defaults);
@@ -77,5 +82,70 @@ describe('audio devices (U24, M6.7)', () => {
     expect(findDevice(available, { id: 'old-id', name: 'AirPods' })).toEqual(available[0]);
     expect(findDevice(available, { id: 'gone', name: 'HDMI' })).toBeNull();
     expect(findDevice(available, null)).toBeNull();
+  });
+});
+
+describe('the Monitor device (A11, M3.4)', () => {
+  const storage = (initial: Record<string, string> = {}) => {
+    const disk = new Map(Object.entries(initial));
+    return {
+      getItem: (k: string) => disk.get(k) ?? null,
+      setItem: (k: string, v: string) => void disk.set(k, v),
+    };
+  };
+
+  it('is kept across a restart, by id and name', () => {
+    const disk = storage();
+    createDeviceSettings(() => disk).set({ audioMonitor: { id: 'hp', name: 'Headphones' } });
+    expect(createDeviceSettings(() => disk).get().audioMonitor).toEqual({
+      id: 'hp',
+      name: 'Headphones',
+    });
+  });
+
+  it('reads as the system default from a settings file older than the feature', () => {
+    const disk = storage({ 'wq.device': JSON.stringify({ viewerMode: false, audioOutput: null }) });
+    expect(createDeviceSettings(() => disk).get().audioMonitor).toBeNull();
+  });
+
+  it('is found by name when its id changed, and never changes the output device', () => {
+    const disk = storage();
+    const settings = createDeviceSettings(() => disk);
+    settings.set({ audioOutput: { id: 'hall', name: 'Hall' } });
+    settings.set({ audioMonitor: { id: 'hp', name: 'Headphones' } });
+    expect(settings.get().audioOutput).toEqual({ id: 'hall', name: 'Hall' });
+    expect(findDevice([{ id: 'hp-2', name: 'Headphones' }], settings.get().audioMonitor)).toEqual({
+      id: 'hp-2',
+      name: 'Headphones',
+    });
+  });
+});
+
+describe('the built-in microphone warning (A16, M2.10)', () => {
+  it('knows a Mac’s own microphones', () => {
+    for (const label of [
+      'MacBook Pro Microphone',
+      'MacBook Air Microphone',
+      'iMac Microphone',
+      'Built-in Microphone',
+    ]) {
+      expect(isBuiltInInput(label), label).toBe(true);
+    }
+  });
+
+  it('knows a Windows laptop’s own microphones', () => {
+    expect(isBuiltInInput('Microphone Array (Realtek(R) Audio)')).toBe(true);
+    expect(isBuiltInInput('Internal Microphone')).toBe(true);
+  });
+
+  it('does not warn about an interface or a virtual cable', () => {
+    for (const label of [
+      'AT2020USB+',
+      'Scarlett 2i2 USB',
+      'VB-Cable',
+      'Microphone (USB Audio Device)',
+    ]) {
+      expect(isBuiltInInput(label), label).toBe(false);
+    }
   });
 });

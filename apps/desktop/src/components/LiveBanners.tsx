@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useApp, useCloud } from '../app/context';
+import { useApp, useAudio, useCloud } from '../app/context';
 import { t } from '../i18n';
 
 /** The "another computer carried on" notice clears itself after this long. */
@@ -13,16 +13,27 @@ const DEMOTED_NOTICE_MS = 8000;
 export function LiveBanners() {
   const { cloud, session } = useApp();
   const { live, relay } = useCloud();
+  const audio = useAudio();
   const demoted = live?.demoted ?? false;
   useEffect(() => {
     if (!demoted) return;
     const timer = setTimeout(() => cloud.dismissDemoted(), DEMOTED_NOTICE_MS);
     return () => clearTimeout(timer);
   }, [demoted, cloud]);
-  if (!live || relay.kind !== 'connected') return null;
+  // The broadcast is silent until this window is seen (A19): said wherever the operator is,
+  // also without a church connection.
+  const hidden = audio.switchOn && audio.input === 'hidden' && (
+    <div className="notice m-0 rounded-none border-x-0 border-t-0 border-amber-500 bg-amber-900/40 text-amber-100">
+      <span className="flex-1">
+        {t('audio.status.hidden')}. {t('audio.advice.hidden')}
+      </span>
+    </div>
+  );
+  if (!live || relay.kind !== 'connected') return hidden || null;
   const lost = live.coordinatorLost && live.role !== 'coordinator';
   return (
     <>
+      {hidden}
       {lost && (
         <div className="notice m-0 rounded-none border-x-0 border-t-0 border-amber-500 bg-amber-900/40 text-amber-100">
           <span className="flex-1">{t('live.lost')}</span>

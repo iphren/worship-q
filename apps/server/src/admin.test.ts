@@ -1469,3 +1469,151 @@ describe('OBS state for the admin app', () => {
     expect((await view()).obs?.owner).toMatchObject({ deviceId: pc.device.id, name: 'OBS PC' });
   });
 });
+
+describe('live audio for the admin app (A14, A21, A22)', () => {
+  const audioState = (ownerId: string, patch: Record<string, unknown> = {}) => ({
+    ownerId,
+    ownerName: 'Sound desk',
+    activatedAt: '2026-11-02T08:00:00.000Z',
+    revision: 1,
+    active: true,
+    status: 'live',
+    inputName: 'Scarlett 2i2 USB',
+    listeners: 2,
+    ...patch,
+  });
+
+  async function audioSetup() {
+    const context = await setup({ administrators: ['pat@example.org', 'sam@example.org'] });
+    const { app, instance, signIn, relay } = context;
+    const { headers: adminHeaders } = await signIn('pat@example.org');
+    const { workspace, code } = instance.createWorkspace('North');
+    instance.setCodesEnabled(workspace.id, true);
+    const { token, device } = instance.enroll(code, 'Sound desk')!;
+    const deviceHeaders = {
+      authorization: `Bearer ${token}`,
+      [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
+      'content-type': 'application/json',
+    };
+    const report = (state: unknown) =>
+      app.inject({
+        method: 'PUT',
+        url: '/api/v1/audio',
+        headers: deviceHeaders,
+        payload: { state },
+      });
+    /** The broadcaster's relay connection, as the app makes it. */
+    const received: Record<string, unknown>[] = [];
+    const connect = () => {
+      const handlers = relay.desktop({
+        send: (data) => void received.push(JSON.parse(data)),
+        close: () => undefined,
+      });
+      handlers.message(
+        JSON.stringify({
+          type: 'hello',
+          protocolVersion: PROTOCOL_VERSION,
+          token,
+          capabilities: { roles: ['coordinator'], appVersion: 't', audio: true },
+        }),
+      );
+      return handlers;
+    };
+    const base = `/api/v1/admin/workspaces/${workspace.id}/audio`;
+    type Headers = Record<string, string>;
+    const view = async (headers: Headers = adminHeaders) =>
+      (await app.inject({ method: 'GET', url: base, headers })).json();
+    const post = (body: unknown, headers: Headers = adminHeaders) =>
+      app.inject({ method: 'POST', url: `${base}/signal`, headers, payload: body as object });
+    const poll = (session: string, after = 0, headers: Headers = adminHeaders) =>
+      app.inject({
+        method: 'GET',
+        url: `${base}/signals?session=${session}&after=${after}`,
+        headers,
+      });
+    return {
+      ...context,
+      workspace,
+      device,
+      report,
+      connect,
+      received,
+      view,
+      post,
+      poll,
+      adminHeaders,
+    };
+  }
+
+  it('shows no broadcast until one is reported, and whether the broadcaster is connected', async () => {
+    const { report, view, device, connect } = await audioSetup();
+    expect(await view()).toEqual({ audio: null });
+    expect((await report(audioState(device.id))).json()).toEqual({ stored: true });
+    expect((await view()).audio).toMatchObject({
+      ownerName: 'Sound desk',
+      listeners: 2,
+      connected: false,
+    });
+    connect();
+    expect((await view()).audio.connected).toBe(true);
+  });
+
+  it('refuses a report for another device', async () => {
+    const { report } = await audioSetup();
+    expect((await report(audioState('someone-else'))).statusCode).toBe(403);
+  });
+
+  it('carries an administrator’s listen to the broadcaster and its answer back, with the ICE list once', async () => {
+    const { report, device, connect, received, post, poll } = await audioSetup();
+    await report(audioState(device.id));
+    const socket = connect();
+    const started = await post({ signal: { kind: 'listen' } });
+    expect(started.statusCode).toBe(200);
+    const { session } = started.json();
+    expect(received.at(-1)).toEqual({
+      type: 'adminAudioSignal',
+      name: 'Pat Admin',
+      signal: { kind: 'listen', session },
+    });
+    socket.message(
+      JSON.stringify({ type: 'adminAudioSignal', signal: { kind: 'offer', session, sdp: 'v=0' } }),
+    );
+    const first = (await poll(session)).json();
+    expect(first.signals).toEqual([{ seq: 1, signal: { kind: 'offer', session, sdp: 'v=0' } }]);
+    expect(first.iceServers).toEqual([{ urls: 'stun:stun.l.google.com:19302' }]);
+    const second = (await poll(session, 1)).json();
+    expect(second).toEqual({ signals: [] });
+    const answer = await post({ session, signal: { kind: 'answer', sdp: 'v=0 answer' } });
+    expect(answer.statusCode).toBe(200);
+    expect(received.at(-1)).toMatchObject({ signal: { kind: 'answer', session } });
+  });
+
+  it('answers at once when the broadcaster is not connected', async () => {
+    const { report, device, post } = await audioSetup();
+    await report(audioState(device.id));
+    const response = await post({ signal: { kind: 'listen' } });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'unreachable' });
+  });
+
+  it('gives another administrator a session of their own, and refuses them the first one', async () => {
+    const { report, device, connect, post, poll, signIn } = await audioSetup();
+    await report(audioState(device.id));
+    connect();
+    const { session } = (await post({ signal: { kind: 'listen' } })).json();
+    const { headers: sam } = await signIn('sam@example.org');
+    const theirs = (await post({ signal: { kind: 'listen' } }, sam)).json();
+    expect(theirs.session).not.toBe(session);
+    expect((await poll(session, 0, sam)).statusCode).toBe(404);
+  });
+
+  it('refuses a signed-out browser and an oversized signal', async () => {
+    const { report, device, connect, post, admin } = await audioSetup();
+    await report(audioState(device.id));
+    connect();
+    expect((await post({ signal: { kind: 'listen' } }, admin)).statusCode).toBe(401);
+    const { session } = (await post({ signal: { kind: 'listen' } })).json();
+    const big = await post({ session, signal: { kind: 'answer', sdp: 'x'.repeat(17 * 1024) } });
+    expect(big.statusCode).toBe(413);
+  });
+});

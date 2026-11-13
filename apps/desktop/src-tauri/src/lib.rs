@@ -15,6 +15,7 @@ mod media;
 mod obs;
 mod output;
 mod overlay;
+mod power;
 mod workspaces;
 
 use std::fs;
@@ -63,6 +64,7 @@ pub fn run() {
             app.manage(lan::Lan::new(app.handle().clone()));
             app.manage(obs::Obs::new(app.handle().clone()));
             app.manage(media::Transfers::default());
+            app.manage(power::Power::new());
             Ok(())
         })
         // The app's own pages may list audio devices (U24): WebView2 would otherwise show its
@@ -87,13 +89,22 @@ pub fn run() {
                 if let Some(obs) = webview.try_state::<obs::Obs>() {
                     obs.reset();
                 }
+                // The switch is read again by the page that loads, which takes it again.
+                if let Some(power) = webview.try_state::<power::Power>() {
+                    power.release();
+                }
             }
         })
         .on_window_event(|window, event| {
             // Closing the operator window closes the output with it.
             if window.label() == "main" {
                 match event {
-                    WindowEvent::Destroyed => window.app_handle().exit(0),
+                    WindowEvent::Destroyed => {
+                        if let Some(power) = window.app_handle().try_state::<power::Power>() {
+                            power.release();
+                        }
+                        window.app_handle().exit(0)
+                    }
                     // The restored size can arrive in another display's pixels, and the
                     // scale factor is only settled once the window is on its display.
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
@@ -127,6 +138,8 @@ pub fn run() {
             output::output_website,
             output::monitor_labels,
             output::output_audio_sink,
+            output::monitor_audio_sink,
+            power::keep_display_awake,
             files::import_background,
             files::remove_background_file,
             files::background_path,

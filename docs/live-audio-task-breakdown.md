@@ -1,7 +1,7 @@
 # Worship Q — Live Audio Broadcast Task Breakdown
 
 **Drafted:** 13 November 2026  
-**Status:** Proposed. M0 (the spike) is concluded; nothing else is built. The decisions added here (§1, A17–A24) wait for the project owner.  
+**Status:** M1–M5 and M6.2 built on 13 November 2026, with their unit and integration tests, and waiting for the manual checks (§3.13) and the walkthrough (M6.1). The Opus fixtures (M1.8) are written from each engine's format, not yet recorded from the engines. The decisions added here (§1, A17–A24) are built as proposed and wait for the project owner.  
 **Source:** [Live Audio Broadcast Plan](live-audio-plan.md), referred to here as "the plan"; the [spike](spikes/live-audio.md) (L1–L18) and its Windows runs (W0–W7, `spikes/live-audio/results/windows/NOTES.md` on the `live-audio-spikes` branch); and the code at version 2.2.0 (protocol version 6). Decisions A1–A16 are the plan's.
 
 ## 1. How to read this

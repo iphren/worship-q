@@ -38,6 +38,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@worship-q/audio':
+        specifier: workspace:*
+        version: link:../../packages/audio
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -87,6 +90,9 @@ importers:
       '@tauri-apps/plugin-updater':
         specifier: ^2.14.0
         version: 2.14.0
+      '@worship-q/audio':
+        specifier: workspace:*
+        version: link:../../packages/audio
       '@worship-q/calendar':
         specifier: workspace:*
         version: link:../../packages/calendar
@@ -185,6 +191,9 @@ importers:
 
   apps/remote:
     dependencies:
+      '@worship-q/audio':
+        specifier: workspace:*
+        version: link:../../packages/audio
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -298,6 +307,12 @@ importers:
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)
+
+  packages/audio:
+    dependencies:
+      '@worship-q/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
   packages/bible:
     dependencies:

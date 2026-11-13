@@ -130,7 +130,7 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
-  it('gives version 3 to 5 devices what a version 6 device gets, after the OBS, video and passage bumps', async () => {
+  it('gives version 3 to 6 devices what a version 7 device gets, after the OBS, video, passage and audio bumps', async () => {
     const { app, headers, b1 } = await setup();
     const pull = (protocol: number) =>
       app.inject({
@@ -142,14 +142,16 @@ describe('pulling with origins (D31)', () => {
     const four = await pull(4);
     const five = await pull(5);
     const six = await pull(6);
-    expect(PROTOCOL_VERSION).toBe(6);
+    const seven = await pull(7);
+    expect(PROTOCOL_VERSION).toBe(7);
     expect(three.statusCode).toBe(200);
     expect(four.statusCode).toBe(200);
     expect(three.json().records).toEqual(four.json().records);
     expect(four.json().records).toEqual(five.json().records);
     expect(five.json().records).toEqual(six.json().records);
+    expect(six.json().records).toEqual(seven.json().records);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ protocolVersion: 6, minProtocolVersion: 2 });
+    expect(info.json()).toMatchObject({ protocolVersion: 7, minProtocolVersion: 2 });
   });
 
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {
@@ -490,5 +492,23 @@ describe('older desktops and passage songs (P3.5)', () => {
       });
       expect(response.statusCode, `version ${protocol}`).toBe(200);
     }
+  });
+});
+
+describe('live audio and older devices (protocol version 7)', () => {
+  it('speaks version 6 to a version 6 server, and its own to a version 7 one', async () => {
+    const { negotiateProtocol } = await import('@worship-q/protocol');
+    expect(negotiateProtocol(6)).toBe(6);
+    expect(negotiateProtocol(7)).toBe(7);
+  });
+
+  it('still accepts a version 6 device on a version 7 server', async () => {
+    const context = await setup();
+    const response = await context.app.inject({
+      method: 'GET',
+      url: '/api/v1/workspace',
+      headers: context.headers(context.c.token, 6),
+    });
+    expect(response.statusCode).toBe(200);
   });
 });

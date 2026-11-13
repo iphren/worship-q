@@ -69,6 +69,8 @@ async function setup(relayOptions?: RelayOptions) {
       videos?: boolean;
       /** Takes passage items (protocol version 6). */
       passages?: boolean;
+      /** Takes live audio (protocol version 7). */
+      audio?: boolean;
     } = {},
   ) {
     const token = options.token ?? instance.enroll(code, name)!.token;
@@ -102,6 +104,7 @@ async function setup(relayOptions?: RelayOptions) {
         transparency: true,
         ...(options.videos ? { videos: true } : {}),
         ...(options.passages ? { passages: true } : {}),
+        ...(options.audio ? { audio: true } : {}),
       },
       live: options.live,
     });
@@ -807,6 +810,122 @@ describe('OBS control through the relay (OBS plan M2.5)', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('live audio through the relay (live audio M1.7, M5.6)', () => {
+  const audioState = (ownerId: string) => ({
+    ownerId,
+    ownerName: 'Sound desk',
+    activatedAt: '2026-11-13T09:00:00.000Z',
+    revision: 1,
+    active: true,
+    status: 'live' as const,
+    inputName: null,
+    listeners: 0,
+  });
+
+  it('carries the broadcaster’s audio state to the coordinator', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Projector', { withHost: false, audio: true });
+    const b = desktop('Sound desk', { withHost: false, audio: true, role: 'viewer' });
+    const data: FollowerToCoordinator = { type: 'audioState', state: audioState(b.deviceId) };
+    b.say({ type: 'toCoordinator', data });
+    expect(a.socket.last()).toEqual({ type: 'peer', from: b.deviceId, data });
+  });
+
+  it('carries a signal between two followers through the coordinator to its addressee only', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Projector', { withHost: false, audio: true });
+    const b = desktop('Sound desk', { withHost: false, audio: true });
+    const c = desktop('Booth', { withHost: false, audio: true });
+    const d = desktop('Laptop', { withHost: false, audio: true });
+    const up: FollowerToCoordinator = {
+      type: 'audioSignal',
+      to: b.deviceId,
+      signal: { kind: 'listen', session: 's1' },
+    };
+    c.say({ type: 'toCoordinator', data: up });
+    expect(a.socket.last()).toEqual({ type: 'peer', from: c.deviceId, data: up });
+    // The coordinator passes it on to the broadcaster alone.
+    const before = d.socket.received.length;
+    const down: CoordinatorToFollower = {
+      type: 'audioSignal',
+      from: c.deviceId,
+      listener: { kind: 'desktop', deviceId: c.deviceId, name: 'Booth' },
+      signal: { kind: 'listen', session: 's1' },
+    };
+    a.say({ type: 'toFollower', to: b.deviceId, data: down });
+    expect(b.socket.last()).toEqual({ type: 'peer', from: a.deviceId, data: down });
+    expect(d.socket.received).toHaveLength(before);
+  });
+
+  it('refuses a 17 KB description, keeps the socket open, and passes the next one', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const { desktop } = await setup();
+      const a = desktop('Projector', { withHost: false, audio: true });
+      const b = desktop('Sound desk', { withHost: false, audio: true });
+      const before = a.socket.received.length;
+      const offer = (sdp: string) =>
+        ({
+          type: 'toCoordinator',
+          data: {
+            type: 'audioSignal',
+            to: a.deviceId,
+            signal: { kind: 'offer', session: 's', sdp },
+          },
+        }) as DesktopToRelay;
+      b.say(offer('x'.repeat(17 * 1024)));
+      expect(a.socket.received).toHaveLength(before);
+      expect(b.socket.closed).toBeNull();
+      b.say(offer('v=0'));
+      expect(a.socket.received).toHaveLength(before + 1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('hands an administrator’s signal to the broadcaster only, and its answer to the server', async () => {
+    const answers: unknown[] = [];
+    const { desktop, relay, workspace } = await setup({
+      adminAudio: (workspaceId, deviceId, signal) =>
+        answers.push({ workspaceId, deviceId, signal }),
+    });
+    const a = desktop('Projector', { withHost: false, audio: true });
+    const b = desktop('Sound desk', { withHost: false, audio: true });
+    const before = a.socket.received.length;
+    expect(
+      relay.adminAudioSignal(workspace.id, b.deviceId, 'Pastor', {
+        kind: 'listen',
+        session: 'adm-1',
+      }),
+    ).toBe(true);
+    expect(b.socket.last()).toEqual({
+      type: 'adminAudioSignal',
+      name: 'Pastor',
+      signal: { kind: 'listen', session: 'adm-1' },
+    });
+    expect(a.socket.received).toHaveLength(before);
+    b.say({ type: 'adminAudioSignal', signal: { kind: 'offer', session: 'adm-1', sdp: 'v=0' } });
+    expect(answers).toEqual([
+      {
+        workspaceId: workspace.id,
+        deviceId: b.deviceId,
+        signal: { kind: 'offer', session: 'adm-1', sdp: 'v=0' },
+      },
+    ]);
+  });
+
+  it('tells the server at once when the broadcaster is not connected, or takes no audio', async () => {
+    const { desktop, relay, workspace } = await setup();
+    const old = desktop('Old desktop', { withHost: false });
+    expect(
+      relay.adminAudioSignal(workspace.id, old.deviceId, 'x', { kind: 'listen', session: 's' }),
+    ).toBe(false);
+    expect(
+      relay.adminAudioSignal(workspace.id, 'nobody', 'x', { kind: 'listen', session: 's' }),
+    ).toBe(false);
   });
 });
 

@@ -17,10 +17,17 @@ export interface DeviceSettings {
   audioOutput: AudioDevice | null;
   /** The source for live audio broadcast; null for the system default. */
   audioInput: AudioDevice | null;
+  /** Where **Listen** plays live audio (A11); null for the system default. */
+  audioMonitor: AudioDevice | null;
 }
 
 const KEY = 'wq.device';
-const DEFAULTS: DeviceSettings = { viewerMode: false, audioOutput: null, audioInput: null };
+const DEFAULTS: DeviceSettings = {
+  viewerMode: false,
+  audioOutput: null,
+  audioInput: null,
+  audioMonitor: null,
+};
 
 function audioDevice(value: unknown): AudioDevice | null {
   const device = value as Partial<AudioDevice> | null | undefined;
@@ -72,6 +79,21 @@ export function findDevice(
   );
 }
 
+/**
+ * Whether an input is the computer's own microphone (A16), from its label: it picks up the
+ * room rather than the mixer, and on a Mac its sound cuts out when another app starts
+ * playing (L2). Settings warns, and never blocks the switch.
+ */
+export function isBuiltInInput(label: string): boolean {
+  const name = label.toLowerCase();
+  if (/\busb\b|scarlett|interface|vb-cable|virtual|loopback|blackhole/.test(name)) return false;
+  return (
+    /macbook (pro|air)? ?microphone|imac microphone|mac (mini|studio) microphone|built-in microphone/.test(
+      name,
+    ) || /microphone array|internal microphone|built-in mic|integrated microphone/.test(name)
+  );
+}
+
 export interface SettingsStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -87,6 +109,7 @@ export function createDeviceSettings(storage: () => SettingsStorage | null) {
           viewerMode: parsed.viewerMode === true,
           audioOutput: audioDevice(parsed.audioOutput),
           audioInput: audioDevice(parsed.audioInput),
+          audioMonitor: audioDevice(parsed.audioMonitor),
         };
       } catch {
         return { ...DEFAULTS };

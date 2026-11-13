@@ -587,3 +587,98 @@ describe('the Bible on phones (P7.1, P7.2, B15, B26)', () => {
     expect(item!.pieces[0]!.passage!.columns[0]!.credit).toBe('NIVUK');
   });
 });
+
+describe('live audio for phones (M4.1, M4.2)', () => {
+  function audio() {
+    const signals: { phone: { grantId: string; name: string }; kind: string }[] = [];
+    const gone: string[] = [];
+    let view: { ownerId: string; ownerName: string; activatedAt: string; status: 'live' } | null =
+      null;
+    host.setAudio({
+      view: () => view,
+      signal: (phone, signal) => signals.push({ phone, kind: signal.kind }),
+      gone: (grantId) => gone.push(grantId),
+    });
+    return {
+      signals,
+      gone,
+      setView: (next: typeof view) => {
+        view = next;
+      },
+    };
+  }
+
+  const grantOf = (connection: string) => {
+    const approval = sent.find((e) => e.to === connection && e.message.type === 'approved');
+    return (approval!.message as { grant: string }).grant.split('.')[0]!;
+  };
+
+  it('shows null with no broadcast, and the broadcaster with one', async () => {
+    const env = audio();
+    await approved('p1');
+    const first = sent.filter((e) => e.message.type === 'view').at(-1)!.message;
+    expect(first).toMatchObject({ view: { audio: null } });
+    env.setView({ ownerId: 'B', ownerName: 'Sound desk', activatedAt: 't', status: 'live' });
+    host.audioChanged();
+    await new Promise((done) => setTimeout(done, 120));
+    const next = sent.filter((e) => e.message.type === 'view').at(-1)!.message;
+    expect(next).toMatchObject({ view: { audio: { ownerName: 'Sound desk', status: 'live' } } });
+  });
+
+  it('forwards an approved phone’s signal in its grant’s name, and ignores one not approved', async () => {
+    const env = audio();
+    await approved('p1', 'Sam');
+    await host.message('p1', { type: 'audioSignal', signal: { kind: 'listen', session: 's' } });
+    expect(env.signals).toEqual([
+      { phone: { grantId: grantOf('p1'), name: 'Sam' }, kind: 'listen' },
+    ]);
+    await host.message('stranger', {
+      type: 'audioSignal',
+      signal: { kind: 'listen', session: 's' },
+    });
+    expect(env.signals).toHaveLength(1);
+  });
+
+  it('delivers the broadcaster’s signals to that phone only', async () => {
+    audio();
+    await approved('p1', 'Sam');
+    await approved('p2', 'Kim');
+    const grant = grantOf('p1');
+    sent.length = 0;
+    host.audioSignal(grant, { kind: 'retaken', session: 's' });
+    expect(sent.map((e) => e.to)).toEqual(['p1']);
+  });
+
+  it('closes a phone’s audio at once when its grant is revoked', async () => {
+    const env = audio();
+    await approved('p1');
+    const grant = host.connected[0]!.grantId;
+    await host.disconnect('p1');
+    expect(env.gone).toEqual([grant]);
+  });
+
+  it('closes every phone’s audio when every grant is revoked', async () => {
+    const env = audio();
+    await approved('p1');
+    await approved('p2');
+    await host.disconnectAll();
+    expect(env.gone).toHaveLength(2);
+  });
+
+  it('closes a phone’s audio only after 10 s without it, so a brief reconnection keeps the sound', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
+    try {
+      const env = audio();
+      await approved('p1');
+      const grant = host.connected[0]!.grantId;
+      host.left('p1');
+      vi.advanceTimersByTime(9000);
+      expect(env.gone).toEqual([]);
+      vi.advanceTimersByTime(1000);
+      expect(env.gone).toEqual([grant]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

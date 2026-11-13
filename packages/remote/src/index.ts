@@ -19,8 +19,11 @@ import {
   OBS_ERRORS,
   RemoteToHostSchema,
   songBadge,
+  type AudioPhone,
+  type AudioSignal,
   type CommandOrigin,
   type HostToRemote,
+  type RemoteAudioView,
   type ObsCommand,
   type ObsResult,
   type ObsSnapshot,
@@ -125,6 +128,21 @@ export interface RemoteObs {
   /** Whether any phone connected here shows the live monitor. */
   watching(watching: boolean): void;
 }
+
+/**
+ * Live audio for phones (live audio plan M4): what they are shown, and where their signals
+ * go. Absent where live audio is not available.
+ */
+export interface RemoteAudio {
+  view(): RemoteAudioView | null;
+  /** A phone's signal for the broadcaster, in its name (D25). */
+  signal(phone: AudioPhone, signal: AudioSignal): void;
+  /** A phone is no longer here: its sessions are closed at the broadcaster (M4.2). */
+  gone(grantId: string): void;
+}
+
+/** A phone gone this long, without coming back with its grant, has its audio closed. */
+export const PHONE_AUDIO_GRACE_MS = 10_000;
 
 /** How long an invitation in a QR code or link stays valid. */
 export const INVITE_MS = 15 * 60 * 1000;
@@ -242,6 +260,9 @@ export class RemoteHost {
   private version_ = 0;
   private coordination: RemoteCoordination | null = null;
   private obs: RemoteObs | null = null;
+  private audio: RemoteAudio | null = null;
+  /** Phones that left, by grant, until they come back or their audio is closed. */
+  private readonly audioGrace = new Map<string, ReturnType<typeof setTimeout>>();
   private bible: RemoteBible | null = null;
   /** Phones showing the live monitor, by connection. */
   private readonly obsWatchers = new Set<string>();
@@ -339,6 +360,50 @@ export class RemoteHost {
     this.obs = obs;
     this.obsWatchers.clear();
     this.scheduleView();
+  }
+
+  /** Gives phones live audio, or takes it away. */
+  setAudio(audio: RemoteAudio | null): void {
+    this.audio = audio;
+    this.scheduleView();
+  }
+
+  /** The broadcast's state changed: phones are sent their view again. */
+  audioChanged(): void {
+    this.scheduleView();
+  }
+
+  /** A signal from the broadcaster for one phone, on whichever connection it has here. */
+  audioSignal(grantId: string, signal: AudioSignal): void {
+    for (const [connection, controller] of this.controllers) {
+      if (controller.grantId === grantId)
+        this.link?.send(connection, { type: 'audioSignal', signal });
+    }
+  }
+
+  /** Closes a phone's audio now: its grant was revoked (M4.2). */
+  private audioGone(grantId: string): void {
+    clearTimeout(this.audioGrace.get(grantId));
+    this.audioGrace.delete(grantId);
+    this.audio?.gone(grantId);
+  }
+
+  /**
+   * A phone's connection went: its audio is closed after a grace, so a brief reconnection,
+   * here or on another desktop, does not interrupt the sound (§3.9).
+   */
+  private audioLeft(grantId: string): void {
+    if ([...this.controllers.values()].some((c) => c.grantId === grantId)) return;
+    if (this.audioGrace.has(grantId)) return;
+    this.audioGrace.set(
+      grantId,
+      setTimeout(() => {
+        this.audioGrace.delete(grantId);
+        if (![...this.controllers.values()].some((c) => c.grantId === grantId)) {
+          this.audio?.gone(grantId);
+        }
+      }, PHONE_AUDIO_GRACE_MS),
+    );
   }
 
   /** OBS's state changed: phones are sent their view again. */
@@ -445,7 +510,9 @@ export class RemoteHost {
   detach(): void {
     this.link = null;
     this.requests.clear();
+    const grants = [...this.controllers.values()].map((c) => c.grantId);
     this.controllers.clear();
+    for (const grantId of grants) this.audioLeft(grantId);
     if (this.obsWatchers.size > 0) {
       this.obsWatchers.clear();
       this.obs?.watching(false);
@@ -456,6 +523,8 @@ export class RemoteHost {
 
   dispose(): void {
     this.detach();
+    for (const timer of this.audioGrace.values()) clearTimeout(timer);
+    this.audioGrace.clear();
     for (const timer of this.noticeTimers.values()) clearTimeout(timer);
     this.noticeTimers.clear();
     this.notices_ = [];
@@ -515,6 +584,8 @@ export class RemoteHost {
         const grant = await this.session.store.useRemoteGrant(this.session.workspace.id, grantId);
         if (grant && grant.secretHash === (await sha256(secret))) {
           this.controllers.set(from, { connection: from, grantId, name: grant.name });
+          clearTimeout(this.audioGrace.get(grantId));
+          this.audioGrace.delete(grantId);
           this.reportPhones();
           this.changed();
           link.send(from, { type: 'approved', grant: message.grant });
@@ -561,6 +632,12 @@ export class RemoteHost {
       return link.send(from, { type: 'obsAck', id: message.id, ...result });
     }
     if (message.type === 'obsWatch') return this.setObsWatching(from, message.watching);
+    if (message.type === 'audioSignal') {
+      return this.audio?.signal(
+        { grantId: controller.grantId, name: controller.name },
+        message.signal,
+      );
+    }
     if (
       message.type === 'bibleVersions' ||
       message.type === 'bibleSetVersions' ||
@@ -599,7 +676,9 @@ export class RemoteHost {
 
   left(from: string): void {
     this.setObsWatching(from, false);
+    const grantId = this.controllers.get(from)?.grantId;
     const had = this.requests.delete(from) || this.controllers.delete(from);
+    if (grantId) this.audioLeft(grantId);
     if (had) {
       this.reportPhones();
       this.changed();
@@ -634,6 +713,7 @@ export class RemoteHost {
     for (const [connection, controller] of this.controllers) {
       if (listed.has(controller.grantId)) continue;
       this.controllers.delete(connection);
+      this.audioGone(controller.grantId);
       this.setObsWatching(connection, false);
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
@@ -686,6 +766,7 @@ export class RemoteHost {
   async revokeGrant(grantId: string): Promise<void> {
     await this.session.store.revokeRemoteGrants(this.session.workspace.id, grantId);
     this.coordination?.revokeGrant(grantId);
+    this.audioGone(grantId);
     for (const [connection, controller] of this.controllers) {
       if (controller.grantId !== grantId) continue;
       this.controllers.delete(connection);
@@ -704,7 +785,8 @@ export class RemoteHost {
   async disconnectAll(): Promise<void> {
     await this.session.store.revokeRemoteGrants(this.session.workspace.id);
     this.coordination?.revokeGrant(null);
-    for (const connection of this.controllers.keys()) {
+    for (const [connection, controller] of this.controllers) {
+      this.audioGone(controller.grantId);
       this.link?.send(connection, { type: 'denied', reason: 'revoked' });
       this.link?.drop(connection);
       this.setObsWatching(connection, false);
@@ -718,7 +800,11 @@ export class RemoteHost {
 
   private async view(): Promise<RemoteView> {
     const view = await buildRemoteView(this.session, this.workspaceName());
-    return { ...view, obs: this.obs?.view() ?? null };
+    return {
+      ...view,
+      obs: this.obs?.view() ?? null,
+      ...(this.audio ? { audio: this.audio.view() } : {}),
+    };
   }
 
   private scheduleView(): void {

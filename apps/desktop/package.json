@@ -14,6 +14,7 @@
     "@tauri-apps/plugin-dialog": "^2.8.2",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.14.0",
+    "@worship-q/audio": "workspace:*",
     "@worship-q/calendar": "workspace:*",
     "@worship-q/live-state": "workspace:*",
     "@worship-q/lyrics": "workspace:*",

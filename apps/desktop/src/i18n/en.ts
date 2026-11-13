@@ -651,6 +651,56 @@ export const en = {
   'audio.missing': '“{name}” is not connected, so the system default is used.',
   'audio.noDevices':
     'No audio devices are listed. On Windows this happens on a computer with no audio input; the system default is used.',
+  'audio.monitor': 'Listen plays on',
+  'audio.monitorHint':
+    'Where Listen plays live audio from another computer, such as your headphones. Separate from where video sound plays.',
+  'audio.builtIn':
+    'This is the computer’s own microphone. It picks up the room, not the mixer, and its sound can cut out for about a second when another app starts playing sound. It works, but an audio interface fed from the mixing desk is what to use.',
+  'audio.broadcast': 'Broadcast live audio',
+  'audio.broadcastHint':
+    'Sends this input to the workspace’s other computers, phones and administrators who press Listen. Stays on, and starts by itself whenever this workspace opens, until you turn it off here or another computer takes over.',
+  'audio.level': 'Input level',
+  'audio.status.off': 'Off',
+  'audio.status.live': 'Live',
+  'audio.status.liveListeners': 'Live · {count} listening',
+  'audio.status.liveOne': 'Live · 1 listening',
+  'audio.status.waiting': 'Waiting for input: {name}',
+  'audio.status.waitingDefault': 'Waiting for an audio input',
+  'audio.status.refused': 'The microphone was refused',
+  'audio.status.hidden': 'Bring this window into view',
+  'audio.advice.refused':
+    'Allow Worship Q to use the microphone in the system’s privacy settings (on a Mac: System Settings → Privacy & Security → Microphone), then turn the switch off and on again.',
+  'audio.advice.hidden':
+    'The system starts the microphone only once the Worship Q window is seen. Bring it to the front; the broadcast then starts by itself.',
+  'audio.advice.waiting':
+    'The broadcast starts by itself as soon as the input is plugged in, or pick another input above.',
+  'audio.pickFailed': 'The input you picked could not be opened, so the previous one carries on.',
+  'audio.takenOver':
+    '{name} took the live audio broadcast over, so it was turned off here. Turn it on again to take it back.',
+  'audio.elsewhere': '{name} is broadcasting live audio.',
+  'audio.sharingBlocked':
+    'The church server must be updated before other devices can hear this broadcast. Capture and the level meter work meanwhile.',
+  'audio.keepAwake':
+    'The display stays awake while broadcasting. Turn off any screen lock on this computer.',
+  'listen.from': 'Live audio from {name}',
+  'listen.broadcasting': 'Broadcasting live audio',
+  'listen.listen': 'Listen',
+  'listen.stop': 'Stop',
+  'listen.status.off': 'Not listening',
+  'listen.status.connecting': 'Connecting…',
+  'listen.status.playing': 'Playing',
+  'listen.status.waiting': 'Connected; the broadcast is waiting for its input',
+  'listen.status.reconnecting': 'Reconnecting…',
+  'listen.status.full': 'The broadcast is full: ten are listening already',
+  'listen.status.unreachableRelay':
+    'Could not connect. The church’s relay was tried; this network may block it.',
+  'listen.status.unreachableNone':
+    'Could not connect from this network, and the church’s server offers no relay.',
+  'listen.delay': 'Network and buffer: {ms} ms',
+  'listen.delayUnknown': 'Network and buffer: –',
+  'listen.path.direct': 'Direct',
+  'listen.path.relayed': 'Relayed',
+  'listen.monitorHint': 'Plays on the Monitor device chosen in Settings.',
   'video.waiting': 'Waiting to download to this computer',
   'video.downloading': 'Downloading to this computer… {percent}%',
   'video.fetchFailed': 'Could not download: {message}',

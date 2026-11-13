@@ -9,10 +9,11 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@worship-q/audio": "workspace:*",
     "@worship-q/protocol": "workspace:*",
+    "@worship-q/ui": "workspace:*",
     "react": "^19.0.0",
-    "react-dom": "^19.3.0",
-    "@worship-q/ui": "workspace:*"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

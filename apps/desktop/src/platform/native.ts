@@ -116,6 +116,10 @@ export const native = {
   removeConverted: (path: string) => invoke<void>('remove_converted', { path }),
   /** Applies an audio output to the slideshow window through its own script call (U24). */
   outputAudioSink: (sinkId: string) => invoke<void>('output_audio_sink', { sinkId }),
+  /** Moves **Listen**'s element in the main window to the Monitor device (A11, L6). */
+  monitorAudioSink: (sinkId: string) => invoke<void>('monitor_audio_sink', { sinkId }),
+  /** Holds the display awake while live audio broadcasting is on (M2.5). */
+  keepDisplayAwake: (on: boolean) => invoke<void>('keep_display_awake', { on }),
   /** Lets the interface load a chosen file; returns the URL to load it from. */
   mediaFileUrl: async (path: string) => {
     await invoke<void>('allow_media_file', { path });

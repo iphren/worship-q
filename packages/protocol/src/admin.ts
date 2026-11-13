@@ -3,6 +3,7 @@
  * `/api/v1/admin/` and `/auth/`, are authenticated by the administrator's session cookie
  * rather than a device token, and are refused without the `ADMIN_HEADER` (decision D35).
  */
+import type { AudioStatus } from './audio';
 import type { ObsSnapshot, ObsState } from './obs';
 import type { BackgroundKind, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
@@ -121,6 +122,18 @@ export interface AdminObsView {
      * changes; null until one arrives.
      */
     snapshot: (ObsSnapshot & { ageMs: number }) | null;
+  } | null;
+}
+
+/** A workspace's live audio broadcast in the admin app (live audio A14, A21). */
+export interface AdminAudioView {
+  audio: {
+    ownerName: string;
+    status: AudioStatus;
+    listeners: number;
+    inputName: string | null;
+    /** The broadcaster is connected to this server, so an administrator can listen. */
+    connected: boolean;
   } | null;
 }
 

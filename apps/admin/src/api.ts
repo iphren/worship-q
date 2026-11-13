@@ -13,6 +13,9 @@ import {
   type AdminLibraryUsage,
   type AdminLiveView,
   type AdminObsView,
+  type AdminAudioView,
+  type AudioSignal,
+  type IceServer,
   type AdminMe,
   type AdminPairingRequest,
   type AdminStorage,
@@ -113,6 +116,20 @@ export const api = {
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
   obs: (id: string) => request<AdminObsView>('GET', `${ADMIN}/workspaces/${encode(id)}/obs`),
+  /** The workspace's live audio broadcast, as its broadcaster last reported it (A21). */
+  audio: (id: string) => request<AdminAudioView>('GET', `${ADMIN}/workspaces/${encode(id)}/audio`),
+  /** A signal for the broadcaster; `listen` without a session starts one (A22). */
+  audioSignal: (id: string, session: string | null, signal: Omit<AudioSignal, 'session'>) =>
+    request<{ session: string }>('POST', `${ADMIN}/workspaces/${encode(id)}/audio/signal`, {
+      ...(session ? { session } : {}),
+      signal,
+    }),
+  /** The broadcaster's answers for one session, after `after`. */
+  audioSignals: (id: string, session: string, after: number) =>
+    request<{ signals: { seq: number; signal: AudioSignal }[]; iceServers?: IceServer[] }>(
+      'GET',
+      `${ADMIN}/workspaces/${encode(id)}/audio/signals?session=${encode(session)}&after=${after}`,
+    ),
   /** Where the browser loads a workspace's file from; the session cookie admits it. */
   workspaceFileUrl: (id: string, name: string) =>
     `${ADMIN}/workspaces/${encode(id)}/files/${encode(name)}`,

@@ -15,6 +15,14 @@ import {
   type Toc,
 } from '@worship-q/bible';
 import type { BibleErrorCode, BibleVersionInfo } from './bible';
+import {
+  AudioListenerSchema,
+  AudioPhoneSchema,
+  AudioSignalSchema,
+  AudioStateSchema,
+  type AudioSignal,
+  type RemoteAudioView,
+} from './audio';
 import { ItemBadgeSchema, type ItemBadge } from './badges';
 import {
   ObsCommandSchema,
@@ -46,9 +54,12 @@ import {
  * adds video items (media uploads plan, U20, U21): songs with a `video`, which the instance
  * keeps when an older desktop saves the song without it, and video playback in the live
  * state. Version 6 adds Bible passages: songs with a `passage`, kept likewise, and a
- * `passage` item kind sent only to devices declaring the `passages` capability.
+ * `passage` item kind sent only to devices declaring the `passages` capability. Version 7
+ * adds live audio (`./audio`): the audio state and the signals that set up a listener's
+ * connection, new kinds the relay must know before it passes them on, sent only to devices
+ * declaring the `audio` capability.
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
 /**
@@ -113,6 +124,12 @@ export interface ServerInfo {
    * instance from before the Bible.
    */
   bible?: boolean;
+  /**
+   * The church runs a TURN relay for live audio listeners whose network allows no direct
+   * path (A10), so a listener that cannot connect can say whether it was tried. Missing on
+   * an instance from before live audio.
+   */
+  audioRelay?: boolean;
 }
 
 /** Upload limits in bytes, per kind of file (U1). */
@@ -178,6 +195,11 @@ export const CapabilitiesSchema = z.object({
    * are sent such items as lyrics.
    */
   passages: z.boolean().optional(),
+  /**
+   * Takes live audio messages (protocol version 7). Absent from older devices, which are
+   * sent none.
+   */
+  audio: z.boolean().optional(),
 });
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
@@ -479,6 +501,8 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
     version: z.string().min(1).max(20),
     query: z.string().max(200),
   }),
+  /** Live audio (protocol version 7): a signal for the broadcaster, in this phone's name. */
+  z.object({ type: z.literal('audioSignal'), signal: AudioSignalSchema }),
 ]);
 export type RemoteToHost = z.infer<typeof RemoteToHostSchema>;
 
@@ -549,6 +573,11 @@ export interface RemoteView {
     at: string;
     durationSeconds: number;
   } | null;
+  /**
+   * The live audio broadcast, while a desktop of the workspace broadcasts (protocol version
+   * 7); absent from older desktops, null when nothing is broadcast.
+   */
+  audio?: RemoteAudioView | null;
 }
 
 /** From the desktop to a remote controller. */
@@ -572,7 +601,9 @@ export type HostToRemote =
       references: string[];
       searched: boolean;
       error?: BibleAnswerError;
-    };
+    }
+  /** Live audio (protocol version 7): a signal from the broadcaster for this phone. */
+  | { type: 'audioSignal'; signal: AudioSignal };
 
 /** Why the desktop could not answer a phone's Bible request. */
 export type BibleAnswerError = BibleErrorCode | 'offline';
@@ -745,6 +776,20 @@ export const FollowerToCoordinatorSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
   /** From the OBS computer: an image for the devices showing the live monitor. */
   z.object({ type: z.literal('obsSnapshot') }).extend(ObsSnapshotSchema.shape),
+  // Live audio (protocol version 7; see `./audio`).
+  /** From the broadcaster: its audio state, and once switched off, the last one. */
+  z.object({ type: z.literal('audioState'), state: AudioStateSchema }),
+  /**
+   * A signal for one device: from a listener to the broadcaster, or back. `phone` names the
+   * phone the signal is about: the listener, when its desktop forwards it in its name; the
+   * addressee on the desktop `to`, when the broadcaster answers it.
+   */
+  z.object({
+    type: z.literal('audioSignal'),
+    to: z.string().min(1).max(100),
+    phone: AudioPhoneSchema.optional(),
+    signal: AudioSignalSchema,
+  }),
 ]);
 export type FollowerToCoordinator = z.infer<typeof FollowerToCoordinatorSchema>;
 
@@ -786,6 +831,19 @@ export const CoordinatorToFollowerSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('obsWatch'), watching: z.boolean() }),
   /** To the devices showing the live monitor. */
   z.object({ type: z.literal('obsSnapshot') }).extend(ObsSnapshotSchema.shape),
+  // Live audio (protocol version 7), only to devices declaring the `audio` capability.
+  /** The workspace's audio state; null when no device broadcasts. */
+  z.object({ type: z.literal('audioState'), state: AudioStateSchema.nullable() }),
+  /**
+   * A signal from the device `from`. `listener` is the listening end of the session, as the
+   * coordinator saw it: the sender, when it is a listener, else this device or its phone.
+   */
+  z.object({
+    type: z.literal('audioSignal'),
+    from: z.string().min(1).max(100),
+    listener: AudioListenerSchema,
+    signal: AudioSignalSchema,
+  }),
 ]);
 export type CoordinatorToFollower = z.infer<typeof CoordinatorToFollowerSchema>;
 
@@ -864,7 +922,12 @@ export type DesktopToRelay =
    * Answered with a pong. Browsers do not expose WebSocket pings, so this is how a desktop
    * notices a connection the instance dropped while the computer slept.
    */
-  | { type: 'ping' };
+  | { type: 'ping' }
+  /**
+   * From the broadcaster to an administrator listening in the admin app (protocol version 7,
+   * A22): handed to the server, never to the coordinator. The session names the listener.
+   */
+  | { type: 'adminAudioSignal'; signal: AudioSignal };
 /** The name before several desktops shared one live state. */
 export type CoordinatorToRelay = DesktopToRelay;
 
@@ -906,7 +969,12 @@ export type RelayToDesktop =
   | { type: 'left'; from: string }
   /** From another desktop: a follower's message to the coordinator, or the other way. */
   | { type: 'peer'; from: string; data: unknown }
-  | { type: 'pong' };
+  | { type: 'pong' }
+  /**
+   * To the broadcaster: a signal from an administrator listening in the admin app (protocol
+   * version 7, A22). The server made the session and names the administrator.
+   */
+  | { type: 'adminAudioSignal'; name: string; signal: AudioSignal };
 /** The name before several desktops shared one live state. */
 export type RelayToCoordinator = RelayToDesktop;
 

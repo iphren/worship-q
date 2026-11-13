@@ -9,6 +9,7 @@
  */
 import { getVersion } from '@tauri-apps/api/app';
 import {
+  AUDIO_PROTOCOL_VERSION,
   DeckSchema,
   deckLyrics,
   OBS_PROTOCOL_VERSION,
@@ -17,8 +18,10 @@ import {
   type BiblePassageResponse,
   type BibleVersionsResponse,
   type Capabilities,
+  type AudioState,
   type DesktopToRelay,
   type HostToRemote,
+  type IceServer,
   type LiveSnapshot,
   type OutputKind,
   type OutputLink,
@@ -29,6 +32,7 @@ import {
   type WorkspaceGrant,
 } from '@worship-q/protocol';
 import { RemoteHost } from '@worship-q/remote';
+import { browserBroadcastPeer, browserMediaPort, type BrowserTrack } from '@worship-q/audio';
 import type { Session } from '@worship-q/session';
 import { SyncStore, type SyncState } from '@worship-q/store';
 import {
@@ -49,6 +53,12 @@ import { mediaOffer, type MediaOffer } from './media';
 import { MediaUploads, type UploadDeps, type UploadTarget } from './uploads';
 import { VideoCache, type VideoCacheDeps } from './videoCache';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
+import { AudioListen } from './audioListen';
+import { AudioReporter } from './audioReport';
+import { audioSwitchStore } from './audioSettings';
+import { AudioShare } from './audioShare';
+import { deviceSettings } from './deviceSettings';
+import { IceServers } from './iceServers';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
 import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
 import { ObsReporter } from './obsReport';
@@ -122,6 +132,15 @@ export class CloudController {
   readonly host: RemoteHost;
   /** The workspace's OBS state on this desktop (OBS control plan). */
   readonly obs: ObsShare;
+  /** The workspace's live audio on this desktop (live audio plan). */
+  readonly audio: AudioShare;
+  /** **Listen** on this desktop; null outside a window. */
+  readonly listen: AudioListen | null;
+  /** The ICE servers for live audio, from the church server (A10). */
+  private readonly ice: IceServers;
+  /** Tells the church server this computer's broadcast, for the admin app (A21). */
+  private audioReporter: AudioReporter | null = null;
+  private readonly audioWindowEvents: (() => void)[] = [];
   /** Media being uploaded from this computer; they carry on across pages (U16). */
   readonly uploads: MediaUploads;
   /** This computer's copies of the videos of upcoming run sheets (U8, U9). */
@@ -207,6 +226,51 @@ export class CloudController {
       deviceName: () => this.state?.deviceName ?? 'This computer',
     });
     shareObsWithPhones(this.obs, this.host);
+    this.ice = new IceServers(() =>
+      this.connected
+        ? this.call<{ iceServers: IceServer[] }>('GET', '/api/v1/ice')
+        : Promise.reject(new Error('not-connected')),
+    );
+    const media =
+      typeof navigator !== 'undefined' && navigator.mediaDevices
+        ? browserMediaPort(navigator.mediaDevices)
+        : null;
+    this.audio = new AudioShare({
+      deviceId: () => this.state?.deviceId ?? '',
+      deviceName: () => this.state?.deviceName ?? 'This computer',
+      chosenInput: () => deviceSettings.get().audioInput,
+      inputMoved: (device) => deviceSettings.set({ audioInput: device }),
+      media: media ?? {
+        list: async () => ({ inputs: [], defaultLabel: null }),
+        open: () => Promise.reject(Object.assign(new Error('no media'), { name: 'NotFoundError' })),
+        visible: () => true,
+      },
+      // The tracks come from `browserMediaPort`, so they are its own.
+      createPeer: ({ track, iceServers, events }) =>
+        browserBroadcastPeer({ track: track as BrowserTrack | null, iceServers, events }),
+      iceServers: () => this.ice.get(),
+      keepAwake: (on) => void native.keepDisplayAwake(on).catch(() => undefined),
+    });
+    // Phones listen through this desktop (M4.1).
+    this.host.setAudio({
+      view: () => this.audio.remoteView(),
+      signal: (phone, signal) => this.audio.fromPhone(phone, signal),
+      gone: (grantId) => this.audio.phoneGone(grantId),
+    });
+    this.audio.setPhones({
+      changed: () => this.host.audioChanged(),
+      deliver: (grantId, signal) => this.host.audioSignal(grantId, signal),
+    });
+    this.listen =
+      typeof document === 'undefined'
+        ? null
+        : new AudioListen({
+            share: this.audio,
+            iceServers: () => this.ice.get(),
+            monitor: () => deviceSettings.get().audioMonitor,
+            applySink: (id) =>
+              native.monitorAudioSink(id).catch(() => window.__worshipQMonitor?.(id)),
+          });
     this.status_ = {
       sync: { kind: 'disconnected' },
       relay: { kind: 'off' },
@@ -431,6 +495,8 @@ export class CloudController {
     this.timers.push(window.setInterval(() => void this.backupIfDue(), 60 * 60 * 1000));
     // Before anything that needs the church: the OBS computer's controls work without it.
     await this.startObs().catch(console.error);
+    // So does capture for live audio, which starts with the workspace when switched on (A15).
+    this.startAudio();
     if (!this.connected) return;
     await this.checkFonts();
     if (this.state?.server) await this.negotiate(this.state.server);
@@ -458,6 +524,10 @@ export class CloudController {
     this.obsReporter?.stop();
     this.obs.localLink?.stop();
     this.obs.stop();
+    this.audioReporter?.stop();
+    for (const remove of this.audioWindowEvents.splice(0)) remove();
+    this.listen?.dispose();
+    this.audio.stop();
     this.host.dispose();
   }
 
@@ -482,6 +552,32 @@ export class CloudController {
     });
     this.obs.setLink(link);
     await link.start();
+  }
+
+  /**
+   * Live audio for this workspace (A12, A15): the switch in this computer's storage beside
+   * the OBS link, and the main window's device and visibility changes for the input watcher.
+   */
+  private startAudio(): void {
+    const folder = this.workspaceFolder ?? this.session.workspace.id;
+    if (typeof window !== 'undefined') {
+      const devices = () => this.audio.devicesChanged();
+      const visibility = () => this.audio.visibilityChanged();
+      navigator.mediaDevices?.addEventListener('devicechange', devices);
+      document.addEventListener('visibilitychange', visibility);
+      this.audioWindowEvents.push(
+        () => navigator.mediaDevices?.removeEventListener('devicechange', devices),
+        () => document.removeEventListener('visibilitychange', visibility),
+      );
+    }
+    this.audio.start(
+      audioSwitchStore(() => (typeof localStorage === 'undefined' ? null : localStorage), folder),
+    );
+  }
+
+  /** The church server relays audio messages: it speaks protocol 7. */
+  private audioSupported(): boolean {
+    return this.protocolVersion >= AUDIO_PROTOCOL_VERSION;
   }
 
   /** The church server relays OBS messages: it speaks protocol 4 (M2.9). */
@@ -998,6 +1094,8 @@ export class CloudController {
       videos: true,
       // Passage items in snapshots (protocol version 6).
       passages: true,
+      // Live audio messages (protocol version 7).
+      audio: this.audioSupported(),
     };
   }
 
@@ -1011,6 +1109,15 @@ export class CloudController {
       subscribe: this.obs.subscribe,
       put: (state, snapshot) =>
         this.call('PUT', '/api/v1/obs', { state, snapshot }).then(() => undefined),
+    });
+    this.audioReporter?.stop();
+    this.audioReporter = new AudioReporter({
+      state: () => this.audio.ownState(),
+      subscribe: this.audio.subscribe,
+      put: (state: AudioState) =>
+        this.audioSupported()
+          ? this.call('PUT', '/api/v1/audio', { state }).then(() => undefined)
+          : Promise.resolve(),
     });
     const backup: LiveBackupApi = {
       put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
@@ -1058,6 +1165,10 @@ export class CloudController {
       backup,
       obs: this.obs,
       obsSupported: () => this.obsSupported(),
+      audio: this.audio,
+      audioSupported: () => this.audioSupported(),
+      // An administrator's signals reach the broadcaster through the church server only.
+      sendToServer: (message) => this.transports?.sendOn('relay', message),
       grantsRegistered: {
         get: async () => (await this.syncStore.getState()).grantsRegisteredAt !== null,
         set: async () => {

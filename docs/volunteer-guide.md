@@ -207,6 +207,35 @@ OBS and Worship Q can be opened in either order. If another computer turns on it
 link, it takes over and this one turns off; turn it on again to take it back. Turning the link
 off removes the OBS controls everywhere.
 
+## Live audio
+
+One computer can send the sound from the mixing desk to the other computers, phones and the
+church's administrators, so someone outside the room can switch slides in time.
+
+**Once, on the computer with the mixer feed.** Connect the desk to the computer through an
+audio interface or a USB input, not the computer's own microphone, which picks up the room.
+In **Settings → Audio on this computer**, choose it as the **Audio input** and turn on
+**Broadcast live audio**. Watch the **Input level** move when the desk sends sound. That is
+all: from then on the computer broadcasts by itself whenever Worship Q opens, even if the
+interface is plugged in later. Turn off any screen lock on this computer; Worship Q keeps the
+display awake while broadcasting.
+
+**What the status means.** **Live** with the number listening; **Waiting for input** means
+the chosen interface is not plugged in, and the sound comes back by itself when it is;
+**The microphone was refused** means the system's privacy settings must allow Worship Q;
+**Bring this window into view** means the window is minimised or covered and the system will
+not start the microphone until it is seen.
+
+**Listening.** On any other computer, the Present page shows **Live audio from …** with a
+**Listen** button. Nothing plays until you press it, and it is off again after a restart.
+It plays on the **Listen plays on** device chosen in Settings, such as your headphones, which
+you can change while listening. Phones have the same button under the run sheet title. The
+small figure under it is the network and buffer delay, and **Direct** or **Relayed**. Up to
+ten can listen at once.
+
+If another computer turns on **Broadcast live audio**, it takes over and this one turns off;
+turn it on again to take it back.
+
 
 
 **Settings → Browser outputs** makes a link that shows the slideshow or the subtitle overlay

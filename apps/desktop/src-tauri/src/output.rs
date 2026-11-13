@@ -335,3 +335,20 @@ pub fn output_audio_sink(app: AppHandle, sink_id: String) -> Result<(), String> 
         ))
         .map_err(|e| e.to_string())
 }
+
+/// Moves **Listen**'s element in the main window to the Monitor device (live audio plan
+/// A11, L6). As for the slideshow, the call runs as the webview's own script, which macOS
+/// counts as a gesture, so it works after the press's own gesture lapsed and when the device
+/// is changed from Settings while listening. An empty id is the system default.
+#[tauri::command]
+pub fn monitor_audio_sink(app: AppHandle, sink_id: String) -> Result<(), String> {
+    let webview = app
+        .get_webview("main")
+        .ok_or_else(|| "main-closed".to_string())?;
+    let id = serde_json::to_string(&sink_id).map_err(|e| e.to_string())?;
+    webview
+        .eval(format!(
+            "window.__worshipQMonitor && window.__worshipQMonitor({id})"
+        ))
+        .map_err(|e| e.to_string())
+}

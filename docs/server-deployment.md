@@ -55,6 +55,11 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `WORSHIP_Q_YOUVERSION_KEY` | — | The church's YouVersion Platform app key; see **Bible passages** |
 | `WORSHIP_Q_API_BIBLE_KEY` | — | The church's API.Bible key |
 | `WORSHIP_Q_ESV_KEY` | — | The church's ESV API key |
+| `WORSHIP_Q_STUN` | `stun:stun.l.google.com:19302` | STUN servers for live audio, comma-separated; empty for none. See **Live audio** |
+| `WORSHIP_Q_TURN_URL` | — | The live audio relay's address, `turn:worship.example.org:3478`; with the secret below |
+| `WORSHIP_Q_TURN_SECRET` | — | The secret shared with the relay; never sent to a device |
+| `WORSHIP_Q_TURN_LISTEN_IP` | — | The relay's own address on the host (`--profile turn` only) |
+| `WORSHIP_Q_TURN_EXTERNAL_IP` | — | The host's public address, or `public/private` behind the provider's NAT |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -96,7 +101,7 @@ Check the whole path from outside once deployed (replace the address):
 
 ```sh
 curl https://worship.example.org/api/v1/info
-# {"name":"Our Church","protocolVersion":5,"minProtocolVersion":2,"decks":true,"outputs":true,
+# {"name":"Our Church","protocolVersion":7,"minProtocolVersion":2,"decks":true,"outputs":true,
 #  ...,"media":{"images":true,"videos":true,"limits":{"image":26214400,"deck":209715200,"video":209715200}}}
 ```
 
@@ -502,6 +507,52 @@ been updated. A desktop still on version 2 keeps presenting and synchronizing; i
 pull after the desktop update is a full one, so every song learns where it came from; a
 workspace of a few thousand songs takes under a minute. Every enrollment, device token, phone
 approval, output link and viewer setting is kept; no computer re-pairs.
+
+## Live audio
+
+One computer of a workspace can broadcast the sound from the mixing desk to the workspace's
+other computers, its approved phones and signed-in administrators, who press **Listen**.
+The audio goes directly between the devices, never through this server: the server only
+passes the messages that set each connection up. Nothing is recorded.
+
+Most churches set nothing up. Devices on the venue network find each other by their own
+addresses. A listener at home reaches the broadcaster through a public STUN server, which
+`GET /api/v1/ice` hands enrolled devices (default `stun:stun.l.google.com:19302`; replace it
+with `WORSHIP_Q_STUN`, or set it empty for none).
+
+Some networks, often mobile ones, allow no direct path. For those, run the optional relay,
+coturn, beside the server. It is a Compose profile, off by default:
+
+1. Choose a long random secret, and add to `apps/server/.env`:
+
+   ```sh
+   WORSHIP_Q_TURN_SECRET=<a long random secret>
+   WORSHIP_Q_TURN_URL=turn:worship.example.org:3478
+   WORSHIP_Q_TURN_LISTEN_IP=<this host's own address, as `ip addr` shows it>
+   WORSHIP_Q_TURN_EXTERNAL_IP=<the public address>   # or public/private behind NAT
+   ```
+
+2. Open **UDP 3478** and **UDP 49160–49180** to the internet, in the host's firewall and in
+   the hosting provider's. These do not go through the reverse proxy or CloudFront; the
+   relay answers on the server's own address. Each relayed listener uses one of the 21
+   relay ports.
+3. Start it with the server: `docker compose -f apps/server/compose.yaml --profile turn up -d`.
+4. Check it: `/api/v1/info` says `"audioRelay":true`. From outside the venue, run the
+   Trickle ICE page (webrtc.github.io/samples) with the relay's address and a credential
+   from `GET /api/v1/ice` taken with a device token; a `relay` candidate means it works.
+
+Each device asks the server for a credential before every new connection; a credential is
+valid ten minutes and is made from the secret, which never leaves the server. A listener
+that cannot connect is told whether the church offers a relay. TURN over TCP or TLS is not
+offered.
+
+## Updating for live audio (protocol version 7)
+
+Live audio raises the protocol version to 7 and keeps accepting versions 2 to 6. Update the
+server first: the relay must know the new messages before any desktop can share a broadcast.
+It changes nothing for a workspace that does not broadcast. Until the server is updated, the
+broadcasting computer's switch and level meter work and its Settings says a server update is
+needed. A desktop still on version 6 presents as before and is sent no audio messages.
 
 ## Updating for media (protocol version 5)
 

@@ -12,6 +12,7 @@ import { ItemEditDialog } from '../components/ItemEditDialog';
 import { PassageWarnings } from '../components/PassageWarnings';
 import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
+import { AudioPanel } from '../components/AudioListen';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, slideKeyLabel, videoKeys } from '../lib/shortcuts';
 import { DeckBadge } from '../components/DeckBadge';
@@ -346,6 +347,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
 
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-80 shrink-0 flex-col p-3">
+          <AudioPanel />
           <div role="tablist" className="mb-3 flex gap-1 border-b border-slate-700">
             {panelTabs.map((key) => (
               <button

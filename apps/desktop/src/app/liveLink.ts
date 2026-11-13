@@ -14,6 +14,8 @@ import {
   Coordinator,
   CoordinatorWatch,
   Follower,
+  isAudioDown,
+  isAudioUp,
   isObsDown,
   isObsUp,
   resolveCoordinators,
@@ -37,6 +39,7 @@ import {
 } from '@worship-q/protocol';
 import type { RemoteHost } from '@worship-q/remote';
 import type { RunSheetChange, Session } from '@worship-q/session';
+import type { AudioShare } from './audioShare';
 import type { ObsShare } from './obsShare';
 
 /** Snapshots are sent at most this often; a burst of changes is sent together. */
@@ -98,6 +101,12 @@ export interface LiveLinkDeps {
   obs?: ObsShare | null;
   /** The church server speaks protocol 4 and relays OBS messages (M2.9). */
   obsSupported?: () => boolean;
+  /** The workspace's live audio on this desktop (live audio plan M2.8); absent in tests. */
+  audio?: AudioShare | null;
+  /** The church server speaks protocol 7 and relays audio messages. */
+  audioSupported?: () => boolean;
+  /** Sends to the church server only: an administrator's audio signal (A22). */
+  sendToServer?: (message: DesktopToRelay) => void;
   newId?: () => string;
   now?: () => number;
 }
@@ -176,6 +185,38 @@ export class LiveLink {
       sharing: () => this.obsSharing(),
       serverSupports: () => this.deps.obsSupported?.() ?? true,
     });
+    deps.audio?.attach({
+      toCoordinator: (message) => this.toCoordinator(message),
+      toFollower: (to, message) => this.deps.send({ type: 'toFollower', to, data: message }),
+      toServer: (signal) =>
+        (this.deps.sendToServer ?? this.deps.send)({ type: 'adminAudioSignal', signal }),
+      sharing: () => this.audioSharing(),
+      serverSupports: () => this.deps.audioSupported?.() ?? true,
+      nameOf: (id) =>
+        [...this.status_.peers, ...this.lanPeers].find((peer) => peer.deviceId === id)?.name ?? '',
+    });
+  }
+
+  /** Whether audio messages may go out (A9), as for OBS: the server and coordinator take them. */
+  private audioSharing(): boolean {
+    if (!(this.deps.audioSupported?.() ?? true)) return false;
+    if (this.coordinator) return true;
+    const coordinator = [...this.status_.peers, ...this.lanPeers].find(
+      (peer) => peer.deviceId === this.followingId,
+    );
+    return coordinator?.capabilities?.audio === true;
+  }
+
+  /** As coordinator: the connected desktops that take audio messages, this one included. */
+  private audioAudience(): string[] {
+    const me = this.deps.deviceId();
+    const audience = new Set<string>([me]);
+    for (const peer of [...this.status_.peers, ...this.lanPeers]) {
+      if (peer.role === 'output' || peer.deviceId === me) continue;
+      const capabilities = this.followerCapabilities.get(peer.deviceId) ?? peer.capabilities;
+      if (capabilities?.audio === true) audience.add(peer.deviceId);
+    }
+    return [...audience];
   }
 
   /**
@@ -292,6 +333,7 @@ export class LiveLink {
     this.deps.session.follow(null);
     this.deps.host.setCoordination(null);
     this.deps.obs?.attach(null);
+    this.deps.audio?.attach(null);
   }
 
   // ── The transport ────────────────────────────────────────────────────────
@@ -307,6 +349,7 @@ export class LiveLink {
     this.watch.announce(null, this.now());
     this.followingId = null;
     this.deps.obs?.disconnected();
+    this.deps.audio?.disconnected();
   }
 
   /** A message from the relay about roles, or from another desktop. */
@@ -317,6 +360,9 @@ export class LiveLink {
         .then(() => this.ready(message, count))
         .catch((error: unknown) => console.warn('Could not settle this computer’s role', error));
     } else if (message.type === 'peer') void this.peer(message.from, message.data);
+    else if (message.type === 'adminAudioSignal') {
+      this.deps.audio?.fromAdmin(message.name, message.signal);
+    }
   }
 
   /** Asks to become coordinator: Use this computer, or Carry on here (D18). */
@@ -398,10 +444,12 @@ export class LiveLink {
       void this.registerEarlierGrants();
       // After the capabilities, which have the coordinator send the OBS state it holds.
       this.deps.obs?.becomeFollower(coordinatorId);
+      this.deps.audio?.becomeFollower(coordinatorId);
     }
     if (!coordinatorId) {
       this.followingId = null;
       this.deps.obs?.disconnected();
+      this.deps.audio?.disconnected();
     }
   }
 
@@ -521,6 +569,7 @@ export class LiveLink {
           this.refreshDevices();
           // Said on every connection: the device is told the OBS state again.
           if (capabilities.obs) this.deps.obs?.greet(from);
+          if (capabilities.audio) this.deps.audio?.greet(from);
         },
       },
       { startRevision, publishOnApply: false },
@@ -534,6 +583,7 @@ export class LiveLink {
     });
     this.update({ role: 'coordinator', coordinatorId: deviceId, coordinatorLost: false });
     this.deps.obs?.becomeCoordinator(this.obsAudience());
+    this.deps.audio?.becomeCoordinator(this.audioAudience());
     this.unsubscribe = session.subscribe(() => this.schedulePublish());
     this.aliveTimer = setInterval(() => {
       if (this.coordinator)
@@ -545,7 +595,10 @@ export class LiveLink {
   }
 
   private stopCoordinating(): void {
-    if (this.coordinator) this.deps.obs?.stopCoordinating();
+    if (this.coordinator) {
+      this.deps.obs?.stopCoordinating();
+      this.deps.audio?.stopCoordinating();
+    }
     this.coordinator = null;
     this.unsubscribe?.();
     this.unsubscribe = null;
@@ -736,6 +789,7 @@ export class LiveLink {
     this.update({ devices, fontWarnings: warnings });
     this.schedulePublish();
     this.deps.obs?.setAudience(this.obsAudience());
+    this.deps.audio?.setAudience(this.audioAudience());
   }
 
   // ── Messages from other desktops ─────────────────────────────────────────
@@ -747,6 +801,7 @@ export class LiveLink {
       if (!message.success) return this.anotherCoordinator(data);
       // OBS is beside the live state: never queued behind a live command (O11).
       if (isObsUp(message.data)) return this.deps.obs?.fromFollower(from, message.data);
+      if (isAudioUp(message.data)) return this.deps.audio?.fromFollower(from, message.data);
       const received = await this.coordinator.receive(from, message.data);
       if (received.adopt) {
         await this.deps.session.adoptSnapshot(received.adopt);
@@ -764,6 +819,7 @@ export class LiveLink {
       return;
     }
     if (isObsDown(message.data)) return this.deps.obs?.fromCoordinator(message.data);
+    if (isAudioDown(message.data)) return this.deps.audio?.fromCoordinator(message.data);
     if (message.data.type === 'snapshot' || message.data.type === 'alive')
       this.watch.heard(this.now());
     for (const event of this.follower.receive(message.data)) {

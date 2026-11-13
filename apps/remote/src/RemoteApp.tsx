@@ -18,9 +18,11 @@ import {
 import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PassageColumns, PhoneBible } from './Bible';
+import { LOCK_NOTE, PhoneListen, phoneDelayText, phoneListenText } from './audio';
 import { RemoteConnection } from './connection';
 
 const connection = new RemoteConnection(window.location);
+const listen = new PhoneListen(connection);
 
 export function RemoteApp() {
   const state = useSyncExternalStore(connection.subscribe, () => connection.state);
@@ -219,6 +221,8 @@ function Live({ view }: { view: RemoteView | null }) {
           )}
         </div>
       </header>
+
+      <AudioRow audio={view.audio ?? null} />
 
       {view.obs && (
         <ObsRow
@@ -953,6 +957,46 @@ function useObsCommand() {
  * OBS is shared, so the slide controls keep their places; with the way to the OBS screen
  * beside it.
  */
+/**
+ * Live audio (M4.4): shown only while a desktop of the workspace broadcasts, or while this
+ * phone still listens. The tap starts playback.
+ */
+function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null }) {
+  const state = useSyncExternalStore(listen.subscribe, () => listen.state);
+  const key = audio ? `${audio.ownerId}|${audio.activatedAt}|${audio.status}` : '';
+  useEffect(() => listen.follow(audio), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const on = state.status.kind !== 'off';
+  if (!audio && !on) return null;
+  const delay = on ? phoneDelayText(state.delay) : null;
+  return (
+    <div className="border-b border-slate-800 px-3 py-1.5">
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+            audio?.status === 'live' ? 'bg-emerald-400' : 'bg-amber-400'
+          }`}
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate text-sm">
+          {audio ? `Live audio from ${audio.ownerName}` : phoneListenText(state.status)}
+        </span>
+        <button
+          className={`rounded-lg px-4 py-1.5 text-sm font-semibold active:scale-[0.98] ${
+            on ? 'bg-sky-600 text-white' : 'bg-slate-800'
+          }`}
+          aria-pressed={on}
+          onClick={() => (on ? listen.stop() : listen.start())}
+        >
+          {on ? 'Stop' : 'Listen'}
+        </button>
+      </div>
+      {on && <p className="pt-1 text-xs text-slate-400">{phoneListenText(state.status)}</p>}
+      {delay && <p className="text-xs text-slate-500">{delay}</p>}
+      {on && <p className="text-xs text-slate-500">{LOCK_NOTE}</p>}
+    </div>
+  );
+}
+
 function ObsRow(props: {
   obs: RemoteObsView;
   connected: boolean;

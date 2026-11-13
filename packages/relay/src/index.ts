@@ -14,6 +14,7 @@
  * back with a grant (decision D25). Output pages receive snapshots and may send nothing.
  */
 import {
+  AudioSignalSchema,
   CoordinatorToFollowerSchema,
   FollowerToCoordinatorSchema,
   isCompatibleProtocol,
@@ -34,6 +35,7 @@ import {
   type OutputView,
   type RelayToOutput,
   type RelayToRemote,
+  type AudioSignal,
 } from '@worship-q/protocol';
 
 /**
@@ -63,6 +65,11 @@ export interface RelayOptions {
   claims?: boolean;
   /** Where desktops arriving and leaving are noted, to trace dropped connections. */
   note?: (message: string, detail: Record<string, unknown>) => void;
+  /**
+   * A broadcaster's signal for an administrator listening in the admin app (live audio
+   * A22): the server queues it for the administrator's next poll.
+   */
+  adminAudio?: (workspaceId: string, deviceId: string, signal: AudioSignal) => void;
 }
 
 /**
@@ -245,6 +252,31 @@ export class Relay {
         if (!this.instance.isActiveOutputLink(output.id)) output.socket.close(4001, 'revoked');
       }
     }
+  }
+
+  /**
+   * Hands an administrator's signal to the broadcasting desktop's own connection, never
+   * through the coordinator (A22). False when that desktop is not connected here, or does
+   * not take audio, so the server can answer at once.
+   */
+  adminAudioSignal(
+    workspaceId: string,
+    deviceId: string,
+    name: string,
+    signal: AudioSignal,
+  ): boolean {
+    const parsed = AudioSignalSchema.safeParse(signal);
+    if (!parsed.success) return false;
+    for (const desktop of this.rooms.get(workspaceId)?.desktops ?? []) {
+      if (desktop.deviceId !== deviceId || desktop.capabilities?.audio !== true) continue;
+      send(desktop.socket, {
+        type: 'adminAudioSignal',
+        name,
+        signal: parsed.data,
+      } satisfies RelayToDesktop);
+      return true;
+    }
+    return false;
   }
 
   coordinatorName(workspaceId: string): string | null {
@@ -529,6 +561,19 @@ export class Relay {
             for (const remote of targets) {
               if (remote.desktop === desktop) send(remote.socket, message.data);
             }
+            return;
+          }
+          case 'adminAudioSignal': {
+            const signal = AudioSignalSchema.safeParse(message.signal);
+            if (!signal.success) {
+              this.warn('Refused a malformed audio signal for an administrator', {
+                workspaceId,
+                from: desktop.deviceId,
+                issues: signal.error.issues,
+              });
+              return;
+            }
+            this.options.adminAudio?.(workspaceId!, desktop.deviceId, signal.data);
             return;
           }
           case 'drop': {

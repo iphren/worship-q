@@ -11,8 +11,9 @@ import {
   type SnapshotItem,
 } from '@worship-q/protocol';
 import { ItemBadgeMark } from '@worship-q/ui';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { api } from '../api';
+import { AdminListen } from '../audio';
 import {
   CONNECTION_LABEL,
   ROLE_LABEL,
@@ -94,6 +95,7 @@ export function WorkspacePage({ id }: { id: string }) {
       <Header workspace={workspace} onChanged={replace} />
       <ErrorText error={list.error} />
       <LiveSection id={id} />
+      <AudioSection id={id} />
       <ObsSection id={id} />
       <DevicesSection id={id} onRevoked={list.reload} />
       <CodeSection workspace={workspace} onChanged={replace} />
@@ -635,6 +637,75 @@ const OBS_OUTPUTS = [
 ] as const;
 
 /** The workspace's OBS state, as its OBS computer last reported it. Hidden when none has. */
+const LISTEN_TEXT: Record<string, string> = {
+  off: 'Not listening',
+  connecting: 'Connecting…',
+  playing: 'Playing',
+  waiting: 'Connected; the broadcast is waiting for its input',
+  reconnecting: 'Reconnecting…',
+  full: 'The broadcast is full: ten are listening already',
+};
+
+/**
+ * Live audio (A14, M5.8): under the presentation, only while the broadcaster reports a
+ * broadcast and is connected to this server. Nothing plays before **Listen** is pressed.
+ */
+function AudioSection({ id }: { id: string }) {
+  const loaded = useLoad(() => api.audio(id), [id], LIVE_POLL_MS);
+  const audio = loaded.data?.audio ?? null;
+  const [listen] = useState(() => new AdminListen(id));
+  useEffect(() => () => listen.dispose(), [listen]);
+  const state = useSyncExternalStore(listen.subscribe, () => listen.state);
+  const key = audio ? `${audio.ownerName}|${audio.status}|${audio.connected}` : '';
+  useEffect(() => listen.follow(audio), [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const on = state.status.kind !== 'off';
+  if (!audio && !on) return null;
+  const status =
+    state.status.kind === 'unreachable'
+      ? state.status.relay
+        ? 'Could not connect. The church’s relay was tried; this network may block it.'
+        : 'Could not connect from this network, and the church’s server offers no relay.'
+      : LISTEN_TEXT[state.status.kind];
+  const delay =
+    on && state.delay
+      ? `Network and buffer: ${state.delay.delayMs === null ? '–' : `${state.delay.delayMs} ms`}${
+          state.delay.path ? ` · ${state.delay.path === 'relayed' ? 'Relayed' : 'Direct'}` : ''
+        }`
+      : null;
+  return (
+    <Card>
+      <SectionTitle
+        aside={
+          audio ? (
+            <Badge tone={audio.status === 'live' ? 'live' : 'warn'}>
+              {audio.status === 'live'
+                ? `Live · ${audio.listeners} listening`
+                : 'Waiting for input'}
+            </Badge>
+          ) : null
+        }
+      >
+        Live audio
+      </SectionTitle>
+      {audio && <p className="text-sm text-slate-300">From {audio.ownerName}.</p>}
+      {audio && !audio.connected && !on && (
+        <p className="text-sm text-slate-400">
+          The broadcasting computer is not connected to this server, so you cannot listen from here.
+        </p>
+      )}
+      {(audio?.connected || on) && (
+        <div className="mt-2 flex items-center gap-3">
+          <Button onClick={() => (on ? listen.stop() : listen.start())}>
+            {on ? 'Stop' : 'Listen'}
+          </Button>
+          {on && <span className="text-sm text-slate-400">{status}</span>}
+        </div>
+      )}
+      {delay && <p className="mt-1 text-xs text-slate-500">{delay}</p>}
+    </Card>
+  );
+}
+
 function ObsSection({ id }: { id: string }) {
   const loaded = useLoad(() => api.obs(id), [id], LIVE_POLL_MS);
   const obs = loaded.data?.obs ?? null;

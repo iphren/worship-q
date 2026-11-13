@@ -27,11 +27,56 @@ services:
       WORSHIP_Q_YOUVERSION_KEY: ${WORSHIP_Q_YOUVERSION_KEY:-}
       WORSHIP_Q_API_BIBLE_KEY: ${WORSHIP_Q_API_BIBLE_KEY:-}
       WORSHIP_Q_ESV_KEY: ${WORSHIP_Q_ESV_KEY:-}
+      # Live audio (A10). STUN servers for listeners away from the venue, comma-separated;
+      # empty for none. The relay below, when it runs: its address and the shared secret.
+      WORSHIP_Q_STUN: ${WORSHIP_Q_STUN-stun:stun.l.google.com:19302}
+      WORSHIP_Q_TURN_URL: ${WORSHIP_Q_TURN_URL:-}
+      WORSHIP_Q_TURN_SECRET: ${WORSHIP_Q_TURN_SECRET:-}
     # Your reverse proxy forwards to this port; it is only reachable from this machine.
     ports:
       - '127.0.0.1:${WORSHIP_Q_PORT:-8080}:8080'
     volumes:
       - worship-q-data:/data
+
+  # The relay for live audio listeners whose network allows no direct path (live audio
+  # plan A10). Off by default; start it with `--profile turn`. UDP only: 3478 and the relay
+  # ports 49160–49180, open in the host's firewall and the provider's, outside the reverse
+  # proxy. It uses the host's network so the relay ports need no mapping.
+  coturn:
+    image: coturn/coturn:4.6.3
+    profiles: ['turn']
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --listening-port=3478
+      - --listening-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
+      - --relay-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
+      - --external-ip=${WORSHIP_Q_TURN_EXTERNAL_IP:-}
+      - --min-port=49160
+      - --max-port=49180
+      - --use-auth-secret
+      - --static-auth-secret=${WORSHIP_Q_TURN_SECRET:-}
+      - --realm=${WORSHIP_Q_TURN_REALM:-worship-q}
+      - --fingerprint
+      - --no-tcp
+      - --no-tls
+      - --no-tcp-relay
+      - --no-cli
+      - --no-multicast-peers
+      # Private and loopback peers are refused, so the relay cannot reach the server's own
+      # network.
+      - --denied-peer-ip=0.0.0.0-0.255.255.255
+      - --denied-peer-ip=10.0.0.0-10.255.255.255
+      - --denied-peer-ip=100.64.0.0-100.127.255.255
+      - --denied-peer-ip=127.0.0.0-127.255.255.255
+      - --denied-peer-ip=169.254.0.0-169.254.255.255
+      - --denied-peer-ip=172.16.0.0-172.31.255.255
+      - --denied-peer-ip=192.168.0.0-192.168.255.255
+      - --denied-peer-ip=::1
+      - --denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --log-file=stdout
+      - --simple-log
 
 volumes:
   worship-q-data:

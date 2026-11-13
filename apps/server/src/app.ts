@@ -18,6 +18,7 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import {
+  AudioStateSchema,
   isCompatibleProtocol,
   LiveSnapshotSchema,
   MIN_PROTOCOL_VERSION,
@@ -65,6 +66,8 @@ import {
 import { sendFile } from './ranges';
 import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
 import { ObsReports } from './obsReports';
+import { AudioReports } from './audioReports';
+import { DEFAULT_STUN, iceServers, type IceConfig } from './ice';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { Relay } from '@worship-q/relay';
@@ -105,6 +108,8 @@ export interface ServerConfig {
   mediaLimits?: Partial<MediaLimits>;
   /** Bible passages through the church's provider keys (B17); absent in most tests. */
   bible?: Bible;
+  /** The ICE servers for live audio (A10); see `iceConfigFromEnv`. The public STUN default. */
+  ice?: IceConfig;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
@@ -127,8 +132,19 @@ export async function buildServer(config: ServerConfig) {
   // `app` is made below; the relay only warns once connections arrive, by when it exists.
   const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message), {
     note: (message, detail) => app.log.info(detail, message),
+    // A broadcaster's answer to an administrator listening in the admin app (A22).
+    adminAudio: (workspaceId, deviceId, signal) =>
+      audioReports.fromBroadcaster(workspaceId, deviceId, signal),
   });
   const obsReports = new ObsReports(instance.now);
+  const ice: IceConfig = config.ice ?? { stun: [DEFAULT_STUN], turn: null };
+  const audioReports = new AudioReports(
+    () => Date.parse(instance.now()),
+    (workspaceId, deviceId, name, signal) =>
+      relay.adminAudioSignal(workspaceId, deviceId, name, signal),
+  );
+  const audioSweeper = setInterval(() => audioReports.sweep(), 10_000);
+  audioSweeper.unref();
   const sweeper = setInterval(() => relay.sweep(), 30_000);
   sweeper.unref();
   for (const email of config.administrators ?? []) {
@@ -278,6 +294,7 @@ export async function buildServer(config: ServerConfig) {
       codes: !instance.hasAdministrators(),
       media: { images: true, videos: true, limits },
       bible: config.bible ? config.bible.offered(instance.churchSettings()).length > 0 : false,
+      audioRelay: ice.turn !== null,
     };
     return info;
   });
@@ -546,6 +563,26 @@ export async function buildServer(config: ServerConfig) {
       }
       const { state, snapshot } = parsed.data;
       return { stored: obsReports.put(device.workspaceId, device.id, state, snapshot ?? null) };
+    });
+
+    // ── Live audio (live audio plan A10, A21) ──────────────────────────────
+
+    /** The ICE servers, with a fresh ten-minute relay credential when one is configured. */
+    api.get('/api/v1/ice', async (_request, reply) => {
+      reply.header('cache-control', 'no-store');
+      return { iceServers: iceServers(ice, Date.parse(instance.now())) };
+    });
+
+    /** The broadcaster's own audio state, kept for the admin app; see `AudioReports`. */
+    api.put('/api/v1/audio', async (request, reply) => {
+      const parsed = z.object({ state: AudioStateSchema }).safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-state' });
+      const device = request.device!;
+      // A computer speaks only for its own broadcast.
+      if (parsed.data.state.ownerId !== device.id) {
+        return reply.code(403).send({ error: 'not-owner' });
+      }
+      return { stored: audioReports.put(device.workspaceId, device.id, parsed.data.state) };
     });
 
     // ── Browser output links (D22) ─────────────────────────────────────────
@@ -951,6 +988,8 @@ export async function buildServer(config: ServerConfig) {
     instance,
     relay,
     obsReports,
+    audioReports,
+    ice,
     oidc: config.oidc ?? null,
     dataDir: config.dataDir,
     name: config.name,
@@ -962,6 +1001,7 @@ export async function buildServer(config: ServerConfig) {
   app.addHook('onClose', async () => {
     config.bible?.stop();
     clearInterval(sweeper);
+    clearInterval(audioSweeper);
     if (retention) clearInterval(retention);
   });
 

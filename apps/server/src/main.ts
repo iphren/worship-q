@@ -6,6 +6,7 @@ import { Bible, bibleKeysFromEnv } from './bible';
 import { openDatabase } from './db';
 import { convertDeck, deckTools, deckToolsAvailable } from './decks/convert';
 import { Instance } from './instance';
+import { iceConfigFromEnv } from './ice';
 import { mediaLimitsFromEnv } from './media';
 import { OidcClient, oidcConfigFromEnv } from './oidc';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
@@ -31,6 +32,12 @@ console.log(
   `Bible keys set: YouVersion ${!!bibleKeys.youversion}, API.Bible ${!!bibleKeys.apibible}, ESV ${!!bibleKeys.esv}`,
 );
 bible.start((message) => console.log(message));
+// Live audio's ICE servers (A10). A bad setting stops the server here, naming it; the relay's
+// secret is never logged, only whether a relay is offered.
+const ice = iceConfigFromEnv(process.env);
+console.log(
+  `Live audio: STUN ${ice.stun.length ? ice.stun.join(', ') : 'none'}, relay ${ice.turn ? 'on' : 'off'}`,
+);
 const { app } = await buildServer({
   instance,
   dataDir,
@@ -40,6 +47,7 @@ const { app } = await buildServer({
   retentionDays,
   mediaLimits: mediaLimitsFromEnv(process.env),
   bible,
+  ice,
   adminDir: process.env.WORSHIP_Q_ADMIN_DIR ?? new URL('../admin', import.meta.url).pathname,
   convertDeck: decks
     ? (source, outDir, workDir) =>

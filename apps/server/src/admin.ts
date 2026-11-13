@@ -11,6 +11,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
 import {
   ADMIN_HEADER,
+  AudioSignalSchema,
+  type AdminAudioView,
   ChurchSettingsSchema,
   LIBRARY_TYPES,
   libraryTypes,
@@ -29,6 +31,8 @@ import { z } from 'zod';
 import { churchFilesDir, findFile, moveFilesToChurch } from './files';
 import { formatPairingCode, type AdministratorRow, type Instance } from './instance';
 import type { ObsReports } from './obsReports';
+import type { AudioReports } from './audioReports';
+import { iceServers, type IceConfig } from './ice';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
 import { storageReport } from './storage';
@@ -41,6 +45,10 @@ export interface AdminConfig {
   relay: Relay;
   /** The OBS state each workspace's OBS computer last reported. */
   obsReports: ObsReports;
+  /** Each workspace's live audio broadcast, and the administrators listening (A14, A21). */
+  audioReports: AudioReports;
+  /** The ICE servers for live audio (A10). */
+  ice: IceConfig;
   /** Null when sign-in is not configured; the routes then say so. */
   oidc: OidcClient | null;
   dataDir: string;
@@ -89,7 +97,7 @@ export function safeReturnTo(value: unknown): string {
 }
 
 export async function registerAdminRoutes(app: FastifyInstance, config: AdminConfig) {
-  const { instance, relay, obsReports, oidc } = config;
+  const { instance, relay, obsReports, audioReports, ice, oidc } = config;
 
   // ── Sign-in (D27, D28) ───────────────────────────────────────────────────
 
@@ -326,6 +334,86 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
                 : null,
           },
         } satisfies AdminObsView;
+      },
+    );
+
+    /** The workspace's live audio broadcast as its broadcaster last reported it (A21). */
+    api.get<{ Params: { id: string } }>(
+      '/api/v1/admin/workspaces/:id/audio',
+      async (request, reply) => {
+        const workspace = instance.getWorkspace(request.params.id);
+        if (!workspace) return reply.code(404).send({ error: 'not-found' });
+        reply.header('cache-control', 'no-store');
+        const report = audioReports.get(workspace.id);
+        if (!report) return { audio: null } satisfies AdminAudioView;
+        const peer = relay.peers(workspace.id).find((p) => p.deviceId === report.deviceId);
+        return {
+          audio: {
+            ownerName: report.state.ownerName,
+            status: report.state.status,
+            listeners: report.state.listeners,
+            inputName: report.state.inputName,
+            // The admin page can listen only through the broadcaster's own connection here.
+            connected: peer?.capabilities?.audio === true,
+          },
+        } satisfies AdminAudioView;
+      },
+    );
+
+    /**
+     * A signal from an administrator listening (A22). `listen` without a session starts one;
+     * the server makes its id. Answered with the session.
+     */
+    api.post<{ Params: { id: string } }>(
+      '/api/v1/admin/workspaces/:id/audio/signal',
+      async (request, reply) => {
+        const workspace = instance.getWorkspace(request.params.id);
+        if (!workspace) return reply.code(404).send({ error: 'not-found' });
+        if (JSON.stringify(request.body ?? null).length > 20_000) {
+          return reply.code(413).send({ error: 'too-large' });
+        }
+        const body = (request.body ?? {}) as { session?: unknown; signal?: unknown };
+        const session = typeof body.session === 'string' ? body.session : null;
+        const signal = session
+          ? AudioSignalSchema.safeParse({ ...(body.signal as object), session })
+          : AudioSignalSchema.safeParse({ ...(body.signal as object), session: 'new' });
+        if (!signal.success) {
+          const tooLarge = signal.error.issues.some((issue) => issue.code === 'too_big');
+          return reply
+            .code(tooLarge ? 413 : 400)
+            .send({ error: tooLarge ? 'too-large' : 'invalid-signal' });
+        }
+        const admin = request.admin!;
+        const result = audioReports.adminSignal(
+          workspace.id,
+          admin.id,
+          admin.name || admin.email,
+          session,
+          signal.data,
+        );
+        if ('error' in result) return reply.code(409).send({ error: result.error });
+        return result;
+      },
+    );
+
+    /** The broadcaster's answers for one of this administrator's sessions, after `after`. */
+    api.get<{ Params: { id: string }; Querystring: { session?: string; after?: string } }>(
+      '/api/v1/admin/workspaces/:id/audio/signals',
+      async (request, reply) => {
+        const workspace = instance.getWorkspace(request.params.id);
+        if (!workspace) return reply.code(404).send({ error: 'not-found' });
+        reply.header('cache-control', 'no-store');
+        const answer = audioReports.poll(
+          workspace.id,
+          request.admin!.id,
+          String(request.query.session ?? ''),
+          Number(request.query.after ?? 0) || 0,
+        );
+        if (!answer) return reply.code(404).send({ error: 'no-session' });
+        return {
+          signals: answer.signals,
+          ...(answer.first ? { iceServers: iceServers(ice, Date.parse(instance.now())) } : {}),
+        };
       },
     );
 

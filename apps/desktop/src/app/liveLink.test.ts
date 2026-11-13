@@ -22,6 +22,8 @@ import { LiveLink, type LiveBackupApi } from './liveLink';
 import { ObsLink, obsSettingsStore } from './obs';
 import { answerEverything, FakeNative, memoryStorage } from './obs.testing';
 import { ObsShare, shareObsWithPhones } from './obsShare';
+import { AudioShare } from './audioShare';
+import { audioSwitchStore } from './audioSettings';
 
 const SUNDAY = '2026-10-11';
 
@@ -92,6 +94,8 @@ async function desktop(
     obsSupported?: () => boolean;
     /** Taking the coordinator role waits this long, as on a server far away. */
     slowStart?: number;
+    /** A version 7 desktop that takes live audio, with a fake input and fake connections. */
+    audio?: boolean;
   } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
@@ -136,6 +140,54 @@ async function desktop(
     await obsLink.start();
     shareObsWithPhones(obs, host);
   }
+  // Live audio on this computer, as the app sets it up (cloud.ts), with media faked.
+  const audioStore = audioSwitchStore(() => memoryStorage(), deviceId);
+  const audioPeers: { closed: boolean }[] = [];
+  const audio = options.audio
+    ? new AudioShare({
+        deviceId: () => deviceId,
+        deviceName: () => name,
+        chosenInput: () => null,
+        media: {
+          list: async () => ({ inputs: [{ id: 'mic', name: 'Desk feed' }], defaultLabel: null }),
+          open: async () => ({
+            label: 'Desk feed',
+            deviceId: 'mic',
+            muted: false,
+            stop: () => undefined,
+            on: () => undefined,
+          }),
+          visible: () => true,
+        },
+        createPeer: () => {
+          const peer = { closed: false };
+          audioPeers.push(peer);
+          return {
+            offer: async () => `v=0 offer from ${name}`,
+            answer: async () => undefined,
+            addCandidate: async () => undefined,
+            setTrack: async () => undefined,
+            close: () => {
+              peer.closed = true;
+            },
+          };
+        },
+        iceServers: async () => [],
+        now: time.ms,
+      })
+    : null;
+  if (audio) {
+    host.setAudio({
+      view: () => audio.remoteView(),
+      signal: (phone, signal) => audio.fromPhone(phone, signal),
+      gone: (grantId) => audio.phoneGone(grantId),
+    });
+    audio.setPhones({
+      changed: () => host.audioChanged(),
+      deliver: (grantId, signal) => host.audioSignal(grantId, signal),
+    });
+    audio.start(audioStore);
+  }
   const capabilities = () => ({
     roles: ['coordinator' as const],
     appVersion: 'test',
@@ -144,6 +196,7 @@ async function desktop(
     media: true,
     transparency: true,
     ...(options.obs ? { obs: options.obsSupported?.() ?? true } : {}),
+    ...(options.audio ? { audio: true } : {}),
   });
 
   let handlers: ReturnType<Relay['desktop']> | null = null;
@@ -168,6 +221,7 @@ async function desktop(
     capabilities,
     obs,
     obsSupported: options.obsSupported,
+    audio,
     send: (message: DesktopToRelay) => {
       sent.push(message);
       handlers?.message(JSON.stringify(message));
@@ -216,6 +270,7 @@ async function desktop(
   cleanups.push(() => {
     link.stop();
     obs?.stop();
+    audio?.stop();
     obsLink.stop();
     host.dispose();
     if (!options.reuse) driver.close();
@@ -242,6 +297,8 @@ async function desktop(
     obsLink,
     obsNative,
     obsOn,
+    audio: audio!,
+    audioPeers,
   };
 }
 
@@ -1126,5 +1183,105 @@ describe('OBS control across the workspace (OBS plan M2)', () => {
     ).toMatchObject({
       view: { obs: { currentScene: 'Camera' } },
     });
+  });
+});
+
+describe('live audio across the workspace (live audio M2.8, M3.2)', () => {
+  /** A coordinator, a follower, and the sound desk as a viewer, all on version 7. */
+  async function church(options: { oldDesktop?: boolean } = {}) {
+    const time = clock();
+    const dir = directory();
+    const relay = new Relay(dir, time.ms);
+    const a = await desktop('Projector', time, relay, dir, null, { audio: true });
+    const b = await desktop('Booth', time, relay, dir, null, { audio: true });
+    const s = await desktop('Sound desk', time, relay, dir, null, { audio: true, role: 'viewer' });
+    const old = options.oldDesktop ? await desktop('Old', time, relay, dir, null) : null;
+    await settle();
+    return { time, relay, a, b, s, old };
+  }
+
+  it('shows every desktop the broadcast of a viewer that switches on, and nothing before', async () => {
+    const { a, b, s, old } = await church({ oldDesktop: true });
+    expect(a.audio.view.state).toBeNull();
+    s.audio.setSwitch(true);
+    await settle();
+    for (const d of [a, b]) {
+      expect(d.audio.view).toMatchObject({
+        local: false,
+        state: { ownerName: 'Sound desk', status: 'live', active: true },
+      });
+    }
+    expect(s.audio.view).toMatchObject({ local: true, input: 'live' });
+    // A desktop without the capability is sent no audio message.
+    const audioTo = old!.received.filter(
+      (m) => m.type === 'peer' && String((m.data as { type?: string })?.type).startsWith('audio'),
+    );
+    expect(audioTo).toEqual([]);
+  });
+
+  it('carries a listener’s signals to the broadcaster and the offer back, through the coordinator', async () => {
+    const { b, s } = await church();
+    s.audio.setSwitch(true);
+    await settle();
+    const got: { kind: string }[] = [];
+    const link = b.audio.listenerLink((signal) => got.push(signal));
+    link.send(s.deviceId, { kind: 'listen', session: 'b-1' });
+    await settle();
+    expect(s.audioPeers).toHaveLength(1);
+    expect(got).toEqual([{ kind: 'offer', session: 'b-1', sdp: 'v=0 offer from Sound desk' }]);
+    await settle();
+    expect(b.audio.view.state?.listeners).toBe(1);
+  });
+
+  it('serves the coordinator’s own Listen', async () => {
+    const { a, s } = await church();
+    s.audio.setSwitch(true);
+    await settle();
+    const got: { kind: string }[] = [];
+    a.audio
+      .listenerLink((signal) => got.push(signal))
+      .send(s.deviceId, { kind: 'listen', session: 'a-1' });
+    await settle();
+    expect(got.map((g) => g.kind)).toEqual(['offer']);
+  });
+
+  it('silences the first broadcaster when a second switches on, and it stays off', async () => {
+    const { b, s, time } = await church();
+    s.audio.setSwitch(true);
+    await settle();
+    time.advance(60_000);
+    b.audio.setSwitch(true);
+    await settle();
+    expect(s.audio.view).toMatchObject({ switchOn: false, local: false, takenOverBy: 'Booth' });
+    expect(s.audio.view.state?.ownerName).toBe('Booth');
+  });
+
+  it('drops the broadcast everywhere when its computer leaves', async () => {
+    const { a, b, s } = await church();
+    s.audio.setSwitch(true);
+    await settle();
+    s.disconnect();
+    await settle();
+    expect(a.audio.view.state).toBeNull();
+    expect(b.audio.view.state).toBeNull();
+  });
+
+  it('hands an administrator’s signal to the broadcaster and its answer to the server', async () => {
+    const answers: { deviceId: string; kind: string }[] = [];
+    const time = clock();
+    const dir = directory();
+    const relay = new Relay(dir, time.ms, undefined, {
+      adminAudio: (_w, deviceId, signal) => answers.push({ deviceId, kind: signal.kind }),
+    });
+    await desktop('Projector', time, relay, dir, null, { audio: true });
+    const s = await desktop('Sound desk', time, relay, dir, null, { audio: true });
+    await settle();
+    s.audio.setSwitch(true);
+    await settle();
+    expect(
+      relay.adminAudioSignal('ws', s.deviceId, 'Pastor', { kind: 'listen', session: 'admin-1' }),
+    ).toBe(true);
+    await settle();
+    expect(answers).toEqual([{ deviceId: s.deviceId, kind: 'offer' }]);
   });
 });

@@ -415,4 +415,5 @@ export function forgetVideoPosition(state: LiveState, itemId: string, now: strin
 
 export { END_SLACK_SECONDS, videoAt, videoPosition, type VideoInfo } from './video';
 export * from './coordination';
+export * from './audio';
 export * from './obs';

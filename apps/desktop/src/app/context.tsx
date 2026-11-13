@@ -8,6 +8,8 @@ import {
   useSyncExternalStore,
   type DependencyList,
 } from 'react';
+import type { AudioListenState } from './audioListen';
+import type { AudioShared } from './audioShare';
 import type { CloudController, CloudStatus } from './cloud';
 import type { ObsLinkView } from './obs';
 import type { ObsMonitorImage, ObsShared } from './obsShare';
@@ -58,6 +60,22 @@ export function useUpdates(): UpdateStatus {
 export function useObs(): ObsShared {
   const { cloud } = useApp();
   return useSyncExternalStore(cloud.obs.subscribe, () => cloud.obs.view);
+}
+
+/** The workspace's live audio as this desktop shows it (live audio plan). */
+export function useAudio(): AudioShared {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.audio.subscribe, () => cloud.audio.view);
+}
+
+const NO_LISTEN: AudioListenState = { status: { kind: 'off' }, delay: null };
+const noSubscribe = () => () => undefined;
+
+/** **Listen** on this desktop: its status and delay figure. */
+export function useAudioListen(): AudioListenState {
+  const { cloud } = useApp();
+  const listen = cloud.listen;
+  return useSyncExternalStore(listen?.subscribe ?? noSubscribe, () => listen?.state ?? NO_LISTEN);
 }
 
 /** This computer's OBS link, for Settings → OBS; null until it has started. */

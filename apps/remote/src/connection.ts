@@ -12,6 +12,7 @@
  * tried when the browser has accepted it; otherwise the relay is used and the page says so.
  */
 import {
+  type AudioSignal,
   MIN_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   type HostToRemote,
@@ -85,6 +86,8 @@ export class RemoteConnection {
   /** When the last view arrived, for OBS timers, which it gives as of sending. */
   viewReceivedAt = 0;
   private readonly imageListeners = new Set<() => void>();
+  /** Live audio signals from the broadcaster, for this phone's **Listen** (M4.4). */
+  private readonly audioListeners = new Set<(signal: AudioSignal) => void>();
 
   constructor(location: Location) {
     const query = new URLSearchParams(location.search);
@@ -291,10 +294,25 @@ export class RemoteConnection {
         this.bibleAsks.get(message.id)?.(message);
         this.bibleAsks.delete(message.id);
         return;
+      case 'audioSignal':
+        for (const listener of [...this.audioListeners]) listener(message.signal);
+        return;
       case 'ack':
       case 'pong':
         return;
     }
+  }
+
+  /** Live audio signals from the broadcaster, through the desktop this phone uses. */
+  onAudioSignal(listener: (signal: AudioSignal) => void): () => void {
+    this.audioListeners.add(listener);
+    return () => this.audioListeners.delete(listener);
+  }
+
+  /** A live audio signal for the broadcaster; dropped while not connected (it asks again). */
+  sendAudio(signal: AudioSignal): void {
+    if (this.socket?.readyState !== WebSocket.OPEN || this.state_.kind !== 'live') return;
+    this.socket.send(JSON.stringify({ type: 'audioSignal', signal }));
   }
 
   /**
