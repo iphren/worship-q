@@ -424,25 +424,21 @@ export function ObsLiveMonitor() {
             const output = state[kind];
             const elapsed = outputElapsed(output, shared.receivedAt, now);
             return (
-              // The state goes under the name, both lined up after the light; the small
-              // button sits right after the name.
-              <li key={kind} className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2">
-                <span
-                  className={`h-2 w-2 rounded-full ${outputDot(kind, output.active)}`}
-                  aria-hidden="true"
+              // The small button leads the line, the state under the name.
+              <li
+                key={kind}
+                className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-2"
+              >
+                <ObsOutputToggle
+                  kind={kind}
+                  label={label}
+                  start={start}
+                  stop={stop}
+                  output={output}
+                  usable={shared.reachable}
+                  action={action}
                 />
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{t(label)}</span>
-                  <ObsOutputToggle
-                    kind={kind}
-                    label={label}
-                    start={start}
-                    stop={stop}
-                    output={output}
-                    usable={shared.reachable}
-                    action={action}
-                  />
-                </span>
+                <span className="truncate">{t(label)}</span>
                 <span className="col-start-2 truncate text-slate-400 tabular-nums">
                   {outputText(output, elapsed)}
                 </span>
