@@ -157,8 +157,6 @@ describe('what the phone says', () => {
     expect(phoneDelayText({ delayMs: 120, bufferMs: 100, stale: false, path: 'relayed' })).toBe(
       '120 ms · Relayed',
     );
-    expect(phoneDelayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe(
-      '–',
-    );
+    expect(phoneDelayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe('–');
   });
 });

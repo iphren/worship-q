@@ -57,9 +57,7 @@ describe('Listen in words (M3.3, M5.4)', () => {
     expect(delayText({ delayMs: 130, bufferMs: 120, stale: false, path: 'direct' })).toBe(
       '130 ms · Direct',
     );
-    expect(delayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe(
-      '–',
-    );
+    expect(delayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe('–');
     expect(delayText(null)).toBeNull();
   });
 });
