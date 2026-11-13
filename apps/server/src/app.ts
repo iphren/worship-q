@@ -140,8 +140,8 @@ export async function buildServer(config: ServerConfig) {
   const ice: IceConfig = config.ice ?? { stun: [DEFAULT_STUN], turn: null };
   const audioReports = new AudioReports(
     () => Date.parse(instance.now()),
-    (workspaceId, deviceId, name, signal) =>
-      relay.adminAudioSignal(workspaceId, deviceId, name, signal),
+    (workspaceId, deviceId, name, signal, listener) =>
+      relay.adminAudioSignal(workspaceId, deviceId, name, signal, listener),
   );
   const audioSweeper = setInterval(() => audioReports.sweep(), 10_000);
   audioSweeper.unref();

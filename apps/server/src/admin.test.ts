@@ -1563,6 +1563,24 @@ describe('live audio for the admin app (A14, A21, A22)', () => {
     expect((await report(audioState('someone-else'))).statusCode).toBe(403);
   });
 
+  it('names the administrator’s page to the broadcaster, the same for each session it starts', async () => {
+    const { report, device, connect, received, post } = await audioSetup();
+    await report(audioState(device.id));
+    connect();
+    const first = (await post({ listener: 'page-1', signal: { kind: 'listen' } })).json();
+    const who = (received.at(-1) as { listener: string }).listener;
+    expect(who).toMatch(/:page-1$/);
+    expect(who).not.toBe(first.session);
+    const fresh = (await post({ listener: 'page-1', signal: { kind: 'listen' } })).json();
+    expect(fresh.session).not.toBe(first.session);
+    expect((received.at(-1) as { listener: string }).listener).toBe(who);
+    // Anything but a short plain id is not taken as a page's name.
+    for (const listener of ['x'.repeat(41), 'a:b', '', 7]) {
+      const { session } = (await post({ listener, signal: { kind: 'listen' } })).json();
+      expect((received.at(-1) as { listener: string }).listener).toBe(session);
+    }
+  });
+
   it('carries an administrator’s listen to the broadcaster and its answer back, with the ICE list once', async () => {
     const { report, device, connect, received, post, poll } = await audioSetup();
     await report(audioState(device.id));
@@ -1574,6 +1592,8 @@ describe('live audio for the admin app (A14, A21, A22)', () => {
       type: 'adminAudioSignal',
       name: 'Pat Admin',
       signal: { kind: 'listen', session },
+      // A page that names itself not at all is counted by its session.
+      listener: session,
     });
     socket.message(
       JSON.stringify({ type: 'adminAudioSignal', signal: { kind: 'offer', session, sdp: 'v=0' } }),

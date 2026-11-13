@@ -7,6 +7,7 @@ import type { AudioCandidate, IceServer } from '@worship-q/protocol';
 import type { BroadcastPeer, BroadcastPeerEvents } from './broadcaster';
 import type { CaptureTrack, InputDevice, MediaPort } from './input';
 import type { ListenPeer, ListenPeerEvents } from './listener';
+import type { ListenOutput } from './player';
 import type { PeerState } from './timers';
 
 /** The capture constraints the spike settled on: no voice processing, mono (plan §4). */
@@ -30,6 +31,18 @@ function candidateOf(event: RTCPeerConnectionIceEvent): AudioCandidate | null {
 
 function watchState(connection: RTCPeerConnection, state: (state: PeerState) => void): void {
   connection.onconnectionstatechange = () => state(connection.connectionState as PeerState);
+}
+
+/** The list the next gathering uses: an ICE restart then has a credential still valid. */
+function setIceServers(connection: RTCPeerConnection, iceServers: IceServer[]): void {
+  try {
+    connection.setConfiguration({
+      ...connection.getConfiguration(),
+      iceServers: iceServers as RTCIceServer[],
+    });
+  } catch {
+    // The connection keeps the list it has; the restart is still tried with it.
+  }
 }
 
 /** A send-only connection carrying the capture track (M2.7). */
@@ -62,6 +75,7 @@ export function browserBroadcastPeer(args: {
       // Only `browserMediaPort`'s tracks are ever given here.
       await transceiver.sender.replaceTrack((track as BrowserTrack | null)?.track ?? null);
     },
+    setIceServers: (iceServers) => setIceServers(connection, iceServers),
     close() {
       connection.onconnectionstatechange = null;
       connection.onicecandidate = null;
@@ -95,6 +109,7 @@ export function browserListenPeer(args: {
     async addCandidate(candidate) {
       await connection.addIceCandidate(candidate.candidate === '' ? null : candidate);
     },
+    setIceServers: (iceServers) => setIceServers(connection, iceServers),
     close() {
       connection.onconnectionstatechange = null;
       connection.onicecandidate = null;
@@ -146,7 +161,11 @@ export function browserMediaPort(
       const fallback = devices.find(
         (device) => device.kind === 'audioinput' && device.deviceId === 'default',
       );
-      return { inputs, defaultLabel: fallback?.label ?? null };
+      // Before any capture in the page, a webview lists its inputs with no ids at all.
+      const locked =
+        inputs.length === 0 &&
+        devices.some((device) => device.kind === 'audioinput' && device.deviceId === '');
+      return { inputs, defaultLabel: fallback?.label ?? null, locked };
     },
     async open(deviceId) {
       const stream = await media.getUserMedia({
@@ -163,5 +182,34 @@ export function browserMediaPort(
       return wrapTrack(track);
     },
     visible: () => typeof document === 'undefined' || document.visibilityState === 'visible',
+  };
+}
+
+/** The `<audio>` element **Listen** plays into, as `ListenPlayer` uses it. */
+export interface BrowserAudioOutput extends ListenOutput<MediaStream> {
+  /** Moves the sound to another output device; empty for the system default. */
+  setSink(id: string): Promise<void>;
+  remove(): void;
+}
+
+/** An `<audio>` element added to the page; `inline` for phones, which else go full screen. */
+export function browserAudioOutput(options: { inline?: boolean } = {}): BrowserAudioOutput {
+  const element = document.createElement('audio');
+  element.autoplay = true;
+  element.style.display = 'none';
+  if (options.inline) element.setAttribute('playsinline', '');
+  document.body.appendChild(element);
+  const play = () => void element.play().catch(() => undefined);
+  type Sinkable = HTMLMediaElement & { setSinkId?(id: string): Promise<void> };
+  return {
+    unlock: play,
+    play(stream) {
+      element.srcObject = stream;
+      if (stream) play();
+    },
+    async setSink(id) {
+      await (element as Sinkable).setSinkId?.(id).catch(() => undefined);
+    },
+    remove: () => element.remove(),
   };
 }

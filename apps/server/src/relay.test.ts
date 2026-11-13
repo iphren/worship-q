@@ -907,6 +907,20 @@ describe('live audio through the relay (live audio M1.7, M5.6)', () => {
       signal: { kind: 'listen', session: 'adm-1' },
     });
     expect(a.socket.received).toHaveLength(before);
+    // With the listener the server names for the administrator's page (A20).
+    relay.adminAudioSignal(
+      workspace.id,
+      b.deviceId,
+      'Pastor',
+      { kind: 'listen', session: 'adm-2' },
+      'pastor:page-1',
+    );
+    expect(b.socket.last()).toEqual({
+      type: 'adminAudioSignal',
+      name: 'Pastor',
+      signal: { kind: 'listen', session: 'adm-2' },
+      listener: 'pastor:page-1',
+    });
     b.say({ type: 'adminAudioSignal', signal: { kind: 'offer', session: 'adm-1', sdp: 'v=0' } });
     expect(answers).toEqual([
       {

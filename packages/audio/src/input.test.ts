@@ -4,6 +4,7 @@ import {
   InputWatcher,
   LIST_EVERY_MS,
   MUTE_GRACE_MS,
+  MUTE_RETRY_MS,
   REQUEST_RETRY_MS,
   REQUEST_WAIT_MS,
   type CaptureTrack,
@@ -42,13 +43,14 @@ function setup() {
   let inputs: InputDevice[] = [];
   let defaultLabel: string | null = null;
   let visible = true;
+  let locked = false;
   const requests: Request[] = [];
   const tracks: (FakeTrack | null)[] = [];
   const moved: InputDevice[] = [];
   const watcher = new InputWatcher<FakeTrack>({
     clock,
     port: {
-      list: async () => ({ inputs, defaultLabel }),
+      list: async () => ({ inputs: locked ? [] : inputs, defaultLabel, locked }),
       open: (deviceId) =>
         new Promise<FakeTrack>((resolve, reject) => {
           requests.push({
@@ -74,6 +76,10 @@ function setup() {
     },
     setVisible: (next: boolean) => {
       visible = next;
+    },
+    /** The webview hides device ids until a capture was made in the page. */
+    setLocked: (next: boolean) => {
+      locked = next;
     },
   };
 }
@@ -267,6 +273,105 @@ async function liveOn(env: ReturnType<typeof setup>, device = scarlett) {
   return track;
 }
 
+describe('device ids hidden until a capture was made (A15)', () => {
+  it('opens the system default at once, which is the capture itself', async () => {
+    const env = setup();
+    env.setInputs([builtIn]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, null);
+    await settle();
+    expect(env.requests.map((r) => r.deviceId)).toEqual([null]);
+    const track = new FakeTrack('MacBook Pro Microphone', 'mb-1');
+    env.requests[0]!.resolve(track);
+    await settle();
+    expect(env.watcher.status).toBe('live');
+    expect(env.tracks).toEqual([track]);
+  });
+
+  it('unlocks with a capture it stops, then takes the chosen device', async () => {
+    const env = setup();
+    env.setInputs([builtIn, scarlett]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, scarlett);
+    await settle();
+    expect(env.requests.map((r) => r.deviceId)).toEqual([null]);
+    const unlocking = new FakeTrack('MacBook Pro Microphone', 'mb-1');
+    env.setLocked(false);
+    env.requests[0]!.resolve(unlocking);
+    await settle();
+    // The unlocking capture is never sent to anyone.
+    expect(unlocking.stopped).toBe(true);
+    expect(env.tracks).toEqual([]);
+    expect(env.requests.map((r) => r.deviceId)).toEqual([null, 'sc-1']);
+    const track = new FakeTrack('Scarlett 2i2 USB', 'sc-1');
+    env.requests[1]!.resolve(track);
+    await settle();
+    expect(env.watcher.status).toBe('live');
+    expect(env.watcher.inputName).toBe('Scarlett 2i2 USB');
+    expect(env.tracks).toEqual([track]);
+  });
+
+  it('waits for the chosen device when it is not among the unlocked ones', async () => {
+    const env = setup();
+    env.setInputs([builtIn]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, scarlett);
+    await settle();
+    env.setLocked(false);
+    env.requests[0]!.resolve(new FakeTrack('MacBook Pro Microphone', 'mb-1'));
+    await settle();
+    expect(env.watcher.status).toBe('waiting');
+    expect(env.watcher.inputName).toBe('Scarlett 2i2 USB');
+    env.setInputs([builtIn, scarlett]);
+    env.clock.advance(LIST_EVERY_MS);
+    await settle();
+    expect(env.requests.map((r) => r.deviceId)).toEqual([null, 'sc-1']);
+  });
+
+  it('unlocks once only when the ids stay hidden, then waits', async () => {
+    const env = setup();
+    env.setInputs([builtIn, scarlett]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, scarlett);
+    await settle();
+    env.requests[0]!.resolve(new FakeTrack('', ''));
+    await settle();
+    env.clock.advance(LIST_EVERY_MS * 10);
+    await settle();
+    expect(env.requests).toHaveLength(1);
+    expect(env.watcher.status).toBe('waiting');
+  });
+
+  it('is refused when the unlocking capture is', async () => {
+    const env = setup();
+    env.setInputs([builtIn, scarlett]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, scarlett);
+    await settle();
+    env.requests[0]!.reject('NotAllowedError');
+    await settle();
+    expect(env.watcher.status).toBe('refused');
+    env.clock.advance(60_000);
+    await settle();
+    expect(env.requests).toHaveLength(1);
+  });
+
+  it('stops an unlocking capture that arrives after the switch went off', async () => {
+    const env = setup();
+    env.setInputs([builtIn, scarlett]);
+    env.setLocked(true);
+    env.watcher.setEnabled(true, scarlett);
+    await settle();
+    env.watcher.setEnabled(false, scarlett);
+    const late = new FakeTrack('MacBook Pro Microphone', 'mb-1');
+    env.requests[0]!.resolve(late);
+    await settle();
+    expect(late.stopped).toBe(true);
+    expect(env.requests).toHaveLength(1);
+    expect(env.watcher.status).toBe('off');
+  });
+});
+
 describe('while live (§3.5)', () => {
   it('waits at once when the track ends, and takes the device again when it returns', async () => {
     const env = setup();
@@ -304,6 +409,68 @@ describe('while live (§3.5)', () => {
     await settle();
     expect(env.tracks.at(-1)).toBe(next);
     expect(track.stopped).toBe(true);
+  });
+
+  it('asks less and less often while every track it takes is muted too', async () => {
+    const env = setup();
+    const track = await liveOn(env);
+    track.fire('mute');
+    // Each track taken again arrives muted: a hardware mute, or another window's capture.
+    const answer = async () => {
+      await settle();
+      const next = new FakeTrack('Scarlett 2i2 USB', 'sc-1');
+      next.muted = true;
+      env.requests.at(-1)!.resolve(next);
+      await settle();
+      return next;
+    };
+    const waits: number[] = [];
+    let last = 0;
+    let elapsed = 0;
+    let seen = env.requests.length;
+    for (let i = 0; i < 600; i++) {
+      env.clock.advance(100);
+      elapsed += 100;
+      await settle();
+      if (env.requests.length > seen) {
+        seen = env.requests.length;
+        waits.push(elapsed - last);
+        last = elapsed;
+        await answer();
+      }
+    }
+    expect(waits.slice(0, MUTE_RETRY_MS.length)).toEqual(MUTE_RETRY_MS);
+    expect(waits.slice(MUTE_RETRY_MS.length).every((w) => w === MUTE_RETRY_MS.at(-1))).toBe(true);
+    // A minute of mute: a handful of tracks, not one every half second.
+    expect(env.tracks.length).toBeLessThan(10);
+    expect(env.watcher.status).toBe('live');
+  });
+
+  it('asks quickly again after a track came unmuted', async () => {
+    const env = setup();
+    const track = await liveOn(env);
+    track.fire('mute');
+    env.clock.advance(MUTE_GRACE_MS);
+    await settle();
+    const second = new FakeTrack('Scarlett 2i2 USB', 'sc-1');
+    second.muted = true;
+    env.requests[1]!.resolve(second);
+    await settle();
+    env.clock.advance(MUTE_RETRY_MS[1]!);
+    await settle();
+    const third = new FakeTrack('Scarlett 2i2 USB', 'sc-1');
+    third.muted = true;
+    env.requests[2]!.resolve(third);
+    await settle();
+    // The mute is lifted, and much later another one begins.
+    third.fire('unmute');
+    env.clock.advance(60_000);
+    await settle();
+    expect(env.requests).toHaveLength(3);
+    third.fire('mute');
+    env.clock.advance(MUTE_GRACE_MS);
+    await settle();
+    expect(env.requests).toHaveLength(4);
   });
 
   it('makes one request when muted and unplugged at once', async () => {

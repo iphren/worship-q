@@ -6,66 +6,71 @@
  * comes back into view while listening, it connects afresh (A24).
  */
 import {
-  DelayMeter,
-  Listener,
+  ListenPlayer,
+  browserAudioOutput,
   browserListenPeer,
-  readStats,
+  type Clock,
   type DelayFigure,
+  type ListenOutput,
+  type ListenPeer,
+  type ListenPeerEvents,
+  type ListenState,
   type ListenStatus,
 } from '@worship-q/audio';
-import type { RemoteAudioView } from '@worship-q/protocol';
+import type { IceServer, RemoteAudioView } from '@worship-q/protocol';
 import type { RemoteConnection } from './connection';
 
-const STATS_EVERY_MS = 2000;
+export type PhoneListenState = ListenState;
 
-export interface PhoneListenState {
-  status: ListenStatus;
-  delay: DelayFigure | null;
+/** What the page supplies; the browser's own in the app, fakes in tests. */
+export interface PhoneListenDeps {
+  output?: ListenOutput<MediaStream>;
+  createPeer?: (args: {
+    iceServers: IceServer[];
+    events: ListenPeerEvents<MediaStream>;
+  }) => ListenPeer;
+  /** Calls back each time the page comes into view. */
+  onVisible?: (listener: () => void) => void;
+  clock?: Clock;
+}
+
+function whenVisible(listener: () => void): void {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') listener();
+  });
 }
 
 export class PhoneListen {
-  private readonly listener: Listener<MediaStream>;
-  private readonly element: HTMLAudioElement;
-  private readonly meter = new DelayMeter();
-  private state_: PhoneListenState = { status: { kind: 'off' }, delay: null };
-  private readonly subscribers = new Set<() => void>();
-  private statsTimer: ReturnType<typeof setInterval> | undefined;
+  private readonly player: ListenPlayer<MediaStream>;
 
-  constructor(connection: RemoteConnection) {
-    this.element = document.createElement('audio');
-    this.element.autoplay = true;
-    this.element.setAttribute('playsinline', '');
-    document.body.appendChild(this.element);
-    this.listener = new Listener<MediaStream>({
-      createPeer: browserListenPeer,
+  constructor(
+    connection: Pick<RemoteConnection, 'sendAudio' | 'onAudioSignal' | 'onRejoin'>,
+    deps: PhoneListenDeps = {},
+  ) {
+    this.player = new ListenPlayer<MediaStream>({
+      createPeer: deps.createPeer ?? browserListenPeer,
       send: (_ownerId, signal) => connection.sendAudio(signal),
-      onStream: (stream) => {
-        this.element.srcObject = stream;
-        if (stream) void this.element.play().catch(() => undefined);
-      },
-      onStatus: (status) => {
-        this.update({ status, ...(status.kind === 'off' ? { delay: null } : {}) });
-        if (status.kind === 'off') clearInterval(this.statsTimer);
-      },
+      // Started from the tap, the gesture phone browsers require.
+      output: deps.output ?? browserAudioOutput({ inline: true }),
+      ...(deps.clock ? { clock: deps.clock } : {}),
     });
-    connection.onAudioSignal((signal) => this.listener.signal(signal));
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') this.listener.refresh();
-    });
+    connection.onAudioSignal((signal) => this.player.signal(signal));
+    // Back in view, the phone may have fallen behind (A24). Let in again after losing its
+    // desktop, perhaps by another one, it asks again (§3.9): the broadcaster then answers
+    // the way the phone is reached now, and the desktop it left may close what it carried.
+    (deps.onVisible ?? whenVisible)(() => this.player.refresh());
+    connection.onRejoin(() => this.player.refresh());
   }
 
   get state(): PhoneListenState {
-    return this.state_;
+    return this.player.state;
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.subscribers.add(listener);
-    return () => this.subscribers.delete(listener);
-  };
+  subscribe = (listener: () => void): (() => void) => this.player.subscribe(listener);
 
   /** The view's broadcast changed. */
   follow(audio: RemoteAudioView | null | undefined): void {
-    this.listener.setBroadcast(
+    this.player.setBroadcast(
       audio
         ? {
             ownerId: audio.ownerId,
@@ -79,30 +84,11 @@ export class PhoneListen {
 
   /** The tap: playback is unlocked inside it, before anything is awaited. */
   start(): void {
-    void this.element.play().catch(() => undefined);
-    this.meter.reset();
-    this.listener.start();
-    clearInterval(this.statsTimer);
-    this.statsTimer = setInterval(() => void this.readStats(), STATS_EVERY_MS);
+    this.player.start();
   }
 
   stop(): void {
-    this.listener.stop();
-  }
-
-  private async readStats(): Promise<void> {
-    const session = this.listener.sessionId;
-    if (!session) return;
-    const report = await this.listener.stats().catch(() => null);
-    if (!report || this.listener.sessionId !== session) return;
-    const figure = this.meter.push(session, readStats(report, Date.now()));
-    this.listener.reportBuffer(figure.bufferMs);
-    this.update({ delay: figure });
-  }
-
-  private update(patch: Partial<PhoneListenState>): void {
-    this.state_ = { ...this.state_, ...patch };
-    for (const listener of [...this.subscribers]) listener();
+    this.player.stop();
   }
 }
 

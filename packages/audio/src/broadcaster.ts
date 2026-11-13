@@ -32,6 +32,11 @@ export interface BroadcastPeer<T> {
   addCandidate(candidate: AudioCandidate): Promise<void>;
   /** Puts another track in place, or nothing, without renegotiating. */
   setTrack(track: T | null): Promise<void>;
+  /**
+   * Takes another ICE list for the next gathering: an ICE restart long after the connection
+   * was made needs a relay credential that has not run out (A10).
+   */
+  setIceServers?(iceServers: IceServer[]): void;
   close(): void;
 }
 
@@ -225,6 +230,9 @@ export class Broadcaster<R, T> {
           state: (state) => this.peerState(session, state),
         },
       });
+    } else if (iceServers.length > 0) {
+      // A restart gathers with the list just fetched; with none to be had, the old one stays.
+      session.peer.setIceServers?.(iceServers);
     }
     let sdp: string;
     try {
@@ -279,8 +287,22 @@ export class Broadcaster<R, T> {
     this.sessions.delete(session.id);
     if (session.deadTimer !== null) this.clock.clearTimeout(session.deadTimer);
     if (session.oldTimer !== null) this.clock.clearTimeout(session.oldTimer);
+    session.oldTimer = null;
     session.peer?.close();
+    this.spare(session.key);
     this.recount();
+  }
+
+  /**
+   * A listener's newest session is never closed as replaced: when the fresh one that was to
+   * take its place is gone first, because it brought no sound, the one before it stays (A17).
+   */
+  private spare(key: string): void {
+    let newest: Session<R, T> | null = null;
+    for (const each of this.sessions.values()) if (each.key === key) newest = each;
+    if (!newest || newest.oldTimer === null) return;
+    this.clock.clearTimeout(newest.oldTimer);
+    newest.oldTimer = null;
   }
 
   private recount(): void {

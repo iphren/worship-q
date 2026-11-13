@@ -13,7 +13,12 @@
  */
 import { randomUUID } from 'node:crypto';
 import { newerAudioState } from '@worship-q/live-state';
-import { AUDIO_CLOSE, type AudioSignal, type AudioState } from '@worship-q/protocol';
+import {
+  AUDIO_CLOSE,
+  AUDIO_SESSION_MAX,
+  type AudioSignal,
+  type AudioState,
+} from '@worship-q/protocol';
 
 /** A report older than this is forgotten. */
 export const AUDIO_REPORT_TTL_MS = 90_000;
@@ -36,6 +41,8 @@ interface AdminSession {
   administratorId: string;
   ownerId: string;
   name: string;
+  /** Who listens, for the broadcaster's count: the administrator's page, or this session. */
+  listener: string;
   lastPollAt: number;
   queue: { seq: number; at: number; signal: AudioSignal }[];
   nextSeq: number;
@@ -55,6 +62,7 @@ export class AudioReports {
       deviceId: string,
       name: string,
       signal: AudioSignal,
+      listener: string,
     ) => boolean = () => false,
   ) {}
 
@@ -95,6 +103,11 @@ export class AudioReports {
    * A signal from a signed-in administrator. `listen` without a session makes one here;
    * every other signal must name a session of this administrator. Returns the session, or
    * an error code.
+   *
+   * `page` is an id the administrator's page made for itself and sends with each `listen`:
+   * the sessions of one page are one listener to the broadcaster, so a page that connects
+   * afresh is never refused by its own old connection (A20), and two pages of the same
+   * administrator are two listeners. A page that sends none is counted by session.
    */
   adminSignal(
     workspaceId: string,
@@ -102,6 +115,7 @@ export class AudioReports {
     name: string,
     session: string | null,
     signal: AudioSignal | { kind: 'listen' },
+    page: string | null = null,
   ): { session: string } | { error: 'not-broadcasting' | 'unreachable' | 'no-session' } {
     this.sweep();
     let entry: AdminSession | undefined;
@@ -118,12 +132,14 @@ export class AudioReports {
       if (signal.kind !== 'listen') return { error: 'no-session' };
       const report = this.get(workspaceId);
       if (!report) return { error: 'not-broadcasting' };
+      const id = `admin-${randomUUID()}`;
       entry = {
-        id: `admin-${randomUUID()}`,
+        id,
         workspaceId,
         administratorId,
         ownerId: report.deviceId,
         name,
+        listener: page ? `${administratorId}:${page}`.slice(0, AUDIO_SESSION_MAX) : id,
         lastPollAt: this.now(),
         queue: [],
         nextSeq: 1,
@@ -132,7 +148,7 @@ export class AudioReports {
       this.sessions.set(entry.id, entry);
     }
     const full = { ...signal, session: entry.id } as AudioSignal;
-    if (!this.toBroadcaster(workspaceId, entry.ownerId, entry.name, full)) {
+    if (!this.toBroadcaster(workspaceId, entry.ownerId, entry.name, full, entry.listener)) {
       this.sessions.delete(entry.id);
       return { error: 'unreachable' };
     }
@@ -177,11 +193,13 @@ export class AudioReports {
       entry.queue = entry.queue.filter((item) => now - item.at <= ADMIN_SIGNAL_TTL_MS);
       if (now - entry.lastPollAt > ADMIN_SESSION_IDLE_MS) {
         this.sessions.delete(entry.id);
-        this.toBroadcaster(entry.workspaceId, entry.ownerId, entry.name, {
-          kind: 'close',
-          session: entry.id,
-          reason: AUDIO_CLOSE.timeout,
-        });
+        this.toBroadcaster(
+          entry.workspaceId,
+          entry.ownerId,
+          entry.name,
+          { kind: 'close', session: entry.id, reason: AUDIO_CLOSE.timeout },
+          entry.listener,
+        );
       }
     }
   }

@@ -592,16 +592,19 @@ describe('live audio for phones (M4.1, M4.2)', () => {
   function audio() {
     const signals: { phone: { grantId: string; name: string }; kind: string }[] = [];
     const gone: string[] = [];
+    const left: string[] = [];
     let view: { ownerId: string; ownerName: string; activatedAt: string; status: 'live' } | null =
       null;
     host.setAudio({
       view: () => view,
       signal: (phone, signal) => signals.push({ phone, kind: signal.kind }),
       gone: (grantId) => gone.push(grantId),
+      left: (grantId) => left.push(grantId),
     });
     return {
       signals,
       gone,
+      left,
       setView: (next: typeof view) => {
         view = next;
       },
@@ -665,7 +668,7 @@ describe('live audio for phones (M4.1, M4.2)', () => {
     expect(env.gone).toHaveLength(2);
   });
 
-  it('closes a phone’s audio only after 10 s without it, so a brief reconnection keeps the sound', async () => {
+  it('says a phone left only after 10 s without it, and never that its grant is gone', async () => {
     const { vi } = await import('vitest');
     vi.useFakeTimers();
     try {
@@ -674,9 +677,54 @@ describe('live audio for phones (M4.1, M4.2)', () => {
       const grant = host.connected[0]!.grantId;
       host.left('p1');
       vi.advanceTimersByTime(9000);
-      expect(env.gone).toEqual([]);
+      expect(env.left).toEqual([]);
       vi.advanceTimersByTime(1000);
-      expect(env.gone).toEqual([grant]);
+      // Only what it opened through this desktop is closed: it may listen through another.
+      expect(env.left).toEqual([grant]);
+      expect(env.gone).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says nothing when the phone is back within the 10 s', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
+    try {
+      const env = audio();
+      await approved('p1');
+      const grant = (
+        sent.find((e) => e.to === 'p1' && e.message.type === 'approved')!.message as {
+          grant: string;
+        }
+      ).grant;
+      host.left('p1');
+      vi.advanceTimersByTime(5000);
+      await host.message('p1-again', {
+        type: 'hello',
+        protocolVersion: PROTOCOL_VERSION,
+        name: 'Phone',
+        grant,
+      });
+      vi.advanceTimersByTime(60_000);
+      expect(env.left).toEqual([]);
+      expect(env.gone).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says once that a phone left when the relay goes away with it', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
+    try {
+      const env = audio();
+      await approved('p1');
+      const grant = host.connected[0]!.grantId;
+      host.detach();
+      host.left('p1');
+      vi.advanceTimersByTime(10_000);
+      expect(env.left).toEqual([grant]);
     } finally {
       vi.useRealTimers();
     }

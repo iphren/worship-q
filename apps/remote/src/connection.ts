@@ -88,6 +88,10 @@ export class RemoteConnection {
   private readonly imageListeners = new Set<() => void>();
   /** Live audio signals from the broadcaster, for this phone's **Listen** (M4.4). */
   private readonly audioListeners = new Set<(signal: AudioSignal) => void>();
+  /** Told when this phone is let in again after its connection was lost. */
+  private readonly rejoinListeners = new Set<() => void>();
+  /** A desktop has let this phone in at least once since the page loaded. */
+  private joined = false;
 
   constructor(location: Location) {
     const query = new URLSearchParams(location.search);
@@ -258,10 +262,13 @@ export class RemoteConnection {
         this.attempt = 0;
         if (this.obsWatching)
           this.socket?.send(JSON.stringify({ type: 'obsWatch', watching: true }));
-        return this.set({
+        this.set({
           kind: 'live',
           view: this.state_.kind === 'live' ? this.state_.view : null,
         });
+        if (this.joined) for (const listener of [...this.rejoinListeners]) listener();
+        this.joined = true;
+        return;
       case 'denied':
         if (message.reason === 'revoked') storage(this.grantKey, null);
         return this.set({ kind: 'denied', reason: message.reason });
@@ -307,6 +314,15 @@ export class RemoteConnection {
   onAudioSignal(listener: (signal: AudioSignal) => void): () => void {
     this.audioListeners.add(listener);
     return () => this.audioListeners.delete(listener);
+  }
+
+  /**
+   * This phone was let in again after losing its connection, by the same desktop or by
+   * another: what it had set up through the old connection may need asking for again.
+   */
+  onRejoin(listener: () => void): () => void {
+    this.rejoinListeners.add(listener);
+    return () => this.rejoinListeners.delete(listener);
   }
 
   /** A live audio signal for the broadcaster; dropped while not connected (it asks again). */

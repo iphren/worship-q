@@ -372,7 +372,16 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
         if (JSON.stringify(request.body ?? null).length > 20_000) {
           return reply.code(413).send({ error: 'too-large' });
         }
-        const body = (request.body ?? {}) as { session?: unknown; signal?: unknown };
+        const body = (request.body ?? {}) as {
+          session?: unknown;
+          signal?: unknown;
+          listener?: unknown;
+        };
+        // The page's own id, so its sessions count as one listener (A20).
+        const page =
+          typeof body.listener === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(body.listener)
+            ? body.listener
+            : null;
         const session = typeof body.session === 'string' ? body.session : null;
         const signal = session
           ? AudioSignalSchema.safeParse({ ...(body.signal as object), session })
@@ -390,6 +399,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           admin.name || admin.email,
           session,
           signal.data,
+          page,
         );
         if ('error' in result) return reply.code(409).send({ error: result.error });
         return result;

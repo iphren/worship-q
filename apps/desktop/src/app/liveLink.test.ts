@@ -181,6 +181,7 @@ async function desktop(
       view: () => audio.remoteView(),
       signal: (phone, signal) => audio.fromPhone(phone, signal),
       gone: (grantId) => audio.phoneGone(grantId),
+      left: (grantId) => audio.phoneLeft(grantId),
     });
     audio.setPhones({
       changed: () => host.audioChanged(),
@@ -1283,5 +1284,22 @@ describe('live audio across the workspace (live audio M2.8, M3.2)', () => {
     ).toBe(true);
     await settle();
     expect(answers).toEqual([{ deviceId: s.deviceId, kind: 'offer' }]);
+    // The same page connecting afresh is the same listener: one is counted (A20).
+    relay.adminAudioSignal(
+      'ws',
+      s.deviceId,
+      'Pastor',
+      { kind: 'listen', session: 'admin-2' },
+      'pastor:page-1',
+    );
+    relay.adminAudioSignal(
+      'ws',
+      s.deviceId,
+      'Pastor',
+      { kind: 'listen', session: 'admin-3' },
+      'pastor:page-1',
+    );
+    await settle();
+    expect(s.audio.ownState()?.listeners).toBe(2);
   });
 });

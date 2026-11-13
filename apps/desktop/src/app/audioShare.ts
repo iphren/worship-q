@@ -240,6 +240,7 @@ export class AudioShare {
         iceServers: this.deps.iceServers,
         send: (route, signal) => this.fromBroadcaster(route, signal),
         onCount: (count) => this.countChanged(count),
+        clock: { now: this.now, setTimeout: this.later, clearTimeout: this.cancel },
       });
       void this.broadcaster.setTrack(this.input.track);
       this.deps.keepAwake?.(true);
@@ -577,13 +578,34 @@ export class AudioShare {
   }
 
   /**
-   * A phone is no longer here: its grant was revoked, or it has been gone long enough
-   * (M4.2). Its sessions are closed at the broadcaster.
+   * A phone's grant was revoked (M4.2): every session of it is closed at the broadcaster,
+   * whichever desktop it came by.
    */
   phoneGone(grantId: string): void {
     this.broadcaster?.listenerGone(
       (listener) => listener.kind === 'phone' && listener.grantId === grantId,
     );
+    this.closePhoneSessions(grantId);
+  }
+
+  /**
+   * A phone has been away from this desktop long enough (M4.2): the sessions it opened
+   * through this desktop are closed. One it has since opened through another desktop is that
+   * desktop's to close, so a phone that moved goes on playing (§3.9).
+   */
+  phoneLeft(grantId: string): void {
+    this.broadcaster?.listenerGone(
+      (listener, route) =>
+        listener.kind === 'phone' &&
+        listener.grantId === grantId &&
+        route.kind === 'desktop' &&
+        route.to === this.self,
+    );
+    this.closePhoneSessions(grantId);
+  }
+
+  /** Closes, at another computer's broadcaster, the sessions a phone opened through here. */
+  private closePhoneSessions(grantId: string): void {
     const sessions = this.phoneSessions.get(grantId);
     this.phoneSessions.delete(grantId);
     for (const [session, owner] of sessions ?? []) {
@@ -596,8 +618,12 @@ export class AudioShare {
     }
   }
 
-  /** An administrator's signal, through the church server (A22, M5.6). */
-  fromAdmin(name: string, signal: AudioSignal): void {
+  /**
+   * An administrator's signal, through the church server (A22, M5.6). `listener` names the
+   * administrator's page, the same for every session it opens, so that connecting afresh
+   * counts once (A20); a server that sends none has each session counted by itself.
+   */
+  fromAdmin(name: string, signal: AudioSignal, listener?: string): void {
     const broadcaster = this.broadcaster;
     if (!broadcaster) {
       if (signal.kind !== 'close') {
@@ -611,7 +637,7 @@ export class AudioShare {
     }
     broadcaster.signal(
       { kind: 'admin' },
-      { kind: 'admin', sessionId: signal.session, name },
+      { kind: 'admin', sessionId: listener || signal.session, name },
       signal,
     );
   }

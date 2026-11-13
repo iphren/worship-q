@@ -137,8 +137,13 @@ export interface RemoteAudio {
   view(): RemoteAudioView | null;
   /** A phone's signal for the broadcaster, in its name (D25). */
   signal(phone: AudioPhone, signal: AudioSignal): void;
-  /** A phone is no longer here: its sessions are closed at the broadcaster (M4.2). */
+  /** A phone's grant was revoked: all its sessions are closed at the broadcaster (M4.2). */
   gone(grantId: string): void;
+  /**
+   * A phone has been away from this desktop for the grace: the sessions it opened through
+   * this desktop are closed. It may be listening on through another desktop (§3.9).
+   */
+  left(grantId: string): void;
 }
 
 /** A phone gone this long, without coming back with its grant, has its audio closed. */
@@ -400,7 +405,7 @@ export class RemoteHost {
       setTimeout(() => {
         this.audioGrace.delete(grantId);
         if (![...this.controllers.values()].some((c) => c.grantId === grantId)) {
-          this.audio?.gone(grantId);
+          this.audio?.left(grantId);
         }
       }, PHONE_AUDIO_GRACE_MS),
     );

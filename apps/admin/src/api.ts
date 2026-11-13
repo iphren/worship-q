@@ -118,10 +118,19 @@ export const api = {
   obs: (id: string) => request<AdminObsView>('GET', `${ADMIN}/workspaces/${encode(id)}/obs`),
   /** The workspace's live audio broadcast, as its broadcaster last reported it (A21). */
   audio: (id: string) => request<AdminAudioView>('GET', `${ADMIN}/workspaces/${encode(id)}/audio`),
-  /** A signal for the broadcaster; `listen` without a session starts one (A22). */
-  audioSignal: (id: string, session: string | null, signal: Omit<AudioSignal, 'session'>) =>
+  /**
+   * A signal for the broadcaster; `listen` without a session starts one (A22). `listener` is
+   * this page's own id, the same for each session it starts, so they count as one (A20).
+   */
+  audioSignal: (
+    id: string,
+    session: string | null,
+    signal: Omit<AudioSignal, 'session'>,
+    listener?: string,
+  ) =>
     request<{ session: string }>('POST', `${ADMIN}/workspaces/${encode(id)}/audio/signal`, {
       ...(session ? { session } : {}),
+      ...(listener ? { listener } : {}),
       signal,
     }),
   /** The broadcaster's answers for one session, after `after`. */

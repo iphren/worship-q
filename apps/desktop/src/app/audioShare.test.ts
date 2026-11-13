@@ -33,7 +33,8 @@ function storage() {
 
 function setup(options: { id?: string; inputs?: boolean; supports?: boolean } = {}) {
   let now = Date.parse('2026-11-13T09:00:00.000Z');
-  const timers: { at: number; fn: () => void }[] = [];
+  const timers = new Map<number, { at: number; fn: () => void }>();
+  let nextTimer = 1;
   const up: AudioUp[] = [];
   const down: { to: string; message: AudioDown }[] = [];
   const server: AudioSignal[] = [];
@@ -75,10 +76,10 @@ function setup(options: { id?: string; inputs?: boolean; supports?: boolean } = 
     keepAwake: (on) => awake.push(on),
     now: () => now,
     setTimeout: (fn, ms) => {
-      timers.push({ at: now + ms, fn });
-      return timers.length;
+      timers.set(nextTimer, { at: now + ms, fn });
+      return nextTimer++;
     },
-    clearTimeout: () => undefined,
+    clearTimeout: (handle) => void timers.delete(handle as number),
   });
   const transport: AudioTransport = {
     toCoordinator: (message) => up.push(message),
@@ -93,12 +94,17 @@ function setup(options: { id?: string; inputs?: boolean; supports?: boolean } = 
     deliver: (grantId, signal) => phones.push({ grantId, signal }),
   });
   const store = audioSwitchStore(() => disk, 'ws');
+  /** Moves time on, running each timer that falls due, in order, cancelled ones never. */
   const advance = (ms: number) => {
-    now += ms;
-    for (const timer of timers.splice(0).sort((a, b) => a.at - b.at)) {
-      if (timer.at <= now) timer.fn();
-      else timers.push(timer);
+    const end = now + ms;
+    for (;;) {
+      const due = [...timers].filter(([, t]) => t.at <= end).sort((a, b) => a[1].at - b[1].at)[0];
+      if (!due) break;
+      timers.delete(due[0]);
+      now = Math.max(now, due[1].at);
+      due[1].fn();
     }
+    now = end;
   };
   return { share, transport, store, disk, up, down, server, phones, peers, awake, tracks, advance };
 }
@@ -464,6 +470,186 @@ describe('signals (M2.8, M3.2, M4.1, M5.6)', () => {
     expect(env.server).toEqual([{ kind: 'offer', session: 'admin-1', sdp: 'v=0 offer' }]);
     env.advance(COUNT_PUBLISH_MS);
     expect(states(env.up).at(-1)!.listeners).toBe(1);
+  });
+
+  it('counts an administrator once however often their page connects afresh', async () => {
+    const env = setup({ id: 'B' });
+    env.store.set(switchOn(0, null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    // The server makes a new session id for every listen; the page is the same one.
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-1' }, 'pastor:page-1');
+    await settle();
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-2' }, 'pastor:page-1');
+    await settle();
+    env.advance(COUNT_PUBLISH_MS);
+    expect(states(env.up).at(-1)!.listeners).toBe(1);
+    // Its earlier connection is closed once the fresh one has had its ten seconds.
+    env.advance(10_000);
+    expect(env.server.at(-1)).toEqual({ kind: 'close', session: 'admin-1', reason: 'replaced' });
+    expect(env.peers.map((peer) => peer.closed)).toEqual([true, false]);
+  });
+
+  it('lets an administrator among the ten connect afresh', async () => {
+    const env = setup({ id: 'B' });
+    env.store.set(switchOn(0, null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    for (let i = 0; i < 9; i++) {
+      env.share.fromCoordinator({
+        type: 'audioSignal',
+        from: `D${i}`,
+        listener: { kind: 'desktop', deviceId: `D${i}`, name: '' },
+        signal: { kind: 'listen', session: `d${i}` },
+      });
+    }
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-1' }, 'pastor:page-1');
+    await settle();
+    env.server.length = 0;
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-2' }, 'pastor:page-1');
+    await settle();
+    expect(env.server).toEqual([{ kind: 'offer', session: 'admin-2', sdp: 'v=0 offer' }]);
+    // Someone else is the eleventh.
+    env.share.fromAdmin('Elder', { kind: 'listen', session: 'admin-3' }, 'elder:page-1');
+    await settle();
+    expect(env.server.at(-1)).toEqual({ kind: 'full', session: 'admin-3' });
+  });
+
+  it('counts two pages of one administrator, and a server that names no page, apart', async () => {
+    const env = setup({ id: 'B' });
+    env.store.set(switchOn(0, null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-1' }, 'pastor:page-1');
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-2' }, 'pastor:page-2');
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-3' });
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-4' });
+    await settle();
+    env.advance(COUNT_PUBLISH_MS);
+    expect(states(env.up).at(-1)!.listeners).toBe(4);
+    env.advance(60_000);
+    expect(env.peers.some((peer) => peer.closed)).toBe(false);
+  });
+
+  it('answers an administrator with a close when this computer does not broadcast', () => {
+    const env = setup({ id: 'B' });
+    env.share.attach(env.transport);
+    env.share.fromAdmin('Pastor', { kind: 'listen', session: 'admin-1' }, 'pastor:page-1');
+    env.share.fromAdmin('Pastor', { kind: 'close', session: 'admin-1', reason: 'stopped' });
+    expect(env.server).toEqual([{ kind: 'close', session: 'admin-1', reason: 'not-broadcasting' }]);
+  });
+
+  it('a phone away from this desktop loses only the sessions it opened through it', async () => {
+    const env = setup({ id: 'B' });
+    env.store.set(switchOn(0, null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    const anna = { grantId: 'g1', name: 'Anna' };
+    // The phone listened through this desktop, then moved to desktop D and asked again.
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p-here' });
+    env.share.fromCoordinator({
+      type: 'audioSignal',
+      from: 'D',
+      listener: { kind: 'phone', ...anna },
+      signal: { kind: 'listen', session: 'p-moved' },
+    });
+    await settle();
+    expect(env.peers).toHaveLength(2);
+    env.share.phoneLeft('g1');
+    expect(env.peers.map((peer) => peer.closed)).toEqual([true, false]);
+    env.advance(COUNT_PUBLISH_MS);
+    expect(states(env.up).at(-1)!.listeners).toBe(1);
+  });
+
+  it('a phone whose grant is revoked loses every session, whichever desktop it came by', async () => {
+    const env = setup({ id: 'B' });
+    env.store.set(switchOn(0, null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    const anna = { grantId: 'g1', name: 'Anna' };
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p-here' });
+    env.share.fromCoordinator({
+      type: 'audioSignal',
+      from: 'D',
+      listener: { kind: 'phone', ...anna },
+      signal: { kind: 'listen', session: 'p-moved' },
+    });
+    env.share.fromPhone({ grantId: 'g2', name: 'Ben' }, { kind: 'listen', session: 'q' });
+    await settle();
+    env.share.phoneGone('g1');
+    expect(env.peers.map((peer) => peer.closed)).toEqual([true, true, false]);
+  });
+
+  it('a phone away from a desktop that only forwards has the sessions it opened there closed', () => {
+    const env = setup({ id: 'D' });
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.fromCoordinator({ type: 'audioState', state: remote('B') });
+    const anna = { grantId: 'g1', name: 'Anna' };
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p1' });
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p2' });
+    // The phone closed the first itself; the broadcaster closed nothing.
+    env.share.fromPhone(anna, { kind: 'close', session: 'p1', reason: 'replaced' });
+    env.up.length = 0;
+    env.share.phoneLeft('g1');
+    expect(env.up).toEqual([
+      {
+        type: 'audioSignal',
+        to: 'B',
+        phone: { grantId: 'g1', name: '' },
+        signal: { kind: 'close', session: 'p2', reason: 'gone' },
+      },
+    ]);
+    env.share.phoneLeft('g1');
+    expect(env.up).toHaveLength(1);
+  });
+
+  it('forgets a phone’s session the broadcaster closed or refused', () => {
+    const env = setup({ id: 'D' });
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.fromCoordinator({ type: 'audioState', state: remote('B') });
+    const anna = { grantId: 'g1', name: 'Anna' };
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p1' });
+    env.share.fromPhone(anna, { kind: 'listen', session: 'p2' });
+    for (const signal of [
+      { kind: 'close', session: 'p1', reason: 'stopped' },
+      { kind: 'full', session: 'p2' },
+    ] as AudioSignal[]) {
+      env.share.fromCoordinator({
+        type: 'audioSignal',
+        from: 'B',
+        listener: { kind: 'phone', ...anna },
+        signal,
+      });
+    }
+    env.up.length = 0;
+    env.share.phoneGone('g1');
+    expect(env.up).toEqual([]);
+  });
+
+  it('tells a phone there is no broadcast when it asks with none', () => {
+    const env = setup({ id: 'D' });
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.fromPhone({ grantId: 'g1', name: 'Anna' }, { kind: 'listen', session: 'p' });
+    env.share.fromPhone(
+      { grantId: 'g1', name: 'Anna' },
+      { kind: 'close', session: 'p', reason: 'stopped' },
+    );
+    expect(env.phones).toEqual([
+      { grantId: 'g1', signal: { kind: 'close', session: 'p', reason: 'not-broadcasting' } },
+    ]);
   });
 
   it('shows phones the broadcast without its listener count', async () => {

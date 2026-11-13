@@ -972,9 +972,11 @@ export type RelayToDesktop =
   | { type: 'pong' }
   /**
    * To the broadcaster: a signal from an administrator listening in the admin app (protocol
-   * version 7, A22). The server made the session and names the administrator.
+   * version 7, A22). The server made the session and names the administrator. `listener`
+   * is the same for every session of one administrator's page, so that a page connecting
+   * afresh counts as one listener (A20); absent from a server that does not send it.
    */
-  | { type: 'adminAudioSignal'; name: string; signal: AudioSignal };
+  | { type: 'adminAudioSignal'; name: string; signal: AudioSignal; listener?: string };
 /** The name before several desktops shared one live state. */
 export type RelayToCoordinator = RelayToDesktop;
 

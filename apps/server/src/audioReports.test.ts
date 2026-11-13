@@ -24,15 +24,18 @@ function audio(ownerId: string, patch: Partial<AudioState> = {}): AudioState {
 function setup(reachable = true) {
   let now = 0;
   const sent: { workspaceId: string; deviceId: string; name: string; signal: AudioSignal }[] = [];
+  /** Who the broadcaster is told listens, for each signal sent. */
+  const listeners: string[] = [];
   const reports = new AudioReports(
     () => now,
-    (workspaceId, deviceId, name, signal) => {
+    (workspaceId, deviceId, name, signal, listener) => {
       if (!reachable) return false;
       sent.push({ workspaceId, deviceId, name, signal });
+      listeners.push(listener);
       return true;
     },
   );
-  return { reports, sent, advance: (ms: number) => (now += ms) };
+  return { reports, sent, listeners, advance: (ms: number) => (now += ms) };
 }
 
 describe('audio reports (A21, M5.5)', () => {
@@ -85,6 +88,53 @@ describe('administrators listening (A14, A22, M5.7)', () => {
     expect(sent).toEqual([
       { workspaceId: 'w', deviceId: 'A', name: 'Pastor', signal: { kind: 'listen', session } },
     ]);
+  });
+
+  it('names one listener for every session of a page, so connecting afresh counts once (A20)', () => {
+    const { reports, sent, listeners, advance } = setup();
+    reports.put('w', 'A', audio('A'));
+    const start = (administrator: string, page: string | null) =>
+      (
+        reports.adminSignal('w', administrator, 'Pastor', null, { kind: 'listen' }, page) as {
+          session: string;
+        }
+      ).session;
+    const first = start('admin-1', 'page-1');
+    const fresh = start('admin-1', 'page-1');
+    expect(first).not.toBe(fresh);
+    expect(listeners).toEqual(['admin-1:page-1', 'admin-1:page-1']);
+    // Another page of the same administrator, and the same page id under another
+    // administrator, are other listeners.
+    start('admin-1', 'page-2');
+    start('admin-2', 'page-1');
+    expect(listeners.slice(2)).toEqual(['admin-1:page-2', 'admin-2:page-1']);
+    // Later signals on a session, and its closing for not polling, name the same listener.
+    reports.adminSignal('w', 'admin-1', 'Pastor', fresh, {
+      kind: 'answer',
+      session: 'x',
+      sdp: 'v=0',
+    });
+    expect(listeners.at(-1)).toBe('admin-1:page-1');
+    sent.length = 0;
+    listeners.length = 0;
+    advance(ADMIN_SESSION_IDLE_MS + 1);
+    reports.sweep();
+    expect(sent.map((each) => each.signal.kind)).toEqual(['close', 'close', 'close', 'close']);
+    expect(listeners).toEqual([
+      'admin-1:page-1',
+      'admin-1:page-1',
+      'admin-1:page-2',
+      'admin-2:page-1',
+    ]);
+  });
+
+  it('counts a page that names itself not at all by its session', () => {
+    const { reports, listeners } = setup();
+    reports.put('w', 'A', audio('A'));
+    const { session } = reports.adminSignal('w', 'admin-1', 'Pastor', null, {
+      kind: 'listen',
+    }) as { session: string };
+    expect(listeners).toEqual([session]);
   });
 
   it('says not broadcasting, or unreachable, at once', () => {

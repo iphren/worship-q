@@ -49,6 +49,8 @@ export interface ListenPeer {
    */
   answer(offer: string, tune: (sdp: string) => string): Promise<string>;
   addCandidate(candidate: AudioCandidate): Promise<void>;
+  /** Takes another ICE list for the next gathering, before an ICE restart is answered (A10). */
+  setIceServers?(iceServers: IceServer[]): void;
   close(): void;
   /** The connection's statistics, for the delay figure; null when it has none. */
   stats?(): Promise<unknown>;
@@ -118,6 +120,11 @@ interface Session<S> {
 export class Listener<S> {
   private on = false;
   private broadcast: Broadcast | null = null;
+  /**
+   * The last broadcast seen, kept while there is none: the same one back after a moment
+   * (a new coordinator, a blip of the broadcaster's connection) is not a new one.
+   */
+  private last: Pick<Broadcast, 'ownerId' | 'activatedAt'> | null = null;
   private primary: Session<S> | null = null;
   private fresh: Session<S> | null = null;
   private status_: ListenStatus = { kind: 'off' };
@@ -196,9 +203,10 @@ export class Listener<S> {
    * asked again; one that is gone is waited for a minute, then **Listen** turns off.
    */
   setBroadcast(broadcast: Broadcast | null): void {
-    const before = this.broadcast;
+    const before = this.last;
     const next = broadcast?.active ? broadcast : null;
     this.broadcast = next;
+    if (next) this.last = { ownerId: next.ownerId, activatedAt: next.activatedAt };
     if (!this.on) return;
     if (!next) {
       this.clearTimer('unreachableTimer');
@@ -209,10 +217,17 @@ export class Listener<S> {
       return;
     }
     this.clearTimer('noBroadcastTimer');
-    if (this.full) return;
     const same =
       !!before && before.ownerId === next.ownerId && before.activatedAt === next.activatedAt;
+    if (this.full) {
+      // Refused by this broadcast; another one, or this computer switched on again, is asked.
+      if (same) return;
+      this.full = false;
+    }
     if (same && (this.primary || this.retryTimer !== null)) {
+      // The same broadcast, perhaps back after a moment without: the connection was never
+      // touched, and one still being made goes on.
+      if (!this.primary?.connected) this.armUnreachable();
       this.showConnected();
       return;
     }
@@ -371,11 +386,19 @@ export class Listener<S> {
           },
         },
       });
+    } else {
+      // An ICE restart: gathered with a new list, the offer's or one asked for now, since
+      // the relay credential of the first may have run out. With none, the old one stays.
+      const iceServers =
+        offered ?? (this.deps.iceServers ? await this.deps.iceServers().catch(() => []) : []);
+      if (!this.current(session) || !session.peer) return;
+      if (iceServers.length > 0) session.peer.setIceServers?.(iceServers);
     }
     session.answered = false;
     let sdp: string;
+    const peer = session.peer;
     try {
-      sdp = await session.peer.answer(offer, tuneOpusDescription);
+      sdp = await peer.answer(offer, tuneOpusDescription);
     } catch {
       if (session === this.fresh) return this.dropFresh();
       if (session === this.primary) return this.lost();
@@ -385,7 +408,7 @@ export class Listener<S> {
     session.answered = true;
     this.deps.send(session.ownerId, { kind: 'answer', session: session.id, sdp });
     for (const candidate of session.held.splice(0)) {
-      void session.peer.addCandidate(candidate).catch(() => undefined);
+      void peer.addCandidate(candidate).catch(() => undefined);
     }
     if (session === this.fresh && session.freshTimer === null) {
       session.freshTimer = this.clock.setTimeout(() => {

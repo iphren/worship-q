@@ -361,7 +361,7 @@ export class LiveLink {
         .catch((error: unknown) => console.warn('Could not settle this computer’s role', error));
     } else if (message.type === 'peer') void this.peer(message.from, message.data);
     else if (message.type === 'adminAudioSignal') {
-      this.deps.audio?.fromAdmin(message.name, message.signal);
+      this.deps.audio?.fromAdmin(message.name, message.signal, message.listener);
     }
   }
 

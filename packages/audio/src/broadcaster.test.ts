@@ -24,9 +24,10 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
   const peers: FakePeer[] = [];
   const sent: { route: string; signal: AudioSignal }[] = [];
   const counts: number[] = [];
+  let servers = options.iceServers ?? [];
   const broadcaster = new Broadcaster<string, string>({
     clock,
-    iceServers: async () => options.iceServers ?? [],
+    iceServers: async () => servers,
     send: (route, signal) => sent.push({ route, signal }),
     onCount: (count) => counts.push(count),
     createPeer: ({ track, iceServers, events }) => {
@@ -51,6 +52,9 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
         setTrack: async (next) => {
           peer.track = next;
         },
+        setIceServers: (next) => {
+          peer.iceServers = next;
+        },
         close: () => {
           peer.closed = true;
         },
@@ -59,7 +63,10 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
       return peer;
     },
   });
-  return { clock, peers, sent, counts, broadcaster };
+  const setIceServers = (next: IceServer[]) => {
+    servers = next;
+  };
+  return { clock, peers, sent, counts, broadcaster, setIceServers };
 }
 
 const desktop = (id: string): AudioListener => ({ kind: 'desktop', deviceId: id, name: id });
@@ -111,6 +118,56 @@ describe('broadcaster sessions (M2.6)', () => {
       route: 'D0',
       signal: { kind: 'close', session: 's0', reason: 'replaced' },
     });
+  });
+
+  it('keeps the earlier session when the fresh one is closed before it took over', async () => {
+    const { broadcaster, peers, clock, sent } = setup();
+    broadcaster.signal('B', desktop('B'), listen('s1'));
+    await settle();
+    broadcaster.signal('B', desktop('B'), listen('s1-fresh'));
+    await settle();
+    // The fresh one brought no sound: the listener closes it and keeps the first.
+    broadcaster.signal('B', desktop('B'), {
+      kind: 'close',
+      session: 's1-fresh',
+      reason: 'replaced',
+    });
+    sent.length = 0;
+    clock.advance(OLD_SESSION_MS * 2);
+    expect(broadcaster.sessionIds).toEqual(['s1']);
+    expect(peers[0]!.closed).toBe(false);
+    expect(sent).toEqual([]);
+    expect(broadcaster.count).toBe(1);
+  });
+
+  it('closes the spared session for a later fresh one, counting its ten seconds anew', async () => {
+    const { broadcaster, clock } = setup();
+    broadcaster.signal('B', desktop('B'), listen('s1'));
+    await settle();
+    broadcaster.signal('B', desktop('B'), listen('s2'));
+    await settle();
+    clock.advance(OLD_SESSION_MS - 1);
+    broadcaster.signal('B', desktop('B'), { kind: 'close', session: 's2', reason: 'replaced' });
+    clock.advance(OLD_SESSION_MS);
+    expect(broadcaster.sessionIds).toEqual(['s1']);
+    // A second fresh connection, which does take over.
+    broadcaster.signal('B', desktop('B'), listen('s3'));
+    await settle();
+    clock.advance(OLD_SESSION_MS - 1);
+    expect(broadcaster.sessionIds).toEqual(['s1', 's3']);
+    clock.advance(1);
+    expect(broadcaster.sessionIds).toEqual(['s3']);
+  });
+
+  it('with three sessions of one listener, dropping the newest spares only the one before it', async () => {
+    const { broadcaster, clock } = setup();
+    broadcaster.signal('B', desktop('B'), listen('s1'));
+    broadcaster.signal('B', desktop('B'), listen('s2'));
+    broadcaster.signal('B', desktop('B'), listen('s3'));
+    await settle();
+    broadcaster.signal('B', desktop('B'), { kind: 'close', session: 's3', reason: 'replaced' });
+    clock.advance(OLD_SESSION_MS);
+    expect(broadcaster.sessionIds).toEqual(['s2']);
   });
 
   it('ignores the same session asked for twice', async () => {
@@ -308,5 +365,49 @@ describe('ICE servers (M4.3, M5.2)', () => {
     expect(peers).toHaveLength(1);
     expect(peers[0]!.restarts).toBe(1);
     expect(sent.at(-1)!.signal).toMatchObject({ kind: 'offer', sdp: 'offer-0-restart' });
+  });
+
+  it('gives the connection the list fetched for an ICE restart, and carries it to a phone', async () => {
+    const fresh: IceServer[] = [
+      { urls: 'turn:turn.example.org:3478', username: 'later', credential: 'new' },
+    ];
+    const { broadcaster, peers, sent, setIceServers } = setup({ iceServers: servers });
+    broadcaster.signal('B', phone('g'), listen('s1'));
+    await settle();
+    expect(peers[0]!.iceServers).toEqual(servers);
+    // The relay credential has run out since; the server hands out another.
+    setIceServers(fresh);
+    broadcaster.signal('B', phone('g'), { kind: 'listen', session: 's1', restart: true });
+    await settle();
+    expect(peers).toHaveLength(1);
+    expect(peers[0]!.iceServers).toEqual(fresh);
+    expect(sent.at(-1)!.signal).toMatchObject({ kind: 'offer', iceServers: fresh });
+  });
+
+  it('keeps the list it has for a restart when none can be fetched', async () => {
+    const { broadcaster, peers, setIceServers } = setup({ iceServers: servers });
+    broadcaster.signal('B', desktop('B'), listen('s1'));
+    await settle();
+    setIceServers([]);
+    broadcaster.signal('B', desktop('B'), { kind: 'listen', session: 's1', restart: true });
+    await settle();
+    expect(peers[0]!.iceServers).toEqual(servers);
+    expect(peers[0]!.restarts).toBe(1);
+  });
+
+  it('refuses a restart asked for by someone else, and after a restart takes a new answer', async () => {
+    const { broadcaster, peers } = setup();
+    broadcaster.signal('B', desktop('B'), listen('s1'));
+    await settle();
+    broadcaster.signal('B', desktop('B'), { kind: 'answer', session: 's1', sdp: 'first' });
+    await settle();
+    broadcaster.signal('C', desktop('C'), { kind: 'listen', session: 's1', restart: true });
+    await settle();
+    expect(peers[0]!.restarts).toBe(0);
+    broadcaster.signal('B', desktop('B'), { kind: 'listen', session: 's1', restart: true });
+    await settle();
+    broadcaster.signal('B', desktop('B'), { kind: 'answer', session: 's1', sdp: 'second' });
+    await settle();
+    expect(peers[0]!.answers).toEqual(['first', 'second']);
   });
 });

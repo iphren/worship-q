@@ -64,7 +64,12 @@ export const AudioStateSchema = z.object({
 });
 export type AudioState = z.infer<typeof AudioStateSchema>;
 
-/** Who listens (A4, A20): a desktop, a phone by its grant, or an administrator's session. */
+/**
+ * Who listens (A4, A20): a desktop, a phone by its grant, or an administrator. For an
+ * administrator `sessionId` is whatever the server says stays the same while they listen:
+ * their page's id, for every session it opens, or the session's own id from a server that
+ * names no page.
+ */
 export const AudioListenerSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('desktop'),

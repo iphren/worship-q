@@ -256,6 +256,7 @@ export class CloudController {
       view: () => this.audio.remoteView(),
       signal: (phone, signal) => this.audio.fromPhone(phone, signal),
       gone: (grantId) => this.audio.phoneGone(grantId),
+      left: (grantId) => this.audio.phoneLeft(grantId),
     });
     this.audio.setPhones({
       changed: () => this.host.audioChanged(),

@@ -7,6 +7,7 @@ import {
   Listener,
   NO_BROADCAST_MS,
   OFFER_WAIT_MS,
+  RESTART_WAIT_MS,
   UNREACHABLE_MS,
   type Broadcast,
   type ListenPeerEvents,
@@ -19,6 +20,8 @@ interface FakePeer {
   offers: string[];
   candidates: string[];
   closed: boolean;
+  /** Makes the next answer fail. */
+  failing: boolean;
 }
 
 function setup(options: { iceServers?: IceServer[] } = {}) {
@@ -28,20 +31,32 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
   const streams: (string | null)[] = [];
   const statuses: ListenStatus[] = [];
   let n = 0;
+  let servers = options.iceServers ?? [];
   const listener = new Listener<string>({
     clock,
     newId: () => `s${++n}`,
     send: (to, signal) => sent.push({ to, signal }),
-    iceServers: async () => options.iceServers ?? [],
+    iceServers: async () => servers,
     onStream: (stream) => streams.push(stream),
     onStatus: (status) => statuses.push(status),
     createPeer: ({ iceServers, events }) => {
-      const peer: FakePeer = { events, iceServers, offers: [], candidates: [], closed: false };
+      const peer: FakePeer = {
+        events,
+        iceServers,
+        offers: [],
+        candidates: [],
+        closed: false,
+        failing: false,
+      };
       peers.push(peer);
       return {
         answer: async (offer, tune) => {
+          if (peer.failing) throw new Error('no answer');
           peer.offers.push(offer);
           return tune(`answer-to-${offer}`);
+        },
+        setIceServers: (next) => {
+          peer.iceServers = next;
         },
         addCandidate: async (candidate) => {
           peer.candidates.push(candidate.candidate);
@@ -52,8 +67,14 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
       };
     },
   });
-  return { clock, peers, sent, streams, statuses, listener };
+  const setIceServers = (next: IceServer[]) => {
+    servers = next;
+  };
+  return { clock, peers, sent, streams, statuses, listener, setIceServers };
 }
+
+const listens = (env: ReturnType<typeof setup>) =>
+  env.sent.filter((s) => s.signal.kind === 'listen').map((s) => s.signal.session);
 
 const live = (patch: Partial<Broadcast> = {}): Broadcast => ({
   ownerId: 'A',
@@ -169,7 +190,232 @@ describe('connecting (M3.1)', () => {
   });
 });
 
+describe('full (A2)', () => {
+  it('stays full while the same broadcast changes or blinks, asking nothing', () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal({ kind: 'full', session: 's1' });
+    env.listener.setBroadcast(live({ status: 'waiting' }));
+    env.listener.setBroadcast(null);
+    env.listener.setBroadcast(live());
+    expect(env.listener.status).toEqual({ kind: 'full' });
+    expect(listens(env)).toEqual(['s1']);
+  });
+
+  it('asks another computer that takes the broadcast over', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal({ kind: 'full', session: 's1' });
+    env.listener.setBroadcast(live({ ownerId: 'B', activatedAt: '2026-11-13T09:30:00.000Z' }));
+    expect(env.sent.at(-1)).toEqual({ to: 'B', signal: { kind: 'listen', session: 's2' } });
+    expect(env.listener.status).toEqual({ kind: 'connecting' });
+    await connect(env, 's2');
+    expect(env.listener.status).toEqual({ kind: 'playing' });
+  });
+
+  it('asks the same computer again once it has switched off and on', () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal({ kind: 'full', session: 's1' });
+    env.listener.setBroadcast(null);
+    env.listener.setBroadcast(live({ activatedAt: '2026-11-13T10:00:00.000Z' }));
+    expect(listens(env)).toEqual(['s1', 's2']);
+  });
+
+  it('still turns off after a minute without a broadcast', () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal({ kind: 'full', session: 's1' });
+    env.listener.setBroadcast(null);
+    env.clock.advance(NO_BROADCAST_MS);
+    expect(env.listener.status).toEqual({ kind: 'off' });
+  });
+});
+
+describe('pressed with nothing to hear, and released early (M3.1)', () => {
+  it('waits for a broadcast, asks when one starts, and turns off after a minute without', () => {
+    const env = setup();
+    env.listener.start();
+    expect(env.sent).toEqual([]);
+    expect(env.listener.status).toEqual({ kind: 'connecting' });
+    env.clock.advance(NO_BROADCAST_MS - 1);
+    env.listener.setBroadcast(live());
+    expect(listens(env)).toEqual(['s1']);
+    env.listener.setBroadcast(null);
+    env.clock.advance(NO_BROADCAST_MS);
+    expect(env.listener.listening).toBe(false);
+  });
+
+  it('treats a broadcast that is not active as none', () => {
+    const env = setup();
+    env.listener.setBroadcast(live({ active: false }));
+    env.listener.start();
+    expect(env.sent).toEqual([]);
+  });
+
+  it('released while waiting for the offer: closes the session and leaves no timer running', () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.stop();
+    expect(env.sent.at(-1)!.signal).toEqual({ kind: 'close', session: 's1', reason: 'stopped' });
+    expect(env.clock.pending).toBe(0);
+    env.clock.advance(120_000);
+    expect(listens(env)).toEqual(['s1']);
+  });
+
+  it('released while the answer is being made: nothing is sent after the close', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal(offer('s1'));
+    env.listener.stop();
+    await settle();
+    expect(env.sent.map((s) => s.signal.kind)).toEqual(['listen', 'close']);
+    expect(env.peers).toEqual([]);
+  });
+
+  it('asks again when the offer cannot be answered', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal(offer('s1'));
+    await settle();
+    // A second offer on the same session, as for a restart, which fails.
+    env.peers[0]!.failing = true;
+    env.listener.signal(offer('s1', 'again'));
+    await settle();
+    expect(env.peers[0]!.closed).toBe(true);
+    env.clock.advance(1000);
+    expect(listens(env)).toEqual(['s1', 's2']);
+  });
+
+  it('ignores signals for a session it does not have', () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal({ kind: 'close', session: 'other', reason: 'stopped' });
+    env.listener.signal({ kind: 'full', session: 'other' });
+    env.listener.signal({ kind: 'retaken', session: 'other' });
+    expect(env.listener.status).toEqual({ kind: 'connecting' });
+    expect(env.sent).toHaveLength(1);
+  });
+});
+
 describe('staying connected (M3.1)', () => {
+  it('keeps its connection when the same broadcast is gone for a moment and back', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const peer = await connect(env);
+    // A new coordinator greets everyone with no state before the broadcaster sends its own.
+    env.listener.setBroadcast(null);
+    expect(env.listener.status).toEqual({ kind: 'reconnecting' });
+    env.listener.setBroadcast(live());
+    expect(peer.closed).toBe(false);
+    expect(listens(env)).toEqual(['s1']);
+    expect(env.streams).toEqual(['stream-s1']);
+    expect(env.listener.status).toEqual({ kind: 'playing' });
+    expect(env.listener.sessionId).toBe('s1');
+  });
+
+  it('goes on connecting through such a moment, and still says when it cannot', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal(offer('s1'));
+    await settle();
+    env.listener.setBroadcast(null);
+    env.listener.setBroadcast(live());
+    expect(listens(env)).toEqual(['s1']);
+    expect(env.peers[0]!.closed).toBe(false);
+    env.clock.advance(UNREACHABLE_MS);
+    expect(env.listener.status).toEqual({ kind: 'unreachable', relay: false });
+  });
+
+  it('asks again when its connection was lost while the broadcast was gone', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const peer = await connect(env);
+    env.listener.setBroadcast(null);
+    peer.events.state('failed');
+    env.clock.advance(5000);
+    expect(listens(env)).toEqual(['s1']);
+    env.listener.setBroadcast(live());
+    expect(listens(env)).toEqual(['s1', 's2']);
+  });
+
+  it('gives the connection a new ICE list for a restart', async () => {
+    const env = setup({ iceServers: [{ urls: 'turn:t', username: 'early', credential: 'old' }] });
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const peer = await connect(env);
+    const fresh: IceServer[] = [{ urls: 'turn:t', username: 'later', credential: 'new' }];
+    env.setIceServers(fresh);
+    peer.events.state('disconnected');
+    env.listener.signal(offer('s1', 'restart'));
+    await settle();
+    expect(env.peers).toHaveLength(1);
+    expect(peer.iceServers).toEqual(fresh);
+    expect(peer.offers).toEqual(['o', 'restart']);
+    expect(env.sent.at(-1)!.signal).toEqual({
+      kind: 'answer',
+      session: 's1',
+      sdp: 'answer-to-restart',
+    });
+  });
+
+  it('uses the list a restart’s offer carries, and keeps its own when none can be had', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.signal(offer('s1', 'o', [{ urls: 'stun:first' }]));
+    await settle();
+    const peer = env.peers[0]!;
+    peer.events.stream('stream-s1');
+    peer.events.state('connected');
+    peer.events.state('disconnected');
+    env.listener.signal(offer('s1', 'restart', [{ urls: 'stun:second' }]));
+    await settle();
+    expect(peer.iceServers).toEqual([{ urls: 'stun:second' }]);
+    // No list in the offer, and none from the server: what it has stays.
+    env.listener.signal(offer('s1', 'restart-2'));
+    await settle();
+    expect(peer.iceServers).toEqual([{ urls: 'stun:second' }]);
+    expect(peer.offers).toEqual(['o', 'restart', 'restart-2']);
+  });
+
+  it('gives up a restart that does not connect in 8 s, and asks with a new session', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const peer = await connect(env);
+    peer.events.state('disconnected');
+    peer.events.state('disconnected');
+    expect(listens(env)).toEqual(['s1', 's1']);
+    env.clock.advance(RESTART_WAIT_MS);
+    expect(peer.closed).toBe(true);
+    env.clock.advance(1000);
+    expect(listens(env)).toEqual(['s1', 's1', 's2']);
+  });
+
+  it('asks again when the broadcaster closes the session', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const peer = await connect(env);
+    env.listener.signal({ kind: 'close', session: 's1', reason: 'timeout' });
+    expect(peer.closed).toBe(true);
+    expect(env.listener.status).toEqual({ kind: 'reconnecting' });
+    env.clock.advance(1000);
+    expect(listens(env)).toEqual(['s1', 's2']);
+  });
+
   it('asks for an ICE restart on disconnected, and plays on when back', async () => {
     const env = setup();
     env.listener.setBroadcast(live());
@@ -348,6 +594,36 @@ describe('connecting afresh (A17, A18)', () => {
       { kind: 'close', session: 's2', reason: 'replaced' },
       { kind: 'listen', session: 's3' },
     ]);
+  });
+
+  it('connects afresh when the page comes back into view, and only while connected', async () => {
+    const env = setup();
+    env.listener.refresh();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    env.listener.refresh();
+    expect(listens(env)).toEqual(['s1']);
+    await connect(env);
+    env.listener.refresh();
+    expect(listens(env)).toEqual(['s1', 's2']);
+  });
+
+  it('keeps the old connection when the fresh one is closed or fails', async () => {
+    const env = setup();
+    env.listener.setBroadcast(live());
+    env.listener.start();
+    const old = await connect(env);
+    env.listener.signal({ kind: 'retaken', session: 's1' });
+    env.listener.signal({ kind: 'close', session: 's2', reason: 'timeout' });
+    expect(env.listener.sessionId).toBe('s1');
+    env.clock.advance(2000);
+    env.listener.signal({ kind: 'retaken', session: 's1' });
+    env.listener.signal(offer('s3'));
+    await settle();
+    env.peers[1]!.events.state('failed');
+    expect(env.peers[1]!.closed).toBe(true);
+    expect(old.closed).toBe(false);
+    expect(env.listener.status).toEqual({ kind: 'playing' });
   });
 
   it('keeps the old connection when a fresh one is refused as full', async () => {

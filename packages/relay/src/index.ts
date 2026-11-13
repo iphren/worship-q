@@ -264,6 +264,8 @@ export class Relay {
     deviceId: string,
     name: string,
     signal: AudioSignal,
+    /** Who listens, the same for every session of one administrator's page (A20). */
+    listener?: string,
   ): boolean {
     const parsed = AudioSignalSchema.safeParse(signal);
     if (!parsed.success) return false;
@@ -273,6 +275,7 @@ export class Relay {
         type: 'adminAudioSignal',
         name,
         signal: parsed.data,
+        ...(listener ? { listener } : {}),
       } satisfies RelayToDesktop);
       return true;
     }

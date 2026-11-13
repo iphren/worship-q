@@ -34,8 +34,12 @@ export interface CaptureTrack {
 }
 
 export interface MediaPort<T extends CaptureTrack> {
-  /** The audio inputs listed now, and the label of the system's default entry if any. */
-  list(): Promise<{ inputs: InputDevice[]; defaultLabel: string | null }>;
+  /**
+   * The audio inputs listed now, and the label of the system's default entry if any.
+   * `locked` says there are inputs whose ids are hidden: a webview names no device until a
+   * capture has been made in the page.
+   */
+  list(): Promise<{ inputs: InputDevice[]; defaultLabel: string | null; locked?: boolean }>;
   /** Opens the device, or the system default for null. Throws an error with a `name`. */
   open(deviceId: string | null): Promise<T>;
   /** Whether the window is in view. */
@@ -61,6 +65,12 @@ export const REQUEST_RETRY_MS = 15_000;
 export const LIST_EVERY_MS = 3000;
 /** A mute followed by an unmute within this long is ignored. */
 export const MUTE_GRACE_MS = 500;
+/**
+ * How long a mute lasts before the input is taken again: the grace first, then longer each
+ * time the track taken is muted too, the last one repeated. Every retake makes each listener
+ * connect afresh, so a mute that stays (a hardware switch) must not ask twice a second.
+ */
+export const MUTE_RETRY_MS = [MUTE_GRACE_MS, 2000, 5000, 15_000];
 
 /** The chosen device among those listed: by id, else the first by name. */
 export function findInput(inputs: readonly InputDevice[], chosen: InputDevice): InputDevice | null {
@@ -90,6 +100,10 @@ export class InputWatcher<T extends CaptureTrack> {
   private listTimer: unknown = null;
   private muteTimer: unknown = null;
   private retries = 0;
+  /** Tracks taken again for a mute that arrived muted themselves, in a row. */
+  private muteTries = 0;
+  /** A capture was made to unlock the device ids; it is made once per switching on. */
+  private unlocked = false;
   private defaultLabel: string | null = null;
   private readonly clock: Clock;
 
@@ -138,6 +152,7 @@ export class InputWatcher<T extends CaptureTrack> {
     if (!this.enabled) return;
     this.pickFailed_ = false;
     this.retries = 0;
+    this.muteTries = 0;
     this.check(true);
   }
 
@@ -186,10 +201,19 @@ export class InputWatcher<T extends CaptureTrack> {
     this.listing = true;
     void this.deps.port
       .list()
-      .catch(() => ({ inputs: [] as InputDevice[], defaultLabel: null }))
-      .then(({ inputs, defaultLabel }) => {
+      .catch(() => ({ inputs: [] as InputDevice[], defaultLabel: null, locked: false }))
+      .then(({ inputs, defaultLabel, locked }) => {
         this.listing = false;
         if (!this.enabled) return;
+        if (locked && !this.track_ && (!this.chosen || !this.unlocked)) {
+          // The ids are hidden until a capture is made (A15). On the system default that
+          // capture is the one wanted; for a chosen device it is stopped at once and the
+          // inputs are listed again, now by id.
+          this.defaultLabel = defaultLabel;
+          this.inputName_ = this.chosen?.name ?? null;
+          this.setStatus('waiting');
+          return this.request(null, this.chosen !== null);
+        }
         const defaultChanged =
           !this.chosen && this.track_ !== null && defaultLabel !== this.defaultLabel;
         this.defaultLabel = defaultLabel;
@@ -208,7 +232,7 @@ export class InputWatcher<T extends CaptureTrack> {
       });
   }
 
-  private request(target: InputDevice | null): void {
+  private request(target: InputDevice | null, unlocking = false): void {
     const seq = ++this.seq;
     this.pending = true;
     this.clearTimer('listTimer');
@@ -236,12 +260,12 @@ export class InputWatcher<T extends CaptureTrack> {
       }, wait);
     }, REQUEST_WAIT_MS);
     this.deps.port.open(target?.id ?? null).then(
-      (track) => this.opened(seq, target, track),
+      (track) => this.opened(seq, target, track, unlocking),
       (error: unknown) => this.refused(seq, error),
     );
   }
 
-  private opened(seq: number, target: InputDevice | null, track: T): void {
+  private opened(seq: number, target: InputDevice | null, track: T, unlocking: boolean): void {
     if (seq !== this.seq || !this.enabled) {
       // A request made before the switch went off, or overtaken by a newer one.
       track.stop();
@@ -252,12 +276,21 @@ export class InputWatcher<T extends CaptureTrack> {
     this.clearTimer('requestTimer');
     this.clearTimer('retryTimer');
     this.clearTimer('listTimer');
+    if (unlocking) {
+      // Only there to make the ids visible: never sent, and the chosen device is looked for.
+      track.stop();
+      this.unlocked = true;
+      return this.check(false);
+    }
     this.pickFailed_ = false;
+    if (!track.muted) this.muteTries = 0;
     this.replace(track);
     track.on('ended', () => this.ended(track));
     track.on('mute', () => this.muted(track));
     track.on('unmute', () => {
-      if (track === this.track_) this.clearTimer('muteTimer');
+      if (track !== this.track_) return;
+      this.clearTimer('muteTimer');
+      this.muteTries = 0;
     });
     this.inputName_ = track.label || target?.name || null;
     const chosen = this.chosen;
@@ -301,11 +334,13 @@ export class InputWatcher<T extends CaptureTrack> {
   /** Another window took the microphone (L7): the input is asked for again. */
   private muted(track: T): void {
     if (track !== this.track_ || this.muteTimer !== null) return;
+    const wait = MUTE_RETRY_MS[Math.min(this.muteTries, MUTE_RETRY_MS.length - 1)]!;
     this.muteTimer = this.clock.setTimeout(() => {
       this.muteTimer = null;
       if (track !== this.track_ || !track.muted || !this.enabled || this.pending) return;
+      this.muteTries++;
       this.check(true);
-    }, MUTE_GRACE_MS);
+    }, wait);
   }
 
   /** The new track goes in place first, and only then is the old one stopped. */
@@ -333,6 +368,8 @@ export class InputWatcher<T extends CaptureTrack> {
     }
     if (this.track_) this.replace(null);
     this.pickFailed_ = false;
+    this.muteTries = 0;
+    this.unlocked = false;
     this.inputName_ = null;
     this.setStatus('off');
   }
