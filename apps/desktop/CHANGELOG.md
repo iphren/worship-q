@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.3.0](https://github.com/iphren/worship-q/compare/v2.2.0...v2.3.0) (2026-11-13)
+
+
+### Features
+
+* **desktop:** a banner warns when the app is open twice on one computer ([c2e4c3f](https://github.com/iphren/worship-q/commit/c2e4c3f9ed4096aca89f81c8616b63c9336e90b6))
+* **desktop:** the newer-data screen links to worship-q.com ([6753c7b](https://github.com/iphren/worship-q/commit/6753c7b92907fe511bed66cd8a731ee3818500fc))
+* Listen and Stop as headphones and stop icons on desktop, phone and admin ([cf10446](https://github.com/iphren/worship-q/commit/cf10446bcc5491f1f1b936f1179af22afed2e54f))
+* live audio broadcast to desktops, phones and administrators (protocol 7) ([8fe8644](https://github.com/iphren/worship-q/commit/8fe86444f6eeb696ee05b9d7018d911e551d58fd))
+* live audio line on one line that rolls to show long text, on desktop and phone ([67b6e32](https://github.com/iphren/worship-q/commit/67b6e32e0f965cc48831d11b838ab9126d67e04c))
+* small start and stop buttons beside each output at the live monitor ([68eaf87](https://github.com/iphren/worship-q/commit/68eaf87921fb3890b11739681e38dda1cbae149d))
+* the input level bar shows the average level on a curve, so a quiet room reads low ([3a90f6f](https://github.com/iphren/worship-q/commit/3a90f6f7374b1d3a53c288745531bbe216136469))
+* view-only Run sheets section on each workspace's admin page, above devices ([6f99c3a](https://github.com/iphren/worship-q/commit/6f99c3a85ed0a84d1a6bf6da693889cae3d4a401))
+
+
+### Bug Fixes
+
+* live audio review findings, with tests for each and for the Listen front-ends ([4c194f9](https://github.com/iphren/worship-q/commit/4c194f9b61cf24279ffdfc0e0c133f3f259559a6))
+* the rolling line holds at its end for three seconds, then starts again from the beginning ([8a1363b](https://github.com/iphren/worship-q/commit/8a1363ba3d9f55e21ec445f2f6a13d2242e37b13))
+
 ## [2.2.0](https://github.com/iphren/worship-q/compare/v2.1.0...v2.2.0) (2026-11-09)
 
 
