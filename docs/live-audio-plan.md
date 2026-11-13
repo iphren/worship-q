@@ -1,7 +1,7 @@
 # Worship Q — Live Audio Broadcast Plan
 
 **Drafted:** 10 November 2026  
-**Status:** Draft, reviewed with the project owner on 10 November 2026. Nothing is built. No questions remain open (§6); the decisions in §5 are agreed where marked and otherwise proposed, pending the spike. The spike has run everything one Mac can answer, in the real app (10 November 2026); M0's remaining items need a second computer, phones, Windows and an internet path, and are finished before any feature code. The task breakdown follows M0.
+**Status:** Draft, reviewed with the project owner on 10 November 2026. Nothing is built. No questions remain open (§6); the decisions in §5 are agreed where marked and otherwise proposed, pending the spike. The spike has run everything one Mac can answer, in the real app (10 November 2026); The spike was concluded on 13 November 2026, after runs on Windows, across two computers, on an iPhone and across the internet (L14–L18); what it left open does not block the build and is checked in the milestone it belongs to. The task breakdown follows.
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md) §17 (*Live audio broadcast to remote operators and controllers*); [Live Audio Discovery](live-audio-discovery.md), referred to here as "the discovery"; the [spike](spikes/live-audio.md) (L1–L13); [Media Uploads Plan](media-uploads-plan.md) U24 (audio device settings); [OBS Control Plan](obs-control-plan.md) O8–O11, whose pattern this follows; and the code at version 2.2.0 (protocol version 6).
 
 ## 1. Where the implementation stands
@@ -82,7 +82,7 @@ All proposed.
 | A7 | Codec settings | Mono, 10 ms frames, 64 kbps, in-band FEC on, DTX off; voice processing off. Fixed, with no quality setting. |
 | A8 | Capture | The main window's webview; native Rust capture only if M0 shows the webview unreliable. **Confirmed on macOS** (L5), with two conditions: a muted track is taken again (L7), and the display is kept awake while the switch is on (L9). Windows is still to run. |
 | A9 | Signalling | New kinds on the existing coordinator, follower and phone channels, protocol version 7, `audio` capability. The coordinator and relay forward and keep no audio. |
-| A10 | NAT traversal | A public STUN server by default, replaceable or removable by the administrator. The church's own coturn as an optional TURN relay over UDP, with short-lived credentials from the server, valid ten minutes and asked for again before every new connection (L13). No TURN over TCP or TLS yet. **Agreed; confirmed on one network and with coturn in Docker, the internet path still to run.** |
+| A10 | NAT traversal | A public STUN server by default, replaceable or removable by the administrator. The church's own coturn as an optional TURN relay over UDP, with short-lived credentials from the server, valid ten minutes and asked for again before every new connection (L13). No TURN over TCP or TLS yet. **Agreed; confirmed with coturn on a Linux server beside the Worship Q server, and with an iPhone away from the venue's network, direct and relayed (L18). That the phone was on mobile data is likely, not recorded.** |
 | A11 | Monitor device | A **Monitor** picker in each desktop's Settings, defaulting to the system default, kept on that computer by id and name like U24's devices. Separate from the output device. Applied before connecting. It can be changed while listening, and **Listen** stays on: the element is moved from the native script call (L6). **Agreed; confirmed on macOS.** |
 | A12 | Settings location | The switch on the broadcasting computer, per workspace, beside the OBS link. Nothing in the workspace's synchronized settings; the server stores nothing. |
 | A13 | Recording | None. No audio is written to disk or kept on the server. |
@@ -114,13 +114,15 @@ Run on 10 November 2026, on one Mac, in the real app (L5–L13):
 
 Still to run, each needing hardware or a network the spike's Mac lacks (the spike's "Still to run" list):
 
-- Two computers on the same Wi-Fi: direct path found, delay and jitter, and the 200 ms target (A6).
-- iPhone Safari and Android Chrome listening: mDNS candidates across the Wi-Fi, playback after a tap, screen lock.
+- Two computers on the same Wi-Fi, run (L14, Chrome on a Mac and a wired Windows desktop): the direct path was found, nothing was lost, and the listener's buffer settled at about 110 ms, which a lower `jitterBufferTarget` cannot reduce. The cable-to-cable loop read about 220 ms each way, over A6's 200 ms, but it includes a cable and capture on each computer. Still to do: the figure with a mixer feed and headphones, and the app on each side. A6 is not yet confirmed.
+- iPhone Safari listening, run (L15): one tap starts the sound, the phone reaches the capturing app by its address at once, the app to the phone held 100 packets a second with nothing lost or concealed and a buffer of about 117 ms, and a minute of screen lock did not stop the sound. Android Chrome is still to run, and mouth-to-ear on a phone is not measured.
 - Windows (WebView2) sending and receiving, with the permission handler on the main window, and the macOS findings repeated there: a muted capture, display sleep, `devicechange`, `setSinkId`.
 - The display asleep for several minutes during a capture; listeners connecting afresh after the broadcaster takes its input again.
-- A listener on a home connection and on mobile data with the public STUN server alone, then with coturn beside the server; the 300 ms target (A6).
+- Across the internet, run (L18): coturn on a Linux server beside the Worship Q server relayed with nothing lost, and an allocation ran 19 minutes, past its ten-minute credential. An iPhone with Wi-Fi off heard the app directly with the public STUN server alone and through the relay: nothing lost, 24–26 ms round trip, a buffer of 105–122 ms, so roughly 220–265 ms mouth to ear from the parts, inside A6's 300 ms. That the phone was on mobile data is likely but was not recorded. Not run: a listener on another home connection, a network that needs the relay, two hours on one relay. For the coturn profile: name the listening, relay and external addresses, refuse private peers, and do not pass `--no-dtls`.
 
 **Done when:** each item has a measured result, A6, A8 and A10 are confirmed or changed, and the task breakdown can be written without a "to be verified".
+
+**Concluded on 13 November 2026.** The project owner judged that the items still open do not block the build. They move to the milestone that depends on them: the internet items above to M5, Android to M4, and the mouth-to-ear figures with a mixer feed and headphones to M3.
 
 ### M1 — Protocol and state (M)
 
@@ -158,7 +160,7 @@ Still to run, each needing hardware or a network the spike's Mac lacks (the spik
 
 ### M5 — Across the internet (M)
 
-- `GET /api/v1/ice` with the STUN list and `WORSHIP_Q_STUN`; coturn as an optional profile in `compose.yaml`, with short-lived credentials; the desktop fetches the list and passes it on.
+- `GET /api/v1/ice` with the STUN list and `WORSHIP_Q_STUN`; coturn as an optional profile in `compose.yaml`, with short-lived credentials; the desktop fetches the list and passes it on. The profile listens on UDP 3478 and relays on UDP 49160–49180, one port for each relayed listener, with the listening, relay and external addresses named and private peers refused (L18).
 - A listener that cannot connect is told why, and whether the church's server offers a relay.
 - `docs/server-deployment.md`: the UDP ports to open, which do not go through the reverse proxy, and how to check the service from outside.
 
@@ -177,5 +179,5 @@ M0 first; its results may change A6, A8 and A10. Then M1, then M2. M3, M4 and M5
 ## 9. Rollout
 
 - **Server first.** The relay must know protocol version 7 before any desktop can share a broadcast, as with OBS control. Update the church's server, then the desktops through the updater.
-- **Nothing to set up for most churches.** Remote listening works through the public STUN server. coturn is the administrator's choice, for listeners whose networks need a relay: it needs UDP port 3478 and a range of relay ports open to the internet on the server's own address, outside the reverse proxy.
+- **Nothing to set up for most churches.** Remote listening works through the public STUN server. coturn is the administrator's choice, for listeners whose networks need a relay: it needs UDP port 3478 and the relay ports, UDP 49160–49180, open to the internet on the server's own address, in the host's firewall and in the hosting provider's, outside the reverse proxy. Nothing answers on them until coturn runs. The first church's server has had both open since the spike (13 November 2026), ready for M5.
 - **At the venue.** Feed the broadcasting computer from the mixing desk through an audio interface or USB input, not the built-in microphone, and check the level meter before the service.
