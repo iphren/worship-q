@@ -345,12 +345,64 @@ function RefreshBar(props: { durationMs: number }) {
 }
 
 /**
+ * A small start or stop button for one output, as beside the live monitor. Stopping a stream
+ * or recording asks to confirm first; the camera stops at once.
+ */
+function ObsOutputToggle(props: {
+  kind: ObsOutputKind;
+  label: MessageKey;
+  start: ObsCommand['type'];
+  stop: ObsCommand['type'];
+  output: ObsOutput;
+  usable: boolean;
+  action: ReturnType<typeof useObsAction>;
+}) {
+  const { kind, output, action } = props;
+  const [confirming, setConfirming] = useState(false);
+  const running = output.active && output.phase !== 'stopping';
+  const verb = running ? t('obs.stop') : t('obs.start');
+  const confirmKey = kind === 'stream' ? 'obs.confirmStopStream' : 'obs.confirmStopRecord';
+  return (
+    <>
+      <button
+        type="button"
+        className={`btn row-span-2 h-6 w-6 shrink-0 justify-center p-0 ${running ? 'btn-danger' : ''}`}
+        title={`${t(props.label)}: ${verb}`}
+        aria-label={`${t(props.label)}: ${verb}`}
+        disabled={!props.usable || action.busy || output.phase !== null}
+        onClick={() => {
+          if (!running) return void action.command({ type: props.start } as ObsCommand);
+          if (kind === 'virtualCam') return void action.command({ type: props.stop } as ObsCommand);
+          setConfirming(true);
+        }}
+      >
+        <Icon name={running ? 'stop' : 'play'} className="h-3 w-3" />
+      </button>
+      {confirming && (
+        <ConfirmDialog
+          title={t(confirmKey)}
+          body={t(`${confirmKey}Body` as MessageKey)}
+          confirmLabel={t('obs.stop')}
+          danger
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => {
+            setConfirming(false);
+            void action.command({ type: props.stop } as ObsCommand);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
  * The live monitor above the slide column on the Present page, shown while OBS is connected,
  * on the OBS computer too, with the switch button and the outputs' lights beside it.
  */
 export function ObsLiveMonitor() {
   const { cloud } = useApp();
   const shared = useObs();
+  const action = useObsAction();
   const connected = shared.state?.status === 'connected';
   const now = useNow(1000, connected);
   useEffect(() => {
@@ -366,14 +418,18 @@ export function ObsLiveMonitor() {
       <div className="w-72 min-w-28 shrink">
         <ObsMonitor now={now} usable={shared.reachable} caption={<ObsSwitchButton small />} />
       </div>
-      <div className="w-36 min-w-0 shrink">
+      <div className="w-44 min-w-0 shrink">
         <ul className="space-y-2.5 text-xs">
-          {OUTPUTS.map(({ kind, label }) => {
+          {OUTPUTS.map(({ kind, label, start, stop }) => {
             const output = state[kind];
             const elapsed = outputElapsed(output, shared.receivedAt, now);
             return (
-              // The state goes under the name, both lined up after the light.
-              <li key={kind} className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2">
+              // The state goes under the name, both lined up after the light; the button
+              // takes both rows at the end.
+              <li
+                key={kind}
+                className="grid grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-x-2"
+              >
                 <span
                   className={`h-2 w-2 rounded-full ${outputDot(kind, output.active)}`}
                   aria-hidden="true"
@@ -382,10 +438,20 @@ export function ObsLiveMonitor() {
                 <span className="col-start-2 truncate text-slate-400 tabular-nums">
                   {outputText(output, elapsed)}
                 </span>
+                <ObsOutputToggle
+                  kind={kind}
+                  label={label}
+                  start={start}
+                  stop={stop}
+                  output={output}
+                  usable={shared.reachable}
+                  action={action}
+                />
               </li>
             );
           })}
         </ul>
+        {action.error && <p className="mt-2 text-xs text-rose-300">{action.error}</p>}
       </div>
     </div>
   );
