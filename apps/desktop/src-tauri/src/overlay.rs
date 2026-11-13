@@ -12,9 +12,9 @@ use crate::db::AppData;
 use crate::files::{backgrounds_dir, checked_name};
 use crate::media::{checked_video, videos_dir};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, State as AxumState};
+use axum::extract::{Path, RawQuery, State as AxumState};
 use axum::http::{header, HeaderMap, StatusCode};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use std::io::{Read, SeekFrom, Write};
@@ -108,6 +108,7 @@ pub fn start(app: &AppHandle<Wry>) {
             )
             .route("/overlay/subtitle", get(page))
             .route("/slideshow", get(slideshow_page))
+            .route(YOUTUBE_ROUTE, get(youtube))
             .route("/assets/{*file}", get(asset))
             .route("/files/{name}", get(file))
             .route("/videos/{name}", get(video))
@@ -161,6 +162,52 @@ fn serve_page(app: &AppHandle<Wry>, name: &str) -> Response {
         return Redirect::temporary(&url).into_response();
     }
     bundled(app, name).unwrap_or_else(|| StatusCode::NOT_FOUND.into_response())
+}
+
+const YOUTUBE_ROUTE: &str = "/youtube/{id}";
+/// Where the interface's addresses for a YouTube video alone begin (`youtubeEmbedUrl`).
+const YOUTUBE_EMBED: &str = "https://www.youtube-nocookie.com/embed/";
+
+/// The page on this computer that shows the video of a YouTube embed address, or nothing
+/// when the address is not one or the server is not running. The slideshow window shows the
+/// video through this page because YouTube refuses to play a video opened on its own: it
+/// plays only inside a page with a web address, which the app's own pages do not have.
+pub fn youtube_page(overlay: &Overlay, embed: &str) -> Option<String> {
+    if overlay.error.lock().unwrap().is_some() {
+        return None;
+    }
+    let (id, query) = embed.strip_prefix(YOUTUBE_EMBED)?.split_once('?')?;
+    youtube_frame(id, query)?;
+    Some(format!(
+        "http://127.0.0.1:{OVERLAY_PORT}/youtube/{id}?{query}"
+    ))
+}
+
+/// The page for a video: the video alone, filling it. Nothing unless the video's identifier
+/// and its settings are plain, so the page can hold nothing but a YouTube video.
+fn youtube_frame(id: &str, query: &str) -> Option<String> {
+    let plain = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
+    if id.len() != 11 || !id.chars().all(plain) {
+        return None;
+    }
+    if !query.chars().all(|c| plain(c) || c == '=' || c == '&') {
+        return None;
+    }
+    let query = query.replace('&', "&amp;");
+    Some(format!(
+        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Worship Q Video</title>\
+<style>html,body{{margin:0;height:100%;background:#000;overflow:hidden}}\
+iframe{{position:fixed;inset:0;width:100%;height:100%;border:0}}</style></head>\
+<body><iframe src=\"{YOUTUBE_EMBED}{id}?{query}\" \
+allow=\"autoplay; encrypted-media; fullscreen\"></iframe></body></html>"
+    ))
+}
+
+async fn youtube(Path(id): Path<String>, RawQuery(query): RawQuery) -> Response {
+    match youtube_frame(&id, query.as_deref().unwrap_or("")) {
+        Some(page) => Html(page).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 /// A stored background or slide image, for the slideshow page in an ordinary browser.
@@ -359,6 +406,31 @@ mod tests {
             "HTTP/1.0 200 OK\r\n\r\n<title>Something else</title>"
         ));
         assert!(!is_worship_q(""));
+    }
+
+    #[test]
+    fn frames_only_a_youtube_video() {
+        let page = youtube_frame("dQw4w9WgXcQ", "autoplay=1&start=90").unwrap();
+        assert!(page.contains(
+            "src=\"https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&amp;start=90\""
+        ));
+        assert!(youtube_frame("short", "").is_none());
+        assert!(youtube_frame("dQw4w9WgXc\"", "").is_none());
+        assert!(youtube_frame("dQw4w9WgXcQ", "a=\"><script>").is_none());
+    }
+
+    #[test]
+    fn sends_the_slideshow_window_to_the_video_page() {
+        let overlay = Overlay::new();
+        let embed = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0";
+        assert_eq!(
+            youtube_page(&overlay, embed).as_deref(),
+            Some("http://127.0.0.1:47310/youtube/dQw4w9WgXcQ?autoplay=1&rel=0")
+        );
+        assert!(youtube_page(&overlay, "https://example.org/embed/dQw4w9WgXcQ?a=1").is_none());
+        // Without the server the web page is shown, as before.
+        *overlay.error.lock().unwrap() = Some("address in use".into());
+        assert!(youtube_page(&overlay, embed).is_none());
     }
 
     #[test]

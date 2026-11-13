@@ -5,7 +5,7 @@
  * without internet. It runs in an ordinary browser, so nothing here may use the Tauri
  * interface.
  */
-import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
+import { EMPTY_FRAME, youtubeEmbedUrl, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -62,7 +62,9 @@ function SlideshowApp() {
       {frame.website && (
         <iframe
           title="Website"
-          src={frame.website.url}
+          // A YouTube link shows its video alone: YouTube's page refuses to be framed.
+          src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
+          allow="autoplay; encrypted-media; fullscreen"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
         />
       )}

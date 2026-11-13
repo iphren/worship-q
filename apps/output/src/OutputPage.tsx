@@ -13,6 +13,7 @@ import {
   type OutputToRelay,
   type OutputView,
   type RelayToOutput,
+  youtubeEmbedUrl,
 } from '@worship-q/protocol';
 import { Slide, buildFrame, fontAvailable, missingFonts } from '@worship-q/renderer';
 import { useEffect, useMemo, useState } from 'react';
@@ -196,7 +197,9 @@ export function OutputPage() {
       {frame.website && (
         <iframe
           title="Website"
-          src={frame.website.url}
+          // A YouTube link shows its video alone: YouTube's page refuses to be framed.
+          src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
+          allow="autoplay; encrypted-media; fullscreen"
           style={{
             position: 'absolute',
             inset: 0,
@@ -205,7 +208,7 @@ export function OutputPage() {
             border: 0,
             background: '#000',
           }}
-          sandbox="allow-scripts allow-same-origin allow-forms"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
         />
       )}
     </div>

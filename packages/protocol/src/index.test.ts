@@ -26,6 +26,7 @@ import {
   SyncRecordSchema,
   updateNeededBy,
   websiteUrl,
+  youtubeEmbedUrl,
   type LiveSnapshot,
 } from './index';
 
@@ -148,6 +149,38 @@ describe('website addresses', () => {
     expect(websiteUrl('javascript:alert(1)')).toBeNull();
     expect(websiteUrl('file:///etc/passwd')).toBeNull();
     expect(websiteUrl('http://')).toBeNull();
+  });
+});
+
+describe('YouTube links', () => {
+  const embed = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0';
+
+  it('finds the video in every kind of link', () => {
+    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(embed);
+    expect(youtubeEmbedUrl('https://m.youtube.com/watch?feature=share&v=dQw4w9WgXcQ')).toBe(embed);
+    expect(youtubeEmbedUrl('https://youtu.be/dQw4w9WgXcQ?si=abc')).toBe(embed);
+    expect(youtubeEmbedUrl('https://youtube.com/live/dQw4w9WgXcQ')).toBe(embed);
+    expect(youtubeEmbedUrl('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe(embed);
+    expect(youtubeEmbedUrl('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(embed);
+  });
+
+  it('keeps where the link starts', () => {
+    expect(youtubeEmbedUrl('https://youtu.be/dQw4w9WgXcQ?t=90')).toBe(`${embed}&start=90`);
+    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s')).toBe(
+      `${embed}&start=90`,
+    );
+    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1h2s')).toBe(
+      `${embed}&start=3602`,
+    );
+  });
+
+  it('leaves every other page as it is', () => {
+    expect(youtubeEmbedUrl('https://www.youtube.com/')).toBeNull();
+    expect(youtubeEmbedUrl('https://www.youtube.com/@channel')).toBeNull();
+    expect(youtubeEmbedUrl('https://www.youtube.com/playlist?list=PL123')).toBeNull();
+    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=short')).toBeNull();
+    expect(youtubeEmbedUrl('https://notyoutube.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+    expect(youtubeEmbedUrl('https://example.org/watch?v=dQw4w9WgXcQ')).toBeNull();
   });
 });
 

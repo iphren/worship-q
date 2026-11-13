@@ -264,8 +264,14 @@ pub fn drag_output(app: AppHandle) -> Result<(), String> {
 /// Shows a web page over the whole slideshow, or takes it away when there is no address.
 /// The page has a webview of its own rather than a frame in the slideshow's page, which many
 /// sites refuse. It is closed rather than hidden, so its video and sound stop with it.
+/// `embed` is the address of a YouTube link's video alone: the app's own page for that video
+/// is shown instead of YouTube's page, where the app can serve it.
 #[tauri::command]
-pub async fn output_website(app: AppHandle, url: Option<String>) -> Result<(), String> {
+pub async fn output_website(
+    app: AppHandle,
+    url: Option<String>,
+    embed: Option<String>,
+) -> Result<(), String> {
     let existing = app.get_webview(WEBSITE_LABEL);
     let Some(url) = url else {
         if let Some(webview) = existing {
@@ -273,7 +279,10 @@ pub async fn output_website(app: AppHandle, url: Option<String>) -> Result<(), S
         }
         return Ok(());
     };
-    let url = Url::parse(&url).map_err(|e| e.to_string())?;
+    let video = embed.and_then(|embed| {
+        crate::overlay::youtube_page(&app.state::<crate::overlay::Overlay>(), &embed)
+    });
+    let url = Url::parse(&video.unwrap_or(url)).map_err(|e| e.to_string())?;
     if !matches!(url.scheme(), "http" | "https") {
         return Err("not-a-website".into());
     }

@@ -125,6 +125,42 @@ export function websiteUrl(input: string): string | null {
   }
 }
 
+/** The seconds a YouTube link starts at: `90`, `90s` or `1h2m3s`. Zero when it has none. */
+function youtubeStart(value: string | null): number {
+  if (!value) return 0;
+  if (/^\d+$/.test(value)) return Number(value);
+  const parts = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(value);
+  if (!parts) return 0;
+  return Number(parts[1] ?? 0) * 3600 + Number(parts[2] ?? 0) * 60 + Number(parts[3] ?? 0);
+}
+
+/**
+ * The address that shows only the video of a YouTube link, filling the screen and playing at
+ * once, in place of YouTube's page around it. Null when the address is not a YouTube video:
+ * a channel, a playlist or any other site is shown as the web page it is.
+ */
+export function youtubeEmbedUrl(address: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(address);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.replace(/^(www|m|music)\./, '');
+  const [first, second] = url.pathname.split('/').filter(Boolean);
+  let id: string | null | undefined;
+  if (host === 'youtu.be') id = first;
+  else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
+    if (first === 'watch') id = url.searchParams.get('v');
+    else if (first === 'embed' || first === 'live' || first === 'shorts') id = second;
+  }
+  if (!id || !/^[\w-]{11}$/.test(id)) return null;
+  const start = youtubeStart(url.searchParams.get('t') ?? url.searchParams.get('start'));
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0${
+    start > 0 ? `&start=${start}` : ''
+  }`;
+}
+
 export const SongFieldsSchema = z.object({
   title: z.string(),
   lyrics: z.string(),

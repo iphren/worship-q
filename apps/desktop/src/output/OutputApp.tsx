@@ -1,5 +1,5 @@
 import { emit, listen } from '@tauri-apps/api/event';
-import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
+import { EMPTY_FRAME, youtubeEmbedUrl, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -71,7 +71,9 @@ export function OutputApp() {
   // A website is shown by a webview of its own over this page, opened by the native side.
   const websiteUrl = frame.website?.url ?? null;
   useEffect(() => {
-    void native.outputWebsite(websiteUrl).catch(console.error);
+    // A YouTube link shows its video alone, in place of YouTube's page.
+    const embed = websiteUrl ? youtubeEmbedUrl(websiteUrl) : null;
+    void native.outputWebsite(websiteUrl, embed).catch(console.error);
   }, [websiteUrl]);
 
   return (
