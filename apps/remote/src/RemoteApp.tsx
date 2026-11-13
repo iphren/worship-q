@@ -187,7 +187,7 @@ function Live({ view }: { view: RemoteView | null }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+      <header className="flex items-center justify-between border-b border-slate-800 px-3 py-3">
         <div className="min-w-0">
           <h1 className="truncate font-semibold text-white">{view.workspaceName}</h1>
           <p className="text-xs text-slate-400">
