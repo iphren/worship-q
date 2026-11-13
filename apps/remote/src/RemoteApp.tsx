@@ -205,12 +205,13 @@ function Live({ view }: { view: RemoteView | null }) {
           >
             {connected ? 'Connected' : 'Reconnecting…'}
           </span>
-          {/* The OBS screen closes from the OBS button under the header instead. */}
-          {(canEdit || editing) && !obsOpen && (
+          {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
+          {(canEdit || editing) && (
             <button
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40 ${
                 editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
               }`}
+              disabled={obsOpen}
               onClick={() => {
                 setMode(editing ? 'present' : 'edit');
                 setBefore(null);
