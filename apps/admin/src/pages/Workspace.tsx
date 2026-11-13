@@ -668,7 +668,7 @@ function AudioSection({ id }: { id: string }) {
       : LISTEN_TEXT[state.status.kind];
   const delay =
     on && state.delay
-      ? `Network and buffer: ${state.delay.delayMs === null ? '–' : `${state.delay.delayMs} ms`}${
+      ? `${state.delay.delayMs === null ? '–' : `${state.delay.delayMs} ms`}${
           state.delay.path ? ` · ${state.delay.path === 'relayed' ? 'Relayed' : 'Direct'}` : ''
         }`
       : null;

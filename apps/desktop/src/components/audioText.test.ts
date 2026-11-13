@@ -55,10 +55,10 @@ describe('Listen in words (M3.3, M5.4)', () => {
 
   it('shows the delay and the path, and a dash for an unknown buffer', () => {
     expect(delayText({ delayMs: 130, bufferMs: 120, stale: false, path: 'direct' })).toBe(
-      'Network and buffer: 130 ms · Direct',
+      '130 ms · Direct',
     );
     expect(delayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe(
-      'Network and buffer: –',
+      '–',
     );
     expect(delayText(null)).toBeNull();
   });

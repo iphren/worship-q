@@ -155,10 +155,10 @@ describe('what the phone says', () => {
   it('shows the delay with its path, a dash while unknown, nothing with no figure', () => {
     expect(phoneDelayText(null)).toBeNull();
     expect(phoneDelayText({ delayMs: 120, bufferMs: 100, stale: false, path: 'relayed' })).toBe(
-      'Network and buffer: 120 ms · Relayed',
+      '120 ms · Relayed',
     );
     expect(phoneDelayText({ delayMs: null, bufferMs: null, stale: false, path: null })).toBe(
-      'Network and buffer: –',
+      '–',
     );
   });
 });

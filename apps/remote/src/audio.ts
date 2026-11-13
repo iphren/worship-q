@@ -117,8 +117,7 @@ export function phoneListenText(status: ListenStatus): string {
 /** The delay figure and path on one line; null while there is none. */
 export function phoneDelayText(delay: DelayFigure | null): string | null {
   if (!delay) return null;
-  const figure =
-    delay.delayMs === null ? 'Network and buffer: –' : `Network and buffer: ${delay.delayMs} ms`;
+  const figure = delay.delayMs === null ? '–' : `${delay.delayMs} ms`;
   const path = delay.path === 'relayed' ? 'Relayed' : delay.path === 'direct' ? 'Direct' : null;
   return path ? `${figure} · ${path}` : figure;
 }

@@ -696,8 +696,8 @@ export const en = {
     'Could not connect. The church’s relay was tried; this network may block it.',
   'listen.status.unreachableNone':
     'Could not connect from this network, and the church’s server offers no relay.',
-  'listen.delay': 'Network and buffer: {ms} ms',
-  'listen.delayUnknown': 'Network and buffer: –',
+  'listen.delay': '{ms} ms',
+  'listen.delayUnknown': '–',
   'listen.path.direct': 'Direct',
   'listen.path.relayed': 'Relayed',
   'listen.monitorHint': 'Plays on the Monitor device chosen in Settings.',
