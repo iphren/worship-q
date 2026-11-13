@@ -10,7 +10,7 @@ import {
   type LibraryType,
   type SnapshotItem,
 } from '@worship-q/protocol';
-import { ItemBadgeMark } from '@worship-q/ui';
+import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { api } from '../api';
 import { AdminListen } from '../audio';
@@ -695,8 +695,12 @@ function AudioSection({ id }: { id: string }) {
       )}
       {(audio?.connected || on) && (
         <div className="mt-2 flex items-center gap-3">
-          <Button onClick={() => (on ? listen.stop() : listen.start())}>
-            {on ? 'Stop' : 'Listen'}
+          <Button
+            title={on ? 'Stop' : 'Listen'}
+            aria-label={on ? 'Stop' : 'Listen'}
+            onClick={() => (on ? listen.stop() : listen.start())}
+          >
+            <ControlIcon name={on ? 'stop' : 'listen'} className="h-5 w-5" />
           </Button>
           {on && <span className="text-sm text-slate-400">{status}</span>}
         </div>

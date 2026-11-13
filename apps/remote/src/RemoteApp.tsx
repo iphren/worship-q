@@ -981,13 +981,15 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
           {audio ? `Live audio from ${audio.ownerName}` : phoneListenText(state.status)}
         </span>
         <button
-          className={`rounded-lg px-4 py-1.5 text-sm font-semibold active:scale-[0.98] ${
+          className={`rounded-lg px-4 py-1.5 active:scale-[0.98] ${
             on ? 'bg-sky-600 text-white' : 'bg-slate-800'
           }`}
+          title={on ? 'Stop' : 'Listen'}
+          aria-label={on ? 'Stop' : 'Listen'}
           aria-pressed={on}
           onClick={() => (on ? listen.stop() : listen.start())}
         >
-          {on ? 'Stop' : 'Listen'}
+          <ControlIcon name={on ? 'stop' : 'listen'} className="h-5 w-5" />
         </button>
       </div>
       {on && <p className="pt-1 text-xs text-slate-400">{phoneListenText(state.status)}</p>}

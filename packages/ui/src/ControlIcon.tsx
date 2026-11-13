@@ -26,6 +26,11 @@ export const CONTROL_ICON_SHAPES = {
       <path d="M14 2v4a2 2 0 0 0 2 2h4M9 15h6M12 12v6" />
     </>
   ),
+  /** Listens to live audio. */
+  listen: (
+    <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" />
+  ),
+  stop: <rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor" />,
   play: <path d="M7 4l13 8-13 8z" fill="currentColor" />,
   pause: (
     <>

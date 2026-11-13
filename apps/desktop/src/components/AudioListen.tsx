@@ -6,6 +6,7 @@
  */
 import { useApp, useAudio, useAudioListen } from '../app/context';
 import { t } from '../i18n';
+import { Icon } from './Icon';
 import { broadcastStatusText, broadcastTone, delayText, listenStatusText } from './audioText';
 
 const DOT: Record<ReturnType<typeof broadcastTone>, string> = {
@@ -60,11 +61,12 @@ export function AudioPanel() {
         <button
           type="button"
           className={`btn btn-sm ${on ? 'btn-primary' : ''}`}
-          title={t('listen.monitorHint')}
+          title={`${on ? t('listen.stop') : t('listen.listen')}. ${t('listen.monitorHint')}`}
+          aria-label={on ? t('listen.stop') : t('listen.listen')}
           aria-pressed={on}
           onClick={() => (on ? cloud.listen?.stop() : void cloud.listen?.start())}
         >
-          {on ? t('listen.stop') : t('listen.listen')}
+          <Icon name={on ? 'stop' : 'listen'} className="h-4 w-4" />
         </button>
       )}
     </div>
