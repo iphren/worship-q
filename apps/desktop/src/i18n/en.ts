@@ -683,7 +683,7 @@ export const en = {
   'audio.keepAwake':
     'The display stays awake while broadcasting. Turn off any screen lock on this computer.',
   'listen.from': 'Live audio from {name}',
-  'listen.broadcasting': 'Broadcasting live audio',
+  'listen.broadcasting': 'Broadcast',
   'listen.listen': 'Listen',
   'listen.stop': 'Stop',
   'listen.status.off': 'Not listening',
