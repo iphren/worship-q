@@ -764,9 +764,6 @@ export const en = {
   'bible.tooLarge': 'That passage is too long. Choose at most 500 verses.',
   'bible.warnings': 'Shown differently from some Bibles:',
   'bible.reference': 'Open {reference} in the Bible',
-  'bible.workspaceVersions': 'Bible versions',
-  'bible.workspaceVersionsHint':
-    'The versions passages are shown in, side by side, for every computer of this workspace. Up to two, from those the church offers; until you choose, the church’s default versions are used.',
   'bible.itemVersions':
     'This passage keeps its own versions; changing them here changes only this item.',
 } as const;

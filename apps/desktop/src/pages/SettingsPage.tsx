@@ -12,7 +12,7 @@ import {
 } from '@worship-q/protocol';
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useApp, useCloud, useQuery, useSession } from '../app/context';
+import { useApp, useQuery, useSession } from '../app/context';
 import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
@@ -29,9 +29,6 @@ import { meetingDaysLabel, t, weekdayName } from '../i18n';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
 import { AudioSettings } from '../components/AudioSettings';
-import { VersionChips } from '../components/BibleWindow';
-import { workspaceVersions } from '../app/bible';
-import type { BibleVersionInfo } from '@worship-q/protocol';
 
 const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
 const BACKUP_EXTENSION = 'worshipq';
@@ -537,8 +534,6 @@ export function SettingsPage() {
           </label>
         </Section>
 
-        <BibleVersionsSection />
-
         <Section title={t('outputs.title')} hint={t('outputs.hint')}>
           <div>
             <h3 className="label">{t('outputs.local')}</h3>
@@ -707,38 +702,5 @@ export function SettingsPage() {
         />
       )}
     </div>
-  );
-}
-
-/**
- * The workspace's Bible versions (B4), the same setting as the Bible window's chips; shown
- * while the church server offers a Bible.
- */
-function BibleVersionsSection() {
-  const { cloud } = useApp();
-  const session = useSession();
-  const status = useCloud();
-  const offersBible = !!status.server?.bible;
-  const [offered, setOffered] = useState<BibleVersionInfo[] | null>(null);
-  useEffect(() => {
-    if (!offersBible) return;
-    let cancelled = false;
-    void cloud.bible.versions().then((list) => !cancelled && setOffered(list));
-    return () => {
-      cancelled = true;
-    };
-  }, [cloud, offersBible]);
-  const chosen = useQuery(() => session.store.getBibleVersions(session.workspace.id), []);
-  const church = useQuery(() => session.store.getChurchSettings(), []);
-  if (!offersBible || !offered || !chosen || !church) return null;
-  return (
-    <Section title={t('bible.workspaceVersions')} hint={t('bible.workspaceVersionsHint')}>
-      <VersionChips
-        offered={offered}
-        chosen={chosen}
-        versions={workspaceVersions(chosen, offered, church.bibleDefaultVersions)}
-        onChange={(next) => void session.setBibleVersions(next)}
-      />
-    </Section>
   );
 }

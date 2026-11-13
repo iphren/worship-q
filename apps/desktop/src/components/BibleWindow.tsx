@@ -432,7 +432,7 @@ export function BibleWindow(props: {
 }
 
 /** The chosen versions as chips, in column order, with + to add one (B4, B5). */
-export function VersionChips(props: {
+function VersionChips(props: {
   offered: BibleVersionInfo[];
   chosen: string[];
   versions: string[];
