@@ -6,6 +6,7 @@
  */
 import { useApp, useAudio, useAudioListen } from '../app/context';
 import { t } from '../i18n';
+import { Marquee } from '@worship-q/ui';
 import { Icon } from './Icon';
 import { broadcastStatusText, broadcastTone, delayText, listenStatusText } from './audioText';
 
@@ -27,9 +28,9 @@ export function AudioPanel() {
           className={`inline-block h-2 w-2 shrink-0 rounded-full ${DOT[broadcastTone(shared)]}`}
           aria-hidden="true"
         />
-        <span className="min-w-0 truncate">
+        <Marquee className="min-w-0 flex-1">
           {t('listen.broadcasting')} · {broadcastStatusText(shared)}
-        </span>
+        </Marquee>
       </p>
     );
   }
@@ -51,12 +52,12 @@ export function AudioPanel() {
         }`}
         aria-hidden="true"
       />
-      <span
-        className="min-w-0 flex-1 truncate"
+      <Marquee
+        className="min-w-0 flex-1"
         title={state ? t('listen.from', { name: state.ownerName }) : undefined}
       >
         {line}
-      </span>
+      </Marquee>
       {cloud.listen && (
         <button
           type="button"

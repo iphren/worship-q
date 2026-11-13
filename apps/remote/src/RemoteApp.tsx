@@ -15,7 +15,7 @@ import {
   type RemoteSongResult,
   type RemoteView,
 } from '@worship-q/protocol';
-import { ControlIcon, ItemBadgeMark } from '@worship-q/ui';
+import { ControlIcon, ItemBadgeMark, Marquee } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PassageColumns, PhoneBible } from './Bible';
 import { PhoneListen, phoneDelayText, phoneListenText } from './audio';
@@ -967,7 +967,13 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
   useEffect(() => listen.follow(audio), [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const on = state.status.kind !== 'off';
   if (!audio && !on) return null;
-  const delay = on ? phoneDelayText(state.delay) : null;
+  const line = [
+    'Listen',
+    on ? phoneListenText(state.status) : null,
+    on ? phoneDelayText(state.delay) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <div className="border-b border-slate-800 px-3 py-1.5">
       <div className="flex items-center gap-2">
@@ -977,9 +983,7 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
           }`}
           aria-hidden="true"
         />
-        <span className="min-w-0 flex-1 truncate text-sm">
-          {audio ? 'Listen' : phoneListenText(state.status)}
-        </span>
+        <Marquee className="min-w-0 flex-1 text-sm">{line}</Marquee>
         <button
           className={`rounded-lg px-4 py-1.5 active:scale-[0.98] ${
             on ? 'bg-sky-600 text-white' : 'bg-slate-800'
@@ -992,8 +996,6 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
           <ControlIcon name={on ? 'stop' : 'listen'} className="h-5 w-5" />
         </button>
       </div>
-      {on && <p className="pt-1 text-xs text-slate-400">{phoneListenText(state.status)}</p>}
-      {delay && <p className="text-xs text-slate-500">{delay}</p>}
     </div>
   );
 }
