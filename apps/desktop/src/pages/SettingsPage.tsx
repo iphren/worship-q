@@ -591,6 +591,10 @@ export function SettingsPage() {
           <ObsSettings />
         </Section>
 
+        <Section title={t('audio.title')} hint={t('audio.hint')}>
+          <AudioSettings />
+        </Section>
+
         <Section
           title={t('settings.meetingDays')}
           hint={t('settings.meetingDaysHint', { label: meetingDaysLabel(days) })}
@@ -636,9 +640,6 @@ export function SettingsPage() {
           )}
         </Section>
 
-        <Section title={t('audio.title')} hint={t('audio.hint')}>
-          <AudioSettings />
-        </Section>
         <Section title={t('devices.title')} hint={t('devices.hint')}>
           <ConnectedDevices />
         </Section>
