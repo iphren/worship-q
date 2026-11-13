@@ -41,6 +41,9 @@ importers:
       '@worship-q/audio':
         specifier: workspace:*
         version: link:../../packages/audio
+      '@worship-q/calendar':
+        specifier: workspace:*
+        version: link:../../packages/calendar
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

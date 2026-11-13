@@ -22,6 +22,8 @@ import {
   type AdminLiveView,
   type AdminMe,
   type AdminObsView,
+  type AdminRunSheet,
+  type AdminRunSheetDays,
   type AdminWorkspace,
   type LibraryKind,
 } from '@worship-q/protocol';
@@ -302,6 +304,35 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           relay.contentChangedAll('');
         }
         return { workspace: workspaceView(instance.getWorkspace(workspace.id)!), moved };
+      },
+    );
+
+    /** The dates a workspace has run sheets for, for the view-only calendar. */
+    api.get<{ Params: { id: string } }>(
+      '/api/v1/admin/workspaces/:id/run-sheets',
+      async (request, reply) => {
+        const days = instance.runSheetDays(request.params.id);
+        if (!days) return reply.code(404).send({ error: 'not-found' });
+        reply.header('cache-control', 'no-store');
+        return days satisfies AdminRunSheetDays;
+      },
+    );
+
+    /** One date's run sheet, in order. A date without one is an empty sheet. */
+    api.get<{ Params: { id: string; date: string } }>(
+      '/api/v1/admin/workspaces/:id/run-sheets/:date',
+      async (request, reply) => {
+        if (!instance.getWorkspace(request.params.id)) {
+          return reply.code(404).send({ error: 'not-found' });
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(request.params.date)) {
+          return reply.code(400).send({ error: 'bad-date' });
+        }
+        reply.header('cache-control', 'no-store');
+        return (instance.runSheet(request.params.id, request.params.date) ?? {
+          date: request.params.date,
+          items: [],
+        }) satisfies AdminRunSheet;
       },
     );
 

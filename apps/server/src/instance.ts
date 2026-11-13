@@ -13,6 +13,7 @@ import {
   PROTOCOL_VERSION,
   VIDEO_PROTOCOL_VERSION,
   PASSAGE_PROTOCOL_VERSION,
+  songBadge,
   OutputKindSchema,
   syncWins,
   wellFormed,
@@ -23,6 +24,8 @@ import {
   type AdminLibraryPlan,
   type AdminLibraryUsage,
   type AdminPairingRequest,
+  type AdminRunSheet,
+  type AdminRunSheetDays,
   type ChurchSettings,
   type EnrolledBy,
   type LibraryKind,
@@ -1290,6 +1293,68 @@ export class Instance {
       });
     }
     return items.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  /** The dates a workspace has run sheets for, for the admin app's view-only calendar. */
+  runSheetDays(workspaceId: string): AdminRunSheetDays | null {
+    if (!this.getWorkspace(workspaceId)) return null;
+    const dates: AdminRunSheetDays['dates'] = [];
+    const liveId = this.getLive(workspaceId)?.snapshot.state.runSheetId ?? null;
+    let liveDate: string | null = null;
+    for (const row of this.db
+      .prepare(`SELECT id, data FROM record WHERE workspace_id = ? AND kind = 'runSheet'`)
+      .all(workspaceId)) {
+      const data = JSON.parse(text(row.data)) as { date?: unknown; items?: unknown };
+      if (typeof data.date !== 'string') continue;
+      if (text(row.id) === liveId) liveDate = data.date;
+      const items = Array.isArray(data.items) ? data.items.length : 0;
+      if (items > 0) dates.push({ date: data.date, items });
+    }
+    const workspace = this.db
+      .prepare(`SELECT data FROM record WHERE workspace_id = ? AND kind = 'workspace'`)
+      .get(workspaceId);
+    const meeting = workspace
+      ? (JSON.parse(text(workspace.data)) as { meetingDays?: unknown }).meetingDays
+      : null;
+    return {
+      dates: dates.sort((a, b) => a.date.localeCompare(b.date)),
+      meetingDays: Array.isArray(meeting)
+        ? meeting.filter((d): d is number => Number.isInteger(d))
+        : [0],
+      liveDate,
+    };
+  }
+
+  /** One date's run sheet, its items named from the songs they point to; null when none. */
+  runSheet(workspaceId: string, date: string): AdminRunSheet | null {
+    const row = this.db
+      .prepare(`SELECT data FROM record WHERE workspace_id = ? AND kind = 'runSheet' AND key = ?`)
+      .get(workspaceId, date);
+    if (!row) return null;
+    const data = JSON.parse(text(row.data)) as { items?: unknown };
+    const entries = Array.isArray(data.items)
+      ? (data.items as { id?: unknown; songId?: unknown }[])
+      : [];
+    const own = this.db.prepare(
+      `SELECT data FROM record WHERE workspace_id = ? AND kind = 'song' AND id = ?`,
+    );
+    const church = this.db.prepare(`SELECT data FROM church_record WHERE kind = 'song' AND id = ?`);
+    return {
+      date,
+      items: entries.map((entry) => {
+        const songId = String(entry.songId ?? '');
+        const song = own.get(workspaceId, songId) ?? church.get(songId);
+        const fields = song
+          ? (JSON.parse(text(song.data)) as Parameters<typeof songBadge>[0] & { title?: unknown })
+          : null;
+        return {
+          id: String(entry.id ?? songId),
+          title: fields ? String(fields.title ?? '') : '',
+          badge: fields ? songBadge(fields) : null,
+          removed: !song || removed(song.data),
+        };
+      }),
+    };
   }
 
   /** What a workspace's own song or background shows, deleted ones included. */

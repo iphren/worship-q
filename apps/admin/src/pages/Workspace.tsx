@@ -53,6 +53,7 @@ import {
 import { SlideshowPreview, SubtitleBar } from '../preview';
 import { useAction, useLoad } from '../useLoad';
 import { DEVICES_POLL_MS, DeviceRow } from './Devices';
+import { RunSheetsSection } from './RunSheets';
 
 export function WorkspacePage({ id }: { id: string }) {
   // There is no route for one workspace, so the list is loaded and the one picked out.
@@ -97,6 +98,7 @@ export function WorkspacePage({ id }: { id: string }) {
       <LiveSection id={id} />
       <AudioSection id={id} />
       <ObsSection id={id} />
+      <RunSheetsSection id={id} />
       <DevicesSection id={id} onRevoked={list.reload} />
       <CodeSection workspace={workspace} onChanged={replace} />
       <LibrarySection workspace={workspace} onChanged={replace} />

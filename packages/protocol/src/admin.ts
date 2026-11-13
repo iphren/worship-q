@@ -5,7 +5,8 @@
  */
 import type { AudioStatus } from './audio';
 import type { ObsSnapshot, ObsState } from './obs';
-import type { BackgroundKind, LibraryType, OutputKind } from './records';
+import type { ItemBadge } from './badges';
+import type { BackgroundKind, IsoDate, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
 
 /** Every admin request carries this header, so a cross-site form cannot reach the routes. */
@@ -86,6 +87,29 @@ export interface AdminLibraryPlan {
     usesChurchVersion: boolean;
   }[];
   hidden: string[];
+}
+
+/**
+ * `GET /api/v1/admin/workspaces/:id/run-sheets`: what the view-only calendar needs, the dates
+ * that have a run sheet with items, and what marks days on the calendar.
+ */
+export interface AdminRunSheetDays {
+  dates: { date: IsoDate; items: number }[];
+  meetingDays: number[];
+  /** The date of the run sheet being presented right now, when one is. */
+  liveDate: IsoDate | null;
+}
+
+/** `GET /api/v1/admin/workspaces/:id/run-sheets/:date`: one run sheet, in order. */
+export interface AdminRunSheet {
+  date: IsoDate;
+  items: {
+    id: string;
+    title: string;
+    badge: ItemBadge | null;
+    /** The song is deleted from its library, so the item is skipped when presenting. */
+    removed: boolean;
+  }[];
 }
 
 /** A workspace's live state as the server last heard of it (D38). */

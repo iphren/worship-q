@@ -1637,3 +1637,98 @@ describe('live audio for the admin app (A14, A21, A22)', () => {
     expect(big.statusCode).toBe(413);
   });
 });
+
+describe('run sheets for the admin app', () => {
+  async function runSheetSetup() {
+    const context = await setup({ administrators: ['pat@example.org'] });
+    const { app, instance, signIn } = context;
+    const { headers } = await signIn('pat@example.org');
+    const { workspace, code } = instance.createWorkspace('North');
+    instance.setCodesEnabled(workspace.id, true);
+    const { device } = instance.enroll(code, 'Front desk')!;
+    const stamp = '2026-11-01T00:00:00.000Z';
+    const record = (
+      kind: 'song' | 'runSheet' | 'workspace',
+      id: string,
+      key: string,
+      data: object,
+    ) => ({
+      kind,
+      id,
+      key,
+      revision: 1,
+      updatedAt: stamp,
+      data: data as Record<string, unknown>,
+    });
+    instance.push(workspace.id, device.id, [
+      record('workspace', workspace.id, workspace.id, { name: 'North', meetingDays: [0, 3] }),
+      record('song', 's1', 's1', { title: 'Holy', lyrics: 'a', removedAt: null }),
+      record('song', 's2', 's2', {
+        title: 'Slides',
+        lyrics: '',
+        removedAt: null,
+        deck: { kind: 'slides', source: 'a.pptx', pages: [] },
+      }),
+      record('song', 's3', 's3', { title: 'Gone', lyrics: '', removedAt: stamp }),
+      record('runSheet', 'rs1', '2026-11-08', {
+        date: '2026-11-08',
+        items: [
+          { id: 'i1', songId: 's1' },
+          { id: 'i2', songId: 's2' },
+          { id: 'i3', songId: 's3' },
+          { id: 'i4', songId: 'missing' },
+        ],
+      }),
+      record('runSheet', 'rs2', '2026-11-15', { date: '2026-11-15', items: [] }),
+    ]);
+    return { ...context, headers, workspace };
+  }
+
+  it('lists the dates with items, and the meeting days', async () => {
+    const { app, headers, workspace } = await runSheetSetup();
+    const days = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/workspaces/${workspace.id}/run-sheets`,
+      headers,
+    });
+    expect(days.statusCode).toBe(200);
+    expect(days.json()).toEqual({
+      dates: [{ date: '2026-11-08', items: 4 }],
+      meetingDays: [0, 3],
+      liveDate: null,
+    });
+  });
+
+  it('shows one date in order, with badges and removed songs marked', async () => {
+    const { app, headers, workspace } = await runSheetSetup();
+    const sheet = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/workspaces/${workspace.id}/run-sheets/2026-11-08`,
+      headers,
+    });
+    expect(sheet.json()).toEqual({
+      date: '2026-11-08',
+      items: [
+        { id: 'i1', title: 'Holy', badge: null, removed: false },
+        { id: 'i2', title: 'Slides', badge: 'slides', removed: false },
+        { id: 'i3', title: 'Gone', badge: null, removed: true },
+        { id: 'i4', title: '', badge: null, removed: true },
+      ],
+    });
+    const empty = await app.inject({
+      method: 'GET',
+      url: `/api/v1/admin/workspaces/${workspace.id}/run-sheets/2026-12-25`,
+      headers,
+    });
+    expect(empty.json()).toEqual({ date: '2026-12-25', items: [] });
+  });
+
+  it('refuses an unknown workspace, a bad date and a signed-out browser', async () => {
+    const { app, headers, workspace } = await runSheetSetup();
+    const get = (url: string, h: Record<string, string> = headers) =>
+      app.inject({ method: 'GET', url: `/api/v1/admin/workspaces/${url}`, headers: h });
+    expect((await get('nope/run-sheets')).statusCode).toBe(404);
+    expect((await get(`${workspace.id}/run-sheets/soon`)).statusCode).toBe(400);
+    expect((await get(`${workspace.id}/run-sheets`, { [ADMIN_HEADER]: '1' })).statusCode).toBe(401);
+  });
+});

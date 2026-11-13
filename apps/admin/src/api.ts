@@ -13,6 +13,8 @@ import {
   type AdminLibraryUsage,
   type AdminLiveView,
   type AdminObsView,
+  type AdminRunSheet,
+  type AdminRunSheetDays,
   type AdminAudioView,
   type AudioSignal,
   type IceServer,
@@ -115,6 +117,10 @@ export const api = {
       { types },
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
+  runSheetDays: (id: string) =>
+    request<AdminRunSheetDays>('GET', `${ADMIN}/workspaces/${encode(id)}/run-sheets`),
+  runSheet: (id: string, date: string) =>
+    request<AdminRunSheet>('GET', `${ADMIN}/workspaces/${encode(id)}/run-sheets/${encode(date)}`),
   obs: (id: string) => request<AdminObsView>('GET', `${ADMIN}/workspaces/${encode(id)}/obs`),
   /** The workspace's live audio broadcast, as its broadcaster last reported it (A21). */
   audio: (id: string) => request<AdminAudioView>('GET', `${ADMIN}/workspaces/${encode(id)}/audio`),
