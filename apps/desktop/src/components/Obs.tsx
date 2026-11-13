@@ -366,7 +366,7 @@ function ObsOutputToggle(props: {
     <>
       <button
         type="button"
-        className={`btn row-span-2 h-6 w-6 shrink-0 justify-center p-0 ${running ? 'btn-danger' : ''}`}
+        className={`btn h-5 w-5 shrink-0 justify-center rounded p-0 ${running ? 'btn-danger' : ''}`}
         title={`${t(props.label)}: ${verb}`}
         aria-label={`${t(props.label)}: ${verb}`}
         disabled={!props.usable || action.busy || output.phase !== null}
@@ -376,7 +376,7 @@ function ObsOutputToggle(props: {
           setConfirming(true);
         }}
       >
-        <Icon name={running ? 'stop' : 'play'} className="h-3 w-3" />
+        <Icon name={running ? 'stop' : 'play'} className="h-2.5 w-2.5" />
       </button>
       {confirming && (
         <ConfirmDialog
@@ -418,35 +418,34 @@ export function ObsLiveMonitor() {
       <div className="w-72 min-w-28 shrink">
         <ObsMonitor now={now} usable={shared.reachable} caption={<ObsSwitchButton small />} />
       </div>
-      <div className="w-44 min-w-0 shrink">
+      <div className="w-36 min-w-0 shrink">
         <ul className="space-y-2.5 text-xs">
           {OUTPUTS.map(({ kind, label, start, stop }) => {
             const output = state[kind];
             const elapsed = outputElapsed(output, shared.receivedAt, now);
             return (
-              // The state goes under the name, both lined up after the light; the button
-              // takes both rows at the end.
-              <li
-                key={kind}
-                className="grid grid-cols-[0.5rem_minmax(0,1fr)_auto] items-center gap-x-2"
-              >
+              // The state goes under the name, both lined up after the light; the small
+              // button sits right after the name.
+              <li key={kind} className="grid grid-cols-[0.5rem_minmax(0,1fr)] items-center gap-x-2">
                 <span
                   className={`h-2 w-2 rounded-full ${outputDot(kind, output.active)}`}
                   aria-hidden="true"
                 />
-                <span className="truncate">{t(label)}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate">{t(label)}</span>
+                  <ObsOutputToggle
+                    kind={kind}
+                    label={label}
+                    start={start}
+                    stop={stop}
+                    output={output}
+                    usable={shared.reachable}
+                    action={action}
+                  />
+                </span>
                 <span className="col-start-2 truncate text-slate-400 tabular-nums">
                   {outputText(output, elapsed)}
                 </span>
-                <ObsOutputToggle
-                  kind={kind}
-                  label={label}
-                  start={start}
-                  stop={stop}
-                  output={output}
-                  usable={shared.reachable}
-                  action={action}
-                />
               </li>
             );
           })}
