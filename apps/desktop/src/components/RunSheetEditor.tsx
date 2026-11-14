@@ -484,9 +484,41 @@ export function RunSheetEditor(props: {
         {dropAt !== null && dropAt >= entries.length && <DropMark />}
       </ol>
       {editable && (
-        <div
-          className={`flex flex-col gap-1.5 border-t border-slate-700 pt-3 ${idle ? '' : 'min-h-40 flex-1'}`}
-        >
+        <div className="flex gap-1.5">
+          {/* With a reference typed, the button opens on it, flashing once when one is found:
+              the key gives it a fresh start then. */}
+          <button
+            key={searchReference ? 'reference' : 'none'}
+            type="button"
+            className={`btn btn-sm flex-1 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
+            disabled={!!bibleUnavailable}
+            title={
+              bibleUnavailable ??
+              (searchReference
+                ? t('bible.reference', { reference: formatReference(searchReference) })
+                : t('bible.open'))
+            }
+            aria-label={t('bible.open')}
+            onClick={() => setBible({ initial: searchReference })}
+          >
+            <Icon name="bible" className="h-4 w-4" />
+            {t('bible.open')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm flex-1"
+            disabled={!!blocked}
+            title={blocked ?? t('media.addTitle')}
+            aria-label={t('media.addTitle')}
+            onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
+          >
+            <Icon name="addMedia" className="h-4 w-4" />
+            {t('media.add')}
+          </button>
+        </div>
+      )}
+      {editable && (
+        <div className={`flex flex-col gap-1.5 ${idle ? '' : 'min-h-40 flex-1'}`}>
           <div className="flex gap-1">
             <input
               ref={searchRef}
@@ -521,34 +553,6 @@ export function RunSheetEditor(props: {
                 <Icon name="website" />
               </button>
             )}
-            {/* With a reference typed, the button opens on it, flashing once when one is found:
-                the key gives it a fresh start then. */}
-            <button
-              key={searchReference ? 'reference' : 'none'}
-              type="button"
-              className={`btn shrink-0 px-2 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
-              disabled={!!bibleUnavailable}
-              title={
-                bibleUnavailable ??
-                (searchReference
-                  ? t('bible.reference', { reference: formatReference(searchReference) })
-                  : t('bible.open'))
-              }
-              aria-label={t('bible.open')}
-              onClick={() => setBible({ initial: searchReference })}
-            >
-              <Icon name="bible" />
-            </button>
-            <button
-              type="button"
-              className="btn shrink-0 px-2"
-              disabled={!!blocked}
-              title={blocked ?? t('media.addTitle')}
-              aria-label={t('media.addTitle')}
-              onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
-            >
-              <Icon name="addMedia" />
-            </button>
           </div>
           {!idle && (
             <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
