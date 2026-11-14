@@ -233,6 +233,22 @@ export function RunSheetEditor(props: {
     aimed.filter((upload) => upload.stage.kind !== 'done'),
   );
   const notes = aimed.filter((upload) => upload.stage.kind === 'done' && upload.stage.note);
+  // Media just added here is scrolled into view, so an upload landing below the visible part
+  // of a long run sheet does not look as though nothing happened. Uploads already under way
+  // when the run sheet opens are left where they are.
+  const seenUploads = useRef<Set<string> | null>(null);
+  const uploadKey = rows.flatMap((row) => (row.kind === 'upload' ? [row.upload.id] : [])).join();
+  useEffect(() => {
+    const ids = uploadKey ? uploadKey.split(',') : [];
+    const seen = seenUploads.current;
+    seenUploads.current = new Set(ids);
+    const fresh = seen ? ids.filter((id) => !seen.has(id)) : [];
+    const last = fresh.at(-1);
+    if (!last) return;
+    listRef.current
+      ?.querySelector(`li[data-upload="${CSS.escape(last)}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [uploadKey]);
   // A ready upload becomes the ordinary item: its row is no longer needed.
   useEffect(() => {
     for (const upload of aimed) {
@@ -367,6 +383,7 @@ export function RunSheetEditor(props: {
             return (
               <li
                 key={upload.id}
+                data-upload={upload.id}
                 className="rounded-md border border-dashed border-slate-600 bg-slate-900/40 px-2 py-1.5 text-sm"
               >
                 <span className="mb-1 flex min-w-0 items-center">
