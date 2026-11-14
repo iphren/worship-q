@@ -195,6 +195,9 @@ Unchanged from the phase 2 plan, with additions found here.
 - Record SQLite as the server database in the spec (G19).
 - Several OIDC providers per instance, and fine-grained operator permissions (spec §4 open decisions).
 - Copying a workspace's song into the Church Library from the admin app, without a review queue, should a church ask for it after D33.
+- Automatic server backup of live audio: when any workspace has live audio enabled and is broadcasting, the server saves a recording of the broadcast as it goes.
+- Presentation log on the server: a record of what was presented, as a snapshot of the content, with when it started and when it ended.
+- A church-server API on localhost, so other services running at the church can read run sheets, the presentation log and the audio recordings.
 
 ## 8. Rollout
 
