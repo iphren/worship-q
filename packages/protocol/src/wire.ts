@@ -57,9 +57,11 @@ import {
  * `passage` item kind sent only to devices declaring the `passages` capability. Version 7
  * adds live audio (`./audio`): the audio state and the signals that set up a listener's
  * connection, new kinds the relay must know before it passes them on, sent only to devices
- * declaring the `audio` capability.
+ * declaring the `audio` capability. Version 8 lets a phone add a website by its address: an
+ * `addWebsite` command, which the relay passes on only to desktops declaring the `websites`
+ * capability.
  */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
 /**
@@ -68,6 +70,8 @@ export const VIDEO_PROTOCOL_VERSION = 5;
  * passage items reach older desktops as lyrics.
  */
 export const PASSAGE_PROTOCOL_VERSION = 6;
+/** The first protocol version in which a phone adds a website by its address. */
+export const WEBSITE_PROTOCOL_VERSION = 8;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -206,6 +210,11 @@ export const CapabilitiesSchema = z.object({
    * sent none.
    */
   audio: z.boolean().optional(),
+  /**
+   * Takes a phone's `addWebsite` command (protocol version 8). Absent from older devices,
+   * which are never sent one.
+   */
+  websites: z.boolean().optional(),
 });
 export type Capabilities = z.infer<typeof CapabilitiesSchema>;
 
@@ -411,6 +420,18 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
     afterItemId: z.string().nullable().optional(),
     present: z.boolean().optional(),
   }),
+  /**
+   * Adds a website by its address to the live run sheet (protocol version 8): the
+   * coordinator uses the library's website at that address, or makes one. The desktop the
+   * phone reaches fills in the page's `title`, which a phone cannot read. Without
+   * `afterItemId` it goes after the presented item, or at the end when none is.
+   */
+  z.object({
+    type: z.literal('addWebsite'),
+    url: z.string().max(2000),
+    title: z.string().max(200).optional(),
+    afterItemId: z.string().nullable().optional(),
+  }),
 ]);
 export type RemoteCommand = z.infer<typeof RemoteCommandSchema>;
 export type RemoteEditCommand = Extract<
@@ -418,7 +439,11 @@ export type RemoteEditCommand = Extract<
   { type: 'addItem' | 'removeItem' | 'moveItem' }
 >;
 export type AddPassageCommand = Extract<RemoteCommand, { type: 'addPassage' }>;
-export type RemoteNavigationCommand = Exclude<RemoteCommand, RemoteEditCommand | AddPassageCommand>;
+export type AddWebsiteCommand = Extract<RemoteCommand, { type: 'addWebsite' }>;
+export type RemoteNavigationCommand = Exclude<
+  RemoteCommand,
+  RemoteEditCommand | AddPassageCommand | AddWebsiteCommand
+>;
 
 export function isRemoteEdit(command: RemoteCommand): command is RemoteEditCommand {
   return command.type === 'addItem' || command.type === 'removeItem' || command.type === 'moveItem';
@@ -589,6 +614,11 @@ export interface RemoteView {
    * 7); absent from older desktops, null when nothing is broadcast.
    */
   audio?: RemoteAudioView | null;
+  /**
+   * A website can be added by its address (protocol version 8); absent from older desktops
+   * and from desktops whose church server is older.
+   */
+  websites?: boolean;
 }
 
 /** From the desktop to a remote controller. */

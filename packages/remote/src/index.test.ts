@@ -588,6 +588,40 @@ describe('the Bible on phones (P7.1, P7.2, B15, B26)', () => {
   });
 });
 
+describe('websites added by their address from phones (protocol 8)', () => {
+  it('says in the view whether phones can add websites', async () => {
+    await approved('p1', 'Sam');
+    const first = lastTo('p1');
+    expect(first?.type === 'view' && first.view.websites).toBe(false);
+    host.setWebsites({ available: () => true, title: () => Promise.resolve(null) });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    const fresh = lastTo('p1');
+    expect(fresh?.type === 'view' && fresh.view.websites).toBe(true);
+  });
+
+  it('adds a phone’s website named by the title read here', async () => {
+    const asked: string[] = [];
+    host.setWebsites({
+      available: () => true,
+      title: (url) => {
+        asked.push(url);
+        return Promise.resolve('Live stream');
+      },
+    });
+    await approved('p1', 'Sam');
+    await host.message('p1', {
+      type: 'command',
+      id: 'c1',
+      command: { type: 'addWebsite', url: 'example.org/live' },
+    });
+    expect(asked).toEqual(['example.org/live']);
+    expect(lastTo('p1')).toEqual({ type: 'ack', id: 'c1', applied: true });
+    const titles = (await session.viewLive())!.entries.map((entry) => entry.song.title);
+    expect(titles.at(-1)).toBe('Live stream');
+    expect(host.notices.map((n) => n.change.title)).toContain('Live stream');
+  });
+});
+
 describe('live audio for phones (M4.1, M4.2)', () => {
   function audio() {
     const signals: { phone: { grantId: string; name: string }; kind: string }[] = [];

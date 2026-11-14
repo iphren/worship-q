@@ -2,6 +2,7 @@ import {
   formatReference,
   itemBadge,
   songSearchReference,
+  typedWebsiteUrl,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
   OBS_TRANSITION_LOCK_MS,
@@ -774,6 +775,8 @@ function AddSongs(props: {
   const [query, setQuery] = useState('');
   // A reference typed into the search, found on the phone alone; songs are still listed.
   const reference = songSearchReference(query);
+  // A web address typed into the search, added as a website when the desktop can.
+  const website = view.websites ? typedWebsiteUrl(query) : null;
   const [results, setResults] = useState<{ query: string; songs: RemoteSongResult[] } | null>(null);
   // Titles of the songs added from this search, so the phone shows each one worked.
   const [added, setAdded] = useState<string[]>([]);
@@ -804,6 +807,12 @@ function AddSongs(props: {
     );
     setAdded((list) => [...list, song.title || 'Untitled']);
     // Ready for the next song. Focusing while handling the tap keeps the phone's keyboard up.
+    setQuery('');
+    inputRef.current?.focus();
+  }
+  function addWebsite(url: string) {
+    connection.send({ type: 'addWebsite', url });
+    setAdded((list) => [...list, new URL(url).hostname]);
     setQuery('');
     inputRef.current?.focus();
   }
@@ -882,7 +891,22 @@ function AddSongs(props: {
             </button>
           </li>
         )}
-        {results?.songs.length === 0 && !searching && !reference && (
+        {website && (
+          <li className="land:col-span-2">
+            <button
+              className="flex w-full items-center gap-2 rounded-lg border border-fuchsia-500/40 bg-slate-900 p-3 text-left text-[15px] font-semibold text-fuchsia-300 active:scale-[0.98] disabled:opacity-40"
+              disabled={!connected}
+              onClick={() => addWebsite(website)}
+            >
+              <ItemBadgeMark badge="website" />
+              <span className="min-w-0 flex-1">
+                Add website to run sheet
+                <span className="block truncate text-xs font-normal text-slate-400">{website}</span>
+              </span>
+            </button>
+          </li>
+        )}
+        {results?.songs.length === 0 && !searching && !reference && !website && (
           <li className="p-6 text-center text-sm text-slate-400 land:col-span-2">Nothing found.</li>
         )}
         {results?.songs.map((song) => {

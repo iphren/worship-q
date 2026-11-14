@@ -33,7 +33,9 @@ import {
   passagePlainText,
   passageReference,
   songBadge,
+  typedWebsiteUrl,
   type AddPassageCommand,
+  type AddWebsiteCommand,
   type Passage,
   type PassageColumn,
   type PassagePiece,
@@ -1198,18 +1200,8 @@ export class Session {
     passage: Passage,
     options: { afterItemId?: string | null; present?: boolean },
   ): Promise<{ item: RunSheetItem; title: string }> {
-    const items = await this.store.listItems(sheet.id);
-    const index = (itemId: string) => items.findIndex((item) => item.id === itemId);
     const live = this.isLive && this.live_?.runSheetId === sheet.id ? this.live_ : null;
-    let at = items.length;
-    if (options.afterItemId === null) at = 0;
-    else if (options.afterItemId !== undefined) {
-      if (index(options.afterItemId) >= 0) at = index(options.afterItemId) + 1;
-    } else if (live?.presented && live.presented.runSheetId === sheet.id) {
-      // After the item being presented; at the end when it has gone (B6).
-      const presented = index(live.presented.itemId);
-      if (presented >= 0) at = presented + 1;
-    }
+    const at = await this.placeFor(sheet, options.afterItemId);
     const song = await this.store.createSong(this.workspace_.id, passageSongFields(passage));
     const item = await this.store.addItem(sheet.id, song.id, at);
     if (options.present && live) {
@@ -1217,6 +1209,55 @@ export class Session {
       if (first) await this.apply({ type: 'playPiece', itemId: item.id, pieceId: first.id });
     }
     return { item, title: song.title };
+  }
+
+  /**
+   * Where an item added after `afterItemId` goes: null is the top. Without it, right after
+   * the item being presented, or at the end when none is or it has gone (B6).
+   */
+  private async placeFor(sheet: RunSheet, afterItemId: string | null | undefined): Promise<number> {
+    const items = await this.store.listItems(sheet.id);
+    const index = (itemId: string) => items.findIndex((item) => item.id === itemId);
+    const live = this.isLive && this.live_?.runSheetId === sheet.id ? this.live_ : null;
+    if (afterItemId === null) return 0;
+    if (afterItemId !== undefined) {
+      return index(afterItemId) >= 0 ? index(afterItemId) + 1 : items.length;
+    }
+    if (live?.presented && live.presented.runSheetId === sheet.id) {
+      const presented = index(live.presented.itemId);
+      if (presented >= 0) return presented + 1;
+    }
+    return items.length;
+  }
+
+  /**
+   * A website from a phone or another operator device, by its address, added to the live
+   * run sheet by the coordinator (protocol version 8). The library's website at that
+   * address is used when there is one; otherwise one is made, named by the page's title, or
+   * by its host when the title could not be read. Null when nothing is live, the address is
+   * not a web address, or the same identifier was applied.
+   */
+  remoteWebsite(id: string, command: AddWebsiteCommand): Promise<RunSheetChange | null> {
+    return this.mutate(async () => {
+      if (!this.isLive || !this.live_ || this.relay_ || this.remoteEditIds.includes(id)) {
+        return null;
+      }
+      const url = typedWebsiteUrl(command.url);
+      const sheet = await this.store.getRunSheet(this.live_.runSheetId);
+      if (!url || !sheet) return null;
+      const library = await this.store.listSongs(this.workspace_.id);
+      const song =
+        library.find((song) => song.website?.url === url && !song.removedAt) ??
+        (await this.store.createSong(this.workspace_.id, {
+          title: command.title?.trim() || new URL(url).hostname,
+          website: { url },
+        }));
+      const at = await this.placeFor(sheet, command.afterItemId);
+      const item = await this.store.addItem(sheet.id, song.id, at);
+      this.remoteEditIds.push(id);
+      if (this.remoteEditIds.length > REMOTE_EDIT_MEMORY) this.remoteEditIds.shift();
+      return { kind: 'added', item, title: song.title };
+    });
   }
 
   /**
@@ -1623,6 +1664,10 @@ export class Session {
         );
       case 'addPassage':
         return this.remotePassage(id, command).then((change) =>
+          change ? { result: 'applied', change } : { result: 'rejected' },
+        );
+      case 'addWebsite':
+        return this.remoteWebsite(id, command).then((change) =>
           change ? { result: 'applied', change } : { result: 'rejected' },
         );
       case 'goLive':

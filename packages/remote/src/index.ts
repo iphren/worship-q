@@ -252,6 +252,17 @@ export function remoteSongResult(song: Song): RemoteSongResult {
   };
 }
 
+/** Websites added by their address from phones, through this desktop (protocol version 8). */
+export interface RemoteWebsites {
+  /** The church server passes a phone's website on: it speaks protocol 8. */
+  available(): boolean;
+  /** The page's title, which a phone cannot read; null when it could not be read. */
+  title(url: string): Promise<string | null>;
+}
+
+/** How long a phone's website waits for its page's title before it is named by its host. */
+const WEBSITE_TITLE_MS = 3000;
+
 export class RemoteHost {
   private link: RemoteLink | null = null;
   private invites: { secret: string; at: number }[] = [];
@@ -269,6 +280,7 @@ export class RemoteHost {
   /** Phones that left, by grant, until they come back or their audio is closed. */
   private readonly audioGrace = new Map<string, ReturnType<typeof setTimeout>>();
   private bible: RemoteBible | null = null;
+  private websites: RemoteWebsites | null = null;
   /** Phones showing the live monitor, by connection. */
   private readonly obsWatchers = new Set<string>();
 
@@ -283,6 +295,22 @@ export class RemoteHost {
   /** Gives phones the Bible through this desktop (B26); null when it has none. */
   setBible(bible: RemoteBible | null): void {
     this.bible = bible;
+  }
+
+  /** Lets phones add websites by their address; null when this desktop cannot. */
+  setWebsites(websites: RemoteWebsites | null): void {
+    this.websites = websites;
+    this.scheduleView();
+  }
+
+  /** A phone's website with its page's title, read here as the phone cannot. */
+  private async withTitle(command: RemoteCommand): Promise<RemoteCommand> {
+    if (command.type !== 'addWebsite' || command.title || !this.websites) return command;
+    const timeout = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), WEBSITE_TITLE_MS),
+    );
+    const title = await Promise.race([this.websites.title(command.url).catch(() => null), timeout]);
+    return title ? { ...command, title: title.slice(0, 200) } : command;
   }
 
   /** Answers a phone's Bible request (P7.1): a version the church does not offer is refused. */
@@ -653,7 +681,7 @@ export class RemoteHost {
       return this.answerBible(from, message);
     }
     if (message.type !== 'command') return;
-    const { command } = message;
+    const command = await this.withTitle(message.command);
     let applied: boolean;
     const coordination = this.coordination;
     if (coordination && !coordination.coordinating) {
@@ -671,6 +699,10 @@ export class RemoteHost {
     } else if (command.type === 'addPassage') {
       // The phone's passage becomes an item here, as the coordinator (B15, B26).
       const change = await this.session.remotePassage(message.id, command);
+      if (change) this.notify(controller.name, change);
+      applied = change !== null;
+    } else if (command.type === 'addWebsite') {
+      const change = await this.session.remoteWebsite(message.id, command);
       if (change) this.notify(controller.name, change);
       applied = change !== null;
     } else {
@@ -809,6 +841,7 @@ export class RemoteHost {
       ...view,
       obs: this.obs?.view() ?? null,
       ...(this.audio ? { audio: this.audio.view() } : {}),
+      websites: this.websites?.available() ?? false,
     };
   }
 
