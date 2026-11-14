@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.4.0](https://github.com/iphren/worship-q/compare/v2.3.0...v2.4.0) (2026-11-14)
+
+
+### Features
+
+* a web address typed into the run sheet search adds it as a website, named after its page ([36efeb4](https://github.com/iphren/worship-q/commit/36efeb439451ee675d0f1739c3bc175739f983a1))
+* a YouTube link in a web item shows the video alone, filling the slideshow ([18414db](https://github.com/iphren/worship-q/commit/18414dbd6a240299d1e60af9580a839c7ea449ad))
+* OBS scene controls wait for a transition to finish, and monitors refresh when it does ([ec23fb1](https://github.com/iphren/worship-q/commit/ec23fb14fa58a29dc7a29418e7ebdf0b4e0c3c49))
+* the Bible button and Enter open a reference typed into the run sheet search ([a1a80f4](https://github.com/iphren/worship-q/commit/a1a80f489f2da65f10717f764c3c572851061c02))
+* the switch button's arrow lists every OBS scene to switch to ([4b330db](https://github.com/iphren/worship-q/commit/4b330db02315934156696d36d4c8974c6eeedde8))
+
+
+### Bug Fixes
+
+* macOS does not nap the app while a slideshow is open ([29972db](https://github.com/iphren/worship-q/commit/29972db021800cfeaa6cbc9e0bc47754a9e35aa7))
+* presenting stays responsive on macOS while the slideshow covers the main window ([68e9548](https://github.com/iphren/worship-q/commit/68e954827acf2d64bf1de887c4b62fd057e91417))
+
 ## [2.3.0](https://github.com/iphren/worship-q/compare/v2.2.0...v2.3.0) (2026-11-13)
 
 
