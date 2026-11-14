@@ -547,7 +547,7 @@ export function RunSheetEditor(props: {
             {searchWebsite && (
               <button
                 type="button"
-                className="btn appear-flash shrink-0 px-2 ring-1 ring-slate-400/60"
+                className="btn appear-flash shrink-0 border-fuchsia-500/60 bg-fuchsia-500/20 px-2 text-fuchsia-300 hover:bg-fuchsia-500/30"
                 disabled={addingWebsite}
                 title={t('runSheet.addWebsite', { address: searchWebsite })}
                 aria-label={t('runSheet.addWebsite', { address: searchWebsite })}
