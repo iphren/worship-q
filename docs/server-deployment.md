@@ -339,7 +339,7 @@ docker compose -f apps/server/compose.yaml exec worship-q \
 ```
 
 Text keeps its place only when the server has the deck's fonts. The image includes Chinese
-fonts (Noto CJK), fonts with the same widths as Calibri, Cambria, Arial and Times New Roman,
+fonts (Noto CJK, set to lines as tall as those of the fonts decks are made with), fonts with the same widths as Calibri, Cambria, Arial and Times New Roman,
 and Microsoft's free core fonts such as Trebuchet MS when they could be downloaded while
 building.
 

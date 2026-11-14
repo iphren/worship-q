@@ -16,11 +16,17 @@ FROM node:22-slim
 # Slide deck import: LibreOffice lays out the slides, Ghostscript draws them, and the fonts
 # keep text where the author put it. Noto CJK covers Chinese, with AR PL UKai and UMing for
 # decks set in 楷体 and 宋体; Carlito, Caladea and Liberation have the same widths as Calibri,
-# Cambria, Arial and Times New Roman.
+# Cambria, Arial and Times New Roman. Noto CJK is marked to use lines of the usual height
+# (see the script), in the layer that installs it so the image holds one copy.
+COPY apps/server/prefer-typo-metrics.py /tmp/
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-impress ghostscript \
       fonts-noto-cjk fonts-arphic-ukai fonts-arphic-uming fonts-liberation2 fonts-dejavu-core fonts-crosextra-carlito fonts-crosextra-caladea \
- && rm -rf /var/lib/apt/lists/*
+      python3-fonttools \
+ && python3 /tmp/prefer-typo-metrics.py \
+ && apt-get purge -y --auto-remove python3-fonttools \
+ && fc-cache -f \
+ && rm -rf /var/lib/apt/lists/* /tmp/prefer-typo-metrics.py
 # Microsoft's free core fonts (Arial, Trebuchet MS, Georgia, Verdana…) are fetched from their
 # mirror while building. Without them the image still works; those fonts are substituted.
 RUN sed -i 's/^Components: main$/Components: main contrib/' /etc/apt/sources.list.d/debian.sources \
