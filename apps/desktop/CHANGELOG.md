@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.5.0](https://github.com/iphren/worship-q/compare/v2.4.1...v2.5.0) (2026-11-14)
+
+
+### Features
+
+* service records: live audio recordings, presentation log and local API ([01eeec8](https://github.com/iphren/worship-q/commit/01eeec834f821ad731141228e8e60f6eff38be85))
+
+
+### Bug Fixes
+
+* desktop opens again: the live audio share no longer reads the cloud status before it exists ([034abf3](https://github.com/iphren/worship-q/commit/034abf370b8055026c553119154168469e5d79e7))
+* items dropped on the live run sheet from a follower now land ([fa69274](https://github.com/iphren/worship-q/commit/fa692743e5e165276de88cda8ba858317cc38d1e))
+* reword run sheet search placeholder to list what can be added ([54fe5f0](https://github.com/iphren/worship-q/commit/54fe5f001371adeb288730f275405d32b561cdb8))
+* viewer slide list follows the presented slide once the run sheet loads ([a34a0f6](https://github.com/iphren/worship-q/commit/a34a0f6c94b69ae21e445e0d05bc146ee27acd7e))
+
 ## [2.4.1](https://github.com/iphren/worship-q/compare/v2.4.0...v2.4.1) (2026-11-14)
 
 
