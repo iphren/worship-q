@@ -13,6 +13,8 @@ export interface AudioDevice {
 export interface DeviceSettings {
   /** A viewer only shows the presentation; it never starts or coordinates one (spec §7). */
   viewerMode: boolean;
+  /** A viewer shows only the previews, with the rest of the app covered. */
+  simpleView: boolean;
   /** Where video items' sound plays; null for the system default (U24). */
   audioOutput: AudioDevice | null;
   /** The source for live audio broadcast; null for the system default. */
@@ -24,6 +26,7 @@ export interface DeviceSettings {
 const KEY = 'wq.device';
 const DEFAULTS: DeviceSettings = {
   viewerMode: false,
+  simpleView: false,
   audioOutput: null,
   audioInput: null,
   audioMonitor: null,
@@ -107,6 +110,7 @@ export function createDeviceSettings(storage: () => SettingsStorage | null) {
         const parsed = raw ? (JSON.parse(raw) as Partial<DeviceSettings>) : {};
         return {
           viewerMode: parsed.viewerMode === true,
+          simpleView: parsed.simpleView === true,
           audioOutput: audioDevice(parsed.audioOutput),
           audioInput: audioDevice(parsed.audioInput),
           audioMonitor: audioDevice(parsed.audioMonitor),

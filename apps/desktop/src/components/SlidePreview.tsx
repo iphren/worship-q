@@ -1,39 +1,11 @@
 import type { OutputFrame } from '@worship-q/protocol';
-import { ScaledSlide } from '@worship-q/renderer';
+import { ScaledSlide, SubtitleBar } from '@worship-q/renderer';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useOutputStatus } from './OutputPanel';
 
-/** The subtitle overlay at a common stream size, over a pattern standing in for video. */
+/** The subtitle overlay's band of text, kept in the middle of the bar as on the admin page. */
 export function SubtitlePreview(props: { frame: OutputFrame }) {
-  const holder = useRef<HTMLDivElement>(null);
-  const [displayWidth, setDisplayWidth] = useState(0);
-  useLayoutEffect(() => {
-    const element = holder.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() => setDisplayWidth(element.clientWidth));
-    observer.observe(element);
-    setDisplayWidth(element.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-  return (
-    <div
-      ref={holder}
-      className="w-full overflow-hidden rounded-md border border-slate-600"
-      style={{
-        background: 'repeating-conic-gradient(#334155 0% 25%, #1e293b 0% 50%) 50% / 16px 16px',
-      }}
-    >
-      {displayWidth > 0 && (
-        <ScaledSlide
-          frame={props.frame}
-          width={1920}
-          height={1080}
-          displayWidth={displayWidth}
-          transition
-        />
-      )}
-    </div>
-  );
+  return <SubtitleBar frame={props.frame} className="rounded-md border border-slate-600" />;
 }
 
 /** The slideshow as the output draws it, scaled to the width available here. */

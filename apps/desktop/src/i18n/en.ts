@@ -423,6 +423,10 @@ export const en = {
   'viewer.toggle': 'This computer is a viewer',
   'viewer.label': 'View only',
   'viewer.waiting': 'Waiting for presentation',
+  'viewer.simpleView': 'Simple view',
+  'viewer.viewingOnly': 'Viewing only',
+  'viewer.onScreen': 'On screen',
+  'viewer.fullView': 'Show everything',
   'viewer.notConnected': 'A viewer needs a church connection to follow a presentation.',
   'viewer.following': 'Showing the presentation from “{name}”.',
 
