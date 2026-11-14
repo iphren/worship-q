@@ -19,6 +19,7 @@ import type { ObsShared } from '../app/obsShare';
 import { t, type MessageKey } from '../i18n';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
+import { Menu, type MenuItem } from './Menu';
 
 export function obsErrorText(result: ObsResult): string {
   const known = Object.values(OBS_ERRORS) as string[];
@@ -117,17 +118,35 @@ export function ObsSwitchButton(props: { small?: boolean }) {
       ? t('obs.switchTo', { scene: target })
       : t('obs.switchNone');
   const title = [label, linked && obsStatusText(shared), action.error].filter(Boolean).join('\n');
+  const scenes: MenuItem[] = state.scenes.map((scene) => ({
+    key: scene,
+    label: scene,
+    current: scene === state.currentScene ? t('obs.live') : null,
+    onSelect: () => void action.command({ type: 'setScene', scene }),
+  }));
   return (
     <div className="col-span-2 space-y-1">
-      <button
-        className={`btn btn-switch w-full justify-center ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
-        title={title}
-        disabled={!usable || action.busy}
-        onClick={() => void action.switchScene()}
-      >
-        <ObsStatusDot shared={shared} />
-        <span className="min-w-0 truncate">{label}</span>
-      </button>
+      {/* A split button: the main part switches between the favourites, the arrow at its
+          right end lists every scene. */}
+      <div className="flex">
+        <button
+          className={`btn btn-switch min-w-0 flex-1 justify-center rounded-r-none ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
+          title={title}
+          disabled={!usable || action.busy}
+          onClick={() => void action.switchScene()}
+        >
+          <ObsStatusDot shared={shared} />
+          <span className="min-w-0 truncate">{label}</span>
+        </button>
+        <Menu
+          className="flex"
+          buttonClassName={`btn btn-switch rounded-l-none border-l-yellow-950/60 ${props.small ? 'btn-sm px-1' : 'px-1.5'}`}
+          label={t('obs.switchAny')}
+          trigger={<Icon name="chevronDown" className={props.small ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
+          items={scenes}
+          disabled={!linked || action.busy || scenes.length === 0}
+        />
+      </div>
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}
     </div>
   );

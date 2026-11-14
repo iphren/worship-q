@@ -18,6 +18,8 @@ export interface MenuItem {
   danger?: boolean;
   /** Set apart from the items before it. */
   separated?: boolean;
+  /** The current choice, marked with this text and not selectable. */
+  current?: string | null;
 }
 
 /**
@@ -26,7 +28,15 @@ export interface MenuItem {
  * the window it opens upwards. It is drawn over the whole window, so a scrolling list cannot
  * hide it; scrolling or resizing closes it.
  */
-export function Menu(props: { label: string; items: readonly MenuItem[]; trigger?: ReactNode }) {
+export function Menu(props: {
+  label: string;
+  items: readonly MenuItem[];
+  trigger?: ReactNode;
+  /** Replaces the trigger's own look, as for the right end of a split button. */
+  buttonClassName?: string;
+  className?: string;
+  disabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<CSSProperties>({ visibility: 'hidden' });
   const [active, setActive] = useState(0);
@@ -34,7 +44,7 @@ export function Menu(props: { label: string; items: readonly MenuItem[]; trigger
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const enabled = props.items
-    .map((item, index) => (item.disabled ? -1 : index))
+    .map((item, index) => (item.disabled || item.current ? -1 : index))
     .filter((index) => index >= 0);
 
   useEffect(() => {
@@ -94,11 +104,12 @@ export function Menu(props: { label: string; items: readonly MenuItem[]; trigger
   };
 
   return (
-    <span ref={root} className="relative">
+    <span ref={root} className={`relative ${props.className ?? ''}`}>
       <button
         ref={button}
         type="button"
-        className="btn btn-ghost btn-sm"
+        className={props.buttonClassName ?? 'btn btn-ghost btn-sm'}
+        disabled={props.disabled}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={props.label}
@@ -150,9 +161,13 @@ export function Menu(props: { label: string; items: readonly MenuItem[]; trigger
                   type="button"
                   role="menuitem"
                   tabIndex={index === active ? 0 : -1}
-                  disabled={!!item.disabled}
+                  disabled={!!item.disabled || !!item.current}
                   title={item.disabled ?? undefined}
-                  className={`block w-full px-3 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:text-slate-500 ${
+                  className={`flex w-full items-baseline gap-3 px-3 py-1.5 text-left text-sm ${
+                    item.current
+                      ? 'cursor-default'
+                      : 'disabled:cursor-not-allowed disabled:text-slate-500'
+                  } ${
                     item.danger ? 'text-rose-300' : 'text-slate-100'
                   } enabled:hover:bg-slate-700 focus:bg-slate-700 focus:outline-none`}
                   onClick={(event) => {
@@ -161,9 +176,16 @@ export function Menu(props: { label: string; items: readonly MenuItem[]; trigger
                     item.onSelect();
                   }}
                 >
-                  {item.label}
-                  {item.disabled && (
-                    <span className="block text-[11px] text-slate-500">{item.disabled}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{item.label}</span>
+                    {item.disabled && (
+                      <span className="block text-[11px] text-slate-500">{item.disabled}</span>
+                    )}
+                  </span>
+                  {item.current && (
+                    <span className="shrink-0 text-xs font-medium text-emerald-400">
+                      {item.current}
+                    </span>
                   )}
                 </button>
               </li>

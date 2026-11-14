@@ -549,6 +549,7 @@ export const en = {
     'Sharing OBS controls with other devices needs a server update. They work on this computer.',
   'obs.switch': 'Switch OBS scene',
   'obs.switchTo': 'Switch to {scene}',
+  'obs.switchAny': 'Switch to another scene',
   'obs.switchNone': 'Choose the switch button’s scenes in Settings → OBS',
   'obs.panel': 'OBS',
   'obs.panelTitle': 'OBS · {name}',

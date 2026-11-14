@@ -114,6 +114,7 @@ const ICONS = {
       <circle cx="19" cy="12" r="1" />
     </>
   ),
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   upload: <path d="M12 15V3M7 8l5-5 5 5M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />,
 } satisfies Record<string, ReactNode>;
 
