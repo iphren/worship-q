@@ -183,8 +183,13 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     return () => window.removeEventListener('keydown', onKey);
   }, [session, viewOnly]);
 
+  // Whether the presented slide is in the column yet: the run sheet can load after it is known.
+  const presentedShown = entries.some((entry) => entry.item.id === presented?.itemId);
+
   useEffect(() => {
     const active = activeRef.current;
+    // A viewer, or the page just opened, follows once the presented slide has loaded.
+    if (!active && (viewOnly || followUntilRef.current === Infinity)) return;
     const itemChanged = (presented?.itemId ?? null) !== shownItemRef.current;
     const clicked = clickedItemRef.current;
     shownItemRef.current = presented?.itemId ?? null;
@@ -199,7 +204,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     const section = active.closest('section');
     if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [presented?.itemId, presented?.pieceId, viewOnly]);
+  }, [presented?.itemId, presented?.pieceId, presentedShown, viewOnly]);
 
   /** Lets the column follow the move about to be made here. */
   function follow() {
