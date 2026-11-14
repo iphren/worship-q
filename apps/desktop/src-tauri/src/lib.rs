@@ -47,6 +47,8 @@ pub fn run() {
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 restore_main_window(&window);
+                // Presenting carries on at full speed behind a slideshow on the same screen.
+                output::ignore_covering(window.as_ref());
             }
             let root = app.path().app_data_dir()?;
             app.manage(instances::Instances::start(app.handle().clone(), &root));

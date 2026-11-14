@@ -18,6 +18,34 @@ pub const OUTPUT_LABEL: &str = "output";
 pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
 --disable-background-timer-throttling --disable-renderer-backgrounding \
 --disable-backgrounding-occluded-windows";
+
+/// Has a page of the app carry on as if it were in view while another window covers it. With
+/// one display the slideshow covers the main window, and WebKit then counts the main page as
+/// hidden: its timers are held to once a second and its process is napped, whatever the
+/// throttling policy says, so presenting from the keyboard or a remote lags. WebKit offers
+/// this only outside its public interface, so it is asked for only where it is there. A
+/// minimized window is still hidden. WebView2 is told the same by `BROWSER_ARGS`.
+#[cfg(target_os = "macos")]
+pub fn ignore_covering(webview: &tauri::Webview) {
+    use objc2::runtime::AnyObject;
+    use objc2::{msg_send, sel};
+
+    let _ = webview.with_webview(|platform| {
+        let view = platform.inner() as *const AnyObject;
+        let Some(view) = (unsafe { view.as_ref() }) else {
+            return;
+        };
+        let selector = sel!(_setWindowOcclusionDetectionEnabled:);
+        let known: bool = unsafe { msg_send![view, respondsToSelector: selector] };
+        if known {
+            let _: () = unsafe { msg_send![view, _setWindowOcclusionDetectionEnabled: false] };
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn ignore_covering(_webview: &tauri::Webview) {}
+
 // The output is looked up as a window, never as a webview window: once it hosts the website's
 // webview as well, the system no longer counts it as one, and it would seem to be closed.
 /// The webview over the slideshow that shows a presented website.
@@ -178,20 +206,22 @@ pub async fn open_output(
         None => {
             let (position, size) = frame(&target, windowed);
             let scale = target.scale_factor();
-            WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
-                .title("Worship Q — Slideshow")
-                .decorations(false)
-                .shadow(windowed)
-                .skip_taskbar(true)
-                .focused(false)
-                .additional_browser_args(BROWSER_ARGS)
-                .background_throttling(BackgroundThrottlingPolicy::Disabled)
-                .position(position.x as f64 / scale, position.y as f64 / scale)
-                .inner_size(size.width as f64 / scale, size.height as f64 / scale)
-                .build()
-                .map_err(|e| e.to_string())?
-                .as_ref()
-                .window()
+            let built =
+                WebviewWindowBuilder::new(&app, OUTPUT_LABEL, WebviewUrl::App("index.html".into()))
+                    .title("Worship Q — Slideshow")
+                    .decorations(false)
+                    .shadow(windowed)
+                    .skip_taskbar(true)
+                    .focused(false)
+                    .additional_browser_args(BROWSER_ARGS)
+                    .background_throttling(BackgroundThrottlingPolicy::Disabled)
+                    .position(position.x as f64 / scale, position.y as f64 / scale)
+                    .inner_size(size.width as f64 / scale, size.height as f64 / scale)
+                    .build()
+                    .map_err(|e| e.to_string())?;
+            // A windowed slideshow can itself be covered, by the main window.
+            ignore_covering(built.as_ref());
+            built.as_ref().window()
         }
     };
     place(&window, &target, windowed)?;
