@@ -11,9 +11,9 @@ const shape = (id: number, paragraphs: string[]) =>
   `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="s${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/>` +
   `<p:txBody><a:bodyPr/>${paragraphs.map((t) => `<a:p><a:r><a:rPr lang="en-GB"/><a:t>${t}</a:t></a:r></a:p>`).join('')}</p:txBody></p:sp>`;
 
-const effect = (kind: string, spid: number, range?: [number, number]) =>
+const effect = (kind: string, spid: number, range?: [number, number], unit = 'pRg') =>
   `<p:par><p:cTn presetID="1" presetClass="${kind}" nodeType="clickEffect"><p:childTnLst><p:set><p:cBhvr>` +
-  `<p:tgtEl><p:spTgt spid="${spid}">${range ? `<p:txEl><p:pRg st="${range[0]}" end="${range[1]}"/></p:txEl>` : ''}</p:spTgt></p:tgtEl>` +
+  `<p:tgtEl><p:spTgt spid="${spid}">${range ? `<p:txEl><p:${unit} st="${range[0]}" end="${range[1]}"/></p:txEl>` : ''}</p:spTgt></p:tgtEl>` +
   `</p:cBhvr></p:set></p:childTnLst></p:cTn></p:par>`;
 
 const group = (click: boolean, ...effects: string[]) =>
@@ -124,6 +124,59 @@ describe('expanding PowerPoint animations into slides', () => {
     const copyRels = strFromU8(files['ppt/slides/_rels/slide3.xml.rels']!);
     expect(copyRels).toContain('slideLayout');
     expect(copyRels).not.toContain('notesSlide');
+  });
+
+  it('reveals the paragraphs a character range covers', () => {
+    // Each paragraph's end counts as a character: 'one' is 0–3, 'two' 4–7, 'three' 8–13.
+    const expanded = expandPptx(
+      deck([
+        slide(
+          shape(3, ['one', 'two', 'three']),
+          timing(
+            group(true, effect('entr', 3, [0, 4], 'charRg')),
+            group(true, effect('entr', 3, [4, 8], 'charRg')),
+            group(true, effect('entr', 3, [8, 14], 'charRg')),
+          ),
+        ),
+      ]),
+    );
+    expect(expanded.pages.map((p) => p.text)).toEqual([
+      [],
+      ['one'],
+      ['one', 'two'],
+      ['one', 'two', 'three'],
+    ]);
+    // The text box stays on every slide, with the lines not yet shown made transparent.
+    expect(slidesOf(expanded.pptx)[1]!.match(/<a:t>/g)).toHaveLength(3);
+  });
+
+  it('draws nothing for the bullet of a paragraph not yet shown, but keeps numbers', () => {
+    const bulleted = (id: number, bullet: string) =>
+      `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="s${id}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/>` +
+      `<a:p><a:pPr><a:buFont typeface="Arial"/>${bullet}</a:pPr><a:r><a:t>shown later</a:t></a:r></a:p></p:txBody></p:sp>`;
+    const expanded = expandPptx(
+      deck([
+        slide(
+          bulleted(2, '<a:buChar char="•"/>') +
+            bulleted(3, '<a:buAutoNum type="arabicPeriod"/>') +
+            shape(4, ['inherited']),
+          timing(
+            group(
+              true,
+              effect('entr', 2, [0, 0]),
+              effect('entr', 3, [0, 0]),
+              effect('entr', 4, [0, 0]),
+            ),
+          ),
+        ),
+      ]),
+    );
+    const first = slidesOf(expanded.pptx)[0]!;
+    expect(first).not.toContain('char="•"');
+    expect(first).toContain('<a:buClrTx/><a:buFont typeface="Arial"/><a:buChar char=" "/></a:pPr>');
+    expect(first).toContain('<a:buClrTx/><a:buFont typeface="Arial"/><a:buAutoNum');
+    // A bullet that comes from the layout is replaced too.
+    expect(first).toContain('<a:pPr><a:buClrTx/><a:buChar char=" "/></a:pPr><a:r><a:rPr');
   });
 
   it('drops hidden slides and leaves slides without animations alone', () => {

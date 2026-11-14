@@ -56,22 +56,108 @@ export interface ConvertedDeck {
 }
 
 /**
- * On macOS, LibreOffice without a screen finds only the fonts it brings, so slides fall back
- * to other fonts and text wraps differently. This points it at the system's fonts.
+ * Chinese decks are mostly set in Windows fonts that are rarely installed elsewhere. Each is
+ * replaced by a font of the same style (楷 by 楷, 宋 by 宋, 黑 by 黑) where one is installed,
+ * which LibreOffice does not do by itself: it falls back to a sans-serif for all of them.
+ */
+const FONT_ALIASES: { families: string[]; replacements: string[] }[] = [
+  {
+    families: [
+      '楷体',
+      'KaiTi',
+      '楷体_GB2312',
+      'KaiTi_GB2312',
+      '华文楷体',
+      'STKaiti',
+      '標楷體',
+      'DFKai-SB',
+    ],
+    replacements: [
+      'Kaiti SC',
+      'STKaiti',
+      'Kaiti TC',
+      'BiauKai',
+      'FZKai-Z03S',
+      'AR PL UKai CN',
+      'AR PL UKai TW',
+    ],
+  },
+  {
+    families: [
+      '宋体',
+      'SimSun',
+      '新宋体',
+      'NSimSun',
+      '华文宋体',
+      'STSong',
+      '仿宋',
+      'FangSong',
+      '仿宋_GB2312',
+      '新細明體',
+      'PMingLiU',
+      '細明體',
+      'MingLiU',
+    ],
+    replacements: [
+      'Songti SC',
+      'STSong',
+      'Songti TC',
+      'Noto Serif CJK SC',
+      'AR PL UMing CN',
+      'AR PL UMing TW',
+    ],
+  },
+  {
+    families: [
+      '黑体',
+      'SimHei',
+      '微软雅黑',
+      'Microsoft YaHei',
+      '等线',
+      'DengXian',
+      '微軟正黑體',
+      'Microsoft JhengHei',
+      '华文黑体',
+      'STHeiti',
+    ],
+    replacements: ['PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'Noto Sans CJK SC'],
+  },
+];
+
+const escapeXml = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * The fonts LibreOffice may use. On macOS, without a screen it finds only the fonts it
+ * brings, so slides fall back to other fonts and text wraps differently; this points it at
+ * the system's fonts. Elsewhere the system's own font settings are kept. Both add
+ * `FONT_ALIASES`. A `FONTCONFIG_FILE` set in the environment is used as it is.
  */
 async function fontEnvironment(workDir: string): Promise<NodeJS.ProcessEnv> {
-  if (process.platform !== 'darwin' || process.env.FONTCONFIG_FILE) return process.env;
+  if (process.env.FONTCONFIG_FILE) return process.env;
   const home = process.env.HOME ?? '';
+  const fonts =
+    process.platform === 'darwin'
+      ? ['/System/Library/Fonts', '/Library/Fonts', `${home}/Library/Fonts`]
+          .map((dir) => `  <dir>${escapeXml(dir)}</dir>`)
+          .join('\n') + `\n  <cachedir>${escapeXml(join(workDir, 'font-cache'))}</cachedir>`
+      : '  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>';
+  const aliases = FONT_ALIASES.flatMap(({ families, replacements }) =>
+    families.map(
+      (family) =>
+        `  <alias binding="same"><family>${escapeXml(family)}</family><prefer>` +
+        replacements.map((r) => `<family>${escapeXml(r)}</family>`).join('') +
+        '</prefer></alias>',
+    ),
+  ).join('\n');
   const config = join(workDir, 'fonts.conf');
   await writeFile(
     config,
     `<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
-  <dir>/System/Library/Fonts</dir>
-  <dir>/Library/Fonts</dir>
-  <dir>${home}/Library/Fonts</dir>
-  <cachedir>${join(workDir, 'font-cache')}</cachedir>
+${fonts}
+${aliases}
 </fontconfig>
 `,
   );

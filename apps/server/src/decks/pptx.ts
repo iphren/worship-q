@@ -61,6 +61,43 @@ function descendants(parent: Document | Element, ns: string, name: string): Elem
   return Array.from(parent.getElementsByTagNameNS(ns, name)) as Element[];
 }
 
+/** The text a paragraph adds to its shape's character count, without its closing break. */
+function paragraphLength(paragraph: Element): number {
+  let length = 0;
+  for (const el of Array.from(paragraph.getElementsByTagNameNS(NS.a, '*')) as Element[]) {
+    if (el.localName === 't') length += (el.textContent ?? '').length;
+    else if (el.localName === 'br') length += 1;
+  }
+  return length;
+}
+
+/**
+ * The paragraphs a character range covers. PowerPoint counts each paragraph's end as one
+ * character, so a range that animates whole paragraphs runs from one start to the next.
+ */
+function paragraphsOfChars(
+  slide: Document,
+  spid: string,
+  start: number,
+  end: number,
+): [number, number] | null {
+  const shape = shapeById(slide, spid);
+  const body = shape && textBody(shape);
+  if (!body) return null;
+  let first = -1;
+  let last = -1;
+  let offset = 0;
+  children(body, NS.a, 'p').forEach((paragraph, index) => {
+    const next = offset + paragraphLength(paragraph) + 1;
+    if (offset < end && next > start) {
+      if (first < 0) first = index;
+      last = index;
+    }
+    offset = next;
+  });
+  return first < 0 ? null : [first, last];
+}
+
 /**
  * The slide's click steps. Entry 0 holds what plays before the first click; each later entry
  * holds what one click starts, including effects that follow it by themselves.
@@ -85,13 +122,19 @@ export function clickSteps(slide: Document): Effect[][] {
       const spid = target?.getAttribute('spid');
       if (!target || !spid) continue;
       const range = descendants(target, NS.p, 'pRg')[0];
-      step.push({
-        kind,
-        spid,
-        paragraphs: range
-          ? [Number(range.getAttribute('st')), Number(range.getAttribute('end'))]
-          : null,
-      });
+      const chars = descendants(target, NS.p, 'charRg')[0];
+      let paragraphs: [number, number] | null = null;
+      if (range) paragraphs = [Number(range.getAttribute('st')), Number(range.getAttribute('end'))];
+      else if (chars) {
+        paragraphs = paragraphsOfChars(
+          slide,
+          spid,
+          Number(chars.getAttribute('st')),
+          Number(chars.getAttribute('end')),
+        );
+        if (!paragraphs) continue;
+      }
+      step.push({ kind, spid, paragraphs });
     }
   }
   return steps;
@@ -124,16 +167,20 @@ function shapeById(slide: Document, spid: string): Element | null {
 
 const FILLS = ['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill'];
 
-/** Makes a run's text transparent, keeping its size and so its place. */
-function makeTransparent(doc: Document, props: Element) {
-  for (const name of FILLS) for (const el of children(props, NS.a, name)) props.removeChild(el);
-  const fill = doc.createElementNS(NS.a, 'a:solidFill');
+function transparentColor(doc: Document): Element {
   const color = doc.createElementNS(NS.a, 'a:srgbClr');
   color.setAttribute('val', 'FFFFFF');
   const alpha = doc.createElementNS(NS.a, 'a:alpha');
   alpha.setAttribute('val', '0');
   color.appendChild(alpha);
-  fill.appendChild(color);
+  return color;
+}
+
+/** Makes a run's text transparent, keeping its size and so its place. */
+function makeTransparent(doc: Document, props: Element) {
+  for (const name of FILLS) for (const el of children(props, NS.a, name)) props.removeChild(el);
+  const fill = doc.createElementNS(NS.a, 'a:solidFill');
+  fill.appendChild(transparentColor(doc));
   // The fill comes after an outline and before everything else.
   const outline = children(props, NS.a, 'ln')[0];
   props.insertBefore(fill, outline ? outline.nextSibling : props.firstChild);
@@ -150,30 +197,43 @@ function hideParagraph(doc: Document, paragraph: Element) {
   }
   const end = children(paragraph, NS.a, 'endParaRPr')[0];
   if (end) makeTransparent(doc, end);
-  // The bullet takes the text's (now transparent) colour.
   let props = children(paragraph, NS.a, 'pPr')[0];
   if (!props) {
     props = doc.createElementNS(NS.a, 'a:pPr');
     paragraph.insertBefore(props, paragraph.firstChild);
   }
+  // A number takes the text's (now transparent) colour. A bullet character is drawn in the
+  // text's colour but, by LibreOffice, without its transparency, so it becomes a space: the
+  // paragraph keeps its indent and nothing is drawn.
+  if (children(props, NS.a, 'buNone').length) return;
   for (const name of ['buClr', 'buClrTx']) {
     for (const el of children(props, NS.a, name)) props.removeChild(el);
   }
-  const after = [
-    'buSzTx',
-    'buSzPct',
-    'buSzPts',
-    'buFontTx',
-    'buFont',
-    'buNone',
-    'buAutoNum',
-    'buChar',
-    'buBlip',
-    'tabLst',
-    'defRPr',
-    'extLst',
-  ].flatMap((name) => children(props, NS.a, name))[0];
-  props.insertBefore(doc.createElementNS(NS.a, 'a:buClrTx'), after ?? null);
+  const before = (names: string[]) =>
+    names.flatMap((name) => children(props, NS.a, name))[0] ?? null;
+  props.insertBefore(
+    doc.createElementNS(NS.a, 'a:buClrTx'),
+    before([
+      'buSzTx',
+      'buSzPct',
+      'buSzPts',
+      'buFontTx',
+      'buFont',
+      'buAutoNum',
+      'buChar',
+      'buBlip',
+      'tabLst',
+      'defRPr',
+      'extLst',
+    ]),
+  );
+  if (children(props, NS.a, 'buAutoNum').length) return;
+  for (const name of ['buChar', 'buBlip']) {
+    for (const el of children(props, NS.a, name)) props.removeChild(el);
+  }
+  const space = doc.createElementNS(NS.a, 'a:buChar');
+  space.setAttribute('char', ' ');
+  props.insertBefore(space, before(['tabLst', 'defRPr', 'extLst']));
 }
 
 function textBody(shape: Element): Element | null {

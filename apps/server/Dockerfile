@@ -14,11 +14,12 @@ RUN pnpm --filter @worship-q/server deploy --prod /out
 
 FROM node:22-slim
 # Slide deck import: LibreOffice lays out the slides, Ghostscript draws them, and the fonts
-# keep text where the author put it. Noto CJK covers Chinese; Carlito, Caladea and Liberation
-# have the same widths as Calibri, Cambria, Arial and Times New Roman.
+# keep text where the author put it. Noto CJK covers Chinese, with AR PL UKai and UMing for
+# decks set in 楷体 and 宋体; Carlito, Caladea and Liberation have the same widths as Calibri,
+# Cambria, Arial and Times New Roman.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libreoffice-impress ghostscript \
-      fonts-noto-cjk fonts-liberation2 fonts-dejavu-core fonts-crosextra-carlito fonts-crosextra-caladea \
+      fonts-noto-cjk fonts-arphic-ukai fonts-arphic-uming fonts-liberation2 fonts-dejavu-core fonts-crosextra-carlito fonts-crosextra-caladea \
  && rm -rf /var/lib/apt/lists/*
 # Microsoft's free core fonts (Arial, Trebuchet MS, Georgia, Verdana…) are fetched from their
 # mirror while building. Without them the image still works; those fonts are substituted.
