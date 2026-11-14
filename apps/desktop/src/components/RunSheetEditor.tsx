@@ -15,7 +15,7 @@ import { useEdgeScroll } from '../lib/edgeScroll';
 import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';
 import { native } from '../platform/native';
 import { BibleWindow } from './BibleWindow';
-import { ItemEditDialog } from './ItemEditDialog';
+import { ItemEditDialog, NewSongDialog } from './ItemEditDialog';
 import { PassageWarnings } from './PassageWarnings';
 import { canReplace, downloadOriginal, originalNotKept, uploadNewVersion } from './MediaActions';
 import { Menu, type MenuItem } from './Menu';
@@ -265,6 +265,7 @@ export function RunSheetEditor(props: {
   );
   const [message, setMessage] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [writingSong, setWritingSong] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
 
@@ -485,12 +486,16 @@ export function RunSheetEditor(props: {
       </ol>
       {editable && (
         <div className="flex gap-1.5">
+          <button type="button" className="btn btn-sm flex-1" onClick={() => setWritingSong(true)}>
+            <Icon name="add" className="h-4 w-4" />
+            {t('songs.new')}
+          </button>
           {/* With a reference typed, the button opens on it, flashing once when one is found:
               the key gives it a fresh start then. */}
           <button
             key={searchReference ? 'reference' : 'none'}
             type="button"
-            className={`btn btn-sm flex-1 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
+            className={`btn btn-sm px-3 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
             disabled={!!bibleUnavailable}
             title={
               bibleUnavailable ??
@@ -502,18 +507,16 @@ export function RunSheetEditor(props: {
             onClick={() => setBible({ initial: searchReference })}
           >
             <Icon name="bible" className="h-4 w-4" />
-            {t('bible.open')}
           </button>
           <button
             type="button"
-            className="btn btn-sm flex-1"
+            className="btn btn-sm px-3"
             disabled={!!blocked}
             title={blocked ?? t('media.addTitle')}
             aria-label={t('media.addTitle')}
             onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
           >
             <Icon name="addMedia" className="h-4 w-4" />
-            {t('media.add')}
           </button>
         </div>
       )}
@@ -607,6 +610,15 @@ export function RunSheetEditor(props: {
       )}
       {props.footer && <div className="mt-auto">{props.footer}</div>}
       {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
+      {writingSong && (
+        <NewSongDialog
+          onSaved={(song) => {
+            setWritingSong(false);
+            void session.addSong(date, song.id);
+          }}
+          onClose={() => setWritingSong(false)}
+        />
+      )}
       {bible && (
         <BibleWindow
           mode={{

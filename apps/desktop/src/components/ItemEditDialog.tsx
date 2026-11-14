@@ -28,6 +28,36 @@ export function ItemEditDialog(props: { song: Song; onClose(): void }) {
   return <SongEditDialog {...props} />;
 }
 
+/**
+ * A new song written straight from a run sheet, in the same editor as the Songs page. Once
+ * saved, it is given to `onSaved` to be added to the run sheet.
+ */
+export function NewSongDialog(props: { onSaved(song: Song): void; onClose(): void }) {
+  const { onClose } = props;
+  return (
+    <Dialog
+      wide
+      title={t('songs.new')}
+      icon={<ScribblingPencil />}
+      onClose={onClose}
+      actions={null}
+    >
+      <div className="h-[65vh]">
+        <SongForm
+          song={null}
+          quick
+          onSaved={props.onSaved}
+          actions={
+            <button type="button" className="btn" onClick={onClose}>
+              {t('common.cancel')}
+            </button>
+          }
+        />
+      </div>
+    </Dialog>
+  );
+}
+
 function SongEditDialog(props: { song: Song; onClose(): void }) {
   const { onClose } = props;
   // The song as last applied, so the form compares its edits with what is saved.
