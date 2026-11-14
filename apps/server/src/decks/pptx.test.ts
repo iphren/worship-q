@@ -197,4 +197,22 @@ describe('expanding PowerPoint animations into slides', () => {
     );
     expect(expanded.pages.map((p) => p.step)).toEqual([0, 2]);
   });
+
+  it('narrows line spacing above 100% in tables to match PowerPoint, not in text boxes', () => {
+    const spaced = (percent: number) =>
+      `<a:p><a:pPr><a:lnSpc><a:spcPct val="${percent}"/></a:lnSpc></a:pPr><a:r><a:t>${percent}</a:t></a:r></a:p>`;
+    const table =
+      `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="3" name="t"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>` +
+      `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tr h="0">` +
+      [90000, 107000, 150000]
+        .map((v) => `<a:tc><a:txBody><a:bodyPr/>${spaced(v)}</a:txBody></a:tc>`)
+        .join('') +
+      `</a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+    const box =
+      `<p:sp><p:nvSpPr><p:cNvPr id="2" name="s2"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr/>` +
+      `<p:txBody><a:bodyPr/>${spaced(120000)}</p:txBody></p:sp>`;
+    const [xml] = slidesOf(expandPptx(deck([slide(box + table)])).pptx);
+    const values = [...xml!.matchAll(/spcPct val="(\d+)"/g)].map(([, v]) => v);
+    expect(values).toEqual(['120000', '90000', '101250', '133500']);
+  });
 });

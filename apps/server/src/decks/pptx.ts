@@ -3,8 +3,9 @@
  *
  * Every slide whose animations appear or remove shapes on a click becomes several slides,
  * one per click: shapes not yet shown are left out, and paragraphs not yet shown are made
- * transparent so the shown ones keep their place. Hidden slides are dropped. Everything
- * else in the file is left as it is, so the renderer lays slides out as PowerPoint would.
+ * transparent so the shown ones keep their place. Hidden slides are dropped. Apart from
+ * line spacing in tables (see `matchTableLineSpacing`), everything else in the file is left
+ * as it is, so the renderer lays slides out as PowerPoint would.
  */
 import { DOMParser, XMLSerializer, type Document, type Element } from '@xmldom/xmldom';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
@@ -268,9 +269,29 @@ function slideText(slide: Document, hiddenParagraphs: Map<Element, Set<number>>)
   return lines;
 }
 
+/**
+ * In a table, PowerPoint stretches only the top part of each line by a line spacing above
+ * 100%, so 150% makes a row about a third taller rather than half. LibreOffice stretches
+ * the whole line, so a table whose rows grow with their text runs past where PowerPoint
+ * ends it, often off the slide. Each such spacing is replaced by the one that gives
+ * LibreOffice PowerPoint's height: max(100%, 75% of it + 21%), measured against PowerPoint
+ * from 107% to 300%. Text boxes already match and are left alone.
+ */
+function matchTableLineSpacing(doc: Document) {
+  for (const table of descendants(doc, NS.a, 'tbl')) {
+    for (const spacing of descendants(table, NS.a, 'lnSpc')) {
+      const percent = children(spacing, NS.a, 'spcPct')[0];
+      const value = Number(percent?.getAttribute('val'));
+      if (!percent || !(value > 100000)) continue;
+      percent.setAttribute('val', String(Math.round(Math.max(100000, 0.75 * value + 21000))));
+    }
+  }
+}
+
 /** The slide as it looks with `hidden` hidden, without animations or transitions. */
 function slideAt(xml: string, hidden: Effect[]): { xml: string; text: string[] } {
   const doc = parse(xml);
+  matchTableLineSpacing(doc);
   for (const name of ['timing', 'transition']) {
     for (const el of descendants(doc, NS.p, name)) {
       // A transition is often wrapped for older readers; drop the wrapper with it.
