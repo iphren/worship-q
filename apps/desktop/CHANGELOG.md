@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.6.0](https://github.com/iphren/worship-q/compare/v2.5.0...v2.6.0) (2026-11-14)
+
+
+### Features
+
+* a viewer can hide everything but the slideshow and subtitle previews ([67f121e](https://github.com/iphren/worship-q/commit/67f121ea241a67694a825bd7d243b21623f32599))
+
+
+### Bug Fixes
+
+* the Simple view button stands out, and Show everything stays quiet ([1659aaa](https://github.com/iphren/worship-q/commit/1659aaab70d6914a7ebea3aaaf9b253f2b72b751))
+
 ## [2.5.0](https://github.com/iphren/worship-q/compare/v2.4.1...v2.5.0) (2026-11-14)
 
 
