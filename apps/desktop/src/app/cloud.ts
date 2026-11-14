@@ -276,7 +276,9 @@ export class CloudController {
     }
     this.audio = new AudioShare({
       recorder: this.recorder,
-      recordsOffered: () => this.status_.server?.records?.audio ?? null,
+      // Asked while this constructor runs, before the status exists.
+      recordsOffered: () =>
+        (this.status_ as CloudStatus | undefined)?.server?.records?.audio ?? null,
       deviceId: () => this.state?.deviceId ?? '',
       deviceName: () => this.state?.deviceName ?? 'This computer',
       chosenInput: () => deviceSettings.get().audioInput,
@@ -626,7 +628,8 @@ export class CloudController {
 
   /** The church server takes recordings of live audio, as its info last said (R3). */
   private recordsOffered(): boolean {
-    return this.status_.server?.records?.audio === true;
+    // Also asked while the constructor runs, before the status exists.
+    return (this.status_ as CloudStatus | undefined)?.server?.records?.audio === true;
   }
 
   /** The recording routes, each answer read as `uploadAnswer` does (service records R8). */
