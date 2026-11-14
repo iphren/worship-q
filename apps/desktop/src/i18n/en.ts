@@ -421,6 +421,7 @@ export const en = {
   'viewer.hint':
     'A viewer shows the presentation on its screens and never starts, holds or keeps one alive. Use it on a projector computer that should only follow. Worship Q reopens when this changes.',
   'viewer.toggle': 'This computer is a viewer',
+  'viewer.label': 'View only',
   'viewer.waiting': 'Waiting for presentation',
   'viewer.notConnected': 'A viewer needs a church connection to follow a presentation.',
   'viewer.following': 'Showing the presentation from “{name}”.',

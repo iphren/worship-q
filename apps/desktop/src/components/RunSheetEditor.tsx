@@ -57,11 +57,13 @@ export function RunSheetEditor(props: {
   footer?: ReactNode;
   /** Shows the song search for its `/` shortcut when it is on a tab that is not shown. */
   onRevealSearch?: () => void;
+  /** Shows the items only: no search, no moving, no item menu (viewer mode). */
+  readOnly?: boolean;
 }) {
   const { onSelectItem } = props;
   const session = useSession();
   const { date } = props;
-  const editable = session.canEdit(date);
+  const editable = !props.readOnly && session.canEdit(date);
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchShortcut(searchRef, props.onRevealSearch);
@@ -383,7 +385,7 @@ export function RunSheetEditor(props: {
               upload.target.songId === entry.song.id &&
               upload.stage.kind !== 'done',
           );
-          const actions = menuItems(entry.song, entry.item.id);
+          const actions = props.readOnly ? [] : menuItems(entry.song, entry.item.id);
           return (
             <DropLine key={entry.item.id} show={dropAt === index}>
               <li

@@ -75,89 +75,9 @@ export function PresentPage() {
     </section>
   );
 
-  if (session.isViewer) return <Viewer outputPanel={outputPanel} />;
+  if (session.isViewer) return <Live outputPanel={outputPanel} attention={false} viewOnly />;
   if (!session.isLive) return <NotLive outputPanel={outputPanel} />;
   return <Live outputPanel={outputPanel} attention={outputNeedsAttention(status)} />;
-}
-
-/**
- * Viewer mode (decision D16): the live run sheet and the presented slide, read-only, with
- * this computer's outputs following. No controls, no editing.
- */
-function Viewer(props: { outputPanel: React.ReactNode }) {
-  const session = useSession();
-  const { live: link } = useCloud();
-  const liveDate = session.liveDate;
-  const view = useQuery(() => session.viewLive(), [liveDate]);
-  const presented = session.presentingPreviousContent ? null : session.live?.presented;
-  const entries = view && view.date === liveDate ? view.entries : [];
-  return (
-    <div className="flex h-full min-h-0 gap-3 overflow-hidden p-4">
-      <aside className="flex w-80 shrink-0 flex-col gap-3 overflow-y-auto">
-        <section className="panel space-y-2 p-3">
-          <h2 className="label">{t('viewer.title')}</h2>
-          <p className="text-sm text-slate-300">
-            {session.isLive && link?.coordinatorName
-              ? t('viewer.following', { name: link.coordinatorName })
-              : t('viewer.waiting')}
-          </p>
-          {liveDate && <p className="text-xs text-slate-400">{formatDate(liveDate)}</p>}
-          <SlidePreview />
-        </section>
-        {props.outputPanel}
-        <ObsSection watch />
-      </aside>
-      <main className="min-w-0 flex-1 space-y-4 overflow-auto pr-1">
-        {!session.isLive && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
-        {entries.map((entry, index) => (
-          <section key={entry.item.id} className="relative">
-            <header className="mb-2 flex items-center gap-2 border-b border-slate-700 pb-1.5">
-              <h3 className="min-w-0 truncate text-lg text-slate-50">
-                <span className="mr-2 text-slate-400">{index + 1}</span>
-                <DeckBadge song={entry.song} />
-                {entry.song.title || t('songs.untitled')}
-              </h3>
-            </header>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-              {entry.pieces.map((piece) => {
-                const active =
-                  presented?.itemId === entry.item.id && presented.pieceId === piece.id;
-                return (
-                  <div
-                    key={piece.id}
-                    className={`relative rounded-md border-2 px-2 py-2 text-center text-sm leading-snug ${
-                      active
-                        ? session.live?.blank
-                          ? 'border-amber-400 bg-amber-900/30'
-                          : 'border-emerald-500 bg-emerald-900/40'
-                        : 'border-slate-700 bg-slate-800'
-                    }`}
-                  >
-                    {isLastShown(session.live, presented, entry, piece.id) && <LastShownChip />}
-                    {piece.image && entry.song.deck ? (
-                      <SlideImage
-                        image={piece.image}
-                        className="w-full rounded-sm"
-                        style={{
-                          aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
-                        }}
-                      />
-                    ) : (
-                      piece.lines.map((line) => (
-                        <span key={line.id} className="block truncate whitespace-pre">
-                          {line.text}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </main>
-    </div>
-  );
 }
 
 function NotLive(props: { outputPanel: React.ReactNode }) {
@@ -190,10 +110,18 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
   );
 }
 
-function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
+/**
+ * The live run sheet and its slides. In viewer mode (decision D16) the same layout shows what
+ * is presented, read-only: no search, no controls, no editing, and the column follows the
+ * presented slide. Before anything is live, a viewer waits here too.
+ */
+function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnly?: boolean }) {
+  const { viewOnly = false } = props;
   const session = useSession();
-  const liveDate = session.liveDate!;
-  const live = session.live!;
+  const { live: link } = useCloud();
+  // Only a viewer comes here without a live run sheet.
+  const liveDate = session.liveDate;
+  const live = session.isLive ? session.live : null;
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [chosenTab, setChosenTab] = useState(lastPanelTab);
@@ -219,24 +147,30 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   const [activeInView, setActiveInView] = useState(true);
 
   const previous = session.presentingPreviousContent;
-  const presented = previous ? null : live.presented;
-  const entries = view?.date === liveDate ? view.entries : [];
+  const presented = previous ? null : (live?.presented ?? null);
+  const entries = view && view.date === liveDate ? view.entries : [];
   // The video the control bar is for, when a video item is live (M6.4).
   const presentedVideoFile =
     entries.find((entry) => entry.item.id === session.video?.itemId)?.song.video?.file ?? null;
   // The item the slide keys act on: the one moved to with left and right, else the presented
   // one, or the first before anything is.
-  const browsedItemId = entries.some((entry) => entry.item.id === session.browsedItemId)
-    ? session.browsedItemId
-    : null;
-  const keyedItemId = browsedItemId ?? presented?.itemId ?? entries[0]?.item.id ?? null;
-  const showKeptTooLong = session.keptTooLong && !dismissedNotices.has(liveDate);
-  const blankStyle = live.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
+  const browsedItemId =
+    !viewOnly && entries.some((entry) => entry.item.id === session.browsedItemId)
+      ? session.browsedItemId
+      : null;
+  // A viewer has no slide keys.
+  const keyedItemId = viewOnly
+    ? null
+    : (browsedItemId ?? presented?.itemId ?? entries[0]?.item.id ?? null);
+  const showKeptTooLong =
+    !viewOnly && !!liveDate && session.keptTooLong && !dismissedNotices.has(liveDate);
+  const blankStyle = live?.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
   useScrollMemory(slidesRef, `present.slides:${liveDate}`);
   useScrollMemory(slideshowRef, 'present.slideshow');
 
   useEffect(() => {
+    if (viewOnly) return;
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
       const action = presentAction(event, { video: videoKeys(session) });
@@ -247,7 +181,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [session]);
+  }, [session, viewOnly]);
 
   useEffect(() => {
     const active = activeRef.current;
@@ -255,7 +189,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     const clicked = clickedItemRef.current;
     shownItemRef.current = presented?.itemId ?? null;
     clickedItemRef.current = false;
-    const following = performance.now() < followUntilRef.current;
+    // A viewer always follows the presented slide.
+    const following = viewOnly || performance.now() < followUntilRef.current;
     followUntilRef.current = 0;
     if (!active || !following) return;
 
@@ -264,7 +199,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
     const section = active.closest('section');
     if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
     active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [presented?.itemId, presented?.pieceId]);
+  }, [presented?.itemId, presented?.pieceId, viewOnly]);
 
   /** Lets the column follow the move about to be made here. */
   function follow() {
@@ -305,7 +240,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   }
 
   function showItem(itemId: string) {
-    void session.browseTo(itemId);
+    if (!viewOnly) void session.browseTo(itemId);
     const section = slidesRef.current?.querySelector(`section[data-item-id="${itemId}"]`);
     if (!section) return;
     scrollToTop(section);
@@ -315,10 +250,25 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="space-y-2 px-4 pt-3 empty:hidden">
+        {viewOnly && (
+          <div className="notice border-slate-600 bg-slate-800/70 text-slate-300">
+            <span className="rounded bg-slate-600 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-slate-100 uppercase ring-1 ring-slate-400/60">
+              {t('viewer.label')}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {session.isLive && link?.coordinatorName
+                ? t('viewer.following', { name: link.coordinatorName })
+                : t('viewer.waiting')}
+            </span>
+            {liveDate && (
+              <span className="shrink-0 text-xs text-slate-400">{formatDate(liveDate)}</span>
+            )}
+          </div>
+        )}
         {showKeptTooLong && (
           <div className="notice border-amber-500 bg-amber-900/40 text-amber-100">
             <span className="flex-1">
-              {t('present.keptTooLong', { date: formatDate(liveDate) })}
+              {t('present.keptTooLong', { date: formatDate(liveDate!) })}
             </span>
             <button className="btn btn-sm" onClick={() => void session.goLive(nextDate)}>
               {t('present.keptTooLongAction', { next: formatDate(nextDate) })}
@@ -326,7 +276,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => {
-                dismissedNotices.add(liveDate);
+                dismissedNotices.add(liveDate!);
                 setDismissed((n) => n + 1);
               }}
             >
@@ -334,7 +284,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             </button>
           </div>
         )}
-        {previous && (
+        {previous && !viewOnly && (
           <div className="notice border-sky-600 bg-sky-900/40 text-sky-100">
             <strong>{t('present.previousContent')}</strong>
             <span className="flex-1">{t('present.previousContentBody')}</span>
@@ -378,61 +328,73 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             role="tabpanel"
             className={`min-h-0 flex-1 flex-col ${panelTab === 'runSheet' ? 'flex' : 'hidden'}`}
           >
-            <RunSheetEditor
-              date={liveDate}
-              activeItemId={presented?.itemId ?? null}
-              keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
-              onSelectItem={showItem}
-              searchOnly
-              onRevealSearch={() => {
-                lastPanelTab = 'runSheet';
-                setChosenTab('runSheet');
-              }}
-              footer={
-                <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
-                  <button
-                    className="btn px-0 py-2"
-                    title={t('present.previous')}
-                    aria-label={t('present.previous')}
-                    onClick={() => {
-                      follow();
-                      void session.previous();
-                    }}
-                  >
-                    <Icon name="previous" />
-                  </button>
-                  <button
-                    className="btn btn-primary px-0 py-2"
-                    title={t('present.next')}
-                    aria-label={t('present.next')}
-                    onClick={() => {
-                      follow();
-                      void session.next();
-                    }}
-                  >
-                    <Icon name="next" />
-                  </button>
-                  <button
-                    className={`btn px-0 py-2 ${blankStyle}`}
-                    title={live.blank ? t('present.unblank') : t('present.blank')}
-                    aria-label={live.blank ? t('present.unblank') : t('present.blank')}
-                    onClick={() => void session.setBlank(!live.blank)}
-                  >
-                    <Icon name="blank" />
-                  </button>
-                  <button
-                    className="btn px-0 py-2"
-                    title={t('present.clear')}
-                    aria-label={t('present.clear')}
-                    disabled={!live.presented}
-                    onClick={() => void session.clear()}
-                  >
-                    <Icon name="clear" />
-                  </button>
-                  <OutputPanel compact />
-                </div>
-              }
-            />
+            {!liveDate ? (
+              <p className="px-1 py-2 text-sm text-slate-500">{t('viewer.waiting')}</p>
+            ) : viewOnly ? (
+              <RunSheetEditor
+                date={liveDate}
+                activeItemId={presented?.itemId ?? null}
+                onSelectItem={showItem}
+                searchOnly
+                readOnly
+              />
+            ) : (
+              <RunSheetEditor
+                date={liveDate}
+                activeItemId={presented?.itemId ?? null}
+                keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
+                onSelectItem={showItem}
+                searchOnly
+                onRevealSearch={() => {
+                  lastPanelTab = 'runSheet';
+                  setChosenTab('runSheet');
+                }}
+                footer={
+                  <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
+                    <button
+                      className="btn px-0 py-2"
+                      title={t('present.previous')}
+                      aria-label={t('present.previous')}
+                      onClick={() => {
+                        follow();
+                        void session.previous();
+                      }}
+                    >
+                      <Icon name="previous" />
+                    </button>
+                    <button
+                      className="btn btn-primary px-0 py-2"
+                      title={t('present.next')}
+                      aria-label={t('present.next')}
+                      onClick={() => {
+                        follow();
+                        void session.next();
+                      }}
+                    >
+                      <Icon name="next" />
+                    </button>
+                    <button
+                      className={`btn px-0 py-2 ${blankStyle}`}
+                      title={live?.blank ? t('present.unblank') : t('present.blank')}
+                      aria-label={live?.blank ? t('present.unblank') : t('present.blank')}
+                      onClick={() => void session.setBlank(!live?.blank)}
+                    >
+                      <Icon name="blank" />
+                    </button>
+                    <button
+                      className="btn px-0 py-2"
+                      title={t('present.clear')}
+                      aria-label={t('present.clear')}
+                      disabled={!live?.presented}
+                      onClick={() => void session.clear()}
+                    >
+                      <Icon name="clear" />
+                    </button>
+                    <OutputPanel compact />
+                  </div>
+                }
+              />
+            )}
           </div>
           {/* Always scrollable: a scroll bar that comes and goes narrows the preview, which
               changes its height, which can bring the scroll bar back, and so on. */}
@@ -444,48 +406,53 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             <div className="flex min-h-full flex-col gap-3">
               <section className="space-y-2">
                 <SlidePreview />
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      follow();
-                      void session.previous();
-                    }}
-                  >
-                    {t('present.previous')} <KeyHint>↑</KeyHint>
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => {
-                      follow();
-                      void session.next();
-                    }}
-                  >
-                    {t('present.next')} <KeyHint>↓</KeyHint>
-                  </button>
-                  <button
-                    className={`btn col-span-2 ${blankStyle}`}
-                    onClick={() => void session.setBlank(!live.blank)}
-                  >
-                    {live.blank ? t('present.unblank') : t('present.blank')} <KeyHint>.</KeyHint>
-                  </button>
-                  <button
-                    className="btn col-span-2"
-                    disabled={!live.presented}
-                    onClick={() => void session.clear()}
-                  >
-                    {t('present.clear')} <KeyHint>Del</KeyHint>
-                  </button>
-                </div>
-                <p className="text-center text-xs text-slate-500">
-                  {t(
-                    {
-                      keyed: 'present.videoShortcuts' as const,
-                      live: 'present.videoLiveShortcuts' as const,
-                      none: 'present.shortcuts' as const,
-                    }[videoKeys(session) ?? 'none'],
-                  )}
-                </p>
+                {!viewOnly && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          follow();
+                          void session.previous();
+                        }}
+                      >
+                        {t('present.previous')} <KeyHint>↑</KeyHint>
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => {
+                          follow();
+                          void session.next();
+                        }}
+                      >
+                        {t('present.next')} <KeyHint>↓</KeyHint>
+                      </button>
+                      <button
+                        className={`btn col-span-2 ${blankStyle}`}
+                        onClick={() => void session.setBlank(!live?.blank)}
+                      >
+                        {live?.blank ? t('present.unblank') : t('present.blank')}{' '}
+                        <KeyHint>.</KeyHint>
+                      </button>
+                      <button
+                        className="btn col-span-2"
+                        disabled={!live?.presented}
+                        onClick={() => void session.clear()}
+                      >
+                        {t('present.clear')} <KeyHint>Del</KeyHint>
+                      </button>
+                    </div>
+                    <p className="text-center text-xs text-slate-500">
+                      {t(
+                        {
+                          keyed: 'present.videoShortcuts' as const,
+                          live: 'present.videoLiveShortcuts' as const,
+                          none: 'present.shortcuts' as const,
+                        }[videoKeys(session) ?? 'none'],
+                      )}
+                    </p>
+                  </>
+                )}
               </section>
               <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
                 {props.outputPanel}
@@ -512,7 +479,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
           <ObsLiveMonitor />
           <div className="relative min-h-0 flex-1">
             <main ref={slidesRef} className="h-full space-y-4 overflow-auto pr-1">
-              {view && entries.length === 0 && (
+              {!liveDate && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
+              {liveDate && view && entries.length === 0 && (
                 <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
               )}
               {entries.map((entry, index) => {
@@ -541,7 +509,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                         <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
                       )}
                       <span className="flex-1" />
-                      {!entry.song.removedAt && (
+                      {!entry.song.removedAt && !viewOnly && (
                         <button
                           className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
                           onClick={() => setEditingSong(entry.song)}
@@ -565,6 +533,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                           <button
                             key={piece.id}
                             ref={active ? activeRef : undefined}
+                            // A viewer sees the slides but cannot present them.
+                            disabled={viewOnly}
                             onClick={() => {
                               if (entry.item.id !== presented?.itemId)
                                 clickedItemRef.current = true;
@@ -573,14 +543,14 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
                             }}
                             className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
                               active
-                                ? live.blank
+                                ? live?.blank
                                   ? 'border-amber-400 bg-amber-900/30'
                                   : 'border-emerald-500 bg-emerald-900/40'
                                 : // Alternate a lyrics song's styles by block so its slides read as
                                   // groups; decks, PDFs, images, videos and websites keep one style.
                                   shaded
-                                  ? 'border-sky-700 bg-sky-900/60 hover:border-sky-500'
-                                  : 'border-slate-700 bg-slate-800 hover:border-slate-500'
+                                  ? `border-sky-700 bg-sky-900/60 ${viewOnly ? '' : 'hover:border-sky-500'}`
+                                  : `border-slate-700 bg-slate-800 ${viewOnly ? '' : 'hover:border-slate-500'}`
                             } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
                           >
                             {keyLabel && (
@@ -627,7 +597,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
             {presented && !activeInView && (
               <button
                 className={`absolute right-4 bottom-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
-                  live.blank
+                  live?.blank
                     ? 'border-amber-400 text-amber-300'
                     : 'border-emerald-500 text-emerald-300'
                 }`}
@@ -641,7 +611,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean }) {
               </button>
             )}
           </div>
-          <VideoControls file={presentedVideoFile} />
+          {!viewOnly && <VideoControls file={presentedVideoFile} />}
         </div>
       </div>
 
