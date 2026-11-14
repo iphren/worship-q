@@ -46,6 +46,45 @@ pub fn ignore_covering(webview: &tauri::Webview) {
 #[cfg(not(target_os = "macos"))]
 pub fn ignore_covering(_webview: &tauri::Webview) {}
 
+/// Tells macOS the app is at work for its user while the slideshow is open, so the app is
+/// not napped once none of its windows is in view: with one display, moving to another
+/// desktop takes them all away, and the napped app would be slow to pass on what a remote
+/// asks for. The computer may still go to sleep when idle.
+#[cfg(target_os = "macos")]
+fn set_presenting(on: bool) {
+    use objc2::rc::Retained;
+    use objc2::runtime::{NSObjectProtocol, ProtocolObject};
+    use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
+    use std::sync::Mutex;
+
+    /// What the system gave for the activity, to hand back when it ends.
+    struct Activity(Retained<ProtocolObject<dyn NSObjectProtocol>>);
+    // The system's activities may be begun and ended from any thread.
+    unsafe impl Send for Activity {}
+
+    static ACTIVITY: Mutex<Option<Activity>> = Mutex::new(None);
+
+    let Ok(mut activity) = ACTIVITY.lock() else {
+        return;
+    };
+    if on && activity.is_none() {
+        let reason = NSString::from_str("Worship Q is showing a slideshow");
+        *activity = Some(Activity(
+            NSProcessInfo::processInfo().beginActivityWithOptions_reason(
+                NSActivityOptions::UserInitiatedAllowingIdleSystemSleep,
+                &reason,
+            ),
+        ));
+    } else if !on {
+        if let Some(Activity(token)) = activity.take() {
+            unsafe { NSProcessInfo::processInfo().endActivity(&token) };
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_presenting(_on: bool) {}
+
 // The output is looked up as a window, never as a webview window: once it hosts the website's
 // webview as well, the system no longer counts it as one, and it would seem to be closed.
 /// The webview over the slideshow that shows a presented website.
@@ -221,6 +260,7 @@ pub async fn open_output(
                     .map_err(|e| e.to_string())?;
             // A windowed slideshow can itself be covered, by the main window.
             ignore_covering(built.as_ref());
+            set_presenting(true);
             built.as_ref().window()
         }
     };
@@ -240,6 +280,7 @@ pub async fn close_output(app: AppHandle) -> Result<(), String> {
         let _ = window.hide();
         window.destroy().map_err(|e| e.to_string())?;
     }
+    set_presenting(false);
     Ok(())
 }
 
