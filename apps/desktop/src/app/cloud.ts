@@ -1263,6 +1263,7 @@ export class CloudController {
       },
       backup,
       presentationLog: this.presentationLog,
+      syncContent: () => this.sync(),
       obs: this.obs,
       obsSupported: () => this.obsSupported(),
       audio: this.audio,

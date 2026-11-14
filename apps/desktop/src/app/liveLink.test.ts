@@ -16,6 +16,7 @@ import { Relay, type RelayDirectory, type Socket } from '@worship-q/relay';
 import { RemoteHost } from '@worship-q/remote';
 import { Session } from '@worship-q/session';
 import { migrate, Store, SyncStore } from '@worship-q/store';
+import type { Song } from '@worship-q/protocol';
 import { openNodeDriver } from '@worship-q/store/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveLink, type LiveBackupApi } from './liveLink';
@@ -74,6 +75,38 @@ function backupStore(): LiveBackupApi & { stored: LiveSnapshot | null; grants: W
   return store;
 }
 
+/** Gives a desktop a song as the church instance would send it. */
+async function receiveSong(session: Session, store: Store, song: Song): Promise<void> {
+  const { revision, updatedAt } = song;
+  const fields: Record<string, unknown> = { ...song };
+  delete fields.workspaceId;
+  delete fields.id;
+  delete fields.revision;
+  delete fields.updatedAt;
+  await session.applyRemote(() =>
+    new SyncStore(store).applyRemote(session.workspace.id, [
+      { kind: 'song', id: song.id, key: song.id, revision, updatedAt, data: fields },
+    ]),
+  );
+}
+
+/**
+ * The church instance's content, songs only: a desktop's sync sends the songs it made and
+ * takes the ones it lacks. Nothing reaches another desktop until both have synced.
+ */
+function contentServer() {
+  const songs = new Map<string, Song>();
+  return {
+    songs,
+    sync: async (session: Session, store: Store) => {
+      for (const song of await store.listSongs(session.workspace.id))
+        if (!songs.has(song.id)) songs.set(song.id, song);
+      for (const song of songs.values())
+        if (!(await store.getSong(song.id))) await receiveSong(session, store, song);
+    },
+  };
+}
+
 const cleanups: (() => void)[] = [];
 afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
@@ -100,6 +133,8 @@ async function desktop(
     audio?: boolean;
     /** Writes the presentation log, sending it to this fake server while it is reachable. */
     log?: { batches: LogBatch[]; reachable: () => boolean };
+    /** Syncs content with this fake church instance when the live link asks. */
+    content?: ReturnType<typeof contentServer>;
   } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
@@ -237,6 +272,7 @@ async function desktop(
     deviceName: () => name,
     presentationLog,
     capabilities,
+    syncContent: options.content ? () => options.content!.sync(session, store) : undefined,
     obs,
     obsSupported: options.obsSupported,
     audio,
@@ -322,28 +358,21 @@ async function desktop(
   };
 }
 
-async function venue(options: { backup?: boolean } = {}) {
+async function venue(
+  options: { backup?: boolean; content?: ReturnType<typeof contentServer> } = {},
+) {
   const time = clock();
   const dir = directory();
   const relay = new Relay(dir, time.ms);
   const backup = options.backup === false ? null : backupStore();
-  const a = await desktop('Projector', time, relay, dir, backup);
+  const { content } = options;
+  const a = await desktop('Projector', time, relay, dir, backup, { content });
   const song = await a.session.createSong({ title: 'Amazing Grace', lyrics: 'one\ntwo\n\nthree' });
   await a.session.addSong(SUNDAY, song.id);
-  const b = await desktop('Streaming', time, relay, dir, backup);
+  const b = await desktop('Streaming', time, relay, dir, backup, { content });
   // Content synchronization is not part of this: the follower is given the same song as the
   // instance would send it.
-  const { revision, updatedAt } = song;
-  const fields: Record<string, unknown> = { ...song };
-  delete fields.workspaceId;
-  delete fields.id;
-  delete fields.revision;
-  delete fields.updatedAt;
-  await b.session.applyRemote(() =>
-    new SyncStore(b.store).applyRemote(b.session.workspace.id, [
-      { kind: 'song', id: song.id, key: song.id, revision, updatedAt, data: fields },
-    ]),
-  );
+  await receiveSong(b.session, b.store, song);
   await settle();
   return { time, dir, relay, backup, a, b, song };
 }
@@ -491,6 +520,50 @@ describe('operators together (M2)', () => {
       expect.objectContaining({ name: 'Streaming', undoable: false }),
     ]);
     expect(b.session.snapshot?.items).toHaveLength(2);
+  });
+
+  it('adds a song just made on a follower to the live run sheet, sending the song first', async () => {
+    // As an upload dropped on the live run sheet does: the song is made here, then added.
+    const content = contentServer();
+    const { a, b } = await venue({ content });
+    const made = await b.session.createSong({ title: 'Dropped deck', lyrics: 'page' });
+    await b.session.addSong(SUNDAY, made.id);
+    await settle();
+    expect((await a.session.viewLive())!.entries.map((e) => e.song.title)).toEqual([
+      'Amazing Grace',
+      'Dropped deck',
+    ]);
+    expect(b.session.snapshot?.items.map((item) => item.title)).toEqual([
+      'Amazing Grace',
+      'Dropped deck',
+    ]);
+  });
+
+  it('keeps a follower’s commands in order behind an add that waits for the song to be sent', async () => {
+    const content = contentServer();
+    const { a, b, song } = await venue({ content });
+    const made = await b.session.createSong({ title: 'Dropped deck', lyrics: 'page' });
+    await b.session.addSong(SUNDAY, made.id);
+    await b.session.addSong(SUNDAY, song.id);
+    await settle();
+    expect((await a.session.viewLive())!.entries.map((e) => e.song.title)).toEqual([
+      'Amazing Grace',
+      'Dropped deck',
+      'Amazing Grace',
+    ]);
+  });
+
+  it('still sends the add when the follower cannot reach the church instance', async () => {
+    const content = contentServer();
+    const { a, b, song } = await venue({ content });
+    const sync = content.sync;
+    content.sync = async () => {
+      throw new Error('offline');
+    };
+    await b.session.addSong(SUNDAY, song.id);
+    await settle();
+    content.sync = sync;
+    expect((await a.session.viewLive())!.entries).toHaveLength(2);
   });
 
   it('a grant approved on the follower is accepted by the coordinator, and lives on without the follower (M2.6)', async () => {

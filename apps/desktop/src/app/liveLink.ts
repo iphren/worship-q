@@ -112,6 +112,13 @@ export interface LiveLinkDeps {
    * as coordinator, and null when it stops coordinating. A follower tells it nothing.
    */
   presentationLog?: { observe(snapshot: LiveSnapshot | null): unknown } | null;
+  /**
+   * Syncs content with the church instance: sends this computer's changes and takes the
+   * others'. A song reaches another desktop only this way, so a follower sends a song before
+   * asking the coordinator to add it, and the coordinator takes it before adding it. Absent in
+   * tests that leave content out.
+   */
+  syncContent?: () => Promise<void>;
   newId?: () => string;
   now?: () => number;
 }
@@ -137,6 +144,8 @@ export class LiveLink {
   private backupTimer: ReturnType<typeof setTimeout> | null = null;
   private backupDue: LiveSnapshot | null = null;
   private aliveTimer: ReturnType<typeof setInterval> | null = null;
+  /** A follower's commands waiting behind an add whose song is being sent first. */
+  private outgoing: Promise<void> | null = null;
   private watchTimer: ReturnType<typeof setInterval> | null = null;
   private unsubscribe: (() => void) | null = null;
   private readonly forwards = new Map<
@@ -464,7 +473,30 @@ export class LiveLink {
       deviceId: this.deps.deviceId(),
       name: this.deps.deviceName(),
     };
-    this.toCoordinator(this.follower.command(this.newId(), origin, command));
+    const id = this.newId();
+    const send = () => this.toCoordinator(this.follower.command(id, origin, command));
+    const { syncContent } = this.deps;
+    if (!this.outgoing && (command.type !== 'addItem' || !syncContent)) return send();
+    // The song may have been made here a moment ago, as an upload is (U16): the coordinator
+    // refuses a song it does not have, so it is sent to the church instance first. Commands
+    // after it wait, so they arrive in the order given.
+    const sending: Promise<void> = (this.outgoing ?? Promise.resolve())
+      .then(async () => {
+        if (command.type === 'addItem') await syncContent?.().catch(() => undefined);
+        send();
+      })
+      .finally(() => {
+        if (this.outgoing === sending) this.outgoing = null;
+      });
+    this.outgoing = sending;
+  }
+
+  /** Takes content from the church instance when an add names a song this computer lacks. */
+  private async songArrived(command: OperatorCommand): Promise<void> {
+    const { syncContent } = this.deps;
+    if (command.type !== 'addItem' || !syncContent) return;
+    if (await this.deps.session.store.getSong(command.songId)) return;
+    await syncContent().catch(() => undefined);
   }
 
   /** A phone's command, in the phone's name (D25); resolves with the coordinator's answer. */
@@ -549,6 +581,7 @@ export class LiveLink {
     this.coordinator = new Coordinator(
       {
         apply: async (id, command, origin) => {
+          await this.songArrived(command);
           const outcome = await session.applyOperatorCommand(id, command, origin);
           if (outcome.change) this.announceEdit(origin, outcome.change);
           return outcome.result;
