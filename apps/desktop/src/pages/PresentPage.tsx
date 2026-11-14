@@ -276,7 +276,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
             {liveDate && (
               <span className="shrink-0 text-xs text-slate-400">{formatDate(liveDate)}</span>
             )}
-            <button className="btn btn-sm shrink-0" onClick={() => chooseSimpleView(true)}>
+            <button className="btn btn-live btn-sm shrink-0" onClick={() => chooseSimpleView(true)}>
               {t('viewer.simpleView')}
             </button>
           </div>
@@ -687,7 +687,10 @@ function SimpleView(props: { title: string | null; onLeave: () => void }) {
           <SubtitlePreview frame={status.subtitle} />
         </section>
         <p className="mt-1 text-sm text-slate-400">{t('viewer.viewingOnly')}</p>
-        <button className="btn" onClick={props.onLeave}>
+        <button
+          className="btn bg-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          onClick={props.onLeave}
+        >
           {t('viewer.fullView')}
         </button>
       </div>
