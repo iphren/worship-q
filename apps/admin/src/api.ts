@@ -21,6 +21,7 @@ import {
   type AdminMe,
   type AdminPairingRequest,
   type AdminStorage,
+  type AdminRecords,
   type AdminWorkspace,
   type AdminBible,
   type ChurchSettings,
@@ -117,6 +118,14 @@ export const api = {
       { types },
     ),
   live: (id: string) => request<AdminLiveView>('GET', `${ADMIN}/workspaces/${encode(id)}/live`),
+  /** A workspace's recordings and presentation log for `[from, to)` (service records R11, R19). */
+  records: (id: string, from: string, to: string) =>
+    request<AdminRecords>(
+      'GET',
+      `${ADMIN}/workspaces/${encode(id)}/records?from=${encode(from)}&to=${encode(to)}`,
+    ),
+  deleteRecording: (id: string) =>
+    request<{ removed: boolean }>('DELETE', `${ADMIN}/recordings/${encode(id)}`),
   runSheetDays: (id: string) =>
     request<AdminRunSheetDays>('GET', `${ADMIN}/workspaces/${encode(id)}/run-sheets`),
   runSheet: (id: string, date: string) =>
@@ -175,7 +184,11 @@ export const api = {
   removeAdministrator: (id: string) =>
     request<{ removed: boolean }>('DELETE', `${ADMIN}/administrators/${encode(id)}`),
 
-  settings: () => request<{ settings: ChurchSettings; keys: string[] }>('GET', `${ADMIN}/settings`),
+  settings: () =>
+    request<{ settings: ChurchSettings; keys: string[]; recordingDays?: number }>(
+      'GET',
+      `${ADMIN}/settings`,
+    ),
   bible: () => request<AdminBible>('GET', `${ADMIN}/bible`),
   setSetting: (key: keyof ChurchSettings, value: number | boolean | string | string[] | null) =>
     request<{ settings: ChurchSettings }>('PUT', `${ADMIN}/settings`, { key, value }),

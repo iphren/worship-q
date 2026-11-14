@@ -1,6 +1,7 @@
 import type { AdminDevice, LiveSnapshot } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import {
+  dayRange,
   errorText,
   expiryText,
   formatBytes,
@@ -16,6 +17,7 @@ import {
   parseRoute,
   relativeTime,
   routePath,
+  runTime,
   usedPercent,
 } from './format';
 
@@ -323,5 +325,22 @@ describe('OBS outputs', () => {
     expect(obsOutputText(output, 61_000)).toBe('1:01');
     expect(obsOutputText({ ...output, paused: true }, 61_000)).toBe('1:01 · Paused');
     expect(obsOutputText({ ...output, durationMs: null }, null)).toBe('On');
+  });
+});
+
+describe('service records (R11, R19)', () => {
+  it('makes a day in the browser’s time into the instants it starts and ends at', () => {
+    const { from, to } = dayRange('2026-11-15');
+    expect(Date.parse(to) - Date.parse(from)).toBeGreaterThanOrEqual(23 * 3600_000);
+    expect(new Date(from).getDate()).toBe(15);
+    expect(new Date(to).getDate()).toBe(16);
+  });
+
+  it('measures a run to its end, or to now while it goes on', () => {
+    const start = '2026-11-15T10:00:00.000Z';
+    expect(formatDuration(runTime(start, '2026-11-15T10:01:05.000Z', 0))).toBe('1:05');
+    expect(formatDuration(runTime(start, null, Date.parse('2026-11-15T11:00:00.000Z')))).toBe(
+      '1:00:00',
+    );
   });
 });

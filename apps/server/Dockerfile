@@ -39,6 +39,7 @@ COPY --from=build /repo/apps/admin/dist ./admin
 # The server runs as `node`; a new volume takes this folder's owner.
 RUN mkdir -p /data && chown node:node /data
 VOLUME /data
-EXPOSE 8080
+# 8081 is the local API (service records R20): publish it on 127.0.0.1 only.
+EXPOSE 8080 8081
 USER node
 CMD ["node", "--no-warnings", "dist/main.js"]

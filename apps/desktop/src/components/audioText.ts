@@ -43,6 +43,34 @@ export function broadcastAdvice(shared: AudioShared): string | null {
   }
 }
 
+/** Recordings waiting are mentioned from this much, about two minutes of sound. */
+export const RECORDING_WAITING_SHOWN_BYTES = 1024 * 1024;
+
+/**
+ * The note under the switch (service records R6): that the broadcast is recorded on the
+ * church's server, only while the server records. Said nowhere else.
+ */
+export function recordingNote(shared: AudioShared): string | null {
+  return shared.recording?.churchRecords ? t('audio.recordedNote') : null;
+}
+
+/**
+ * What is unusual about the recording, for the status line: how much waits to upload, that
+ * some was dropped, or that it is not recorded and why; null when there is nothing to say.
+ */
+export function recordingStatusText(shared: AudioShared): string | null {
+  const recording = shared.recording;
+  if (!shared.switchOn || !recording) return null;
+  if (!recording.churchRecords) return t('audio.recording.off');
+  if (recording.idle === 'unsupported') return t('audio.recording.unsupported');
+  if (recording.dropped > 0) return t('audio.recording.dropped');
+  if (recording.waitingBytes >= RECORDING_WAITING_SHOWN_BYTES) {
+    const mb = recording.waitingBytes / (1024 * 1024);
+    return t('audio.recording.waiting', { size: `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB` });
+  }
+  return null;
+}
+
 /** The colour of the status dot: live, waiting or wrong. */
 export function broadcastTone(shared: AudioShared): 'live' | 'waiting' | 'error' | 'off' {
   if (!shared.switchOn) return 'off';

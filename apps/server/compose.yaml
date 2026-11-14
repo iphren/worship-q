@@ -32,9 +32,17 @@ services:
       WORSHIP_Q_STUN: ${WORSHIP_Q_STUN-stun:stun.l.google.com:19302}
       WORSHIP_Q_TURN_URL: ${WORSHIP_Q_TURN_URL:-}
       WORSHIP_Q_TURN_SECRET: ${WORSHIP_Q_TURN_SECRET:-}
-    # Your reverse proxy forwards to this port; it is only reachable from this machine.
+      # Service records. Days recordings of live audio are kept; 0 keeps them for ever.
+      # Recording itself is switched on and off in the admin app's Settings.
+      WORSHIP_Q_RECORDING_DAYS: ${WORSHIP_Q_RECORDING_DAYS:-90}
+      # The local API's port inside the container; empty turns it off.
+      WORSHIP_Q_LOCAL_PORT: ${WORSHIP_Q_LOCAL_PORT-8081}
+    # Your reverse proxy forwards to the first port; it is only reachable from this machine.
+    # The second is the local API, for other services on this machine. It has no key: never
+    # point the reverse proxy at it, and never publish it on anything but 127.0.0.1.
     ports:
       - '127.0.0.1:${WORSHIP_Q_PORT:-8080}:8080'
+      - '127.0.0.1:${WORSHIP_Q_LOCAL_API_PORT:-8081}:8081'
     volumes:
       - worship-q-data:/data
 

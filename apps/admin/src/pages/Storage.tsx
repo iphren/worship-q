@@ -13,6 +13,7 @@ const TYPES: { type: StorageType; label: string }[] = [
   { type: 'backgroundImages', label: 'Background images' },
   { type: 'backgroundVideos', label: 'Background videos' },
   { type: 'backups', label: 'Backups' },
+  { type: 'recordings', label: 'Live audio recordings' },
   { type: 'database', label: 'Database' },
   { type: 'other', label: 'Other' },
 ];

@@ -683,6 +683,13 @@ export const en = {
   'audio.elsewhere': '{name} is broadcasting live audio.',
   'audio.sharingBlocked':
     'The church server must be updated before other devices can hear this broadcast. Capture and the level meter work meanwhile.',
+  'audio.recordedNote':
+    'The broadcast is recorded on the church’s server, while the church records live audio.',
+  'audio.recording.off': 'Not recorded: the church has turned recording off.',
+  'audio.recording.unsupported': 'Not recorded: this computer cannot record audio.',
+  'audio.recording.dropped':
+    'Some of the recording was dropped: too much was waiting to upload to the church’s server.',
+  'audio.recording.waiting': '{size} of the recording waiting to upload',
   'audio.keepAwake':
     'The display stays awake while broadcasting. Turn off any screen lock on this computer.',
   'listen.from': 'Live audio from {name}',

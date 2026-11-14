@@ -21,6 +21,7 @@ import {
   AudioStateSchema,
   isCompatibleProtocol,
   LiveSnapshotSchema,
+  LogBatchSchema,
   MIN_PROTOCOL_VERSION,
   ObsSnapshotSchema,
   ObsStateSchema,
@@ -28,6 +29,10 @@ import {
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
   PushRequestSchema,
+  RECORDING_CHUNK_MAX_BYTES,
+  RECORDING_ID,
+  RecordingCompleteSchema,
+  RecordingOpenSchema,
   TOO_LARGE,
   UPDATE_NEEDED,
   VIDEO_FILE,
@@ -40,6 +45,7 @@ import {
   type PairingStartResponse,
   type PullResponse,
   type PushResponse,
+  type RecordingChunkResponse,
   type RestoreResponse,
   type ServerInfo,
   type BiblePassageResponse,
@@ -70,6 +76,8 @@ import { AudioReports } from './audioReports';
 import { DEFAULT_STUN, iceServers, type IceConfig } from './ice';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
+import { DEFAULT_RECORDING_DAYS, Recordings, type RecordingError } from './recordings';
+import { PresentationLog } from './presentationLog';
 import { Relay } from '@worship-q/relay';
 
 export interface ServerConfig {
@@ -110,6 +118,8 @@ export interface ServerConfig {
   bible?: Bible;
   /** The ICE servers for live audio (A10); see `iceConfigFromEnv`. The public STUN default. */
   ice?: IceConfig;
+  /** Days recordings of live audio are kept; 0 for ever (service records R10). */
+  recordingDays?: number;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
@@ -151,6 +161,9 @@ export async function buildServer(config: ServerConfig) {
     if (email.trim()) instance.seedAdministrator(email);
   }
   const retentionDays = config.retentionDays ?? DEFAULT_RETENTION_DAYS;
+  const recordingDays = config.recordingDays ?? DEFAULT_RECORDING_DAYS;
+  const recordings = new Recordings(instance, config.dataDir);
+  const presentationLog = new PresentationLog(instance);
   const retention =
     config.sweep === false
       ? null
@@ -158,11 +171,25 @@ export async function buildServer(config: ServerConfig) {
           try {
             const swept = sweepDeletedFiles(instance, config.dataDir, retentionDays);
             if (swept.files > 0) app.log.info(`Retention sweep removed ${swept.files} files`);
+            const removed = recordings.sweep(recordingDays);
+            if (removed > 0) app.log.info(`Retention sweep removed ${removed} recordings`);
           } catch (error) {
             app.log.error(error);
           }
         }, SWEEP_EVERY_MS);
   retention?.unref();
+  // Log entries left open by a coordinator that went away (service records R18).
+  const logSweeper =
+    config.sweep === false
+      ? null
+      : setInterval(() => {
+          try {
+            presentationLog.closeExpired();
+          } catch (error) {
+            app.log.error(error);
+          }
+        }, 5 * 60_000);
+  logSweeper?.unref();
   const app = Fastify({
     logger: config.logger ?? false,
     bodyLimit: 16 * 1024 * 1024,
@@ -295,6 +322,7 @@ export async function buildServer(config: ServerConfig) {
       media: { images: true, videos: true, limits },
       bible: config.bible ? config.bible.offered(instance.churchSettings()).length > 0 : false,
       audioRelay: ice.turn !== null,
+      records: { audio: recordings.enabled(), log: true },
     };
     return info;
   });
@@ -583,6 +611,70 @@ export async function buildServer(config: ServerConfig) {
         return reply.code(403).send({ error: 'not-owner' });
       }
       return { stored: audioReports.put(device.workspaceId, device.id, parsed.data.state) };
+    });
+
+    // ── Live audio recordings (service records R8) ─────────────────────────
+
+    /** Answers a refused recording request; refusals for good name the reason. */
+    const recordingRefused = (reply: FastifyReply, error: RecordingError) => {
+      if (typeof error === 'object') {
+        return reply.code(409).send({ error: 'gap', expected: error.expected });
+      }
+      const status = error === 'not-found' ? 404 : error === 'conflict' ? 409 : 403;
+      return reply.code(status).send({ error });
+    };
+
+    api.post('/api/v1/audio/recordings', async (request, reply) => {
+      const parsed = RecordingOpenSchema.safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-recording' });
+      const result = recordings.open(request.device!, parsed.data);
+      if ('error' in result) return recordingRefused(reply, result.error);
+      return { recording: result.recording };
+    });
+
+    api.put<{ Params: { id: string; seq: string } }>(
+      '/api/v1/audio/recordings/:id/chunks/:seq',
+      async (request, reply) => {
+        const { id } = request.params;
+        const seq = Number(request.params.seq);
+        if (!RECORDING_ID.test(id) || !Number.isInteger(seq) || seq < 0) {
+          return reply.code(400).send({ error: 'invalid-chunk' });
+        }
+        let bytes: Buffer;
+        try {
+          bytes = await readBody(request, RECORDING_CHUNK_MAX_BYTES);
+        } catch (error) {
+          return uploadRefused(reply, error);
+        }
+        const result = recordings.append(request.device!, id, seq, bytes);
+        if ('error' in result) return recordingRefused(reply, result.error);
+        return {
+          stored: true,
+          ...(result.duplicate ? { duplicate: true as const } : {}),
+          next: result.next,
+        } satisfies RecordingChunkResponse;
+      },
+    );
+
+    api.post<{ Params: { id: string } }>(
+      '/api/v1/audio/recordings/:id/complete',
+      async (request, reply) => {
+        const parsed = RecordingCompleteSchema.safeParse(request.body);
+        if (!parsed.success || !RECORDING_ID.test(request.params.id)) {
+          return reply.code(400).send({ error: 'invalid-recording' });
+        }
+        const result = recordings.complete(request.device!, request.params.id, parsed.data);
+        if ('error' in result) return recordingRefused(reply, result.error);
+        return { recording: result.recording };
+      },
+    );
+
+    // ── The presentation log (service records R17) ─────────────────────────
+
+    api.post('/api/v1/presentation-log', async (request, reply) => {
+      const parsed = LogBatchSchema.safeParse(request.body);
+      if (!parsed.success) return reply.code(400).send({ error: 'invalid-log' });
+      return { stored: presentationLog.put(request.device!, parsed.data) };
     });
 
     // ── Browser output links (D22) ─────────────────────────────────────────
@@ -990,6 +1082,9 @@ export async function buildServer(config: ServerConfig) {
     obsReports,
     audioReports,
     ice,
+    recordings,
+    presentationLog,
+    recordingDays,
     oidc: config.oidc ?? null,
     dataDir: config.dataDir,
     name: config.name,
@@ -1003,9 +1098,10 @@ export async function buildServer(config: ServerConfig) {
     clearInterval(sweeper);
     clearInterval(audioSweeper);
     if (retention) clearInterval(retention);
+    if (logSweeper) clearInterval(logSweeper);
   });
 
-  return { app, relay };
+  return { app, relay, recordings, presentationLog };
 }
 
 /** An upload refused while it arrived, with the answer to give. */
@@ -1017,6 +1113,33 @@ class UploadError extends Error {
   ) {
     super(code);
   }
+}
+
+/** Reads a small body whole; over `limit` bytes it is refused with 413, as `receive` does. */
+async function readBody(request: FastifyRequest, limit: number): Promise<Buffer> {
+  const body = request.body;
+  if (Buffer.isBuffer(body)) {
+    if (body.length > limit) throw new UploadError(413, TOO_LARGE, { limitBytes: limit });
+    return body;
+  }
+  const declared = Number(request.headers['content-length'] ?? NaN);
+  const stream = body as Readable;
+  if (declared > limit) {
+    stream.resume();
+    throw new UploadError(413, TOO_LARGE, { limitBytes: limit });
+  }
+  const parts: Buffer[] = [];
+  let size = 0;
+  for await (const part of stream) {
+    size += (part as Buffer).length;
+    if (size > limit) {
+      stream.destroy();
+      throw new UploadError(413, TOO_LARGE, { limitBytes: limit });
+    }
+    parts.push(part as Buffer);
+  }
+  if (size === 0) throw new UploadError(400, 'empty');
+  return Buffer.concat(parts);
 }
 
 /**

@@ -9,5 +9,7 @@ export * from './input';
 export * from './listener';
 export * from './meter';
 export * from './player';
+export * from './recorder';
+export * from './recordQueue';
 export * from './stats';
 export * from './timers';

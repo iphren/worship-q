@@ -10,6 +10,8 @@ import { iceConfigFromEnv } from './ice';
 import { mediaLimitsFromEnv } from './media';
 import { OidcClient, oidcConfigFromEnv } from './oidc';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
+import { recordingDaysFromEnv } from './recordings';
+import { buildLocalServer, localPortFromEnv } from './local';
 
 const dataDir = process.env.WORSHIP_Q_DATA ?? '/data';
 mkdirSync(dataDir, { recursive: true });
@@ -25,6 +27,8 @@ if (!oidcConfig) {
   );
 }
 const retentionDays = retentionDaysFromEnv(process.env);
+const recordingDays = recordingDaysFromEnv(process.env);
+const localPort = localPortFromEnv(process.env);
 // The church's Bible keys stay on this server (B17); only whether each is set is logged.
 const bibleKeys = bibleKeysFromEnv(process.env);
 const bible = new Bible({ dataDir, keys: bibleKeys });
@@ -38,13 +42,14 @@ const ice = iceConfigFromEnv(process.env);
 console.log(
   `Live audio: STUN ${ice.stun.length ? ice.stun.join(', ') : 'none'}, relay ${ice.turn ? 'on' : 'off'}`,
 );
-const { app } = await buildServer({
+const { app, recordings, presentationLog } = await buildServer({
   instance,
   dataDir,
   oidc: oidcConfig ? new OidcClient(oidcConfig) : null,
   publicUrl: process.env.WORSHIP_Q_PUBLIC_URL?.replace(/\/+$/, ''),
   administrators: (process.env.WORSHIP_Q_ADMINS ?? '').split(',').filter((e) => e.trim()),
   retentionDays,
+  recordingDays,
   mediaLimits: mediaLimitsFromEnv(process.env),
   bible,
   ice,
@@ -63,13 +68,44 @@ const { app } = await buildServer({
   logger: true,
 });
 
+// A chunk half-written when the server last stopped is cut off; the desktop sends it again.
+const repaired = recordings.repair();
+if (repaired > 0) console.log(`Recordings: cut back ${repaired} files to their last whole chunk`);
+console.log(
+  `Live audio recordings: ${recordings.enabled() ? 'on' : 'off'}, kept ${
+    recordingDays === 0 ? 'for ever' : `${recordingDays} days`
+  }`,
+);
+
 const port = Number(process.env.PORT ?? 8080);
 await app.listen({ port, host: process.env.HOST ?? '0.0.0.0' });
+// The local API (R20) listens on a port of its own, which must never be proxied: Compose
+// publishes it on 127.0.0.1 only. An empty WORSHIP_Q_LOCAL_PORT turns it off.
+const local =
+  localPort === null
+    ? null
+    : await buildLocalServer({
+        instance,
+        dataDir,
+        recordings,
+        presentationLog,
+        name: process.env.WORSHIP_Q_NAME ?? 'Worship Q',
+        logger: true,
+      });
+if (local) {
+  await local.listen({ port: localPort!, host: process.env.HOST ?? '0.0.0.0' });
+  console.log(`Local API on port ${localPort}; it has no key and must not be proxied.`);
+} else {
+  console.log('Local API off (WORSHIP_Q_LOCAL_PORT is empty).');
+}
 // The first sweep runs soon after start; later ones daily (D34).
 setTimeout(() => {
   try {
     const swept = sweepDeletedFiles(instance, dataDir, retentionDays);
     if (swept.files > 0) console.log(`Retention sweep removed ${swept.files} files`);
+    const removed = recordings.sweep(recordingDays);
+    if (removed > 0) console.log(`Retention sweep removed ${removed} recordings`);
+    presentationLog.closeExpired();
   } catch (error) {
     console.error(error);
   }
@@ -77,7 +113,7 @@ setTimeout(() => {
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    void app.close().then(() => {
+    void Promise.all([app.close(), local?.close()]).then(() => {
       instance.db.close();
       process.exit(0);
     });

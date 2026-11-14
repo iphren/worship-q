@@ -7,6 +7,11 @@ app for the church's administrators. Desktops work without it; connecting is opt
 It is one Node process with one SQLite database and a folder of background files and
 backups, all under the data directory (`/data` in the container).
 
+> **Live audio is recorded.** From the release with service records, once this server and a
+> broadcasting desktop are both updated, every workspace's live audio broadcast is recorded on
+> this server unless an administrator turns **Record live audio** off in the admin app's
+> Settings. Tell the church before updating. See [Service records](#service-records).
+
 ## Run it with Docker
 
 From the repository root on the server, save your settings once in `apps/server/.env`,
@@ -513,7 +518,9 @@ approval, output link and viewer setting is kept; no computer re-pairs.
 One computer of a workspace can broadcast the sound from the mixing desk to the workspace's
 other computers, its approved phones and signed-in administrators, who press **Listen**.
 The audio goes directly between the devices, never through this server: the server only
-passes the messages that set each connection up. Nothing is recorded.
+passes the messages that set each connection up. The broadcast is recorded separately: the
+broadcasting computer uploads its own recording to this server while the church records (see
+[Service records](#service-records)).
 
 Most churches set nothing up. Devices on the venue network find each other by their own
 addresses. A listener at home reaches the broadcaster through a public STUN server, which
@@ -545,6 +552,58 @@ Each device asks the server for a credential before every new connection; a cred
 valid ten minutes and is made from the secret, which never leaves the server. A listener
 that cannot connect is told whether the church offers a relay. TURN over TCP or TLS is not
 offered.
+
+## Service records
+
+The server keeps three kinds of service record, none of which changes the protocol version.
+
+**Recordings of live audio.** While a workspace broadcasts live audio, the broadcasting
+computer records its own input and uploads it in five-second chunks, so the recording grows
+on the server as the service goes. Nothing needs doing in any workspace. The text under
+**Broadcast live audio** in that computer's Settings says the broadcast is recorded; nothing
+else on screen does. Each run of one input is one recording: unplugging the audio interface
+and plugging it back in makes two. A service on the venue network alone is kept on the
+broadcasting computer, up to 500 MB (about 17 hours), and uploaded once the server is reached.
+
+- **Turning it off.** The admin app's **Settings → Record live audio**, on by default, is
+  the church's one switch, for every workspace at once. While it is off, nothing new is
+  recorded and a recording under way stops.
+- **Where they are.** `/data/recordings/<workspace>/<id>.webm` (WebM with Opus, from Windows)
+  or `.m4a` (MP4 with AAC, from a Mac), as the computer recorded them; the server never
+  transcodes. About 29 MB for each hour broadcast.
+- **How long they are kept.** `WORSHIP_Q_RECORDING_DAYS`, 90 by default, removed by the same
+  daily sweep as deleted files; `0` keeps them until deleted. The Storage page counts them as
+  their own kind.
+- **Listening.** Each workspace's page in the admin app has **Records**: pick a day to play,
+  download or delete its recordings.
+
+**The presentation log.** The coordinator records each piece shown, with when it started and
+ended, and uploads it; a showing shorter than a second is not kept. An entry names the
+revision of the song that was on screen, so it shows what was sung even after the song is
+edited or deleted. The log is kept for ever: a service is a few hundred small rows. It is
+listed beside the recordings under **Records**, and read in full through the local API.
+
+**The local API.** A second listener, on port 8081 inside the container, serves a read-only
+API of run sheets, the presentation log and the recordings to other services on this machine;
+see the [Local API](local-api.md). Compose publishes it on `127.0.0.1:8081` only
+(`WORSHIP_Q_LOCAL_API_PORT` changes the host's port; an empty `WORSHIP_Q_LOCAL_PORT` turns it
+off).
+
+- **It has no key.** Anything that reaches the port reads everything it serves. Never point
+  the reverse proxy at it, and never publish it on anything but `127.0.0.1`. A church that
+  runs the server without Compose must do the same.
+- Check it on the server itself: `curl -s localhost:8081/local/v1` answers with the API's
+  version; the same request from another machine gets no answer.
+
+## Updating for service records
+
+Update in any order: the protocol version does not change, and a desktop uploads only what
+the server's `/api/v1/info` offers (`"records":{"audio":true,"log":true}`). Against an older
+server a desktop records and uploads nothing, and says nothing. Recordings and log entries
+start arriving once both the server and a desktop are updated. **Tell the church first:**
+from then on services are recorded unless an administrator turns **Record live audio** off.
+The database gains two tables on first start. Add the second port to `compose.yaml` as above
+if you keep your own copy of it.
 
 ## Updating for live audio (protocol version 7)
 

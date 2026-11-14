@@ -22,6 +22,7 @@ import {
   type AdminLiveView,
   type AdminMe,
   type AdminObsView,
+  type AdminRecords,
   type AdminRunSheet,
   type AdminRunSheetDays,
   type AdminWorkspace,
@@ -39,6 +40,9 @@ import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
 import { storageReport } from './storage';
 import type { Bible } from './bible';
+import { recordingFileType, type Recordings } from './recordings';
+import type { PresentationLog } from './presentationLog';
+import { LogContent } from './logContent';
 
 export const SESSION_COOKIE = 'wq_admin';
 
@@ -59,6 +63,11 @@ export interface AdminConfig {
   adminDir?: string;
   /** The Bible, when the server has one (B17). */
   bible?: Bible;
+  /** Live audio recordings and the presentation log (service records R11, R19). */
+  recordings: Recordings;
+  presentationLog: PresentationLog;
+  /** Days recordings are kept; 0 for ever. */
+  recordingDays: number;
 }
 
 declare module 'fastify' {
@@ -99,7 +108,15 @@ export function safeReturnTo(value: unknown): string {
 }
 
 export async function registerAdminRoutes(app: FastifyInstance, config: AdminConfig) {
-  const { instance, relay, obsReports, audioReports, ice, oidc } = config;
+  const { instance, relay, obsReports, audioReports, ice, oidc, recordings, presentationLog } =
+    config;
+  // The admin app's links to a workspace's files are the cookie-only route below.
+  const logContent = new LogContent(
+    instance,
+    config.dataDir,
+    (workspaceId, name) =>
+      `/api/v1/admin/workspaces/${workspaceId}/files/${encodeURIComponent(name)}`,
+  );
 
   // ── Sign-in (D27, D28) ───────────────────────────────────────────────────
 
@@ -193,6 +210,29 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       if (!path) return reply.code(404).send({ error: 'not-found' });
       reply.header('cache-control', 'private, max-age=31536000, immutable');
       return sendFile(request, reply, path, name);
+    },
+  );
+
+  // A recording's file, for the page's player and its download link, which cannot add
+  // `ADMIN_HEADER`. Served with ranges while it still grows (R11).
+  app.get<{ Params: { id: string }; Querystring: { download?: string } }>(
+    '/api/v1/admin/recordings/:id/file',
+    async (request, reply) => {
+      if (!instance.authenticateSession(sessionToken(request))) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+      const recording = recordings.get(request.params.id);
+      const path = recording ? recordings.path(recording) : '';
+      if (!recording || !existsSync(path)) return reply.code(404).send({ error: 'not-found' });
+      reply.header('cache-control', 'no-store');
+      if (request.query.download !== undefined) {
+        const stamp = recording.startedAt.slice(0, 16).replace(/[:T]/g, '-');
+        reply.header(
+          'content-disposition',
+          `attachment; filename="recording-${stamp}${extname(path)}"`,
+        );
+      }
+      return sendFile(request, reply, path, '', recordingFileType(recording.container));
     },
   );
 
@@ -333,6 +373,46 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
           date: request.params.date,
           items: [],
         }) satisfies AdminRunSheet;
+      },
+    );
+
+    /**
+     * A workspace's service records in `[from, to)`, a day in the administrator's own time:
+     * its recordings, and its presentation log with what each entry showed (R11, R19).
+     */
+    api.get<{ Params: { id: string }; Querystring: { from?: string; to?: string } }>(
+      '/api/v1/admin/workspaces/:id/records',
+      async (request, reply) => {
+        if (!instance.getWorkspace(request.params.id)) {
+          return reply.code(404).send({ error: 'not-found' });
+        }
+        const from = String(request.query.from ?? '');
+        const to = String(request.query.to ?? '');
+        if (!Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to))) {
+          return reply.code(400).send({ error: 'bad-range' });
+        }
+        const range = {
+          from: new Date(from).toISOString(),
+          to: new Date(to).toISOString(),
+        };
+        reply.header('cache-control', 'no-store');
+        return {
+          recordingOn: recordings.enabled(),
+          recordings: recordings.list(request.params.id, range),
+          log: presentationLog
+            .range(request.params.id, range.from, range.to)
+            .map((entry) => logContent.entry(entry)),
+        } satisfies AdminRecords;
+      },
+    );
+
+    api.delete<{ Params: { id: string } }>(
+      '/api/v1/admin/recordings/:id',
+      async (request, reply) => {
+        if (!recordings.remove(request.params.id)) {
+          return reply.code(404).send({ error: 'not-found' });
+        }
+        return { removed: true };
       },
     );
 
@@ -620,6 +700,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
     api.get('/api/v1/admin/settings', async () => ({
       settings: instance.churchSettings(),
       keys: Object.keys(ChurchSettingsSchema.shape),
+      recordingDays: config.recordingDays,
     }));
 
     /** The Bible's keys (set or not, never their values) and versions (B17, B19). */
@@ -781,7 +862,9 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
 
     // ── Storage (U11) ──────────────────────────────────────────────────────
 
-    api.get('/api/v1/admin/storage', async () => storageReport(instance, config.dataDir));
+    api.get('/api/v1/admin/storage', async () =>
+      storageReport(instance, config.dataDir, undefined, undefined, recordings.usage()),
+    );
   });
 
   // ── The pages ────────────────────────────────────────────────────────────

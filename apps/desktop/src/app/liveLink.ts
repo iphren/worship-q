@@ -107,6 +107,11 @@ export interface LiveLinkDeps {
   audioSupported?: () => boolean;
   /** Sends to the church server only: an administrator's audio signal (A22). */
   sendToServer?: (message: DesktopToRelay) => void;
+  /**
+   * The presentation log (service records M4.3): told every snapshot this device publishes
+   * as coordinator, and null when it stops coordinating. A follower tells it nothing.
+   */
+  presentationLog?: { observe(snapshot: LiveSnapshot | null): unknown } | null;
   newId?: () => string;
   now?: () => number;
 }
@@ -598,6 +603,8 @@ export class LiveLink {
     if (this.coordinator) {
       this.deps.obs?.stopCoordinating();
       this.deps.audio?.stopCoordinating();
+      // Losing the role, ending or quitting closes the entry this device had open (R18).
+      this.deps.presentationLog?.observe(null);
     }
     this.coordinator = null;
     this.unsubscribe?.();
@@ -688,6 +695,7 @@ export class LiveLink {
     await this.reserveRevisions(outbound.message.snapshot.revision);
     if (this.coordinator !== coordinator) return;
     this.lastPublished = outbound.message.snapshot;
+    this.deps.presentationLog?.observe(outbound.message.snapshot);
     // Still sent: the relay and followers refuse it, but the warning here says why.
     const checked = CoordinatorToFollowerSchema.safeParse(outbound.message);
     if (!checked.success) console.warn('Published a malformed snapshot', checked.error.issues);

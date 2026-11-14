@@ -199,7 +199,7 @@ Unchanged from the phase 2 plan, with additions found here.
 - Presentation log on the server: a record of what was presented, as a snapshot of the content, with when it started and when it ended.
 - A church-server API on localhost, so other services running at the church can read run sheets, the presentation log and the audio recordings.
 
-  These three are broken into tasks in the [Service Records Task Breakdown](service-records-task-breakdown.md).
+  These three are broken into tasks in the [Service Records Task Breakdown](service-records-task-breakdown.md), and built; the recording spike and the acceptance walkthrough at a rehearsal remain.
 
 ## 8. Rollout
 

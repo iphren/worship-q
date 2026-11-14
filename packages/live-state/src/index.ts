@@ -417,3 +417,4 @@ export { END_SLACK_SECONDS, videoAt, videoPosition, type VideoInfo } from './vid
 export * from './coordination';
 export * from './audio';
 export * from './obs';
+export * from './presentationLog';

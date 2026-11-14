@@ -38,6 +38,7 @@ import {
   type InputDevice,
   type InputStatus,
   type MediaPort,
+  type RecorderStatus,
 } from '@worship-q/audio';
 import { switchOn, type AudioSwitchStore } from './audioSettings';
 
@@ -64,6 +65,18 @@ export interface AudioShared {
   takenOverBy: string | null;
   /** The switch is on, but the church server is too old to share it (§3.1). */
   sharingBlocked: boolean;
+  /**
+   * The recording of this computer's broadcast on the church server (service records R6),
+   * while the server takes recordings; null otherwise, or without a recorder.
+   */
+  recording: (RecorderStatus & { churchRecords: boolean }) | null;
+}
+
+/** What `AudioShare` drives of the recorder (service records M3.4). */
+export interface AudioRecorder {
+  setTrack(track: CaptureTrack | null): void;
+  setEnabled(on: boolean): void;
+  readonly status: RecorderStatus;
 }
 
 /** How the share reaches the rest of the workspace, while this desktop is part of it. */
@@ -108,6 +121,13 @@ export interface AudioShareDeps {
   iceServers: () => Promise<IceServer[]>;
   /** Holds the system's display-sleep assertion while the switch is on (M2.5). */
   keepAwake?: (on: boolean) => void;
+  /** Records the broadcast for the church server (service records R5); absent in most tests. */
+  recorder?: AudioRecorder | null;
+  /**
+   * Whether the church server takes recordings, as its info last said; null for a server that
+   * says nothing of them, which is older than recordings.
+   */
+  recordsOffered?: () => boolean | null;
   now?: () => number;
   setTimeout?: (fn: () => void, ms: number) => unknown;
   clearTimeout?: (handle: unknown) => void;
@@ -150,7 +170,11 @@ export class AudioShare {
     this.cancel = deps.clearTimeout ?? ((handle) => clearTimeout(handle as number));
     this.input = new InputWatcher<CaptureTrack>({
       port: deps.media,
-      onTrack: (track) => void this.broadcaster?.setTrack(track),
+      onTrack: (track) => {
+        void this.broadcaster?.setTrack(track);
+        // A new track is a new recording; none is none (R5).
+        if (this.broadcaster) this.deps.recorder?.setTrack(track);
+      },
       onChange: () => {
         this.publish(false);
         this.refresh();
@@ -243,6 +267,8 @@ export class AudioShare {
         clock: { now: this.now, setTimeout: this.later, clearTimeout: this.cancel },
       });
       void this.broadcaster.setTrack(this.input.track);
+      this.deps.recorder?.setTrack(this.input.track);
+      this.deps.recorder?.setEnabled(true);
       this.deps.keepAwake?.(true);
       this.input.setEnabled(true, this.deps.chosenInput());
       this.publish(true);
@@ -258,6 +284,9 @@ export class AudioShare {
     if (!broadcaster) return;
     this.broadcaster = null;
     broadcaster.stop();
+    // The switch off, another computer taking over, or quitting ends the recording (R5).
+    this.deps.recorder?.setEnabled(false);
+    this.deps.recorder?.setTrack(null);
     this.input.setEnabled(false, this.deps.chosenInput());
     this.deps.keepAwake?.(false);
     this.listeners_ = 0;
@@ -656,7 +685,19 @@ export class AudioShare {
       pickFailed: this.input.pickFailed,
       takenOverBy: on ? null : this.takenOverBy,
       sharingBlocked: on && !!this.transport && !this.transport.serverSupports(),
+      recording: this.recordingView(),
     };
+  }
+
+  private recordingView(): AudioShared['recording'] {
+    const offered = this.deps.recordsOffered?.() ?? null;
+    if (!this.deps.recorder || offered === null) return null;
+    return { ...this.deps.recorder.status, churchRecords: offered };
+  }
+
+  /** The recorder's status, or whether the server takes recordings, changed. */
+  recorderChanged(): void {
+    this.refresh();
   }
 
   private refresh(): void {

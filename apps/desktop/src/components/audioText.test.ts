@@ -7,6 +7,8 @@ import {
   broadcastTone,
   delayText,
   listenStatusText,
+  recordingNote,
+  recordingStatusText,
 } from './audioText';
 
 const shared = (patch: Partial<AudioShared>): AudioShared => ({
@@ -18,6 +20,7 @@ const shared = (patch: Partial<AudioShared>): AudioShared => ({
   pickFailed: false,
   takenOverBy: null,
   sharingBlocked: false,
+  recording: null,
   ...patch,
 });
 
@@ -90,5 +93,49 @@ describe('the Monitor device on a press (§3.8)', () => {
       await prepareMonitor(media, { id: 'x', name: 'Gone' }, async (s) => void sinks.push(s)),
     ).toBe('');
     expect(sinks).toEqual(['']);
+  });
+});
+
+describe('the recording in words (service records M3.5)', () => {
+  const recording = (patch: Partial<NonNullable<AudioShared['recording']>> = {}) => ({
+    recording: true,
+    idle: null,
+    waitingBytes: 0,
+    dropped: 0,
+    churchRecords: true,
+    ...patch,
+  });
+
+  it('says under the switch that the broadcast is recorded, only while the server records', () => {
+    expect(recordingNote(shared({ recording: recording() }))).toMatch(/recorded on the church/);
+    expect(recordingNote(shared({ recording: recording({ churchRecords: false }) }))).toBeNull();
+    // A server older than recordings: nothing is said.
+    expect(recordingNote(shared({ recording: null }))).toBeNull();
+  });
+
+  it('says only what is unusual: waiting to upload, dropped, or not recorded and why', () => {
+    expect(recordingStatusText(shared({ recording: recording() }))).toBeNull();
+    expect(
+      recordingStatusText(shared({ recording: recording({ waitingBytes: 4000 }) })),
+    ).toBeNull();
+    expect(
+      recordingStatusText(shared({ recording: recording({ waitingBytes: 3 * 1024 * 1024 }) })),
+    ).toBe('3.0 MB of the recording waiting to upload');
+    expect(
+      recordingStatusText(shared({ recording: recording({ waitingBytes: 42 * 1024 * 1024 }) })),
+    ).toBe('42 MB of the recording waiting to upload');
+    expect(recordingStatusText(shared({ recording: recording({ dropped: 1 }) }))).toMatch(
+      /dropped/,
+    );
+    expect(recordingStatusText(shared({ recording: recording({ churchRecords: false }) }))).toBe(
+      'Not recorded: the church has turned recording off.',
+    );
+    expect(
+      recordingStatusText(
+        shared({ recording: recording({ recording: false, idle: 'unsupported' }) }),
+      ),
+    ).toBe('Not recorded: this computer cannot record audio.');
+    expect(recordingStatusText(shared({ switchOn: false, recording: recording() }))).toBeNull();
+    expect(recordingStatusText(shared({ recording: null }))).toBeNull();
   });
 });

@@ -53,6 +53,7 @@ describe('migrations', () => {
       'church_setting',
       'church_version',
       'live_state',
+      'log_outbox',
       'output_profile',
       'remote_grant',
       'run_sheet',
@@ -1326,5 +1327,73 @@ describe('persistence', () => {
     });
     expect(await second.loadLiveState(workspace.id)).toEqual(live);
     reopened.close();
+  });
+});
+
+describe('presentation log outbox (service records M4.2)', () => {
+  const entry = (id: string, startedAt: string, endedAt: string | null = null) => ({
+    id,
+    runSheetId: 'rs1',
+    date: '2026-10-11',
+    itemId: 'i1',
+    previous: false,
+    songId: 's1',
+    revision: 1,
+    revisionId: null,
+    version: null,
+    part: { kind: 'lyrics' as const, line: 0, count: 2 },
+    background: null,
+    startedAt,
+    endedAt,
+  });
+  const A = '00000000-0000-4000-8000-00000000000a';
+  const B = '00000000-0000-4000-8000-00000000000b';
+  const at = (ms: number) => new Date(Date.parse('2026-10-11T09:00:00.000Z') + ms).toISOString();
+
+  it('keeps entries in order and deletes them once sent', async () => {
+    await store.putLogEntry(entry(A, at(0), at(5000)));
+    env.advance(10);
+    await store.putLogEntry(entry(B, at(5000)));
+    const pending = await store.pendingLogEntries(10);
+    expect(pending.map((p) => p.entry.id)).toEqual([A, B]);
+    await store.logEntriesSent(pending);
+    expect(await store.pendingLogEntries(10)).toEqual([]);
+    expect(await store.countPendingLogEntries()).toBe(0);
+  });
+
+  it('drops an entry shorter than a second that was never sent (R14)', async () => {
+    await store.putLogEntry(entry(A, at(0)));
+    expect(await store.putLogEntry(entry(A, at(0), at(400)))).toBe(false);
+    expect(await store.pendingLogEntries(10)).toEqual([]);
+  });
+
+  it('sends the close of an entry whose opening was sent, however short', async () => {
+    await store.putLogEntry(entry(A, at(0)));
+    await store.logEntriesSent(await store.pendingLogEntries(10));
+    expect(await store.putLogEntry(entry(A, at(0), at(400)))).toBe(true);
+    const pending = await store.pendingLogEntries(10);
+    expect(pending.map((p) => p.entry.endedAt)).toEqual([at(400)]);
+  });
+
+  it('keeps a row that changed while it was being sent', async () => {
+    await store.putLogEntry(entry(A, at(0)));
+    const read = await store.pendingLogEntries(10);
+    await store.putLogEntry(entry(A, at(0), at(9000)));
+    await store.logEntriesSent(read);
+    const pending = await store.pendingLogEntries(10);
+    expect(pending.map((p) => p.entry.endedAt)).toEqual([at(9000)]);
+  });
+
+  it('drops entries kept longer than 30 days', async () => {
+    await store.putLogEntry(entry(A, at(0)));
+    env.advance(31 * 24 * 60 * 60 * 1000);
+    expect(await store.dropOldLogEntries()).toBe(1);
+    expect(await store.pendingLogEntries(10)).toEqual([]);
+  });
+
+  it('is never synchronized', async () => {
+    await store.putLogEntry(entry(A, at(0)));
+    const records = await new SyncStore(store).localChanges(workspaceId, null);
+    expect(records.some((record) => JSON.stringify(record).includes(A))).toBe(false);
   });
 });

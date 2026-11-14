@@ -8,6 +8,7 @@ import type { ObsSnapshot, ObsState } from './obs';
 import type { ItemBadge } from './badges';
 import type { BackgroundKind, IsoDate, LibraryType, OutputKind } from './records';
 import type { LiveSnapshot, OutputView, SyncKind } from './wire';
+import type { LocalLogEntry, RecordingView } from './serviceRecords';
 
 /** Every admin request carries this header, so a cross-site form cannot reach the routes. */
 export const ADMIN_HEADER = 'x-worship-q-admin';
@@ -161,6 +162,17 @@ export interface AdminAudioView {
   } | null;
 }
 
+/**
+ * `GET /api/v1/admin/workspaces/:id/records?from&to`: a workspace's service records for a
+ * day (service records R11, R19). The log's links point at the admin app's file route.
+ */
+export interface AdminRecords {
+  /** The church records live audio now (R3). */
+  recordingOn: boolean;
+  recordings: RecordingView[];
+  log: LocalLogEntry[];
+}
+
 /** The OBS computer reports its state at least this often while its link is on. */
 export const OBS_REPORT_EVERY_MS = 30_000;
 
@@ -251,6 +263,8 @@ export type StorageType =
   | 'backgroundImages'
   | 'backgroundVideos'
   | 'backups'
+  /** Recordings of live audio broadcasts (service records R10). */
+  | 'recordings'
   | 'database'
   | 'other';
 

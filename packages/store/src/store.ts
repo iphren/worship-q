@@ -30,6 +30,9 @@ import {
   VideoSchema,
   PassageSchema,
   BibleVersionsSettingSchema,
+  LOG_MIN_DURATION_MS,
+  LogEntrySchema,
+  type LogEntry,
   type Passage,
 } from '@worship-q/protocol';
 import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
@@ -1490,6 +1493,91 @@ export class Store {
         params: id ? [this.env.now(), workspaceId, id] : [this.env.now(), workspaceId],
       },
     ]);
+  }
+
+  // ── Presentation log outbox (service records R17) ────────────────────────
+
+  /**
+   * Keeps a log entry until it is sent. An entry that closes before its opening was ever sent
+   * and lasted less than `minDurationMs` is dropped instead (R14). Returns whether it is kept.
+   */
+  async putLogEntry(entry: LogEntry, minDurationMs = LOG_MIN_DURATION_MS): Promise<boolean> {
+    if (entry.endedAt !== null) {
+      const rows = await this.db.select<Row>('SELECT sent_open FROM log_outbox WHERE id = ?', [
+        entry.id,
+      ]);
+      const sentOpen = Number(rows[0]?.sent_open ?? 0) === 1;
+      if (!sentOpen && Date.parse(entry.endedAt) - Date.parse(entry.startedAt) < minDurationMs) {
+        await this.db.batch([{ sql: 'DELETE FROM log_outbox WHERE id = ?', params: [entry.id] }]);
+        return false;
+      }
+    }
+    await this.db.batch([
+      {
+        sql: `INSERT INTO log_outbox (id, entry, pending, sent_open, rev, created_at)
+              VALUES (?, ?, 1, 0, 1, ?)
+              ON CONFLICT (id) DO UPDATE
+              SET entry = excluded.entry, pending = 1, rev = log_outbox.rev + 1`,
+        params: [entry.id, JSON.stringify(entry), this.env.now()],
+      },
+    ]);
+    return true;
+  }
+
+  /** Entries waiting to be sent, oldest first, with the change each was read at. */
+  async pendingLogEntries(limit: number): Promise<{ entry: LogEntry; rev: number }[]> {
+    const rows = await this.db.select<Row>(
+      'SELECT entry, rev FROM log_outbox WHERE pending = 1 ORDER BY created_at, id LIMIT ?',
+      [limit],
+    );
+    const entries: { entry: LogEntry; rev: number }[] = [];
+    for (const row of rows) {
+      const parsed = LogEntrySchema.safeParse(json<unknown>(row.entry, null));
+      if (parsed.success) entries.push({ entry: parsed.data, rev: Number(row.rev) });
+    }
+    return entries;
+  }
+
+  /** How many entries wait. */
+  async countPendingLogEntries(): Promise<number> {
+    const rows = await this.db.select<Row>(
+      'SELECT count(*) AS n FROM log_outbox WHERE pending = 1',
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /**
+   * Marks the entries sent, unless they changed meanwhile: a closed one is deleted; an open
+   * one is kept, no longer waiting, so that its close is sent however short it is (R14).
+   */
+  async logEntriesSent(sent: readonly { entry: LogEntry; rev: number }[]): Promise<void> {
+    const statements: Statement[] = sent.map(({ entry, rev }) =>
+      entry.endedAt === null
+        ? {
+            sql: 'UPDATE log_outbox SET pending = 0, sent_open = 1 WHERE id = ? AND rev = ?',
+            params: [entry.id, rev],
+          }
+        : { sql: 'DELETE FROM log_outbox WHERE id = ? AND rev = ?', params: [entry.id, rev] },
+    );
+    // A row changed while it was sent still had its opening sent.
+    for (const { entry } of sent) {
+      statements.push({
+        sql: 'UPDATE log_outbox SET sent_open = 1 WHERE id = ?',
+        params: [entry.id],
+      });
+    }
+    if (statements.length > 0) await this.db.batch(statements);
+  }
+
+  /** Drops entries kept longer than `days`, sent or not (R17). Returns how many waited. */
+  async dropOldLogEntries(days = 30): Promise<number> {
+    const before = new Date(Date.parse(this.env.now()) - days * 24 * 60 * 60 * 1000).toISOString();
+    const old = await this.db.select<Row>(
+      'SELECT count(*) AS n FROM log_outbox WHERE created_at < ? AND pending = 1',
+      [before],
+    );
+    await this.db.batch([{ sql: 'DELETE FROM log_outbox WHERE created_at < ?', params: [before] }]);
+    return Number(old[0]?.n ?? 0);
   }
 
   // ── Live state ───────────────────────────────────────────────────────────

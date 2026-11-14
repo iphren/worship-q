@@ -361,3 +361,33 @@ export function obsOutputText(output: ObsOutput, elapsedMs: number | null): stri
   const time = elapsedMs !== null ? formatDuration(elapsedMs) : 'On';
   return output.paused ? `${time} · Paused` : time;
 }
+
+// ── Service records (R11, R19) ─────────────────────────────────────────────
+
+/** A date's day in the browser's own time, as the instants it starts and ends at. */
+export function dayRange(date: string): { from: string; to: string } {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return {
+    from: new Date(y, m - 1, d).toISOString(),
+    to: new Date(y, m - 1, d + 1).toISOString(),
+  };
+}
+
+/** The time of day of an instant, to the second: “10:04:31”. */
+export function formatTimeOfDay(iso: string): string {
+  const at = Date.parse(iso);
+  if (Number.isNaN(at)) return iso;
+  return new Date(at).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+/**
+ * How long something ran, from its start to its end, or to `now` while it goes on. Null for
+ * an end that never came and is not now: an interrupted recording.
+ */
+export function runTime(startedAt: string, endedAt: string | null, now: number): number {
+  return Math.max(0, (endedAt ? Date.parse(endedAt) : now) - Date.parse(startedAt));
+}

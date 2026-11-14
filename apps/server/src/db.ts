@@ -177,6 +177,59 @@ const MIGRATIONS: string[][] = [
     // workspace when it joins (1) or only take the workspace's copy (0) (D29).
     `ALTER TABLE pairing_request ADD COLUMN allow_merge INTEGER`,
   ],
+  [
+    // Service records (R9). One row per recording of a live audio broadcast; its file is
+    // `recordings/<workspace>/<id>.<webm or m4a>`, the chunks appended in order. `bytes` and
+    // `next_seq` say what the file holds for certain: anything past `bytes` is a chunk that
+    // was being written when the server stopped, and is cut off.
+    `CREATE TABLE audio_recording (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspace(id),
+      device_id TEXT NOT NULL,
+      device_name TEXT NOT NULL,
+      input_name TEXT NOT NULL,
+      container TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      completed INTEGER NOT NULL DEFAULT 0,
+      cut_short INTEGER NOT NULL DEFAULT 0,
+      bytes INTEGER NOT NULL DEFAULT 0,
+      next_seq INTEGER NOT NULL DEFAULT 0,
+      last_chunk_at TEXT,
+      clock_offset_ms INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX audio_recording_time ON audio_recording(workspace_id, started_at)`,
+    // The presentation log (R13–R19): one row per unbroken showing of one piece, as the
+    // coordinator uploaded it. `part` and `background` are JSON. `cursor` is the server's
+    // order of arrival, renewed on every change, which the local API's readers follow.
+    `CREATE TABLE presentation_log (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspace(id),
+      device_id TEXT NOT NULL,
+      device_name TEXT NOT NULL,
+      run_sheet_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      previous INTEGER NOT NULL,
+      song_id TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      revision_id TEXT,
+      version TEXT,
+      part TEXT NOT NULL,
+      background TEXT,
+      started_at TEXT NOT NULL,
+      ended_at TEXT,
+      closed_by_server INTEGER NOT NULL DEFAULT 0,
+      clock_offset_ms INTEGER NOT NULL DEFAULT 0,
+      received_at TEXT NOT NULL,
+      cursor INTEGER NOT NULL
+    )`,
+    `CREATE INDEX presentation_log_time ON presentation_log(workspace_id, started_at)`,
+    `CREATE INDEX presentation_log_cursor ON presentation_log(cursor)`,
+    `INSERT OR IGNORE INTO counter (name, value) VALUES ('log', 0)`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

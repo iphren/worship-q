@@ -24,6 +24,8 @@ import { answerEverything, FakeNative, memoryStorage } from './obs.testing';
 import { ObsShare, shareObsWithPhones } from './obsShare';
 import { AudioShare } from './audioShare';
 import { audioSwitchStore } from './audioSettings';
+import { PresentationLogger } from './presentationLog';
+import type { LogBatch } from '@worship-q/protocol';
 
 const SUNDAY = '2026-10-11';
 
@@ -96,6 +98,8 @@ async function desktop(
     slowStart?: number;
     /** A version 7 desktop that takes live audio, with a fake input and fake connections. */
     audio?: boolean;
+    /** Writes the presentation log, sending it to this fake server while it is reachable. */
+    log?: { batches: LogBatch[]; reachable: () => boolean };
   } = {},
 ) {
   const driver = options.driver ?? openNodeDriver();
@@ -214,11 +218,24 @@ async function desktop(
     },
     close: () => undefined,
   };
+  const presentationLog = options.log
+    ? new PresentationLogger({
+        store,
+        send: async (batch) => {
+          if (!options.log!.reachable()) throw new Error('offline');
+          options.log!.batches.push(batch);
+        },
+        offered: () => true,
+        now: time.ms,
+        newId: () => `00000000-0000-4000-8000-${String(++counter).padStart(12, '0')}`,
+      })
+    : null;
   const link = new LiveLink({
     session,
     host,
     deviceId: () => deviceId,
     deviceName: () => name,
+    presentationLog,
     capabilities,
     obs,
     obsSupported: options.obsSupported,
@@ -269,6 +286,7 @@ async function desktop(
   };
   connect();
   cleanups.push(() => {
+    presentationLog?.dispose();
     link.stop();
     obs?.stop();
     audio?.stop();
@@ -300,6 +318,7 @@ async function desktop(
     obsOn,
     audio: audio!,
     audioPeers,
+    presentationLog: presentationLog!,
   };
 }
 
@@ -1318,5 +1337,61 @@ describe('live audio across the workspace (live audio M2.8, M3.2)', () => {
     );
     await settle();
     expect(s.audio.ownState()?.listeners).toBe(2);
+  });
+});
+
+describe('the presentation log (service records M4.3)', () => {
+  it('reaches the server after a service without it, whole and in order; a follower writes nothing', async () => {
+    const time = clock();
+    const dir = directory();
+    const relay = new Relay(dir, time.ms);
+    let reachable = false;
+    const sent = { a: [] as LogBatch[], b: [] as LogBatch[] };
+    const a = await desktop('Projector', time, relay, dir, null, {
+      log: { batches: sent.a, reachable: () => reachable },
+    });
+    const song = await a.session.createSong({
+      title: 'Amazing Grace',
+      lyrics: 'one\ntwo\n\nthree',
+    });
+    await a.session.addSong(SUNDAY, song.id);
+    const b = await desktop('Streaming', time, relay, dir, null, {
+      log: { batches: sent.b, reachable: () => true },
+    });
+    await settle();
+    expect(a.link.status.role).toBe('coordinator');
+
+    await a.session.next();
+    await settle();
+    time.advance(5000);
+    await a.session.next();
+    await settle();
+    time.advance(5000);
+    await a.session.setBlank(true);
+    await settle();
+    // A showing shorter than a second is not kept (R14).
+    await a.session.setBlank(false);
+    await settle();
+    time.advance(300);
+    await a.session.setBlank(true);
+    await settle();
+    await a.presentationLog.flush();
+    expect(sent.a).toEqual([]);
+
+    reachable = true;
+    await a.presentationLog.flush();
+    const entries = sent.a.flatMap((batch) => batch.entries);
+    expect(entries.map((e) => [e.part, e.endedAt !== null])).toEqual([
+      [{ kind: 'lyrics', line: 0, count: 2 }, true],
+      [{ kind: 'lyrics', line: 2, count: 1 }, true],
+    ]);
+    expect(entries[0]).toMatchObject({ songId: song.id, revision: 1, date: SUNDAY });
+    expect(entries[0]!.revisionId).not.toBeNull();
+    expect(Date.parse(entries[1]!.startedAt)).toBe(Date.parse(entries[0]!.endedAt!));
+    expect(await a.store.pendingLogEntries(10)).toEqual([]);
+
+    await b.presentationLog.flush();
+    expect(sent.b).toEqual([]);
+    expect(await b.store.pendingLogEntries(10)).toEqual([]);
   });
 });

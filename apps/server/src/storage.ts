@@ -21,6 +21,7 @@ const TYPES: StorageType[] = [
   'backgroundImages',
   'backgroundVideos',
   'backups',
+  'recordings',
   'database',
   'other',
 ];
@@ -84,6 +85,8 @@ export function storageReport(
     blocks: number | bigint;
     bavail: number | bigint;
   } = (path) => statfsSync(path),
+  /** Recordings' bytes and files by workspace (service records R10). */
+  recordings: ReadonlyMap<string, StorageTotal> = new Map(),
 ): AdminStorage {
   const totals = emptyTotals();
   const workspaces: AdminStorage['workspaces'] = [];
@@ -108,6 +111,13 @@ export function storageReport(
         add(own, 'backups', file.bytes);
         add(totals, 'backups', file.bytes);
       }
+    }
+    const recorded = recordings.get(id);
+    if (recorded) {
+      own.recordings.bytes += recorded.bytes;
+      own.recordings.files += recorded.files;
+      totals.recordings.bytes += recorded.bytes;
+      totals.recordings.files += recorded.files;
     }
     workspaces.push({ id, name, totals: own });
   };

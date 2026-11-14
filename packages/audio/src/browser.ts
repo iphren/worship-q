@@ -9,6 +9,7 @@ import type { CaptureTrack, InputDevice, MediaPort } from './input';
 import type { ListenPeer, ListenPeerEvents } from './listener';
 import type { ListenOutput } from './player';
 import type { PeerState } from './timers';
+import { RECORDING_BITS_PER_SECOND, RECORDING_TIMESLICE_MS, type RecorderPort } from './recorder';
 
 /** The capture constraints the spike settled on: no voice processing, mono (plan §4). */
 export const CAPTURE_CONSTRAINTS = {
@@ -211,5 +212,51 @@ export function browserAudioOutput(options: { inline?: boolean } = {}): BrowserA
       await (element as Sinkable).setSinkId?.(id).catch(() => undefined);
     },
     remove: () => element.remove(),
+  };
+}
+
+/**
+ * `MediaRecorder` on the capture track (service records R4, M3.2): 64 kbps mono, a chunk
+ * every five seconds, in WebM with Opus where the webview has it, else MP4 with AAC.
+ */
+export function browserRecorderPort(): RecorderPort<BrowserTrack | CaptureTrack> {
+  const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4;codecs=mp4a.40.2', 'audio/mp4'];
+  return {
+    type() {
+      if (typeof MediaRecorder === 'undefined') return null;
+      return types.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
+    },
+    start(track, type, events) {
+      const stream = new MediaStream([(track as BrowserTrack).track]);
+      const recorder = new MediaRecorder(stream, {
+        mimeType: type,
+        audioBitsPerSecond: RECORDING_BITS_PER_SECOND,
+      });
+      // Blobs are read one after another, so chunks keep their order.
+      let reading: Promise<void> = Promise.resolve();
+      let ended = false;
+      const end = () => {
+        if (ended) return;
+        ended = true;
+        void reading.then(() => events.stopped());
+      };
+      recorder.ondataavailable = (event) => {
+        if (event.data.size === 0) return;
+        const blob = event.data;
+        reading = reading.then(async () => events.data(new Uint8Array(await blob.arrayBuffer())));
+      };
+      recorder.onstop = end;
+      recorder.onerror = () => {
+        if (recorder.state !== 'inactive') recorder.stop();
+        else end();
+      };
+      recorder.start(RECORDING_TIMESLICE_MS);
+      return {
+        stop() {
+          if (recorder.state !== 'inactive') recorder.stop();
+          else end();
+        },
+      };
+    },
   };
 }

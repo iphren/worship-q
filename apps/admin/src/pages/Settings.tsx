@@ -42,6 +42,13 @@ export function SettingsPage() {
         </div>
       )}
       {settings && (
+        <RecordLiveAudio
+          value={settings.recordLiveAudio}
+          days={load.data?.recordingDays}
+          onSaved={apply}
+        />
+      )}
+      {settings && (
         <BibleVersions
           offered={settings.bibleVersions}
           defaults={settings.bibleDefaultVersions}
@@ -169,6 +176,53 @@ function BibleVersions(props: {
       )}
       <ErrorText error={action.error} className="mt-2" />
     </Setting>
+  );
+}
+
+/**
+ * Whether the server records each workspace's live audio broadcast (service records R3): on
+ * until an administrator turns it off, for every workspace at once.
+ */
+function RecordLiveAudio(props: {
+  value: boolean | undefined;
+  days: number | undefined;
+  onSaved(settings: ChurchSettings): void;
+}) {
+  const action = useAction();
+  const on = props.value !== false;
+  async function change(next: boolean) {
+    // On is the default, so turning it on again clears the setting.
+    const result = await action.run(() => api.setSetting('recordLiveAudio', next ? null : false));
+    if (result) props.onSaved(result.settings);
+  }
+  const kept =
+    props.days === undefined
+      ? null
+      : props.days === 0
+        ? 'Recordings are kept until deleted.'
+        : `Recordings are kept ${props.days} days, then removed (WORSHIP_Q_RECORDING_DAYS on the server).`;
+  return (
+    <Card>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={on}
+          disabled={action.busy}
+          onChange={(event) => void change(event.target.checked)}
+        />
+        <span>
+          <span className="block font-semibold text-white">Record live audio</span>
+          <span className="block text-sm text-slate-400">
+            Every workspace’s live audio broadcast is recorded on this server while it is on. The
+            broadcasting computer says so in its Settings. Recordings are listed on each workspace’s
+            page.
+          </span>
+          {kept && <span className="mt-1 block text-xs text-slate-500">{kept}</span>}
+        </span>
+      </label>
+      <ErrorText error={action.error} className="mt-2" />
+    </Card>
   );
 }
 

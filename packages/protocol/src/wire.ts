@@ -130,6 +130,12 @@ export interface ServerInfo {
    * an instance from before live audio.
    */
   audioRelay?: boolean;
+  /**
+   * Service records the server takes (service records R3, R12): recordings of the live audio
+   * broadcast, while the church records, and the presentation log. Missing on an instance
+   * from before them, which takes neither; a desktop then uploads nothing.
+   */
+  records?: { audio: boolean; log: boolean };
 }
 
 /** Upload limits in bytes, per kind of file (U1). */
@@ -233,6 +239,11 @@ export const ChurchSettingsSchema = z
      * longer offers are left out.
      */
     bibleDefaultVersions: z.array(z.string().min(1).max(20)).max(2),
+    /**
+     * Whether the church server records each workspace's live audio broadcast (service
+     * records R3). Unset records: it is on until an administrator turns it off.
+     */
+    recordLiveAudio: z.boolean(),
   })
   .partial();
 export type ChurchSettings = z.infer<typeof ChurchSettingsSchema>;

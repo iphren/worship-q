@@ -218,7 +218,8 @@ In **Settings → Audio on this computer**, choose it as the **Audio input** and
 **Broadcast live audio**. Watch the **Input level** move when the desk sends sound. That is
 all: from then on the computer broadcasts by itself whenever Worship Q opens, even if the
 interface is plugged in later. Turn off any screen lock on this computer; Worship Q keeps the
-display awake while broadcasting.
+display awake while broadcasting. While the church records live audio, the broadcast is also
+recorded on the church's server, as the text under the switch says.
 
 **What the status means.** **Live** with the number listening; **Waiting for input** means
 the chosen interface is not plugged in, and the sound comes back by itself when it is;

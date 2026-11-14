@@ -31,7 +31,43 @@ function storage() {
   };
 }
 
-function setup(options: { id?: string; inputs?: boolean; supports?: boolean } = {}) {
+/** A recorder that notes what it is told (service records M3.4). */
+function fakeRecorder() {
+  const calls: string[] = [];
+  let track: CaptureTrack | null = null;
+  let enabled = false;
+  return {
+    calls,
+    get recording() {
+      return enabled && track !== null;
+    },
+    setTrack(next: CaptureTrack | null) {
+      track = next;
+      calls.push(next ? `track ${next.label}` : 'no track');
+    },
+    setEnabled(on: boolean) {
+      enabled = on;
+      calls.push(on ? 'on' : 'off');
+    },
+    get status() {
+      return {
+        recording: enabled && track !== null,
+        idle: null,
+        waitingBytes: 0,
+        dropped: 0,
+      };
+    },
+  };
+}
+
+function setup(
+  options: {
+    id?: string;
+    inputs?: boolean;
+    supports?: boolean;
+    recorder?: ReturnType<typeof fakeRecorder>;
+  } = {},
+) {
   let now = Date.parse('2026-11-13T09:00:00.000Z');
   const timers = new Map<number, { at: number; fn: () => void }>();
   let nextTimer = 1;
@@ -74,6 +110,8 @@ function setup(options: { id?: string; inputs?: boolean; supports?: boolean } = 
     },
     iceServers: async () => [],
     keepAwake: (on) => awake.push(on),
+    recorder: options.recorder ?? null,
+    recordsOffered: () => (options.recorder ? true : null),
     now: () => now,
     setTimeout: (fn, ms) => {
       timers.set(nextTimer, { at: now + ms, fn });
@@ -663,5 +701,59 @@ describe('signals (M2.8, M3.2, M4.1, M5.6)', () => {
       activatedAt: '2026-11-13T09:05:00.000Z',
       status: 'live',
     });
+  });
+});
+
+describe('recording the broadcast (service records M3.4)', () => {
+  it('records the live track from the switch, and stops at the switch off', async () => {
+    const recorder = fakeRecorder();
+    const env = setup({ recorder });
+    env.store.set(switchOn(0, null));
+    env.share.start(env.store);
+    await settle();
+    expect(recorder.recording).toBe(true);
+    expect(env.share.view.recording).toMatchObject({ recording: true, churchRecords: true });
+    env.share.setSwitch(false);
+    expect(recorder.recording).toBe(false);
+    expect(recorder.calls.at(-2)).toBe('off');
+  });
+
+  it('stops when another computer takes over, and when the workspace closes or the app quits', async () => {
+    const takeover = fakeRecorder();
+    const env = setup({ id: 'B', recorder: takeover });
+    env.store.set(switchOn(Date.parse('2026-11-13T09:00:00.000Z'), null));
+    env.share.attach(env.transport);
+    env.share.becomeFollower('C');
+    env.share.start(env.store);
+    await settle();
+    expect(takeover.recording).toBe(true);
+    env.share.fromCoordinator({ type: 'audioState', state: remote('A') });
+    expect(takeover.recording).toBe(false);
+
+    const quit = fakeRecorder();
+    const closing = setup({ recorder: quit });
+    closing.store.set(switchOn(0, null));
+    closing.share.start(closing.store);
+    await settle();
+    closing.share.stop();
+    expect(quit.recording).toBe(false);
+  });
+
+  it('publishes the same audio state with a recorder as without', async () => {
+    const plain = setup({ id: 'B' });
+    const recorded = setup({ id: 'B', recorder: fakeRecorder() });
+    for (const env of [plain, recorded]) {
+      env.store.set(switchOn(0, null));
+      env.share.attach(env.transport);
+      env.share.becomeFollower('C');
+      env.share.start(env.store);
+      await settle();
+    }
+    expect(states(recorded.up)).toEqual(states(plain.up));
+  });
+
+  it('says nothing of recording against a server older than recordings', () => {
+    const env = setup();
+    expect(env.share.view.recording).toBeNull();
   });
 });

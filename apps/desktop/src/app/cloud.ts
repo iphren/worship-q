@@ -32,7 +32,16 @@ import {
   type WorkspaceGrant,
 } from '@worship-q/protocol';
 import { RemoteHost } from '@worship-q/remote';
-import { browserBroadcastPeer, browserMediaPort, type BrowserTrack } from '@worship-q/audio';
+import {
+  browserBroadcastPeer,
+  browserMediaPort,
+  browserRecorderPort,
+  indexedDbRecordStorage,
+  RecorderSession,
+  RecordQueue,
+  type BrowserTrack,
+  type CaptureTrack,
+} from '@worship-q/audio';
 import type { Session } from '@worship-q/session';
 import { SyncStore, type SyncState } from '@worship-q/store';
 import {
@@ -55,6 +64,8 @@ import { VideoCache, type VideoCacheDeps } from './videoCache';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
 import { AudioListen } from './audioListen';
 import { AudioReporter } from './audioReport';
+import { PresentationLogger } from './presentationLog';
+import { RecordingUploader, uploadAnswer, type RecordingApi } from './audioRecord';
 import { audioSwitchStore } from './audioSettings';
 import { AudioShare } from './audioShare';
 import { deviceSettings } from './deviceSettings';
@@ -140,6 +151,11 @@ export class CloudController {
   private readonly ice: IceServers;
   /** Tells the church server this computer's broadcast, for the admin app (A21). */
   private audioReporter: AudioReporter | null = null;
+  /** The presentation log this computer writes while it coordinates (service records M4.3). */
+  private presentationLog: PresentationLogger | null = null;
+  /** Recording the broadcast for the church server, and sending it (service records M3). */
+  private recorder: RecorderSession<CaptureTrack> | null = null;
+  private recordingUploader: RecordingUploader | null = null;
   private readonly audioWindowEvents: (() => void)[] = [];
   /** Media being uploaded from this computer; they carry on across pages (U16). */
   readonly uploads: MediaUploads;
@@ -235,7 +251,32 @@ export class CloudController {
       typeof navigator !== 'undefined' && navigator.mediaDevices
         ? browserMediaPort(navigator.mediaDevices)
         : null;
+    // Where the webview has IndexedDB and a recorder; recordings wait there across restarts.
+    if (typeof indexedDB !== 'undefined' && typeof MediaRecorder !== 'undefined') {
+      const queue = new RecordQueue(indexedDbRecordStorage());
+      this.recorder = new RecorderSession<CaptureTrack>({
+        port: browserRecorderPort(),
+        queue,
+        // Offline too: a service on the venue network alone is sent once the server is back.
+        offered: () => this.recordsOffered(),
+        inputName: () => this.audio?.view.inputName ?? '',
+        newId: () => crypto.randomUUID(),
+        now: () => Date.now(),
+        onChange: () => {
+          this.audio?.recorderChanged();
+          this.recordingUploader?.kick();
+        },
+      });
+      this.recordingUploader = new RecordingUploader({
+        queue,
+        api: this.recordingApi(),
+        reachable: () => this.connected && this.recordsOffered(),
+        onChange: () => this.audio?.recorderChanged(),
+      });
+    }
     this.audio = new AudioShare({
+      recorder: this.recorder,
+      recordsOffered: () => this.status_.server?.records?.audio ?? null,
       deviceId: () => this.state?.deviceId ?? '',
       deviceName: () => this.state?.deviceName ?? 'This computer',
       chosenInput: () => deviceSettings.get().audioInput,
@@ -344,6 +385,7 @@ export class CloudController {
     const { protocol, info } = await negotiate(server);
     this.protocolVersion = protocol;
     this.update({ server: info });
+    this.recorder?.refresh();
     return info;
   }
 
@@ -379,6 +421,7 @@ export class CloudController {
     const { protocol, info } = await negotiate(server);
     if (!info || server !== this.state?.server) return;
     this.update({ server: info });
+    this.recorder?.refresh();
     if (protocol === this.protocolVersion) return;
     this.protocolVersion = protocol;
     this.link?.capabilitiesChanged();
@@ -487,6 +530,9 @@ export class CloudController {
     this.timers.push(
       window.setInterval(() => {
         void this.sync();
+        // Recordings waiting are tried again once the server is reached.
+        this.recorder?.refresh();
+        this.recordingUploader?.kick();
         // What the server offers can change while this app runs (P4.5).
         if (this.connected && infoDue(this.status_.server, ++tick)) {
           void this.recheckProtocol().catch(() => undefined);
@@ -526,6 +572,8 @@ export class CloudController {
     this.obs.localLink?.stop();
     this.obs.stop();
     this.audioReporter?.stop();
+    void this.presentationLog?.stop();
+    this.recordingUploader?.stop();
     for (const remove of this.audioWindowEvents.splice(0)) remove();
     this.listen?.dispose();
     this.audio.stop();
@@ -574,6 +622,45 @@ export class CloudController {
     this.audio.start(
       audioSwitchStore(() => (typeof localStorage === 'undefined' ? null : localStorage), folder),
     );
+  }
+
+  /** The church server takes recordings of live audio, as its info last said (R3). */
+  private recordsOffered(): boolean {
+    return this.status_.server?.records?.audio === true;
+  }
+
+  /** The recording routes, each answer read as `uploadAnswer` does (service records R8). */
+  private recordingApi(): RecordingApi {
+    const request = async (
+      method: string,
+      path: string,
+      body: unknown,
+      bytes?: Uint8Array,
+    ): ReturnType<RecordingApi['open']> => {
+      const { server, deviceToken } = this.state ?? {};
+      if (!server || !deviceToken) return { kind: 'retry' };
+      try {
+        const response = await fetch(`${server}${path}`, {
+          method,
+          headers: {
+            [PROTOCOL_HEADER]: String(this.protocolVersion),
+            authorization: `Bearer ${deviceToken}`,
+            'content-type': bytes ? 'application/octet-stream' : 'application/json',
+          },
+          body: bytes ? (bytes as BodyInit) : JSON.stringify(body),
+          signal: AbortSignal.timeout(30_000),
+        });
+        return await uploadAnswer(response);
+      } catch {
+        return { kind: 'retry' };
+      }
+    };
+    return {
+      open: (body) => request('POST', '/api/v1/audio/recordings', body),
+      chunk: (id, seq, bytes) =>
+        request('PUT', `/api/v1/audio/recordings/${id}/chunks/${seq}`, null, bytes),
+      complete: (id, body) => request('POST', `/api/v1/audio/recordings/${id}/complete`, body),
+    };
   }
 
   /** The church server relays audio messages: it speaks protocol 7. */
@@ -1121,6 +1208,13 @@ export class CloudController {
           ? this.call('PUT', '/api/v1/audio', { state }).then(() => undefined)
           : Promise.resolve(),
     });
+    void this.presentationLog?.stop();
+    this.presentationLog = new PresentationLogger({
+      store: this.session.store,
+      send: (batch) => this.call('POST', '/api/v1/presentation-log', batch).then(() => undefined),
+      // Against a server from before the log, entries wait here and are sent once it has one.
+      offered: () => this.connected && this.status_.server?.records?.log === true,
+    });
     const backup: LiveBackupApi = {
       put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
         this.call('PUT', '/api/v1/live', { snapshot, grants }).then(() => undefined),
@@ -1165,6 +1259,7 @@ export class CloudController {
         }
       },
       backup,
+      presentationLog: this.presentationLog,
       obs: this.obs,
       obsSupported: () => this.obsSupported(),
       audio: this.audio,

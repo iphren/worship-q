@@ -18,7 +18,13 @@ import {
 } from '../app/deviceSettings';
 import { AUDIO_OUTPUT_EVENT, OUTPUT_WINDOW } from '../app/output';
 import { t } from '../i18n';
-import { broadcastAdvice, broadcastStatusText, broadcastTone } from './audioText';
+import {
+  broadcastAdvice,
+  broadcastStatusText,
+  broadcastTone,
+  recordingNote,
+  recordingStatusText,
+} from './audioText';
 
 interface ListedAudio {
   outputs: AudioDevice[];
@@ -157,6 +163,8 @@ function BroadcastSettings() {
   const { cloud } = useApp();
   const shared = useAudio();
   const advice = broadcastAdvice(shared);
+  const recordedNote = recordingNote(shared);
+  const recordingStatus = recordingStatusText(shared);
   const elsewhere = !shared.local && shared.state ? shared.state.ownerName : null;
   return (
     <div className="space-y-2 border-t border-slate-700 pt-3 text-sm">
@@ -170,6 +178,7 @@ function BroadcastSettings() {
         <span>
           <span className="block">{t('audio.broadcast')}</span>
           <span className="block text-xs text-slate-400">{t('audio.broadcastHint')}</span>
+          {recordedNote && <span className="block text-xs text-slate-400">{recordedNote}</span>}
         </span>
       </label>
       {shared.takenOverBy ? (
@@ -191,6 +200,7 @@ function BroadcastSettings() {
             <span>{broadcastStatusText(shared)}</span>
           </p>
           {advice && <p className="text-xs text-slate-400">{advice}</p>}
+          {recordingStatus && <p className="text-xs text-slate-400">{recordingStatus}</p>}
           {shared.pickFailed && <p className="text-xs text-amber-300">{t('audio.pickFailed')}</p>}
           <LevelMeter />
           {shared.sharingBlocked && (

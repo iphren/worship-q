@@ -43,11 +43,21 @@ function fileType(name: string): string {
   return TYPES[name.toLowerCase().split('.').pop() ?? ''] ?? 'image/jpeg';
 }
 
-/** Sends a file, or the part of it asked for; caching headers are the caller's. */
-export function sendFile(request: FastifyRequest, reply: FastifyReply, path: string, name: string) {
+/**
+ * Sends a file, or the part of it asked for; caching headers are the caller's. The type is
+ * taken from the name unless given. A file that is still growing, as a recording being
+ * received, is sent as long as it is now.
+ */
+export function sendFile(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  path: string,
+  name: string,
+  type: string = fileType(name),
+) {
   const { size } = statSync(path);
   reply.header('accept-ranges', 'bytes');
-  reply.type(fileType(name));
+  reply.type(type);
   const range = byteRange(request.headers.range, size);
   if (range === 'unsatisfiable') {
     reply.header('content-range', `bytes */${size}`);
@@ -60,5 +70,5 @@ export function sendFile(request: FastifyRequest, reply: FastifyReply, path: str
     return reply.send(createReadStream(path, range));
   }
   reply.header('content-length', size);
-  return reply.send(createReadStream(path));
+  return reply.send(createReadStream(path, size > 0 ? { start: 0, end: size - 1 } : {}));
 }

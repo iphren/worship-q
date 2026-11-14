@@ -254,6 +254,23 @@ export const MIGRATIONS: Migration[] = [
     version: 12,
     statements: [`UPDATE sync_state SET value = '0' WHERE key = 'cursor'`],
   },
+  {
+    // Service records (R17). Presentation log entries waiting to reach the church server,
+    // kept by the coordinator that wrote them; never synchronized. `rev` increases with each
+    // change, so a row changed while it was being sent is not marked as sent. An open entry
+    // already sent stays, no longer `pending`, until its close is sent.
+    version: 13,
+    statements: [
+      `CREATE TABLE log_outbox (
+        id TEXT PRIMARY KEY,
+        entry TEXT NOT NULL,
+        pending INTEGER NOT NULL,
+        sent_open INTEGER NOT NULL DEFAULT 0,
+        rev INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
