@@ -199,6 +199,8 @@ Unchanged from the phase 2 plan, with additions found here.
 - Presentation log on the server: a record of what was presented, as a snapshot of the content, with when it started and when it ended.
 - A church-server API on localhost, so other services running at the church can read run sheets, the presentation log and the audio recordings.
 
+  These three are broken into tasks in the [Service Records Task Breakdown](service-records-task-breakdown.md).
+
 ## 8. Rollout
 
 Phase 3 keeps version 2 desktops working against the new server, and version 3 desktops working against the old one (D26), so the server and the desktops can update in either order. The server update is the only step a church has to take, and it affects it gently.
