@@ -2,6 +2,12 @@
 
 @source '../../../packages/ui/src';
 
+/*
+ * A phone on its side: too short for the portrait column, so the slides take the left and
+ * the controls a rail on the right. Tablets and computers are taller and keep the column.
+ */
+@custom-variant land (@media (orientation: landscape) and (max-height: 500px));
+
 html,
 body,
 #root {

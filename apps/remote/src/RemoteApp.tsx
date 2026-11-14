@@ -187,266 +187,291 @@ function Live({ view }: { view: RemoteView | null }) {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-slate-800 px-3 py-3">
-        <div className="min-w-0">
-          <h1 className="truncate font-semibold text-white">{view.workspaceName}</h1>
-          <p className="text-xs text-slate-400">
-            {view.status === 'live' && view.date ? runSheetName(view.date) : 'Presentation ended'}
+    // Upright, everything is one column; on a phone on its side (`land`), the slides take the
+    // left and the controls a rail on the right. The two halves are `contents` when upright, so
+    // their parts sit in the one column, the slides' parts (order-1) between the rail's rows at
+    // the top and its controls (order-2) at the bottom. Nothing remounts on turning the phone.
+    <div className="flex h-full flex-col land:flex-row">
+      <div className="contents land:flex land:min-w-0 land:flex-1 land:flex-col land:pl-[env(safe-area-inset-left)]">
+        {view.previousContent && (
+          <p className="order-1 border-b border-amber-700 bg-amber-900/40 px-4 py-2 text-xs text-amber-100">
+            Still presenting previous content until you choose a slide.
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs ${
-              connected ? 'bg-emerald-800 text-emerald-100' : 'bg-amber-800 text-amber-100'
-            }`}
-            title={
-              connection.via === 'lan' ? 'On this network' : 'Connected through the church server'
-            }
-          >
-            {connected ? 'Connected' : 'Reconnecting…'}
-          </span>
-          {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
-          {(canEdit || editing) && (
-            <button
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40 ${
-                editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
-              }`}
-              disabled={obsOpen}
-              onClick={() => {
-                setMode(editing ? 'present' : 'edit');
-                setBefore(null);
-              }}
-            >
-              {editing ? 'Done' : 'Edit'}
-            </button>
-          )}
-        </div>
-      </header>
+        )}
 
-      <AudioRow audio={view.audio ?? null} />
-
-      {view.obs && (
-        <ObsRow
-          obs={view.obs}
-          connected={connected}
-          open={obsOpen}
-          onToggle={() => setObsOpen(!obsOpen)}
-        />
-      )}
-
-      {view.previousContent && (
-        <p className="border-b border-amber-700 bg-amber-900/40 px-4 py-2 text-xs text-amber-100">
-          Still presenting previous content until you choose a slide.
-        </p>
-      )}
-
-      {/* The OBS screen covers the others rather than replacing them, so they keep their
-          search and scroll position underneath. */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
-          {mode === 'bible' ? (
-            <PhoneBible
-              connection={connection}
-              connected={connected && canEdit}
-              initial={bibleFrom}
-              onDone={() => setMode('edit')}
-            />
-          ) : mode === 'add' ? (
-            <AddSongs
-              view={view}
-              connected={connected && canEdit}
-              onDone={() => setMode('edit')}
-              onOpenBible={(text) => {
-                setBibleFrom(text);
-                setMode('bible');
-              }}
-            />
-          ) : mode === 'edit' ? (
-            <EditRunSheet
-              view={view}
-              connected={connected && canEdit}
-              before={before}
-              onAdd={openSearch}
-              onBible={() => {
-                setBefore(new Set(view.items.map((item) => item.itemId)));
-                setBibleFrom(undefined);
-                setMode('bible');
-                setObsOpen(false);
-              }}
-            />
-          ) : (
-            <div className="relative min-h-0 flex-1">
-              <main ref={mainRef} className="h-full space-y-9 overflow-y-auto px-3 py-4">
-                {view.items.length === 0 && (
-                  <p className="p-6 text-center text-sm text-slate-400">
-                    The run sheet has no items yet.
-                  </p>
-                )}
-                {view.items.map((item) => (
-                  <section key={item.itemId}>
-                    <h2 className="mb-3 flex items-center gap-2 px-1 text-xl font-semibold text-white">
-                      <ItemMark item={item} />
-                      <span className="min-w-0">{item.title || 'Untitled'}</span>
-                    </h2>
-                    <div
-                      className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2' : ''}`}
-                    >
-                      {item.pieces.map((piece) => {
-                        const active =
-                          view.presented?.itemId === item.itemId &&
-                          view.presented.pieceId === piece.id;
-                        // Where the item left off; not on the item on screen or a one-slide item.
-                        const lastShown =
-                          item.pieces.length > 1 &&
-                          view.presented?.itemId !== item.itemId &&
-                          view.lastShown?.[item.itemId] === piece.id;
-                        return (
-                          <button
-                            key={piece.id}
-                            ref={active ? activeRef : undefined}
-                            disabled={!connected}
-                            onClick={() =>
-                              connection.send({
-                                type: 'playPiece',
-                                itemId: item.itemId,
-                                pieceId: piece.id,
-                              })
-                            }
-                            className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
-                              active
-                                ? view.blank
-                                  ? 'border-amber-400 bg-amber-900/50'
-                                  : 'border-emerald-500 bg-emerald-900/50 text-white'
-                                : // A song's blocks alternate, as on the desktop; slides,
-                                  // passages and the rest are drawn alike.
-                                  !shadesBlocks(item) || (piece.block ?? 0) % 2 === 0
-                                  ? 'border-slate-700 bg-slate-900'
-                                  : 'border-sky-700 bg-sky-900/60'
-                            }`}
-                          >
-                            {lastShown && (
-                              <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
-                                Last shown
-                              </span>
-                            )}
-                            {piece.thumbnail ? (
-                              <img
-                                src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
-                                alt={piece.lines.join(' ')}
-                                loading="lazy"
-                                // Hold the slide's space before the image loads, so a scroll to the
-                                // presented slide is not thrown short by thumbnails loading on the way.
-                                className="block aspect-video w-full rounded object-contain"
-                              />
-                            ) : item.kind === 'video' ? (
-                              <div>▶ Video · {piece.lines[0] ?? ''}</div>
-                            ) : piece.passage ? (
-                              <PassageColumns columns={piece.passage.columns} />
-                            ) : (
-                              piece.lines.map((line, index) => <div key={index}>{line || ' '}</div>)
-                            )}
-                          </button>
-                        );
-                      })}
-                      {item.pieces.length === 0 && (
-                        <p className="px-1 text-xs text-slate-500">This item has no content.</p>
-                      )}
-                    </div>
-                  </section>
-                ))}
-              </main>
-              {view.presented && !activeInView && (
-                <button
-                  aria-label="Go to current slide"
-                  onClick={() =>
-                    activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                  }
-                  className={`absolute right-4 bottom-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
-                    view.blank
-                      ? 'border-amber-400 text-amber-300'
-                      : 'border-emerald-500 text-emerald-300'
-                  }`}
+        {/* The OBS screen covers the others rather than replacing them, so they keep their
+            search and scroll position underneath. */}
+        <div className="relative order-1 flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col" inert={obsOpen && !!view.obs}>
+            {mode === 'bible' ? (
+              <PhoneBible
+                connection={connection}
+                connected={connected && canEdit}
+                initial={bibleFrom}
+                onDone={() => setMode('edit')}
+              />
+            ) : mode === 'add' ? (
+              <AddSongs
+                view={view}
+                connected={connected && canEdit}
+                onDone={() => setMode('edit')}
+                onOpenBible={(text) => {
+                  setBibleFrom(text);
+                  setMode('bible');
+                }}
+              />
+            ) : mode === 'edit' ? (
+              <EditRunSheet
+                view={view}
+                connected={connected && canEdit}
+                before={before}
+                onAdd={openSearch}
+                onBible={() => {
+                  setBefore(new Set(view.items.map((item) => item.itemId)));
+                  setBibleFrom(undefined);
+                  setMode('bible');
+                  setObsOpen(false);
+                }}
+              />
+            ) : (
+              <div className="relative min-h-0 flex-1">
+                <main
+                  ref={mainRef}
+                  className="h-full space-y-9 overflow-y-auto px-3 py-4 land:space-y-6 land:py-3"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
+                  {view.items.length === 0 && (
+                    <p className="p-6 text-center text-sm text-slate-400">
+                      The run sheet has no items yet.
+                    </p>
+                  )}
+                  {view.items.map((item) => (
+                    <section key={item.itemId}>
+                      <h2 className="mb-3 flex items-center gap-2 px-1 text-xl font-semibold text-white">
+                        <ItemMark item={item} />
+                        <span className="min-w-0">{item.title || 'Untitled'}</span>
+                      </h2>
+                      <div
+                        className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2 land:grid-cols-3' : 'land:grid-cols-2'}`}
+                      >
+                        {item.pieces.map((piece) => {
+                          const active =
+                            view.presented?.itemId === item.itemId &&
+                            view.presented.pieceId === piece.id;
+                          // Where the item left off; not on the item on screen or a one-slide item.
+                          const lastShown =
+                            item.pieces.length > 1 &&
+                            view.presented?.itemId !== item.itemId &&
+                            view.lastShown?.[item.itemId] === piece.id;
+                          return (
+                            <button
+                              key={piece.id}
+                              ref={active ? activeRef : undefined}
+                              disabled={!connected}
+                              onClick={() =>
+                                connection.send({
+                                  type: 'playPiece',
+                                  itemId: item.itemId,
+                                  pieceId: piece.id,
+                                })
+                              }
+                              className={`relative rounded-lg border text-left text-[15px] leading-snug ${piece.thumbnail ? 'p-1' : 'px-3 py-2'} ${
+                                active
+                                  ? view.blank
+                                    ? 'border-amber-400 bg-amber-900/50'
+                                    : 'border-emerald-500 bg-emerald-900/50 text-white'
+                                  : // A song's blocks alternate, as on the desktop; slides,
+                                    // passages and the rest are drawn alike.
+                                    !shadesBlocks(item) || (piece.block ?? 0) % 2 === 0
+                                    ? 'border-slate-700 bg-slate-900'
+                                    : 'border-sky-700 bg-sky-900/60'
+                              }`}
+                            >
+                              {lastShown && (
+                                <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
+                                  Last shown
+                                </span>
+                              )}
+                              {piece.thumbnail ? (
+                                <img
+                                  src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                                  alt={piece.lines.join(' ')}
+                                  loading="lazy"
+                                  // Hold the slide's space before the image loads, so a scroll to the
+                                  // presented slide is not thrown short by thumbnails loading on the way.
+                                  className="block aspect-video w-full rounded object-contain"
+                                />
+                              ) : item.kind === 'video' ? (
+                                <div>▶ Video · {piece.lines[0] ?? ''}</div>
+                              ) : piece.passage ? (
+                                <PassageColumns columns={piece.passage.columns} />
+                              ) : (
+                                piece.lines.map((line, index) => (
+                                  <div key={index}>{line || ' '}</div>
+                                ))
+                              )}
+                            </button>
+                          );
+                        })}
+                        {item.pieces.length === 0 && (
+                          <p className="px-1 text-xs text-slate-500">This item has no content.</p>
+                        )}
+                      </div>
+                    </section>
+                  ))}
+                </main>
+                {view.presented && !activeInView && (
+                  <button
+                    aria-label="Go to current slide"
+                    onClick={() =>
+                      activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                    }
+                    className={`absolute right-4 bottom-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border bg-slate-900/90 shadow-lg shadow-black/50 active:scale-95 ${
+                      view.blank
+                        ? 'border-amber-400 text-amber-300'
+                        : 'border-emerald-500 text-emerald-300'
+                    }`}
                   >
-                    <circle cx="12" cy="12" r="7" />
-                    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-                  </svg>
-                </button>
-              )}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-6 w-6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <circle cx="12" cy="12" r="7" />
+                      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {obsOpen && view.obs && (
+            <div className={`absolute inset-0 z-20 flex flex-col ${OBS_BACKGROUND}`}>
+              <ObsScreen obs={view.obs} connected={connected} />
             </div>
           )}
         </div>
-        {obsOpen && view.obs && (
-          <div className={`absolute inset-0 z-20 flex flex-col ${OBS_BACKGROUND}`}>
-            <ObsScreen obs={view.obs} connected={connected} />
-          </div>
-        )}
+
+        {/* While a video is live, its controls stand in for the line of what is on screen. */}
+        <div className="order-1">
+          {view.video ? (
+            <VideoBar video={view.video} connected={connected} view={view} />
+          ) : (
+            <LiveLine view={view} />
+          )}
+        </div>
       </div>
 
-      {view.video && <VideoBar video={view.video} connected={connected} />}
-      <LiveLine view={view} />
+      <div className="contents land:flex land:w-[300px] land:shrink-0 land:flex-col land:gap-1.5 land:border-l land:border-slate-800 land:py-2 land:pr-[max(0.625rem,env(safe-area-inset-right))] land:pb-[max(0.5rem,env(safe-area-inset-bottom))] land:pl-2.5">
+        <header className="flex items-center justify-between gap-2 border-b border-slate-800 px-3 py-3 land:border-0 land:p-0">
+          <div className="min-w-0">
+            <h1 className="truncate font-semibold text-white land:text-sm">{view.workspaceName}</h1>
+            <p className="text-xs text-slate-400 land:text-[11px]">
+              {view.status === 'live' && view.date ? runSheetName(view.date) : 'Presentation ended'}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* On a phone on its side, a dot that says the same. */}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs land:h-2.5 land:w-2.5 land:p-0 ${
+                connected
+                  ? 'bg-emerald-800 text-emerald-100 land:bg-emerald-400'
+                  : 'bg-amber-800 text-amber-100 land:bg-amber-400'
+              }`}
+              title={
+                connection.via === 'lan' ? 'On this network' : 'Connected through the church server'
+              }
+            >
+              <span className="land:sr-only">{connected ? 'Connected' : 'Reconnecting…'}</span>
+            </span>
+            {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
+            {(canEdit || editing) && (
+              <button
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40 ${
+                  editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
+                }`}
+                disabled={obsOpen}
+                onClick={() => {
+                  setMode(editing ? 'present' : 'edit');
+                  setBefore(null);
+                }}
+              >
+                {editing ? 'Done' : 'Edit'}
+              </button>
+            )}
+          </div>
+        </header>
 
-      <footer
-        className={`grid gap-2 border-t ${canEdit ? 'grid-cols-5' : 'grid-cols-4'} border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]`}
-      >
-        <button
-          className={`${control} bg-slate-800`}
-          disabled={!connected}
-          title="Previous"
-          aria-label="Previous"
-          onClick={() => step('previous')}
+        <div className="contents land:flex land:gap-1.5">
+          <AudioRow audio={view.audio ?? null} beside={!!view.obs} />
+          {view.obs && (
+            <ObsRow
+              obs={view.obs}
+              connected={connected}
+              open={obsOpen}
+              onToggle={() => setObsOpen(!obsOpen)}
+            />
+          )}
+        </div>
+
+        {/* On a phone on its side: Blank, Clear and Add in a row, and Previous and Next under
+          them, big, where the right thumb rests. */}
+        <footer
+          className={`order-2 grid gap-2 border-t ${canEdit ? 'grid-cols-5 land:grid-cols-3' : 'grid-cols-4 land:grid-cols-2'} border-slate-800 bg-slate-950 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] land:flex-1 land:grid-rows-[3rem_1fr] land:gap-1.5 land:border-0 land:bg-transparent land:p-0`}
         >
-          <ControlIcon name="previous" className={controlIcon} />
-        </button>
-        <button
-          className={`${control} ${view.blank ? 'bg-amber-600 text-white' : 'bg-slate-800'}`}
-          disabled={!connected}
-          title={view.blank ? 'Show' : 'Blank'}
-          aria-label={view.blank ? 'Show' : 'Blank'}
-          aria-pressed={view.blank}
-          onClick={() => connection.send({ type: view.blank ? 'unblank' : 'blank' })}
-        >
-          <ControlIcon name="blank" className={controlIcon} />
-        </button>
-        <button
-          className={`${control} bg-slate-800`}
-          disabled={!connected || (!view.presented && !view.previousContent)}
-          title="Clear"
-          aria-label="Clear"
-          onClick={() => connection.send({ type: 'clear' })}
-        >
-          <ControlIcon name="clear" className={controlIcon} />
-        </button>
-        {canEdit && (
           <button
-            className={`${control} ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
+            className={`${control} bg-slate-800 land:col-start-1 land:row-start-2`}
             disabled={!connected}
-            title="Add"
-            aria-label="Add"
-            onClick={openSearch}
+            title="Previous"
+            aria-label="Previous"
+            onClick={() => step('previous')}
           >
-            <ControlIcon name="addToList" className={controlIcon} />
+            <ControlIcon name="previous" className={`${controlIcon} land:h-8 land:w-8`} />
           </button>
-        )}
-        <button
-          className={`${control} bg-sky-600 text-white`}
-          disabled={!connected}
-          title="Next"
-          aria-label="Next"
-          onClick={() => step('next')}
-        >
-          <ControlIcon name="next" className={controlIcon} />
-        </button>
-      </footer>
+          <button
+            className={`${control} land:row-start-1 ${view.blank ? 'bg-amber-600 text-white' : 'bg-slate-800'}`}
+            disabled={!connected}
+            title={view.blank ? 'Show' : 'Blank'}
+            aria-label={view.blank ? 'Show' : 'Blank'}
+            aria-pressed={view.blank}
+            onClick={() => connection.send({ type: view.blank ? 'unblank' : 'blank' })}
+          >
+            <ControlIcon name="blank" className={controlIcon} />
+          </button>
+          <button
+            className={`${control} bg-slate-800 land:row-start-1`}
+            disabled={!connected || (!view.presented && !view.previousContent)}
+            title="Clear"
+            aria-label="Clear"
+            onClick={() => connection.send({ type: 'clear' })}
+          >
+            <ControlIcon name="clear" className={controlIcon} />
+          </button>
+          {canEdit && (
+            <button
+              className={`${control} land:row-start-1 ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
+              disabled={!connected}
+              title="Add"
+              aria-label="Add"
+              onClick={openSearch}
+            >
+              <ControlIcon name="addToList" className={controlIcon} />
+            </button>
+          )}
+          <button
+            className={`${control} bg-sky-600 text-white land:row-start-2 ${canEdit ? 'land:col-span-2' : ''}`}
+            disabled={!connected}
+            title="Next"
+            aria-label="Next"
+            onClick={() => step('next')}
+          >
+            <ControlIcon name="next" className={`${controlIcon} land:h-8 land:w-8`} />
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -484,11 +509,16 @@ function clock(seconds: number): string {
 }
 
 /**
- * The phone's control bar while a video item is live (media uploads M6.6): play or pause,
- * 10 s jumps, and a scrubber, sent to the operator's computer like any other command.
+ * The phone's control bar while a video item is live (media uploads M6.6), in place of the
+ * line of what is on screen: play or pause, 10 s jumps, the video's title and a scrubber, sent
+ * to the operator's computer like any other command.
  */
-function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: boolean }) {
-  const { video, connected } = props;
+function VideoBar(props: {
+  video: NonNullable<RemoteView['video']>;
+  connected: boolean;
+  view: RemoteView;
+}) {
+  const { video, connected, view } = props;
   const [now, setNow] = useState(() => Date.now());
   const [dragging, setDragging] = useState<number | null>(null);
   useEffect(() => {
@@ -501,9 +531,9 @@ function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: b
   const seek = (seconds: number) =>
     connection.send({ type: 'videoSeek', itemId: video.itemId, seconds });
   const button =
-    'flex items-center justify-center rounded-lg bg-slate-800 px-3 py-2 active:scale-95 disabled:opacity-40';
+    'flex h-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 px-2.5 active:scale-95 disabled:opacity-40';
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50">
+    <div className="flex items-center gap-1.5 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50 land:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       <button
         className={button}
         disabled={!connected}
@@ -513,7 +543,7 @@ function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: b
         <ControlIcon name="back10" className="h-6 w-6" />
       </button>
       <button
-        className={`${button} min-w-16 bg-violet-600 text-white`}
+        className={`${button} min-w-14 bg-violet-600 text-white`}
         disabled={!connected}
         aria-label={video.playing ? 'Pause' : 'Play'}
         onClick={() =>
@@ -533,24 +563,34 @@ function VideoBar(props: { video: NonNullable<RemoteView['video']>; connected: b
       >
         <ControlIcon name="forward10" className="h-6 w-6" />
       </button>
-      <span className="ml-auto text-xs tabular-nums">
-        {clock(position)} / {clock(video.durationSeconds)}
-      </span>
-      <input
-        type="range"
-        aria-label="Video position"
-        className="w-full accent-violet-400"
-        min={0}
-        max={video.durationSeconds || 1}
-        step={0.5}
-        disabled={!connected}
-        value={Math.min(position, video.durationSeconds)}
-        onChange={(event) => setDragging(Number(event.target.value))}
-        onPointerUp={() => {
-          if (dragging !== null) seek(dragging);
-          setDragging(null);
-        }}
-      />
+      <div className="ml-1.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-[13px] font-medium">
+          {view.blank && (
+            <span className="shrink-0 rounded bg-amber-500 px-1.5 text-[11px] font-semibold text-amber-950">
+              Blank
+            </span>
+          )}
+          <span className="min-w-0 flex-1 truncate">{liveText(view) ?? 'Video'}</span>
+          <span className="shrink-0 text-xs text-violet-200 tabular-nums">
+            {clock(position)} / {clock(video.durationSeconds)}
+          </span>
+        </div>
+        <input
+          type="range"
+          aria-label="Video position"
+          className="block h-5 w-full accent-violet-400"
+          min={0}
+          max={video.durationSeconds || 1}
+          step={0.5}
+          disabled={!connected}
+          value={Math.min(position, video.durationSeconds)}
+          onChange={(event) => setDragging(Number(event.target.value))}
+          onPointerUp={() => {
+            if (dragging !== null) seek(dragging);
+            setDragging(null);
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -565,7 +605,9 @@ function LiveLine({ view }: { view: RemoteView }) {
         ? 'border-amber-500 bg-amber-900 text-amber-100'
         : 'border-emerald-500 bg-emerald-800 text-white';
   return (
-    <div className={`flex items-center gap-2 border-t px-4 py-2.5 text-[15px] font-medium ${tone}`}>
+    <div
+      className={`flex items-center gap-2 border-t px-4 py-2.5 text-[15px] font-medium land:pb-[max(0.625rem,env(safe-area-inset-bottom))] ${tone}`}
+    >
       {view.blank && (
         <span className="shrink-0 rounded bg-amber-500 px-1.5 text-[11px] font-semibold text-amber-950">
           Blank
@@ -607,7 +649,7 @@ function EditRunSheet(props: {
     'h-10 w-10 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
 
   return (
-    <main className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-indigo-950 px-3 py-4">
+    <main className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-indigo-950 px-3 py-4 land:py-3">
       {items.length === 0 && (
         <p className="p-6 text-center text-sm text-slate-400">The run sheet has no items yet.</p>
       )}
@@ -686,20 +728,22 @@ function EditRunSheet(props: {
           </li>
         ))}
       </ol>
-      <button
-        className="w-full rounded-lg border border-dashed border-violet-700 py-3 text-[15px] font-semibold text-violet-300 active:scale-[0.98] disabled:opacity-40"
-        disabled={!connected}
-        onClick={props.onAdd}
-      >
-        + Add an item
-      </button>
-      <button
-        className="w-full rounded-lg border border-dashed border-teal-700 py-3 text-[15px] font-semibold text-teal-300 active:scale-[0.98] disabled:opacity-40"
-        disabled={!connected}
-        onClick={props.onBible}
-      >
-        📖 Add a Bible passage
-      </button>
+      <div className="space-y-2 land:grid land:grid-cols-2 land:gap-2 land:space-y-0">
+        <button
+          className="w-full rounded-lg border border-dashed border-violet-700 py-3 text-[15px] font-semibold text-violet-300 active:scale-[0.98] disabled:opacity-40"
+          disabled={!connected}
+          onClick={props.onAdd}
+        >
+          + Add an item
+        </button>
+        <button
+          className="w-full rounded-lg border border-dashed border-teal-700 py-3 text-[15px] font-semibold text-teal-300 active:scale-[0.98] disabled:opacity-40"
+          disabled={!connected}
+          onClick={props.onBible}
+        >
+          📖 Add a Bible passage
+        </button>
+      </div>
     </main>
   );
 }
@@ -766,7 +810,7 @@ function AddSongs(props: {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex gap-2 border-b border-slate-800 p-3">
+      <div className="flex gap-2 border-b border-slate-800 p-3 land:py-2">
         <input
           ref={inputRef}
           autoFocus
@@ -812,12 +856,12 @@ function AddSongs(props: {
         </p>
       )}
       <ul
-        className={`min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 transition-opacity ${
+        className={`min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3 transition-opacity land:grid land:grid-cols-2 land:content-start land:gap-2 land:space-y-0 land:py-2 ${
           searching ? 'opacity-50' : ''
         }`}
       >
         {!query.trim() && added.length > 0 && (
-          <li role="status" className="p-6 text-center text-sm text-emerald-300">
+          <li role="status" className="p-6 text-center text-sm text-emerald-300 land:col-span-2">
             Added “{added[added.length - 1]}” to the run sheet.
             {added.length > 1 && (
               <span className="mt-1 block text-xs text-slate-400">
@@ -827,7 +871,7 @@ function AddSongs(props: {
           </li>
         )}
         {reference && (
-          <li>
+          <li className="land:col-span-2">
             <button
               className="flex w-full items-center gap-2 rounded-lg border border-[#00E6FF]/40 bg-slate-900 p-3 text-left text-[15px] font-semibold text-[#00E6FF] active:scale-[0.98] disabled:opacity-40"
               disabled={!connected}
@@ -839,11 +883,14 @@ function AddSongs(props: {
           </li>
         )}
         {results?.songs.length === 0 && !searching && !reference && (
-          <li className="p-6 text-center text-sm text-slate-400">Nothing found.</li>
+          <li className="p-6 text-center text-sm text-slate-400 land:col-span-2">Nothing found.</li>
         )}
         {results?.songs.map((song) => {
           return (
-            <li key={song.id} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
+            <li
+              key={song.id}
+              className="rounded-lg border border-slate-700 bg-slate-900 p-3 land:p-2.5"
+            >
               <div className="mb-1 flex items-center gap-2">
                 <ItemMark item={song} />
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
@@ -857,7 +904,7 @@ function AddSongs(props: {
               )}
               <div className="flex gap-2">
                 <button
-                  className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
+                  className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
                   disabled={!connected}
                   onClick={() => add(song, false)}
                 >
@@ -865,7 +912,7 @@ function AddSongs(props: {
                 </button>
                 {presented && (
                   <button
-                    className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-40"
+                    className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
                     disabled={!connected}
                     onClick={() => add(song, true)}
                   >
@@ -963,7 +1010,17 @@ function useObsCommand() {
  * Live audio (M4.4): shown only while a desktop of the workspace broadcasts, or while this
  * phone still listens. The tap starts playback.
  */
-function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null }) {
+/**
+ * Listening on this phone. On a phone on its side, `beside` the OBS row, it is the button
+ * alone, its status in the button's title.
+ */
+function AudioRow({
+  audio,
+  beside,
+}: {
+  audio: NonNullable<RemoteView['audio']> | null;
+  beside: boolean;
+}) {
   const state = useSyncExternalStore(listen.subscribe, () => listen.state);
   const key = audio ? `${audio.ownerId}|${audio.activatedAt}|${audio.status}` : '';
   useEffect(() => listen.follow(audio), [key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -977,7 +1034,9 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
     .filter(Boolean)
     .join(' · ');
   return (
-    <div className="border-b border-slate-800 px-3 py-1.5">
+    <div
+      className={`border-b border-slate-800 px-3 py-1.5 land:border-0 land:p-0 ${beside ? '' : 'land:flex-1'}`}
+    >
       <div className="flex items-center gap-2">
         <span
           className={`inline-block h-2 w-2 shrink-0 rounded-full ${
@@ -985,12 +1044,14 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
           }`}
           aria-hidden="true"
         />
-        <Marquee className="min-w-0 flex-1 text-sm">{line}</Marquee>
+        <Marquee className={`min-w-0 flex-1 text-sm ${beside ? 'land:hidden' : ''}`}>
+          {line}
+        </Marquee>
         <button
-          className={`rounded-lg px-4 py-1.5 active:scale-[0.98] ${
+          className={`rounded-lg px-4 py-1.5 active:scale-[0.98] land:px-3 ${
             on ? 'bg-sky-600 text-white' : 'bg-slate-800'
           }`}
-          title={on ? 'Stop' : 'Listen'}
+          title={line}
           aria-label={on ? 'Stop' : 'Listen'}
           aria-pressed={on}
           onClick={() => (on ? listen.stop() : listen.start())}
@@ -1029,7 +1090,9 @@ function ObsRow(props: {
   const target = switchTarget(obs);
   const usable = props.connected && obs.reachable && obs.status === 'connected';
   return (
-    <div className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND}`}>
+    <div
+      className={`border-b border-slate-800 px-3 py-1.5 ${OBS_BACKGROUND} land:min-w-0 land:flex-1 land:border-0 land:bg-transparent land:p-0`}
+    >
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
           className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
@@ -1118,112 +1181,119 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
   const stale = age !== null && age > OBS_SNAPSHOT_STALE_MS;
 
   return (
-    <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
-      <div className="flex items-center gap-2 text-sm text-slate-300">
-        <ObsDot obs={obs} />
-        <span className="flex-1 truncate">{obsStatusText(obs)}</span>
-        <span className="truncate text-xs text-slate-500">{obs.ownerName}</span>
+    // On a phone on its side, the monitor on the left and the outputs and scenes beside it.
+    <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4 land:grid land:grid-cols-2 land:items-start land:gap-3 land:space-y-0 land:py-2.5">
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+          <ObsDot obs={obs} />
+          <span className="flex-1 truncate">{obsStatusText(obs)}</span>
+          <span className="truncate text-xs text-slate-500">{obs.ownerName}</span>
+        </div>
+
+        <figure>
+          <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+            {image ? (
+              <img
+                src={image.image}
+                alt="Program"
+                className={`h-full w-full object-contain ${stale ? 'opacity-50' : ''}`}
+              />
+            ) : (
+              <p className="flex h-full items-center justify-center text-xs text-slate-500">
+                {usable ? 'Waiting for an image…' : ''}
+              </p>
+            )}
+            {/* Sweeps in from the left and out to the right between images. */}
+            {image && !stale && (
+              <span
+                key={image.receivedAt}
+                className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-neutral-400/80"
+                style={{ animationDuration: `${OBS_SNAPSHOT_EVERY_MS}ms` }}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+          {stale && (
+            <figcaption className="pt-1 text-right text-xs text-amber-300">
+              From {Math.round((age ?? 0) / 1000)} s ago
+            </figcaption>
+          )}
+        </figure>
       </div>
 
-      <figure>
-        <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
-          {image ? (
-            <img
-              src={image.image}
-              alt="Program"
-              className={`h-full w-full object-contain ${stale ? 'opacity-50' : ''}`}
-            />
-          ) : (
-            <p className="flex h-full items-center justify-center text-xs text-slate-500">
-              {usable ? 'Waiting for an image…' : ''}
-            </p>
-          )}
-          {/* Sweeps in from the left and out to the right between images. */}
-          {image && !stale && (
-            <span
-              key={image.receivedAt}
-              className="monitor-refresh pointer-events-none absolute bottom-0 left-0 h-1 w-1/3 bg-neutral-400/80"
-              style={{ animationDuration: `${OBS_SNAPSHOT_EVERY_MS}ms` }}
-              aria-hidden="true"
-            />
-          )}
-        </div>
-        {stale && (
-          <figcaption className="pt-1 text-right text-xs text-amber-300">
-            From {Math.round((age ?? 0) / 1000)} s ago
-          </figcaption>
-        )}
-      </figure>
-
-      <section className="space-y-2">
-        {OUTPUTS.map(({ kind, label, start, stop }) => {
-          const output = obs[kind];
-          const running = output.active && output.phase !== 'stopping';
-          const elapsed = outputElapsed(output, connection.viewReceivedAt, now);
-          // Stopping a stream or recording asks for a second tap; the camera does not.
-          const needsConfirm = kind !== 'virtualCam';
-          return (
-            <div
-              key={kind}
-              className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3"
-            >
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
-              />
-              <span className="flex-1">
-                <span className="block font-medium">{label}</span>
-                <span className="block text-xs text-slate-400 tabular-nums">
-                  {outputText(output, elapsed)}
-                </span>
-              </span>
-              <button
-                className={`rounded-lg px-4 py-2 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 ${
-                  running ? 'bg-rose-700 text-white' : 'bg-slate-700'
-                }`}
-                disabled={!usable || command.pending || output.phase !== null}
-                onClick={() => {
-                  if (!running) return void command.run({ type: start });
-                  if (needsConfirm && confirming !== kind) return setConfirming(kind);
-                  setConfirming(null);
-                  void command.run({ type: stop });
-                }}
-              >
-                {running ? (confirming === kind ? 'Tap to stop' : 'Stop') : 'Start'}
-              </button>
-            </div>
-          );
-        })}
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-          Scenes
-        </h2>
-        {obs.scenes.length === 0 && (
-          <p className="text-sm text-slate-500">The scenes appear once OBS is connected.</p>
-        )}
-        <ul className="space-y-2">
-          {obs.scenes.map((scene) => {
-            const live = scene === obs.currentScene;
+      <div className="space-y-4 land:space-y-3">
+        <section className="space-y-2 land:space-y-1.5">
+          {OUTPUTS.map(({ kind, label, start, stop }) => {
+            const output = obs[kind];
+            const running = output.active && output.phase !== 'stopping';
+            const elapsed = outputElapsed(output, connection.viewReceivedAt, now);
+            // Stopping a stream or recording asks for a second tap; the camera does not.
+            const needsConfirm = kind !== 'virtualCam';
             return (
-              <li key={scene}>
+              <div
+                key={kind}
+                className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 land:py-1.5"
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
+                />
+                <span className="flex-1">
+                  <span className="block font-medium">{label}</span>
+                  <span className="block text-xs text-slate-400 tabular-nums">
+                    {outputText(output, elapsed)}
+                  </span>
+                </span>
                 <button
-                  className={`flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left active:scale-[0.99] disabled:opacity-60 ${
-                    live ? 'border-emerald-500 bg-emerald-900/40' : 'border-slate-800 bg-slate-900'
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold active:scale-[0.98] disabled:opacity-40 ${
+                    running ? 'bg-rose-700 text-white' : 'bg-slate-700'
                   }`}
-                  disabled={!usable || command.pending || locked || live}
-                  onClick={() => void command.run({ type: 'setScene', scene })}
+                  disabled={!usable || command.pending || output.phase !== null}
+                  onClick={() => {
+                    if (!running) return void command.run({ type: start });
+                    if (needsConfirm && confirming !== kind) return setConfirming(kind);
+                    setConfirming(null);
+                    void command.run({ type: stop });
+                  }}
                 >
-                  <span className="min-w-0 flex-1 truncate">{scene}</span>
-                  {live && <span className="text-xs font-semibold text-emerald-300">Live</span>}
+                  {running ? (confirming === kind ? 'Tap to stop' : 'Stop') : 'Start'}
                 </button>
-              </li>
+              </div>
             );
           })}
-        </ul>
-      </section>
+        </section>
 
-      {command.error && <p className="text-sm text-rose-300">{command.error}</p>}
+        <section>
+          <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+            Scenes
+          </h2>
+          {obs.scenes.length === 0 && (
+            <p className="text-sm text-slate-500">The scenes appear once OBS is connected.</p>
+          )}
+          <ul className="space-y-2 land:grid land:grid-cols-2 land:gap-1.5 land:space-y-0">
+            {obs.scenes.map((scene) => {
+              const live = scene === obs.currentScene;
+              return (
+                <li key={scene}>
+                  <button
+                    className={`flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left land:px-3 land:py-2 active:scale-[0.99] disabled:opacity-60 ${
+                      live
+                        ? 'border-emerald-500 bg-emerald-900/40'
+                        : 'border-slate-800 bg-slate-900'
+                    }`}
+                    disabled={!usable || command.pending || locked || live}
+                    onClick={() => void command.run({ type: 'setScene', scene })}
+                  >
+                    <span className="min-w-0 flex-1 truncate">{scene}</span>
+                    {live && <span className="text-xs font-semibold text-emerald-300">Live</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      </div>
+
+      {command.error && <p className="text-sm text-rose-300 land:col-span-2">{command.error}</p>}
     </main>
   );
 }
