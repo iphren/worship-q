@@ -1737,3 +1737,55 @@ describe('Bible passages (P5.1, P6.1, P6.2, P6.5, P7.2)', () => {
     });
   });
 });
+
+describe('websites added by their address from a phone (protocol 8)', () => {
+  beforeEach(async () => {
+    const a = await song('A', 'a1');
+    const b = await song('B', 'b1');
+    await plan(SUNDAY, [a.id, b.id]);
+    await reopen();
+  });
+  const titles = async () => (await session.viewDate(SUNDAY)).entries.map((e) => e.song.title);
+  const command = (url: string, title?: string) => ({
+    type: 'addWebsite' as const,
+    url,
+    ...(title ? { title } : {}),
+  });
+
+  it('makes a website named by its page, after the presented item, once per command', async () => {
+    await playAt(0, 0);
+    const change = await session.remoteWebsite('c1', command('example.org/live', 'Live'));
+    expect(change).toMatchObject({ kind: 'added', title: 'Live' });
+    expect(await titles()).toEqual(['A', 'Live', 'B']);
+    const entry = (await session.viewDate(SUNDAY)).entries[1]!;
+    expect(entry.song.website).toEqual({ url: 'https://example.org/live' });
+    expect(await session.remoteWebsite('c1', command('example.org/live'))).toBeNull();
+  });
+
+  it('uses the library’s website at that address rather than making another', async () => {
+    const site = await session.createSong({
+      title: 'Our site',
+      website: { url: 'https://example.org/live' },
+    });
+    await session.remoteWebsite('c1', command('https://example.org/live', 'Other'));
+    const entries = (await session.viewDate(SUNDAY)).entries;
+    expect(entries.at(-1)!.song.id).toBe(site.id);
+    expect(entries.map((e) => e.song.title)).toEqual(['A', 'B', 'Our site']);
+  });
+
+  it('is named by its host without a title, and comes from a follower through the coordinator', async () => {
+    const outcome = await session.applyOperatorCommand('c1', command('example.org/a'), {
+      kind: 'phone',
+      grantId: 'g',
+      name: 'Phone',
+    });
+    expect(outcome).toMatchObject({ result: 'applied', change: { title: 'example.org' } });
+  });
+
+  it('is refused for words that are no web address, and while nothing is live', async () => {
+    expect(await session.remoteWebsite('c1', command('grace'))).toBeNull();
+    await session.endPresentation();
+    expect(await session.remoteWebsite('c2', command('example.org'))).toBeNull();
+    expect(await titles()).toEqual(['A', 'B']);
+  });
+});

@@ -15,6 +15,7 @@ import {
   OBS_PROTOCOL_VERSION,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
+  WEBSITE_PROTOCOL_VERSION,
   type BiblePassageResponse,
   type BibleVersionsResponse,
   type Capabilities,
@@ -76,6 +77,7 @@ import { ObsReporter } from './obsReport';
 import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
+import { websiteTitle } from './websiteTitle';
 
 const SYNC_EVERY_MS = 60_000;
 /** Local edits are sent this long after the last one. */
@@ -227,6 +229,11 @@ export class CloudController {
           : this.bible.toc(version),
       passage: (versions, reference) => this.bible.passage(versions, reference),
       search: (version, query) => this.bible.search(version, query),
+    });
+    // Phones add websites by their address; their pages' titles are read here.
+    this.host.setWebsites({
+      available: () => this.websitesSupported(),
+      title: (url) => websiteTitle(url),
     });
     this.uploads = new MediaUploads(this.uploadDeps());
     this.videos = new VideoCache(this.videoCacheDeps());
@@ -669,6 +676,11 @@ export class CloudController {
   /** The church server relays audio messages: it speaks protocol 7. */
   private audioSupported(): boolean {
     return this.protocolVersion >= AUDIO_PROTOCOL_VERSION;
+  }
+
+  /** The church server passes a phone's website on: it speaks protocol 8. */
+  private websitesSupported(): boolean {
+    return this.protocolVersion >= WEBSITE_PROTOCOL_VERSION;
   }
 
   /** The church server relays OBS messages: it speaks protocol 4 (M2.9). */
@@ -1187,6 +1199,8 @@ export class CloudController {
       passages: true,
       // Live audio messages (protocol version 7).
       audio: this.audioSupported(),
+      // A phone's website, added by its address (protocol version 8).
+      websites: this.websitesSupported(),
     };
   }
 

@@ -598,10 +598,11 @@ export class Relay {
             if (!coordinator || coordinator === desktop) return;
             if (
               data.data.type === 'command' &&
-              data.data.command.type === 'addPassage' &&
-              !coordinator.capabilities?.passages
+              ((data.data.command.type === 'addPassage' && !coordinator.capabilities?.passages) ||
+                (data.data.command.type === 'addWebsite' && !coordinator.capabilities?.websites))
             ) {
-              // A coordinator older than passages cannot make the item (protocol 6).
+              // A coordinator older than passages (protocol 6), or than websites added by
+              // their address (protocol 8), cannot make the item.
               send(desktop.socket, {
                 type: 'peer',
                 from: coordinator.deviceId,
@@ -737,6 +738,18 @@ export class Relay {
               } satisfies HostToRemote);
             }
             if (isBibleMessage(message)) return refuseBible(socket, message);
+          }
+          // A desktop older than websites added by their address could not read the command.
+          if (
+            !remote.desktop.capabilities?.websites &&
+            message.type === 'command' &&
+            message.command.type === 'addWebsite'
+          ) {
+            return send(socket, {
+              type: 'ack',
+              id: message.id,
+              applied: false,
+            } satisfies HostToRemote);
           }
           send(remote.desktop.socket, { type: 'message', from: remote.id, data: message });
         }

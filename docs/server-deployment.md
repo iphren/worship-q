@@ -605,6 +605,15 @@ from then on services are recorded unless an administrator turns **Record live a
 The database gains two tables on first start. Add the second port to `compose.yaml` as above
 if you keep your own copy of it.
 
+## Updating for websites from phones (protocol version 8)
+
+A phone can add a website to the live run sheet by typing its address into the search. This
+raises the protocol version to 8 and keeps accepting versions 2 to 7; no record changes, so
+there is nothing to configure. Update the server first: the relay must know the new command
+before passing it on. The phone shows **Add website to run sheet** only when the computer it
+is connected to and the church's server are both on version 8; when the presenting computer
+is still older, the phone's website is refused and nothing else changes.
+
 ## Updating for live audio (protocol version 7)
 
 Live audio raises the protocol version to 7 and keeps accepting versions 2 to 6. Update the

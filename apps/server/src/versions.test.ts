@@ -130,7 +130,7 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
-  it('gives version 3 to 6 devices what a version 7 device gets, after the OBS, video, passage and audio bumps', async () => {
+  it('gives version 3 to 7 devices what a version 8 device gets, after the OBS, video, passage, audio and website bumps', async () => {
     const { app, headers, b1 } = await setup();
     const pull = (protocol: number) =>
       app.inject({
@@ -143,15 +143,17 @@ describe('pulling with origins (D31)', () => {
     const five = await pull(5);
     const six = await pull(6);
     const seven = await pull(7);
-    expect(PROTOCOL_VERSION).toBe(7);
+    const eight = await pull(8);
+    expect(PROTOCOL_VERSION).toBe(8);
     expect(three.statusCode).toBe(200);
     expect(four.statusCode).toBe(200);
     expect(three.json().records).toEqual(four.json().records);
     expect(four.json().records).toEqual(five.json().records);
     expect(five.json().records).toEqual(six.json().records);
     expect(six.json().records).toEqual(seven.json().records);
+    expect(seven.json().records).toEqual(eight.json().records);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ protocolVersion: 7, minProtocolVersion: 2 });
+    expect(info.json()).toMatchObject({ protocolVersion: 8, minProtocolVersion: 2 });
   });
 
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {

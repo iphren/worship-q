@@ -71,6 +71,8 @@ async function setup(relayOptions?: RelayOptions) {
       passages?: boolean;
       /** Takes live audio (protocol version 7). */
       audio?: boolean;
+      /** Takes a phone's website by its address (protocol version 8). */
+      websites?: boolean;
     } = {},
   ) {
     const token = options.token ?? instance.enroll(code, name)!.token;
@@ -105,6 +107,7 @@ async function setup(relayOptions?: RelayOptions) {
         ...(options.videos ? { videos: true } : {}),
         ...(options.passages ? { passages: true } : {}),
         ...(options.audio ? { audio: true } : {}),
+        ...(options.websites ? { websites: true } : {}),
       },
       live: options.live,
     });
@@ -1101,6 +1104,54 @@ describe('passage items through the relay (Bible passages P3.5)', () => {
       id: 'c1',
       origin: { kind: 'operator', deviceId: b.deviceId, name: 'New laptop' },
       command: { type: 'addPassage', passage },
+    } as unknown as FollowerToCoordinator;
+    const before = a.socket.received.length;
+    b.say({ type: 'toCoordinator', data: command });
+    expect(a.socket.received.length).toBe(before);
+    expect(b.socket.last()).toEqual({
+      type: 'peer',
+      from: a.deviceId,
+      data: { type: 'ack', id: 'c1', applied: false },
+    });
+  });
+
+  it('passes a phone’s website to a desktop that takes them, and refuses it below protocol 8', async () => {
+    const { desktop, phone } = await setup();
+    const a = desktop('New laptop', {
+      withHost: false,
+      videos: true,
+      passages: true,
+      websites: true,
+    });
+    const b = desktop('Version 7 laptop', { withHost: false, videos: true, passages: true });
+    const command = { type: 'addWebsite', url: 'example.org' } as const;
+    const toNew = phone({ invite: `${a.deviceId}.secret` });
+    toNew.say({ type: 'command', id: 'c1', command });
+    expect(a.socket.last()).toMatchObject({
+      type: 'message',
+      data: { type: 'command', id: 'c1', command },
+    });
+    const toOld = phone({ invite: `${b.deviceId}.secret` });
+    const before = b.socket.received.length;
+    toOld.say({ type: 'command', id: 'c2', command });
+    expect(toOld.socket.last()).toEqual({ type: 'ack', id: 'c2', applied: false });
+    expect(b.socket.received.length).toBe(before);
+  });
+
+  it('refuses a follower’s website for a coordinator below protocol 8', async () => {
+    const { desktop } = await setup();
+    const a = desktop('Version 7 coordinator', { withHost: false, videos: true, passages: true });
+    const b = desktop('New laptop', {
+      withHost: false,
+      videos: true,
+      passages: true,
+      websites: true,
+    });
+    const command = {
+      type: 'command',
+      id: 'c1',
+      origin: { kind: 'operator', deviceId: b.deviceId, name: 'New laptop' },
+      command: { type: 'addWebsite', url: 'example.org' },
     } as unknown as FollowerToCoordinator;
     const before = a.socket.received.length;
     b.say({ type: 'toCoordinator', data: command });
