@@ -157,6 +157,7 @@ export const en = {
   'runSheet.moveUp': 'Move up',
   'runSheet.moveDown': 'Move down',
   'runSheet.add': 'Add',
+  'runSheet.addWebsite': 'Add {address} to the run sheet as a website',
   'runSheet.addHint': 'Add (or double-click the song)',
   'runSheet.edit': 'Edit',
   'runSheet.itemMenu': 'More actions',

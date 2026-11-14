@@ -1,6 +1,7 @@
 import {
   formatReference,
   songSearchReference,
+  typedWebsiteUrl,
   type IsoDate,
   type Reference,
   type RunSheetItem,
@@ -8,6 +9,7 @@ import {
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
+import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
 import { t } from '../i18n';
 import { useEdgeScroll } from '../lib/edgeScroll';
 import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';
@@ -195,6 +197,30 @@ export function RunSheetEditor(props: {
   const [bible, setBible] = useState<{ initial: Reference | null } | null>(null);
   // A reference typed into the song search, found on this computer alone (B9).
   const searchReference = useMemo(() => songSearchReference(search), [search]);
+  // A web address typed into the song search, added as a website in one click. Its title is
+  // read from the site while the button shows, ready for the click.
+  const searchWebsite = useMemo(() => typedWebsiteUrl(search), [search]);
+  useWebsiteTitle(searchWebsite);
+  const [addingWebsite, setAddingWebsite] = useState(false);
+
+  async function addWebsite(url: string) {
+    if (addingWebsite) return;
+    setAddingWebsite(true);
+    try {
+      // A website already in the library is added again rather than made twice.
+      const library = await session.store.listSongs(session.workspace.id);
+      const song =
+        library.find((song) => song.website?.url === url) ??
+        (await session.createSong({
+          title: (await websiteTitle(url)) || new URL(url).hostname,
+          website: { url },
+        }));
+      await session.addSong(date, song.id);
+      setSearch('');
+    } finally {
+      setAddingWebsite(false);
+    }
+  }
   const blocked = useMediaBlocked();
   const uploads = useUploads();
   const aimed = uploads.filter(
@@ -455,7 +481,22 @@ export function RunSheetEditor(props: {
               title={t('common.searchShortcut')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchWebsite) void addWebsite(searchWebsite);
+              }}
             />
+            {searchWebsite && (
+              <button
+                type="button"
+                className="btn appear-flash shrink-0 px-2 ring-1 ring-slate-400/60"
+                disabled={addingWebsite}
+                title={t('runSheet.addWebsite', { address: searchWebsite })}
+                aria-label={t('runSheet.addWebsite', { address: searchWebsite })}
+                onClick={() => void addWebsite(searchWebsite)}
+              >
+                <Icon name="website" />
+              </button>
+            )}
             <button
               type="button"
               className="btn shrink-0 px-2"
@@ -493,7 +534,7 @@ export function RunSheetEditor(props: {
                   </button>
                 </li>
               )}
-              {songs?.length === 0 && !searchReference && (
+              {songs?.length === 0 && !searchReference && !searchWebsite && (
                 <li className="px-1 py-2 text-sm text-slate-500">{t('runSheet.noSongs')}</li>
               )}
               {songs?.map((song) => (

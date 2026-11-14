@@ -17,6 +17,7 @@ import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
 import { MediaActions } from './MediaActions';
 import { songMediaKind } from '../app/media';
+import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
 import { native } from '../platform/native';
 import { formatDuration } from '@worship-q/session';
 import { useSaveShortcut } from '../lib/saveShortcut';
@@ -352,6 +353,8 @@ function WebsiteForm(props: SongFormProps) {
   const [address, setAddress] = useState(song?.website?.url ?? '');
   const [saving, setSaving] = useState(false);
   const url = websiteUrl(address);
+  // The site's own title, shown as the title until one is typed, and used when none is.
+  const siteTitle = useWebsiteTitle(title.trim() ? null : url);
   const readOnly = !!props.version?.readOnly;
   const switched = !!props.version?.switched;
   const changed =
@@ -366,8 +369,10 @@ function WebsiteForm(props: SongFormProps) {
     try {
       let result: Song;
       if (changed && url !== null) {
-        // An untitled website is named after its site.
-        const fields = { title: title.trim() || new URL(url).hostname, website: { url } };
+        // An untitled website is named after its page, or else its site. The page's title is
+        // waited for when the save comes before it.
+        const named = title.trim() || (await websiteTitle(url)) || new URL(url).hostname;
+        const fields = { title: named, website: { url } };
         result = song ? await session.saveSong(song.id, fields) : await session.createSong(fields);
       } else {
         result = await props.version!.commit();
@@ -398,7 +403,7 @@ function WebsiteForm(props: SongFormProps) {
           <input
             className="field"
             value={title}
-            placeholder={url ? new URL(url).hostname : undefined}
+            placeholder={url ? (siteTitle ?? new URL(url).hostname) : undefined}
             readOnly={readOnly}
             onChange={(e) => setTitle(e.target.value)}
           />

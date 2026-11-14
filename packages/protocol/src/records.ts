@@ -125,6 +125,22 @@ export function websiteUrl(input: string): string | null {
   }
 }
 
+/**
+ * The web address typed into a search, which is plainly one rather than words: it starts
+ * with `http://` or `https://`, or is one unbroken run of text naming a host with a dot and
+ * a lettered ending, as in `example.org/live`. Null otherwise, so `grace` stays a search.
+ */
+export function typedWebsiteUrl(input: string): string | null {
+  const trimmed = input.trim();
+  if (/\s/.test(trimmed)) return null;
+  const url = websiteUrl(trimmed);
+  if (!url) return null;
+  if (/^https?:\/\//i.test(trimmed)) return url;
+  // Without a scheme, `name:` is a scheme of its own, as in `mailto:`, and is no web address.
+  if (/^[a-z][a-z\d+.-]*:(?!\d)/i.test(trimmed)) return null;
+  return /\.[a-z][a-z-]*[a-z]$/i.test(new URL(url).hostname) ? url : null;
+}
+
 /** The seconds a YouTube link starts at: `90`, `90s` or `1h2m3s`. Zero when it has none. */
 function youtubeStart(value: string | null): number {
   if (!value) return 0;

@@ -49,6 +49,16 @@ export const native = {
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('download_background', { server, token, fileName }),
+  /** The start of a web page, up to its `<head>`'s end, to read the site's title from. */
+  fetchPageStart: async (url: string) => {
+    const page = await invoke<{ contentType: string | null; body: string }>('fetch_page_start', {
+      url,
+    });
+    return {
+      contentType: page.contentType,
+      body: Uint8Array.from(atob(page.body), (char) => char.charCodeAt(0)),
+    };
+  },
   // ── Media (media uploads plan, `src-tauri/src/media.rs`) ──
   /** A chosen file's size in bytes; fails for a folder or a missing file. */
   fileSize: (path: string) => invoke<number>('file_size', { path }),

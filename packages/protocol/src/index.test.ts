@@ -25,6 +25,7 @@ import {
   PROTOCOL_VERSION,
   SyncRecordSchema,
   updateNeededBy,
+  typedWebsiteUrl,
   websiteUrl,
   youtubeEmbedUrl,
   type LiveSnapshot,
@@ -149,6 +150,18 @@ describe('website addresses', () => {
     expect(websiteUrl('javascript:alert(1)')).toBeNull();
     expect(websiteUrl('file:///etc/passwd')).toBeNull();
     expect(websiteUrl('http://')).toBeNull();
+  });
+
+  it('finds an address typed into a search, but not words', () => {
+    expect(typedWebsiteUrl(' example.org/live ')).toBe('https://example.org/live');
+    expect(typedWebsiteUrl('www.youtube.com/watch?v=x')).toBe('https://www.youtube.com/watch?v=x');
+    expect(typedWebsiteUrl('http://localhost:8080')).toBe('http://localhost:8080/');
+    expect(typedWebsiteUrl('HTTPS://Example.ORG')).toBe('https://example.org/');
+    for (const words of ['grace', 'amazing grace', 'John 3.16', 'john3.16', 'localhost:8080']) {
+      expect(typedWebsiteUrl(words)).toBeNull();
+    }
+    expect(typedWebsiteUrl('mailto:a@example.org')).toBeNull();
+    expect(typedWebsiteUrl('example.org and more')).toBeNull();
   });
 });
 

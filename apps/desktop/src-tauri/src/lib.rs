@@ -16,6 +16,7 @@ mod obs;
 mod output;
 mod overlay;
 mod power;
+mod web;
 mod workspaces;
 
 use std::fs;
@@ -186,6 +187,7 @@ pub fn run() {
             workspaces::add_workspace,
             workspaces::switch_workspace,
             workspaces::remove_workspace,
+            web::fetch_page_start,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");
