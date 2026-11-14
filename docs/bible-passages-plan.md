@@ -80,7 +80,7 @@ Typing and browsing drive the same control; each fills in the other.
 
 ### Adding and presenting
 
-- **Present ▶** (main action, Enter) is only on the Present tab, where something is always
+- **Present ▶** (main action; Enter adds instead, so a key never puts text on screen) is only on the Present tab, where something is always
   live, even if it is an empty live state. It adds the passage to the live run sheet **right
   after the item being presented** and presents it at once. When no item is being presented
   (an empty run sheet, or the screen was cleared), it adds the passage at the end of the live

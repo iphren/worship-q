@@ -260,8 +260,8 @@ export function BibleWindow(props: {
   function onInputKey(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
     event.preventDefault();
-    // Enter presents on the Present tab, else adds, once the preview is ready.
-    void finish(presentable);
+    // Enter adds, once the preview is ready, even on the Present tab: presenting is a click.
+    void finish(false);
   }
 
   const connected = status.server !== null;

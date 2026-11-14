@@ -482,7 +482,12 @@ export function RunSheetEditor(props: {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && searchWebsite) void addWebsite(searchWebsite);
+                // Enter does what the flashing button beside the search would.
+                if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                if (searchWebsite) void addWebsite(searchWebsite);
+                else if (searchReference && !bibleUnavailable) {
+                  setBible({ initial: searchReference });
+                }
               }}
             />
             {searchWebsite && (
@@ -497,13 +502,21 @@ export function RunSheetEditor(props: {
                 <Icon name="website" />
               </button>
             )}
+            {/* With a reference typed, the button opens on it, flashing once when one is found:
+                the key gives it a fresh start then. */}
             <button
+              key={searchReference ? 'reference' : 'none'}
               type="button"
-              className="btn shrink-0 px-2"
+              className={`btn shrink-0 px-2 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
               disabled={!!bibleUnavailable}
-              title={bibleUnavailable ?? t('bible.open')}
+              title={
+                bibleUnavailable ??
+                (searchReference
+                  ? t('bible.reference', { reference: formatReference(searchReference) })
+                  : t('bible.open'))
+              }
               aria-label={t('bible.open')}
-              onClick={() => setBible({ initial: null })}
+              onClick={() => setBible({ initial: searchReference })}
             >
               <Icon name="bible" />
             </button>

@@ -104,12 +104,12 @@ beside the song search on the Present page (or in the calendar's run sheet edito
   into the next chapter. Words that are not a reference, such as `love your enemies`, search
   the Bible after a pause.
 - The **preview** shows the text in the workspace's versions side by side. Check it, then:
-  - **Present ▶** (or Enter) adds the passage right after the item on screen and shows it at
-    once. With nothing on screen it goes at the end of the run sheet.
-  - **Add to run sheet** puts it in the same place without showing it, for a passage the
-    speaker will read later. In the calendar, only Add is offered.
+  - **Present ▶** adds the passage right after the item on screen and shows it at once. With
+    nothing on screen it goes at the end of the run sheet.
+  - **Add to run sheet** (or Enter) puts it in the same place without showing it, for a
+    passage the speaker will read later. In the calendar, only Add is offered.
 - Typing a reference into the song search, such as `Mark 15:5`, offers **Open Mark 15:5 in the
-  Bible** above the songs.
+  Bible** above the songs, and the Bible button flashes: it, or Enter, opens the Bible there.
 - **Versions** are the chips beside the search box: **✕** removes one, **◀** shows it first,
   and **+** adds one of those the church offers, at most two. They belong to the workspace, so
   every computer gets the same; they are also in **Settings → Bible versions**.
