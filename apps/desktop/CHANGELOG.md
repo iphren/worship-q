@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/iphren/worship-q/compare/v2.4.0...v2.4.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* viewer mode shows the same Present layout, read-only, under a View only label ([885b078](https://github.com/iphren/worship-q/commit/885b078ffa3247f99200ef1b370af9792809b9dc))
+
 ## [2.4.0](https://github.com/iphren/worship-q/compare/v2.3.0...v2.4.0) (2026-11-14)
 
 
