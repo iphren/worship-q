@@ -151,7 +151,7 @@ export const en = {
   'runSheet.tab': 'Run sheet',
   'runSheet.empty':
     'Nothing planned yet. Search below to add songs, media or websites, or drop files here.',
-  'runSheet.addSong': 'Add songs, bible, slides, websites…',
+  'runSheet.addSong': 'Songs, Bible, websites…',
   'runSheet.noSongs': 'Nothing found.',
   'runSheet.drag': 'Drag to reorder',
   'runSheet.moveUp': 'Move up',
