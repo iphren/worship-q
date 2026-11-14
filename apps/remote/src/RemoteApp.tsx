@@ -4,6 +4,7 @@ import {
   songSearchReference,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
+  OBS_TRANSITION_LOCK_MS,
   outputElapsed,
   switchTarget,
   type ItemBadge,
@@ -1001,6 +1002,21 @@ function AudioRow({ audio }: { audio: NonNullable<RemoteView['audio']> | null })
   );
 }
 
+/**
+ * Whether the scene buttons wait for OBS to finish a transition: until it ends, and never
+ * longer than `OBS_TRANSITION_LOCK_MS` from when this phone saw it start.
+ */
+function useTransitionLock(transitioning: boolean): boolean {
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    setExpired(false);
+    if (!transitioning) return;
+    const timer = setTimeout(() => setExpired(true), OBS_TRANSITION_LOCK_MS);
+    return () => clearTimeout(timer);
+  }, [transitioning]);
+  return transitioning && !expired;
+}
+
 function ObsRow(props: {
   obs: RemoteObsView;
   connected: boolean;
@@ -1009,6 +1025,7 @@ function ObsRow(props: {
 }) {
   const { obs } = props;
   const command = useObsCommand();
+  const locked = useTransitionLock(obs.transitioning === true);
   const target = switchTarget(obs);
   const usable = props.connected && obs.reachable && obs.status === 'connected';
   return (
@@ -1016,7 +1033,7 @@ function ObsRow(props: {
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
           className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
-          disabled={!usable || !target || command.pending}
+          disabled={!usable || !target || command.pending || locked}
           onClick={() => target && void command.run({ type: 'setScene', scene: target })}
         >
           <ObsDot obs={obs} />
@@ -1080,6 +1097,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
   const { obs } = props;
   const command = useObsCommand();
   const [confirming, setConfirming] = useState<string | null>(null);
+  const locked = useTransitionLock(obs.transitioning === true);
   const image = useSyncExternalStore(connection.subscribeImage, () => connection.obsImage);
   const now = useNow(1000);
   const usable = props.connected && obs.reachable && obs.status === 'connected';
@@ -1193,7 +1211,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
                   className={`flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left active:scale-[0.99] disabled:opacity-60 ${
                     live ? 'border-emerald-500 bg-emerald-900/40' : 'border-slate-800 bg-slate-900'
                   }`}
-                  disabled={!usable || command.pending || live}
+                  disabled={!usable || command.pending || locked || live}
                   onClick={() => void command.run({ type: 'setScene', scene })}
                 >
                   <span className="min-w-0 flex-1 truncate">{scene}</span>

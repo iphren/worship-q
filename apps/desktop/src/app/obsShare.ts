@@ -98,6 +98,8 @@ export class ObsShare {
   private link: ObsLink | null = null;
   private unsubscribeLink: (() => void) | null = null;
   private unsubscribeShots: (() => void) | null = null;
+  private unsubscribeEnds: (() => void) | null = null;
+  private readonly transitionEndListeners = new Set<() => void>();
   private transport: ObsTransport | null = null;
   private phones: ObsPhones | null = null;
   private role: Role = 'alone';
@@ -182,7 +184,12 @@ export class ObsShare {
   setLink(link: ObsLink | null): void {
     this.unsubscribeLink?.();
     this.unsubscribeShots?.();
+    this.unsubscribeEnds?.();
     this.link = link;
+    this.unsubscribeEnds =
+      link?.onTransitionEnded(() => {
+        for (const listener of [...this.transitionEndListeners]) listener();
+      }) ?? null;
     this.unsubscribeLink = link?.subscribe(() => this.linkChanged()) ?? null;
     this.unsubscribeShots = link?.onSnapshot((snapshot) => this.ownImage(snapshot)) ?? null;
     this.linkChanged();
@@ -410,6 +417,7 @@ export class ObsShare {
       closing,
       scenes,
       currentScene,
+      transitioning,
       outputs,
       measuredAt,
     } = link.view;
@@ -422,6 +430,7 @@ export class ObsShare {
       closing,
       scenes,
       currentScene,
+      transitioning,
       outputs,
       measuredAt,
       this.deps.deviceName(),
@@ -442,6 +451,12 @@ export class ObsShare {
       ownerName: this.deps.deviceName(),
       revision: this.revision,
     };
+  }
+
+  /** This computer's OBS finished a transition; for the report to the church server. */
+  onTransitionEnded(listener: () => void): () => void {
+    this.transitionEndListeners.add(listener);
+    return () => this.transitionEndListeners.delete(listener);
   }
 
   /** One image of this computer's OBS program, for the report to the church server. */
@@ -611,6 +626,7 @@ export class ObsShare {
       stream: carried(state.stream),
       record: carried(state.record),
       virtualCam: carried(state.virtualCam),
+      transitioning: state.transitioning === true,
     };
   }
 }

@@ -970,6 +970,23 @@ describe('OBS control across the workspace (OBS plan M2)', () => {
     expect(b.obs.view.state?.currentScene).toBe('Camera');
   });
 
+  it('tells every desktop and their phones while OBS is between two scenes', async () => {
+    const { a, b, s } = await church();
+    await s.obsOn();
+    s.obsNative.event('SceneTransitionStarted', { transitionName: 'Fade' });
+    await settle();
+    for (const d of [a, b, s]) {
+      expect(d.obs.view.state?.transitioning).toBe(true);
+      expect(d.obs.remoteView()?.transitioning).toBe(true);
+    }
+    s.obsNative.event('SceneTransitionEnded', { transitionName: 'Fade' });
+    await settle();
+    for (const d of [a, b, s]) {
+      expect(d.obs.view.state?.transitioning).toBe(false);
+      expect(d.obs.remoteView()?.transitioning).toBe(false);
+    }
+  });
+
   it('carries a command from any desktop to OBS and answers the one that asked', async () => {
     const { a, b, s } = await church();
     await s.obsOn();

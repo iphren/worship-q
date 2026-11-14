@@ -8,6 +8,7 @@ import {
   OBS_ERRORS,
   OBS_SNAPSHOT_EVERY_MS,
   OBS_SNAPSHOT_STALE_MS,
+  OBS_TRANSITION_LOCK_MS,
   type ObsCommand,
   type ObsConnection,
   type ObsOutput,
@@ -100,6 +101,22 @@ function useObsAction() {
 }
 
 /**
+ * Whether the scene controls wait for OBS to finish a transition: from when this device saw
+ * it start until it ends, and never longer than `OBS_TRANSITION_LOCK_MS`, so a missed end
+ * cannot leave them locked.
+ */
+function useTransitionLock(transitioning: boolean): boolean {
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    setExpired(false);
+    if (!transitioning) return;
+    const timer = window.setTimeout(() => setExpired(true), OBS_TRANSITION_LOCK_MS);
+    return () => window.clearTimeout(timer);
+  }, [transitioning]);
+  return transitioning && !expired;
+}
+
+/**
  * The switch button (O4): shows which favourite is live and switches to the other. Shown only
  * while OBS is shared (O5); disabled, but kept in place, while OBS is not connected.
  */
@@ -107,6 +124,7 @@ export function ObsSwitchButton(props: { small?: boolean }) {
   const shared = useObs();
   const action = useObsAction();
   const state = shared.state;
+  const locked = useTransitionLock(state?.transitioning === true);
   if (!state) return null;
   const target = switchTarget(state);
   const linked = state.status === 'connected' && shared.reachable;
@@ -132,7 +150,7 @@ export function ObsSwitchButton(props: { small?: boolean }) {
         <button
           className={`btn btn-switch min-w-0 flex-1 justify-center rounded-r-none ${props.small ? 'btn-sm gap-1.5' : 'gap-2'}`}
           title={title}
-          disabled={!usable || action.busy}
+          disabled={!usable || action.busy || locked}
           onClick={() => void action.switchScene()}
         >
           <ObsStatusDot shared={shared} />
@@ -144,7 +162,7 @@ export function ObsSwitchButton(props: { small?: boolean }) {
           label={t('obs.switchAny')}
           trigger={<Icon name="chevronDown" className={props.small ? 'h-3.5 w-3.5' : 'h-4 w-4'} />}
           items={scenes}
-          disabled={!linked || action.busy || scenes.length === 0}
+          disabled={!linked || action.busy || locked || scenes.length === 0}
         />
       </div>
       {action.error && <p className="text-xs text-rose-300">{action.error}</p>}
@@ -190,6 +208,7 @@ export function ObsPanel(props: { watch: boolean; fill?: boolean; switchButton?:
   const action = useObsAction();
   const [confirm, setConfirm] = useState<'stopStream' | 'stopRecord' | null>(null);
   const state = shared.state;
+  const locked = useTransitionLock(state?.transitioning === true);
   const anyActive = !!state && OUTPUTS.some(({ kind }) => state[kind].active);
   const now = useNow(1000, anyActive || props.watch);
 
@@ -255,7 +274,7 @@ export function ObsPanel(props: { watch: boolean; fill?: boolean; switchButton?:
                         ? 'border-emerald-500 bg-emerald-500/10'
                         : 'border-transparent bg-slate-900/60 hover:bg-slate-900'
                     } disabled:opacity-60`}
-                    disabled={!usable || action.busy || live}
+                    disabled={!usable || action.busy || locked || live}
                     onClick={() => void action.command({ type: 'setScene', scene })}
                   >
                     <span className="min-w-0 flex-1 truncate">{scene}</span>

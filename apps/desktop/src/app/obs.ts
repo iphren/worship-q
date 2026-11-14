@@ -14,6 +14,7 @@
 import {
   OBS_ERRORS,
   OBS_SNAPSHOT_EVERY_MS,
+  OBS_TRANSITION_LOCK_MS,
   ObsSnapshotSchema,
   type ObsCommand,
   type ObsConnection,
@@ -106,6 +107,11 @@ export interface ObsLinkView {
   /** In the order OBS lists them, top first. */
   scenes: string[];
   currentScene: string | null;
+  /**
+   * OBS is between two scenes: from `SceneTransitionStarted` to `SceneTransitionEnded`, or
+   * `OBS_TRANSITION_LOCK_MS` at most, in case the end is missed.
+   */
+  transitioning: boolean;
   /** Each output as last measured, at `measuredAt` on this computer's clock. */
   outputs: Record<OutputKind, ObsOutput>;
   measuredAt: Record<OutputKind, number>;
@@ -313,6 +319,12 @@ export class ObsLink {
   private watchingHere = false;
   private watchingElsewhere = false;
   private shooting = false;
+  /** A transition ended while an image was being taken: the next is taken at once. */
+  private shootAgain = false;
+  /** Cuts the wait for the next image short. */
+  private wake: (() => void) | null = null;
+  private transitionTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly transitionEndListeners = new Set<() => void>();
   private stopped = false;
   private readonly now: () => number;
   private readonly delay: (ms: number) => Promise<void>;
@@ -330,6 +342,7 @@ export class ObsLink {
       closing: false,
       scenes: [],
       currentScene: null,
+      transitioning: false,
       outputs: { stream: IDLE, record: IDLE, virtualCam: IDLE },
       measuredAt: { stream: at, record: at, virtualCam: at },
       config: null,
@@ -349,6 +362,12 @@ export class ObsLink {
   onSnapshot(listener: (snapshot: ObsSnapshot) => void): () => void {
     this.snapshotListeners.add(listener);
     return () => this.snapshotListeners.delete(listener);
+  }
+
+  /** OBS finished a transition: the program shows the new scene in full. */
+  onTransitionEnded(listener: () => void): () => void {
+    this.transitionEndListeners.add(listener);
+    return () => this.transitionEndListeners.delete(listener);
   }
 
   private update(patch: Partial<ObsLinkView>): void {
@@ -377,6 +396,7 @@ export class ObsLink {
 
   stop(): void {
     this.stopped = true;
+    clearTimeout(this.transitionTimer);
     this.unlisten?.();
     this.unlisten = null;
     if (this.view_.settings.active) void this.deps.native.disconnect().catch(() => undefined);
@@ -483,9 +503,11 @@ export class ObsLink {
   private resetObs(): void {
     const at = this.now();
     this.collectionChanging = false;
+    clearTimeout(this.transitionTimer);
     this.update({
       ready: false,
       closing: false,
+      transitioning: false,
       outputs: { stream: IDLE, record: IDLE, virtualCam: IDLE },
       measuredAt: { stream: at, record: at, virtualCam: at },
     });
@@ -635,6 +657,21 @@ export class ObsLink {
         this.sceneEvents++;
         void this.reloadScenes();
         return;
+      case 'SceneTransitionStarted':
+        clearTimeout(this.transitionTimer);
+        // Never longer than this, in case the end is missed.
+        this.transitionTimer = setTimeout(
+          () => this.update({ transitioning: false }),
+          OBS_TRANSITION_LOCK_MS,
+        );
+        this.update({ transitioning: true });
+        return;
+      case 'SceneTransitionEnded':
+        clearTimeout(this.transitionTimer);
+        this.update({ transitioning: false });
+        this.refreshMonitor();
+        for (const listener of [...this.transitionEndListeners]) listener();
+        return;
       case 'ExitStarted':
         this.update({ closing: true });
         return;
@@ -704,6 +741,7 @@ export class ObsLink {
       status: settings.active ? sharedConnection(this.view_) : 'not-running',
       scenes: connected ? this.view_.scenes : [],
       currentScene: connected ? this.view_.currentScene : null,
+      transitioning: connected && this.view_.transitioning,
       favourites: settings.favourites,
       stream: connected ? outputs.stream : IDLE,
       record: connected ? outputs.record : IDLE,
@@ -750,14 +788,31 @@ export class ObsLink {
     void (async () => {
       try {
         while (this.canShoot()) {
+          this.shootAgain = false;
           const started = this.now();
           await this.shoot();
-          await this.delay(Math.max(0, SNAPSHOT_EVERY_MS - (this.now() - started)));
+          if (this.shootAgain) continue;
+          await new Promise<void>((done) => {
+            this.wake = done;
+            void this.delay(Math.max(0, SNAPSHOT_EVERY_MS - (this.now() - started))).then(done);
+          });
+          this.wake = null;
         }
       } finally {
         this.shooting = false;
+        this.wake = null;
       }
     })();
+  }
+
+  /**
+   * Takes the next image now, rather than when it is due, so every monitor shows the new
+   * scene as soon as a transition has finished; the images then come at the usual pace.
+   */
+  private refreshMonitor(): void {
+    if (!this.shooting) return;
+    this.shootAgain = true;
+    this.wake?.();
   }
 
   private async shoot(): Promise<void> {

@@ -33,9 +33,9 @@ use tokio_tungstenite::{client_async, WebSocketStream};
 
 /// OBS's default port for its WebSocket server.
 pub const DEFAULT_PORT: u16 = 4455;
-/// General (1), Config (2), Scenes (4), Outputs (64) and Ui (1024). Never the high-volume
-/// categories such as `InputVolumeMeters`, which fire many times a second.
-const EVENT_SUBSCRIPTIONS: u32 = 1 | 2 | 4 | 64 | 1024;
+/// General (1), Config (2), Scenes (4), Transitions (16), Outputs (64) and Ui (1024). Never
+/// the high-volume categories such as `InputVolumeMeters`, which fire many times a second.
+const EVENT_SUBSCRIPTIONS: u32 = 1 | 2 | 4 | 16 | 64 | 1024;
 /// obs-websocket's close code for a failed or missing authentication.
 const CLOSE_AUTHENTICATION_FAILED: u16 = 4009;
 /// The only requests the interface may make: what the controls need, and nothing that
@@ -1105,7 +1105,7 @@ mod tests {
         });
         assert_eq!(connected.unwrap().obs_version.as_deref(), Some("33.0.1"));
         let identify = seen.recv().await.unwrap();
-        assert_eq!(identify["d"]["eventSubscriptions"], 1095);
+        assert_eq!(identify["d"]["eventSubscriptions"], 1111);
         assert_eq!(identify["d"]["rpcVersion"], 1);
 
         let (kind, data) = client.next_event().await;

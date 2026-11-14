@@ -1108,6 +1108,7 @@ export class CloudController {
       state: () => this.obs.ownState(),
       snapshot: () => this.obs.takeSnapshot(),
       subscribe: this.obs.subscribe,
+      transitionEnded: (listener) => this.obs.onTransitionEnded(listener),
       put: (state, snapshot) =>
         this.call('PUT', '/api/v1/obs', { state, snapshot }).then(() => undefined),
     });

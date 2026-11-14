@@ -59,6 +59,11 @@ export const ObsStateSchema = z.object({
   stream: ObsOutputSchema,
   record: ObsOutputSchema,
   virtualCam: ObsOutputSchema,
+  /**
+   * OBS is between two scenes: the scene controls wait until it has finished, or for
+   * `OBS_TRANSITION_LOCK_MS` at most. Absent from older desktops.
+   */
+  transitioning: z.boolean().optional(),
 });
 export type ObsState = z.infer<typeof ObsStateSchema>;
 
@@ -108,6 +113,12 @@ export const OBS_SNAPSHOT_EVERY_MS = 3000;
  * travel.
  */
 export const OBS_SNAPSHOT_STALE_MS = OBS_SNAPSHOT_EVERY_MS * 2.5;
+
+/**
+ * The longest the scene controls wait for a transition to finish. Each device counts it
+ * from when it saw the transition start, so a missed end never leaves them locked.
+ */
+export const OBS_TRANSITION_LOCK_MS = 1000;
 
 /** One image of the program output, for the live monitor (O6). */
 export const ObsSnapshotSchema = z.object({
@@ -172,4 +183,6 @@ export interface RemoteObsView {
   stream: ObsOutput;
   record: ObsOutput;
   virtualCam: ObsOutput;
+  /** OBS is between two scenes (`ObsState.transitioning`); absent from older desktops. */
+  transitioning?: boolean;
 }

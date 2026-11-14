@@ -25,6 +25,7 @@ function obsState(patch: Partial<ObsState> = {}): ObsState {
 function harness(options: { initial?: ObsState | null; fail?: boolean; slow?: boolean } = {}) {
   let state: ObsState | null = options.initial === undefined ? obsState() : options.initial;
   const listeners = new Set<() => void>();
+  const ends = new Set<() => void>();
   const sent: { state: ObsState; snapshot: ObsSnapshot | null }[] = [];
   const pending: (() => void)[] = [];
   let shots = 0;
@@ -38,6 +39,10 @@ function harness(options: { initial?: ObsState | null; fail?: boolean; slow?: bo
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    transitionEnded: (listener) => {
+      ends.add(listener);
+      return () => ends.delete(listener);
     },
     put: (s, snapshot) => {
       sent.push({ state: s, snapshot });
@@ -56,7 +61,10 @@ function harness(options: { initial?: ObsState | null; fail?: boolean; slow?: bo
       for (const listener of [...listeners]) listener();
     },
     finish: () => pending.shift()?.(),
+    /** OBS finished a transition. */
+    end: () => [...ends].forEach((listener) => listener()),
     listeners,
+    ends,
   };
 }
 
@@ -97,6 +105,31 @@ describe('ObsReporter', () => {
     expect(h.sent).toHaveLength(4);
     await vi.advanceTimersByTimeAsync(1);
     expect(h.images().at(-1)).toBe('Slides-3');
+  });
+
+  it('takes the image as soon as the transition has finished, in place of the one a second later', async () => {
+    const h = harness();
+    await vi.advanceTimersByTimeAsync(OBS_SCENE_SNAPSHOT_MS + 10_000);
+    h.set(obsState({ currentScene: 'Slides' }));
+    await vi.advanceTimersByTimeAsync(300);
+    h.end();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.images()).toEqual([null, 'Camera-1', 'Slides-2']);
+    await vi.advanceTimersByTimeAsync(OBS_SCENE_SNAPSHOT_MS);
+    // The change itself, without an image; no second image.
+    expect(h.images()).toEqual([null, 'Camera-1', 'Slides-2', null]);
+    await vi.advanceTimersByTimeAsync(OBS_REPORT_EVERY_MS - OBS_SCENE_SNAPSHOT_MS - 1);
+    expect(h.sent).toHaveLength(4);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(h.images().at(-1)).toBe('Slides-3');
+  });
+
+  it('takes no image for a transition while the link is off', async () => {
+    const h = harness({ initial: obsState({ active: false, status: 'not-running' }) });
+    await vi.advanceTimersByTimeAsync(OBS_REPORT_DEBOUNCE_MS);
+    h.end();
+    await vi.advanceTimersByTimeAsync(OBS_REPORT_EVERY_MS);
+    expect(h.images()).toEqual([null]);
   });
 
   it('carries durations that only advanced with the heartbeat, not a report of their own', async () => {
@@ -150,6 +183,7 @@ describe('ObsReporter', () => {
     expect(h.sent).toHaveLength(0);
     h.reporter.stop();
     expect(h.listeners.size).toBe(0);
+    expect(h.ends.size).toBe(0);
     h.set(obsState());
     await vi.advanceTimersByTimeAsync(OBS_SCENE_SNAPSHOT_MS);
     expect(h.sent).toHaveLength(0);

@@ -1,5 +1,5 @@
 import type { ObsSnapshot } from '@worship-q/protocol';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_OBS_SETTINGS,
   ObsLink,
@@ -590,5 +590,84 @@ describe('the live monitor (M5.1)', () => {
     native.event('CurrentSceneCollectionChanged');
     await tick();
     expect(native.count('GetSourceScreenshot')).toBe(1);
+  });
+});
+
+describe('transitions', () => {
+  const image = 'data:image/webp;base64,UklGRoY=';
+  afterEach(() => vi.useRealTimers());
+
+  it('is transitioning from the start of a transition to its end', async () => {
+    const { native, link } = await connected();
+    native.event('SceneTransitionStarted', { transitionName: 'Fade' });
+    expect(link.view.transitioning).toBe(true);
+    expect(link.localState()?.transitioning).toBe(true);
+    native.event('SceneTransitionEnded', { transitionName: 'Fade' });
+    expect(link.view.transitioning).toBe(false);
+    expect(link.localState()?.transitioning).toBe(false);
+  });
+
+  it('stops counting as transitioning after a second when the end is missed', async () => {
+    const { native, link } = await connected();
+    vi.useFakeTimers();
+    native.event('SceneTransitionStarted', { transitionName: 'Stinger' });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(link.view.transitioning).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(link.view.transitioning).toBe(false);
+    // A new transition counts its second afresh.
+    native.event('SceneTransitionStarted', { transitionName: 'Stinger' });
+    await vi.advanceTimersByTimeAsync(500);
+    native.event('SceneTransitionStarted', { transitionName: 'Stinger' });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(link.view.transitioning).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(link.view.transitioning).toBe(false);
+  });
+
+  it('forgets a transition when OBS goes away', async () => {
+    const { native, link } = await connected();
+    native.event('SceneTransitionStarted', {});
+    native.status({ state: 'not-running' });
+    expect(link.view.transitioning).toBe(false);
+  });
+
+  it('takes the next image as soon as a transition ends, while watched, and says it ended', async () => {
+    const { native, link, snapshots, tick } = await connected();
+    native.answers.set('GetSourceScreenshot', () => ({ imageData: image }));
+    let ended = 0;
+    link.onTransitionEnded(() => ended++);
+    link.setWatchingHere(true);
+    await flush();
+    expect(native.count('GetSourceScreenshot')).toBe(1);
+    // Waiting for the next image, which the end brings forward.
+    native.event('SceneTransitionEnded', {});
+    await flush();
+    expect(native.count('GetSourceScreenshot')).toBe(2);
+    expect(snapshots).toHaveLength(2);
+    expect(ended).toBe(1);
+    // Then at the usual pace again: the wait that was cut short does not bring another.
+    await tick();
+    expect(native.count('GetSourceScreenshot')).toBe(2);
+    await tick();
+    expect(native.count('GetSourceScreenshot')).toBe(3);
+  });
+
+  it('takes another image at once when a transition ends while one is being taken', async () => {
+    const { native, link } = await connected();
+    link.setWatchingHere(true);
+    await flush();
+    expect(native.count('GetSourceScreenshot')).toBe(1);
+    native.event('SceneTransitionEnded', {});
+    native.answer('GetSourceScreenshot', { imageData: image });
+    await flush();
+    expect(native.count('GetSourceScreenshot')).toBe(2);
+  });
+
+  it('takes no image for a transition while nobody watches', async () => {
+    const { native } = await connected();
+    native.event('SceneTransitionEnded', {});
+    await flush();
+    expect(native.count('GetSourceScreenshot')).toBe(0);
   });
 });
