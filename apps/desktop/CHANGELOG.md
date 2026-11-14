@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.4.2](https://github.com/iphren/worship-q/compare/v2.4.1...v2.4.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* reword run sheet search placeholder to list what can be added ([54fe5f0](https://github.com/iphren/worship-q/commit/54fe5f001371adeb288730f275405d32b561cdb8))
+* viewer slide list follows the presented slide once the run sheet loads ([a34a0f6](https://github.com/iphren/worship-q/commit/a34a0f6c94b69ae21e445e0d05bc146ee27acd7e))
+
 ## [2.4.1](https://github.com/iphren/worship-q/compare/v2.4.0...v2.4.1) (2026-11-14)
 
 
