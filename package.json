@@ -2,7 +2,7 @@
   "name": "worship-q",
   "private": true,
   "license": "MIT",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "packageManager": "pnpm@9.5.0",
   "type": "module",
   "scripts": {
