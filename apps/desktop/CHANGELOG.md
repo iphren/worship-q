@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.7.0](https://github.com/iphren/worship-q/compare/v2.6.0...v2.7.0) (2026-11-15)
+
+
+### Features
+
+* a New song button on the run sheet writes a song and adds it there ([79a38e7](https://github.com/iphren/worship-q/commit/79a38e7171b5f4dc976f8b836a5b80361700eece))
+* a phone adds a website by typing its address (protocol 8) ([6d6b3ac](https://github.com/iphren/worship-q/commit/6d6b3acd4e6334a755fdc64e6efda452b3dfaf4a))
+* a phone adds a website by typing its address (protocol 8) ([3343dad](https://github.com/iphren/worship-q/commit/3343dade6591a5ce370b41d1a6b1308b58e136eb))
+* media added below the visible run sheet is scrolled into view ([05a8604](https://github.com/iphren/worship-q/commit/05a86049c1f2e886e7c9fc567af713bb81a6b17a))
+* the add-website button beside the search wears the website colour ([d574683](https://github.com/iphren/worship-q/commit/d5746836d6188600e5870510fd4f2b23f5f723bb))
+* the Bible and Add media buttons sit above the song search as one slim row ([28c1c8a](https://github.com/iphren/worship-q/commit/28c1c8a0996658fb9f80a97e69444d409f8563f9))
+* the same file uploaded again is stored once ([ffb68a5](https://github.com/iphren/worship-q/commit/ffb68a5e94ff0cd12200d8a5a71cab1ad1791f07))
+* the same file uploaded again is stored once ([172bf7d](https://github.com/iphren/worship-q/commit/172bf7dcc37f2ca5bbd70f45883c4750bc1f5e5c))
+
+
+### Bug Fixes
+
+* no Chinese text in the English strings ([3ef14e9](https://github.com/iphren/worship-q/commit/3ef14e91d598f49a01d7eb01bc1564093e23ca36))
+
 ## [2.6.0](https://github.com/iphren/worship-q/compare/v2.5.0...v2.6.0) (2026-11-14)
 
 
