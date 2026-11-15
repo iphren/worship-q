@@ -1,12 +1,4 @@
 import { emitTo } from '@tauri-apps/api/event';
-import {
-  CLIP_DB,
-  meterFraction,
-  PeakHold,
-  peakDb,
-  rmsDb,
-  type BrowserTrack,
-} from '@worship-q/audio';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useAudio } from '../app/context';
 import {
@@ -25,6 +17,7 @@ import {
   recordingNote,
   recordingStatusText,
 } from './audioText';
+import { useInputLevel } from './useInputLevel';
 
 interface ListedAudio {
   outputs: AudioDevice[];
@@ -216,48 +209,20 @@ function BroadcastSettings() {
 }
 
 /**
- * The input's level, read from the local track through Web Audio on animation frames while
- * Settings is open, with the peak held for a second of elapsed time (M2.4). Nothing is read
- * while Settings is closed.
+ * The input's level while Settings is open: the bar is the average level, the tick the held
+ * peak.
  */
 function LevelMeter() {
-  const { cloud } = useApp();
-  useAudio();
-  const track = (cloud.audio.track as BrowserTrack | null)?.track ?? null;
   const barRef = useRef<HTMLDivElement>(null);
   const peakRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useInputLevel(({ level, peak }) => {
     const bar = barRef.current;
     const peakMark = peakRef.current;
-    if (!track || !bar || !peakMark) {
-      if (bar) bar.style.width = '0%';
-      if (peakMark) peakMark.style.left = '0%';
-      return;
-    }
-    const context = new AudioContext();
-    const source = context.createMediaStreamSource(new MediaStream([track]));
-    const analyser = context.createAnalyser();
-    analyser.fftSize = 1024;
-    source.connect(analyser);
-    const samples = new Float32Array(analyser.fftSize);
-    const hold = new PeakHold();
-    let frame = 0;
-    const read = () => {
-      analyser.getFloatTimeDomainData(samples);
-      // The bar is the average level, the tick the held peak.
-      const { peak } = hold.push(peakDb(samples), performance.now());
-      bar.style.width = `${meterFraction(rmsDb(samples)) * 100}%`;
-      peakMark.style.left = `${meterFraction(peak) * 100}%`;
-      peakMark.className = `absolute top-0 h-full w-0.5 ${peak >= CLIP_DB ? 'bg-red-500' : 'bg-slate-200'}`;
-      frame = requestAnimationFrame(read);
-    };
-    frame = requestAnimationFrame(read);
-    return () => {
-      cancelAnimationFrame(frame);
-      source.disconnect();
-      void context.close().catch(() => undefined);
-    };
-  }, [track]);
+    if (!bar || !peakMark) return;
+    bar.style.width = `${level * 100}%`;
+    // Kept inside the bar: at full scale the tick would otherwise sit past the right edge.
+    peakMark.style.left = `min(${peak * 100}%, calc(100% - 2px))`;
+  });
   return (
     <div>
       <span className="label">{t('audio.level')}</span>

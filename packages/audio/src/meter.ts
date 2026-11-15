@@ -57,6 +57,3 @@ export class PeakHold {
     return { level: levelDb, peak: this.peak };
   }
 }
-
-/** A peak this close to full scale is shown as clipping. */
-export const CLIP_DB = -1;
