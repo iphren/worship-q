@@ -3,12 +3,13 @@ import type { LiveState, Presented, Song } from '@worship-q/protocol';
 import { SUBTITLE_BAR_FRACTION } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
 import { deviceSettings } from '../app/deviceSettings';
-import { useCloud, useObs, useQuery, useSession } from '../app/context';
+import { useCloud, useObs, useQuery, useSession, useUpdates } from '../app/context';
 import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
+import { UpdateBanner } from '../components/UpdateBanner';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
 import { PassageWarnings } from '../components/PassageWarnings';
@@ -654,45 +655,53 @@ function presentedTitle(
 
 /**
  * A viewer's screen with everything else covered: the slideshow and subtitle overlay as they
- * are shown, for a computer that only watches. Dialogs still open above it. The previews are
- * as wide as fits the window's height beside the headings, message and button, so nothing
- * scrolls.
+ * are shown, for a computer that only watches. Dialogs still open above it, and it carries its
+ * own offer to restart into a downloaded update, which the cover would otherwise hide. The previews
+ * are as wide as fits the window's height beside the headings, message, button and that offer,
+ * so nothing scrolls.
  */
 function SimpleView(props: { title: string | null; onLeave: () => void }) {
   const status = useOutputStatus();
+  const updateReady = useUpdates().kind === 'ready';
   const monitor = status.decision.kind === 'open' ? status.decision.monitor : null;
   // Height over width of the slideshow, then of the subtitle bar (fitted at 1920 by 1080).
   const slideRatio = monitor ? monitor.height / monitor.width : 9 / 16;
   const barRatio = (SUBTITLE_BAR_FRACTION * 9) / 16;
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-hidden bg-slate-950 p-6">
-      <div
-        className="flex flex-col items-center gap-3"
-        // 15rem holds the two headings, the message, the button, the gaps and the padding.
-        style={{ width: `min(100%, 48rem, (100vh - 15rem) / ${slideRatio + barRatio})` }}
-      >
-        <section className="w-full space-y-1.5">
-          <h2 className="label flex min-w-0 gap-1">
-            <span className="shrink-0">{t('viewer.onScreen')}</span>
-            {props.title && (
-              <span className="min-w-0 truncate font-normal tracking-normal normal-case">
-                · {props.title}
-              </span>
-            )}
-          </h2>
-          <SlidePreview />
-        </section>
-        <section className="w-full space-y-1.5">
-          <h2 className="label">{t('subtitle.preview')}</h2>
-          <SubtitlePreview frame={status.subtitle} />
-        </section>
-        <p className="mt-1 text-sm text-slate-400">{t('viewer.viewingOnly')}</p>
-        <button
-          className="btn bg-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-          onClick={props.onLeave}
+    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-slate-950">
+      <UpdateBanner />
+      <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+        <div
+          className="flex flex-col items-center gap-3"
+          // 15rem holds the two headings, the message, the button, the gaps and the padding; 3rem
+          // more holds the update banner while it shows.
+          style={{
+            width: `min(100%, 48rem, (100vh - ${updateReady ? 18 : 15}rem) / ${slideRatio + barRatio})`,
+          }}
         >
-          {t('viewer.fullView')}
-        </button>
+          <section className="w-full space-y-1.5">
+            <h2 className="label flex min-w-0 gap-1">
+              <span className="shrink-0">{t('viewer.onScreen')}</span>
+              {props.title && (
+                <span className="min-w-0 truncate font-normal tracking-normal normal-case">
+                  · {props.title}
+                </span>
+              )}
+            </h2>
+            <SlidePreview />
+          </section>
+          <section className="w-full space-y-1.5">
+            <h2 className="label">{t('subtitle.preview')}</h2>
+            <SubtitlePreview frame={status.subtitle} />
+          </section>
+          <p className="mt-1 text-sm text-slate-400">{t('viewer.viewingOnly')}</p>
+          <button
+            className="btn bg-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            onClick={props.onLeave}
+          >
+            {t('viewer.fullView')}
+          </button>
+        </div>
       </div>
     </div>
   );
