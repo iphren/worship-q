@@ -357,6 +357,11 @@ pub fn store_video(data: State<'_, AppData>, source: String, file: String) -> Re
     let dir = videos_dir(&data);
     fs::create_dir_all(&dir).map_err(err)?;
     let target = dir.join(checked_video(&file)?);
+    // The server answers a video it already keeps with that video's name (U28). A copy kept
+    // here under that name is the same file, and may be playing: it is left alone.
+    if target.is_file() {
+        return Ok(());
+    }
     let partial = dir.join(format!("{file}.partial"));
     let result = fs::copy(&source, &partial).and_then(|_| fs::rename(&partial, &target));
     if result.is_err() {

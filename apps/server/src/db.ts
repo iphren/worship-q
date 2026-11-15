@@ -230,6 +230,19 @@ const MIGRATIONS: string[][] = [
     `CREATE INDEX presentation_log_cursor ON presentation_log(cursor)`,
     `INSERT OR IGNORE INTO counter (name, value) VALUES ('log', 0)`,
   ],
+  [
+    // Uploads stored once (media U28). One row per stored video, slide deck or image: the
+    // SHA-256 of the file as uploaded, and what the upload answered. `ref` is the video's
+    // file name, or `deck-<id>`. A row is only a hint: the files are checked on every match.
+    `CREATE TABLE stored_upload (
+      ref TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      hash TEXT NOT NULL,
+      result TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX stored_upload_hash ON stored_upload(hash, kind)`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

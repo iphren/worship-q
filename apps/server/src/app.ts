@@ -8,7 +8,7 @@ import {
   rmSync,
   statSync,
 } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { copyFile, rename } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -78,6 +78,13 @@ import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { DEFAULT_RECORDING_DAYS, Recordings, type RecordingError } from './recordings';
 import { PresentationLog } from './presentationLog';
+import {
+  findStoredDeck,
+  findStoredVideo,
+  hashFile,
+  rememberDeck,
+  rememberVideo,
+} from './storedUploads';
 import { Relay } from '@worship-q/relay';
 
 export interface ServerConfig {
@@ -220,13 +227,15 @@ export async function buildServer(config: ServerConfig) {
   /**
    * Turns a file into a deck kept with the workspace's files, under a new identifier, with
    * the file itself kept beside the images as the deck's original (U4). An image is reduced
-   * to one page (U13); anything else is converted as slides.
+   * to one page (U13); anything else is converted as slides. `hash` is the file's, by which
+   * the deck is found when the same file is uploaded again (U28).
    */
   const makeDeck = async (
     workspaceId: string,
     upload: string,
     source: string,
     work: string,
+    hash: string,
   ): Promise<Deck> => {
     const extension = extname(upload).toLowerCase();
     const isImage = IMAGE_EXTENSIONS.includes(extension);
@@ -249,13 +258,42 @@ export async function buildServer(config: ServerConfig) {
     // Kept so the deck can be converted again and downloaded later. Its name holds the same
     // identifier as the deck's images; only the original route serves it.
     await rename(upload, join(dir, `deck-${id}-original${extension}`));
-    return {
+    const deck: Deck = {
       source,
       ...(isImage ? { kind: 'image' as const } : {}),
       width: converted.width,
       height: converted.height,
       pages,
     };
+    rememberDeck(instance, hash, deck);
+    return deck;
+  };
+
+  /** Where a workspace's new song may name files: where its uploads go, and the church's. */
+  const storedDirs = (workspaceId: string) => [
+    ...new Set([uploadDir(workspaceId, 'slides'), churchFilesDir(config.dataDir)]),
+  ];
+
+  /**
+   * The deck already made from a file with this content, under the name it was uploaded
+   * with this time (U28); null when the file is new, or its deck can no longer be used.
+   */
+  const storedDeck = (
+    workspaceId: string,
+    kind: 'deck' | 'image',
+    hash: string,
+    extension: string,
+    source: string,
+  ): Deck | null => {
+    const deck = findStoredDeck(
+      instance,
+      storedDirs(workspaceId),
+      workspaceId,
+      kind,
+      hash,
+      extension,
+    );
+    return deck && { ...deck, source };
   };
 
   /** A deck's kept original, from the workspace's files or the Church Library's. */
@@ -806,10 +844,24 @@ export async function buildServer(config: ServerConfig) {
         return reply.code(400).send({ error: 'unsupported-format' });
       }
       const file = `video-${randomUUID()}${extension}`;
-      const dir = uploadDir(request.device!.workspaceId, 'slides');
+      const { workspaceId } = request.device!;
+      const dir = uploadDir(workspaceId, 'slides');
       mkdirSync(dir, { recursive: true });
       try {
-        const bytes = await receive(request, join(dir, file), limits.video);
+        const { bytes, hash } = await receive(request, join(dir, file), limits.video);
+        // The same video uploaded again is kept once (U28).
+        const stored = findStoredVideo(
+          instance,
+          storedDirs(workspaceId),
+          workspaceId,
+          hash,
+          extension,
+        );
+        if (stored) {
+          rmSync(join(dir, file), { force: true });
+          return { file: stored.file, source, bytes: stored.bytes };
+        }
+        rememberVideo(instance, hash, file);
         return { file, source, bytes };
       } catch (error) {
         return uploadRefused(reply, error);
@@ -830,8 +882,12 @@ export async function buildServer(config: ServerConfig) {
       mkdirSync(work, { recursive: true });
       try {
         const upload = join(work, `upload${extension}`);
-        await receive(request, upload, limits.image);
-        return await makeDeck(request.device!.workspaceId, upload, source, work);
+        const { hash } = await receive(request, upload, limits.image);
+        const { workspaceId } = request.device!;
+        return (
+          storedDeck(workspaceId, 'image', hash, extension, source) ??
+          (await makeDeck(workspaceId, upload, source, work, hash))
+        );
       } catch (error) {
         if (error instanceof ImageError) {
           return reply.code(422).send({ error: 'conversion-failed', message: error.message });
@@ -881,7 +937,9 @@ export async function buildServer(config: ServerConfig) {
         try {
           const upload = join(work, `upload${extension}`);
           await copyFile(original, upload);
-          return await makeDeck(request.device!.workspaceId, upload, source, work);
+          // The same file uploaded again is answered with this newest conversion (U28).
+          const hash = await hashFile(upload);
+          return await makeDeck(request.device!.workspaceId, upload, source, work, hash);
         } catch (error) {
           request.log.error(error);
           return reply.code(422).send({
@@ -907,12 +965,17 @@ export async function buildServer(config: ServerConfig) {
       mkdirSync(work, { recursive: true });
       try {
         const upload = join(work, `upload${extension}`);
+        let hash: string;
         try {
-          await receive(request, upload, limits.deck);
+          ({ hash } = await receive(request, upload, limits.deck));
         } catch (error) {
           return uploadRefused(reply, error);
         }
-        return await makeDeck(request.device!.workspaceId, upload, source, work);
+        const { workspaceId } = request.device!;
+        return (
+          storedDeck(workspaceId, 'deck', hash, extension, source) ??
+          (await makeDeck(workspaceId, upload, source, work, hash))
+        );
       } catch (error) {
         request.log.error(error);
         return reply.code(422).send({
@@ -1148,7 +1211,11 @@ async function readBody(request: FastifyRequest, limit: number): Promise<Buffer>
  * its declared length when it has one; an empty body, or one shorter than declared, is
  * refused too. Nothing is left behind when it fails.
  */
-async function receive(request: FastifyRequest, target: string, limit: number): Promise<number> {
+async function receive(
+  request: FastifyRequest,
+  target: string,
+  limit: number,
+): Promise<{ bytes: number; hash: string }> {
   const body = request.body as Readable;
   const declared = request.headers['content-length'];
   const expected = declared === undefined ? null : Number(declared);
@@ -1160,7 +1227,8 @@ async function receive(request: FastifyRequest, target: string, limit: number): 
   const partial = `${target}.partial`;
   let size = 0;
   let over = false;
-  // Counts what arrives and stops the copy once the limit is passed.
+  const hash = createHash('sha256');
+  // Counts and hashes what arrives, and stops the copy once the limit is passed.
   const counter = new Transform({
     transform(chunk: Buffer, _encoding, done) {
       size += chunk.length;
@@ -1168,6 +1236,7 @@ async function receive(request: FastifyRequest, target: string, limit: number): 
         over = true;
         return done(new Error(TOO_LARGE));
       }
+      hash.update(chunk);
       done(null, chunk);
     },
   });
@@ -1176,7 +1245,7 @@ async function receive(request: FastifyRequest, target: string, limit: number): 
     if (expected !== null && size !== expected) throw new UploadError(400, 'incomplete');
     if (size === 0) throw new UploadError(400, 'empty');
     await rename(partial, target);
-    return size;
+    return { bytes: size, hash: hash.digest('hex') };
   } catch (error) {
     rmSync(partial, { force: true });
     if (over) throw tooLarge();
