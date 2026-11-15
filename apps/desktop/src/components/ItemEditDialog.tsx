@@ -16,7 +16,8 @@ export function isLyrics(
 /**
  * A run sheet item's Edit window (U27), over the run sheet: the lyrics editor for a song,
  * the title and Autoplay for a video, the title for slides, PDFs, images and websites, and
- * the Bible window for a passage.
+ * the Bible window for a passage. Media also has its file actions: Download original, Upload
+ * new version… and, for slides and PDFs, Reconvert.
  * It edits the song, so the change shows wherever the song is used. Apply saves and stays
  * open; after it, Cancel becomes Close, as what was applied is kept.
  */

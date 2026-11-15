@@ -440,7 +440,10 @@ function WebsiteForm(props: SongFormProps) {
   );
 }
 
-/** Just the title of a deck or website, for renaming while live. */
+/**
+ * The title of a deck or website, for renaming while live, with a deck's file actions
+ * (Download original, Upload new version…, Reconvert).
+ */
 export function TitleForm(props: {
   song: Song;
   onSaved(song: Song): void;
@@ -487,6 +490,13 @@ export function TitleForm(props: {
           autoFocus
         />
       </label>
+      {/* A new version or reconvert keeps the window open, as Apply does. */}
+      <MediaActions
+        song={song}
+        dirty={title.trim() !== song.title}
+        onSaved={props.onApplied ?? props.onSaved}
+        compact
+      />
       <div className="flex items-center justify-end gap-2">
         {props.actions}
         {props.onApplied && <ApplyButton disabled={!canSave} onApply={() => void save(false)} />}
@@ -694,8 +704,13 @@ export function VideoForm(props: SongFormProps & { song: Song; video: Video }) {
           )}
         </div>
       )}
-      {!props.quick && !readOnly && (
-        <MediaActions song={song} dirty={dirty} onSaved={props.onSaved} />
+      {!readOnly && (
+        <MediaActions
+          song={song}
+          dirty={dirty}
+          onSaved={props.quick ? (props.onApplied ?? props.onSaved) : props.onSaved}
+          compact={props.quick}
+        />
       )}
       <div className="mt-auto flex items-center justify-end gap-2">
         {props.actions}

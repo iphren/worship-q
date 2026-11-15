@@ -102,7 +102,13 @@ export function useMediaActionState(song: Song, dirty: boolean): MediaActionStat
  * The file actions of a media item in its editor: **Download original** and **Upload new
  * version…**, and **Reconvert** for slides and PDFs (U4, U18, U26), with their bars.
  */
-export function MediaActions(props: { song: Song; dirty: boolean; onSaved(song: Song): void }) {
+export function MediaActions(props: {
+  song: Song;
+  dirty: boolean;
+  onSaved(song: Song): void;
+  /** Smaller buttons, for the run sheet's quick Edit window. */
+  compact?: boolean;
+}) {
   const { cloud } = useApp();
   const session = useSession();
   const { song } = props;
@@ -155,6 +161,7 @@ export function MediaActions(props: { song: Song; dirty: boolean; onSaved(song: 
   }
 
   if (!kind) return null;
+  const button = props.compact ? 'btn btn-sm' : 'btn';
   const percent =
     download && download.total > 0 ? Math.floor((download.done / download.total) * 100) : 0;
   return (
@@ -162,7 +169,7 @@ export function MediaActions(props: { song: Song; dirty: boolean; onSaved(song: 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="btn"
+          className={button}
           disabled={!!state.download || !!download}
           title={state.download ?? undefined}
           onClick={() => void startDownload()}
@@ -172,7 +179,7 @@ export function MediaActions(props: { song: Song; dirty: boolean; onSaved(song: 
         {state.replaceOffered && (
           <button
             type="button"
-            className="btn"
+            className={button}
             disabled={!!state.replace}
             title={state.replace ?? undefined}
             onClick={() => void startReplace()}
@@ -183,7 +190,7 @@ export function MediaActions(props: { song: Song; dirty: boolean; onSaved(song: 
         {(kind === 'slides' || kind === 'pdf') && state.replaceOffered && (
           <button
             type="button"
-            className="btn"
+            className={button}
             disabled={!!state.replace || reconverting}
             title={state.replace ?? t('media.reconvertHint')}
             onClick={() => void reconvert()}
