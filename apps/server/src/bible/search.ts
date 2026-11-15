@@ -1,7 +1,8 @@
 /**
  * Text search for the Bible window, used only when the input is not a reference (P2.7):
  * through the first provider that searches the version (YouVersion, then API.Bible, then
- * the ESV). References only, up to 20; the window fetches the text it shows.
+ * the ESV, then the Free Use Bible API's whole text searched on the server). References only,
+ * up to 20; the window fetches the text it shows.
  */
 import { fromUsfm, toUsfm } from '@worship-q/bible';
 import type { Availability } from './availability';

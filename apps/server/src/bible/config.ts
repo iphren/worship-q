@@ -31,11 +31,15 @@ export function keysSet(keys: BibleKeys): Record<'youversion' | 'apibible' | 'es
 
 export type Adapters = Record<Provider, ProviderAdapter>;
 
-export function makeAdapters(keys: BibleKeys, fetch: Fetch = globalThis.fetch): Adapters {
+export function makeAdapters(
+  keys: BibleKeys,
+  fetch: Fetch = globalThis.fetch,
+  textDir: string | null = null,
+): Adapters {
   return {
     youversion: new YouVersion(keys.youversion, fetch),
     apibible: new ApiBible(keys.apibible, fetch),
     esv: new Esv(keys.esv, fetch),
-    freeuse: new FreeUse(fetch),
+    freeuse: new FreeUse(fetch, textDir),
   };
 }
