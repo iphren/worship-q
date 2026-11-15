@@ -33,7 +33,7 @@ import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';
 import { Icon } from './Icon';
 import { SongPeek } from './SongPeek';
-import { DeckBadge, PinnedMark } from './DeckBadge';
+import { DeckBadge } from './DeckBadge';
 
 type Drag = { id: string; from: number; to: number; dy: number; step: number };
 
@@ -51,8 +51,8 @@ export function RunSheetEditor(props: {
   keyedItemId?: string | null;
   /** Makes the rows clickable; the grip and the row's buttons keep their own actions. */
   onSelectItem?: (itemId: string) => void;
-  /** Lists songs only once searched for, instead of all of them while the search is empty. */
-  searchOnly?: boolean;
+  /** On the Present tab, for the live run sheet. */
+  live?: boolean;
   /** Kept at the bottom, under the song search. */
   footer?: ReactNode;
   /** Shows the song search for its `/` shortcut when it is on a tab that is not shown. */
@@ -67,7 +67,8 @@ export function RunSheetEditor(props: {
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   useSearchShortcut(searchRef, props.onRevealSearch);
-  const idle = props.searchOnly === true && search.trim() === '';
+  // Songs are listed only once searched for, leaving the room to the run sheet.
+  const idle = search.trim() === '';
   const view = useQuery(() => session.viewDate(date), [date]);
   const songs = useQuery(
     () =>
@@ -76,8 +77,11 @@ export function RunSheetEditor(props: {
         : Promise.resolve([]),
     [search, editable, idle],
   );
-  const pinned = useQuery(() => session.store.pinnedSongIds(session.workspace.id), []);
-  const showPins = search.trim() === '';
+  // The pinned items, a click away under the pin button whatever is searched.
+  const pinnedSongs = useQuery(
+    () => (editable ? session.store.pinnedSongs(session.workspace.id) : Promise.resolve([])),
+    [editable],
+  );
   const saved = view?.date === date ? view.entries : [];
   // A dropped item shows in its new place straight away, until the reloaded view replaces it.
   const [moved, setMoved] = useState<{ view: typeof view; ids: string[] } | null>(null);
@@ -88,7 +92,7 @@ export function RunSheetEditor(props: {
   const [drag, setDrag] = useState<Drag | null>(null);
   const listRef = useRef<HTMLOListElement>(null);
   const songsRef = useRef<HTMLUListElement>(null);
-  const mode = props.searchOnly ? 'live' : 'plan';
+  const mode = props.live ? 'live' : 'plan';
   useScrollMemory(listRef, `runSheet:${mode}:${date}`);
   useScrollMemory(songsRef, `runSheet.songs:${mode}:${search}`);
   const grab = useRef<{
@@ -518,6 +522,18 @@ export function RunSheetEditor(props: {
           >
             <Icon name="addMedia" className="h-4 w-4" />
           </button>
+          <Menu
+            label={t(pinnedSongs?.length ? 'runSheet.addPinned' : 'runSheet.nothingPinned')}
+            disabled={!pinnedSongs?.length}
+            buttonClassName="btn btn-sm px-3"
+            trigger={<Icon name="pin" className="h-4 w-4" />}
+            items={(pinnedSongs ?? []).map((song) => ({
+              key: song.id,
+              label: song.title || t('songs.untitled'),
+              badge: <DeckBadge song={song} />,
+              onSelect: () => void session.addSong(date, song.id),
+            }))}
+          />
         </div>
       )}
       {editable && (
@@ -596,7 +612,6 @@ export function RunSheetEditor(props: {
                         <Icon name="add" className="h-4 w-4" />
                       </button>
                       <span className="truncate py-1.5">
-                        {showPins && pinned?.has(song.id) && <PinnedMark />}
                         <DeckBadge song={song} />
                         {song.title || t('songs.untitled')}
                       </span>
@@ -625,7 +640,7 @@ export function RunSheetEditor(props: {
             kind: 'add',
             date,
             // Present ▶ is on the Present tab only, for the live run sheet (B6).
-            present: props.searchOnly === true && date === session.liveDate,
+            present: props.live === true && date === session.liveDate,
           }}
           initial={bible.initial}
           onClose={() => {

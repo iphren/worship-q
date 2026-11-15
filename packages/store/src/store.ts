@@ -801,6 +801,19 @@ export class Store {
     );
   }
 
+  /** The pinned items still in the library, by title, for adding to a run sheet quickly. */
+  async pinnedSongs(workspaceId: string): Promise<Song[]> {
+    const ids = [...(await this.pinnedSongIds(workspaceId))];
+    const songs = await Promise.all(ids.map((id) => this.getSong(id)));
+    return songs
+      .filter((song): song is Song => !!song && !song.removedAt && !song.passage)
+      .sort(
+        (a, b) =>
+          a.title.localeCompare(b.title, undefined, { sensitivity: 'accent' }) ||
+          a.createdAt.localeCompare(b.createdAt),
+      );
+  }
+
   /**
    * Pins a song to the top of the library, or unpins it, for the whole workspace. Unpinning
    * keeps the setting as false, so the change reaches the other computers.

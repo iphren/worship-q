@@ -17,6 +17,8 @@ computers** below.
 
 1. Open **Calendar**. It opens on your next meeting day.
 2. Search for a song under the run sheet and click it to add it. Use ↑ ↓ ✕ to reorder or remove.
+   The **pin** button beside the search lists the items pinned in the Library, for adding the
+   ones you use every week in one click.
 3. To reuse an earlier week, click that date and choose **Copy to …**.
 
 Other dates are read-only until you choose **Edit run sheet** on them.

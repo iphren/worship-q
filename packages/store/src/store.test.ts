@@ -938,6 +938,19 @@ describe('pinned songs', () => {
     expect(await store.pinnedSongIds(workspaceId)).toEqual(new Set([ids.Bravo]));
   });
 
+  it('lists the pinned songs still in the library, by title', async () => {
+    const ids: Record<string, string> = {};
+    for (const title of ['Alpha', 'Bravo', 'Charlie', 'Delta'])
+      ids[title] = (await store.createSong(workspaceId, { title })).id;
+    for (const title of ['Delta', 'Bravo', 'Charlie'])
+      await store.setSongPinned(workspaceId, ids[title]!, true);
+    await store.removeSong(ids.Charlie!);
+    expect((await store.pinnedSongs(workspaceId)).map((song) => song.title)).toEqual([
+      'Bravo',
+      'Delta',
+    ]);
+  });
+
   it('orders a search by how well songs match, not by pins', async () => {
     await store.createSong(workspaceId, { title: 'Grace' });
     const other = await store.createSong(workspaceId, { title: 'Amazing grace' });

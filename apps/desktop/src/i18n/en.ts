@@ -159,6 +159,8 @@ export const en = {
   'runSheet.add': 'Add',
   'runSheet.addWebsite': 'Add {address} to the run sheet as a website',
   'runSheet.addHint': 'Add (or double-click the song)',
+  'runSheet.addPinned': 'Add a pinned item',
+  'runSheet.nothingPinned': 'Nothing is pinned: pin items in the Library to add them from here',
   'runSheet.edit': 'Edit',
   'runSheet.itemMenu': 'More actions',
   'runSheet.glanceMore': '… {count} more above',

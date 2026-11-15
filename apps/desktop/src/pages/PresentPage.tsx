@@ -357,7 +357,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                 date={liveDate}
                 activeItemId={presented?.itemId ?? null}
                 onSelectItem={showItem}
-                searchOnly
+                live
                 readOnly
               />
             ) : (
@@ -366,7 +366,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                 activeItemId={presented?.itemId ?? null}
                 keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
                 onSelectItem={showItem}
-                searchOnly
+                live
                 onRevealSearch={() => {
                   lastPanelTab = 'runSheet';
                   setChosenTab('runSheet');

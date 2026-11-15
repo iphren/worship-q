@@ -12,6 +12,8 @@ import { Icon } from './Icon';
 export interface MenuItem {
   key: string;
   label: string;
+  /** Drawn before the label, as an item's kind badge. */
+  badge?: ReactNode;
   onSelect(): void;
   /** Why it cannot be used now; shown disabled with this as its hint. */
   disabled?: string | null;
@@ -136,7 +138,7 @@ export function Menu(props: {
             role="menu"
             aria-label={props.label}
             style={place}
-            className="fixed z-50 min-w-48 overflow-y-auto rounded-md border border-slate-600 bg-slate-800 py-1 shadow-xl shadow-black/50"
+            className="fixed z-50 max-w-sm min-w-48 overflow-y-auto rounded-md border border-slate-600 bg-slate-800 py-1 shadow-xl shadow-black/50"
             onKeyDown={(event) => {
               // The run sheet's own keys must not act while the menu is open.
               event.stopPropagation();
@@ -177,7 +179,10 @@ export function Menu(props: {
                   }}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate">{item.label}</span>
+                    <span className="block truncate">
+                      {item.badge}
+                      {item.label}
+                    </span>
                     {item.disabled && (
                       <span className="block text-[11px] text-slate-500">{item.disabled}</span>
                     )}
