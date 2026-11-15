@@ -185,9 +185,10 @@ export const en = {
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
-  'present.shortcuts': '← → song · 1 2 3… jump · Space hide/show lyrics · Enter next',
-  'present.videoShortcuts': 'Video: Space play/pause · ↑ ↓ 10 s · ← → item · Enter next item',
-  'present.videoLiveShortcuts': '← → song · 1 2 3… jump · Space play/pause video · Enter next',
+  'present.shortcuts': '{items} song · 1 2 3… jump · Space hide/show lyrics · Enter next',
+  'present.videoShortcuts':
+    'Video: Space play/pause · {slides} 10 s · {items} item · Enter next item',
+  'present.videoLiveShortcuts': '{items} song · 1 2 3… jump · Space play/pause video · Enter next',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 
@@ -418,6 +419,13 @@ export const en = {
   'live.carryOnHint': 'Continues from the last slide, on this computer.',
   'live.demoted': 'Another computer carried on, this one now follows.',
   'live.fontWarning': '“{name}” does not have the font {fonts}. Its slides use another font.',
+
+  'keys.title': 'Arrow keys',
+  'keys.hint':
+    'For this computer only. By default Up and Down step through a song’s slides and Left and Right move between run sheet items.',
+  'keys.swap': 'Swap the arrow keys',
+  'keys.swapHint':
+    'Left and Right step through the slides, as they run across the screen, and jump through a video, as in video players. Up and Down move between run sheet items.',
 
   'viewer.title': 'Viewer mode',
   'viewer.hint':

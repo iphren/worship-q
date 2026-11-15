@@ -10,6 +10,7 @@ import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from 
 import { t } from '../i18n';
 import { type KeyPress, presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
 import { native } from '../platform/native';
+import { deviceSettings } from './deviceSettings';
 
 export const OUTPUT_WINDOW = 'output';
 export const FRAME_EVENT = 'output-frame';
@@ -97,7 +98,10 @@ export class OutputController {
       await listen<KeyPress>(ACTION_EVENT, (event) => {
         if (!this.session.isLive) return;
         // Decided here, as for a key pressed on this window, so both windows agree.
-        const action = presentAction(event.payload, { video: videoKeys(this.session) });
+        const action = presentAction(event.payload, {
+          video: videoKeys(this.session),
+          swapArrows: deviceSettings.get().swapArrows,
+        });
         if (action) runPresentAction(this.session, action);
       }),
     );

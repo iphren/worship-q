@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  arrowLabels,
   keyPress,
   presentAction,
   runPresentAction,
@@ -64,6 +65,49 @@ describe('presentAction', () => {
     expect(press('!')).toBeNull();
     expect(press('1', { ctrlKey: true })).toBeNull();
     expect(press('ArrowDown', { metaKey: true })).toBeNull();
+  });
+});
+
+describe('swapped arrow keys', () => {
+  const swapped = (key: string, video?: 'keyed' | 'live') =>
+    presentAction(
+      { key, metaKey: false, ctrlKey: false, altKey: false },
+      { swapArrows: true, video },
+    );
+
+  it('steps through the slides with Left and Right, across the screen', () => {
+    expect(swapped('ArrowRight')).toBe('slide-next');
+    expect(swapped('ArrowLeft')).toBe('slide-previous');
+  });
+
+  it('moves between items with Up and Down, down the screen', () => {
+    expect(swapped('ArrowDown')).toBe('item-next');
+    expect(swapped('ArrowUp')).toBe('item-previous');
+  });
+
+  it('jumps through a keyed video with Left and Right, as video players do', () => {
+    expect(swapped('ArrowLeft', 'keyed')).toBe('video-back');
+    expect(swapped('ArrowRight', 'keyed')).toBe('video-forward');
+    expect(swapped('ArrowDown', 'keyed')).toBe('item-next');
+  });
+
+  it('leaves the other keys and key combinations alone', () => {
+    expect(swapped('Enter')).toBe('unblank-or-next');
+    expect(swapped('PageDown')).toBe('next');
+    expect(swapped('1')).toEqual({ slide: 0 });
+    expect(swapped(' ', 'keyed')).toBe('video-toggle');
+    expect(swapped('ArrowRight', 'live')).toBe('slide-next');
+    expect(
+      presentAction(
+        { key: 'ArrowDown', metaKey: true, ctrlKey: false, altKey: false },
+        { swapArrows: true },
+      ),
+    ).toBeNull();
+  });
+
+  it('labels the keys to match', () => {
+    expect(arrowLabels(false)).toEqual({ slides: '↑ ↓', items: '← →' });
+    expect(arrowLabels(true)).toEqual({ slides: '← →', items: '↑ ↓' });
   });
 });
 

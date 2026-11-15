@@ -130,6 +130,7 @@ export function SettingsPage() {
   );
   const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
   const [viewerMode] = useState(() => deviceSettings.get().viewerMode);
+  const [swapArrows, setSwapArrows] = useState(() => deviceSettings.get().swapArrows);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
@@ -618,6 +619,24 @@ export function SettingsPage() {
 
         <Section title={t('church.title')} hint={t('church.hint')}>
           <ChurchConnection />
+        </Section>
+
+        <Section title={t('keys.title')} hint={t('keys.hint')}>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={swapArrows}
+              onChange={(e) => {
+                deviceSettings.set({ swapArrows: e.target.checked });
+                setSwapArrows(e.target.checked);
+              }}
+            />
+            <span>
+              {t('keys.swap')}
+              <span className="block text-xs text-slate-400">{t('keys.swapHint')}</span>
+            </span>
+          </label>
         </Section>
 
         <Section title={t('viewer.title')} hint={t('viewer.hint')}>

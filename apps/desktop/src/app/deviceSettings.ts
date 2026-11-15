@@ -15,6 +15,11 @@ export interface DeviceSettings {
   viewerMode: boolean;
   /** A viewer shows only the previews, with the rest of the app covered. */
   simpleView: boolean;
+  /**
+   * Left and Right step through the slides and Up and Down move between items, the other way
+   * round from the default, which comes from the app the operators used before.
+   */
+  swapArrows: boolean;
   /** Where video items' sound plays; null for the system default (U24). */
   audioOutput: AudioDevice | null;
   /** The source for live audio broadcast; null for the system default. */
@@ -27,6 +32,7 @@ const KEY = 'wq.device';
 const DEFAULTS: DeviceSettings = {
   viewerMode: false,
   simpleView: false,
+  swapArrows: false,
   audioOutput: null,
   audioInput: null,
   audioMonitor: null,
@@ -111,6 +117,7 @@ export function createDeviceSettings(storage: () => SettingsStorage | null) {
         return {
           viewerMode: parsed.viewerMode === true,
           simpleView: parsed.simpleView === true,
+          swapArrows: parsed.swapArrows === true,
           audioOutput: audioDevice(parsed.audioOutput),
           audioInput: audioDevice(parsed.audioInput),
           audioMonitor: audioDevice(parsed.audioMonitor),

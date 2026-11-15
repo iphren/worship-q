@@ -17,7 +17,13 @@ import { VideoControls, VideoTile } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { AudioPanel } from '../components/AudioListen';
 import { useScrollMemory } from '../lib/scrollMemory';
-import { presentAction, runPresentAction, slideKeyLabel, videoKeys } from '../lib/shortcuts';
+import {
+  arrowLabels,
+  presentAction,
+  runPresentAction,
+  slideKeyLabel,
+  videoKeys,
+} from '../lib/shortcuts';
 import { DeckBadge } from '../components/DeckBadge';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
@@ -150,6 +156,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
   const [activeInView, setActiveInView] = useState(true);
   // Kept on this computer, so a viewer reopens as it was left.
   const [simpleView, setSimpleView] = useState(() => deviceSettings.get().simpleView);
+  // Set in Settings, which this page is reopened from.
+  const [swapArrows] = useState(() => deviceSettings.get().swapArrows);
+  const arrows = arrowLabels(swapArrows);
   function chooseSimpleView(on: boolean) {
     deviceSettings.set({ simpleView: on });
     setSimpleView(on);
@@ -182,7 +191,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     if (viewOnly) return;
     const onKey = (event: KeyboardEvent) => {
       if (isTyping(event.target) || document.querySelector('[data-dialog]')) return;
-      const action = presentAction(event, { video: videoKeys(session) });
+      const action = presentAction(event, { video: videoKeys(session), swapArrows });
       if (!action) return;
       follow();
       runPresentAction(session, action);
@@ -190,7 +199,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [session, viewOnly]);
+  }, [session, viewOnly, swapArrows]);
 
   // Whether the presented slide is in the column yet: the run sheet can load after it is known.
   const presentedShown = entries.some((entry) => entry.item.id === presented?.itemId);
@@ -439,7 +448,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                           void session.previous();
                         }}
                       >
-                        {t('present.previous')} <KeyHint>↑</KeyHint>
+                        {t('present.previous')} <KeyHint>{swapArrows ? '←' : '↑'}</KeyHint>
                       </button>
                       <button
                         className="btn btn-primary"
@@ -448,7 +457,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                           void session.next();
                         }}
                       >
-                        {t('present.next')} <KeyHint>↓</KeyHint>
+                        {t('present.next')} <KeyHint>{swapArrows ? '→' : '↓'}</KeyHint>
                       </button>
                       <button
                         className={`btn col-span-2 ${blankStyle}`}
@@ -472,6 +481,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                           live: 'present.videoLiveShortcuts' as const,
                           none: 'present.shortcuts' as const,
                         }[videoKeys(session) ?? 'none'],
+                        arrows,
                       )}
                     </p>
                   </>

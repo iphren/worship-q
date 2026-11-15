@@ -33,10 +33,23 @@ describe('device settings (M3.1)', () => {
     expect(createDeviceSettings(() => storage).get().simpleView).toBe(true);
   });
 
+  it('keeps the swapped arrow keys across a restart, off by default', () => {
+    const disk = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => disk.get(k) ?? null,
+      setItem: (k: string, v: string) => void disk.set(k, v),
+    };
+    const first = createDeviceSettings(() => storage);
+    expect(first.get().swapArrows).toBe(false);
+    first.set({ swapArrows: true });
+    expect(createDeviceSettings(() => storage).get().swapArrows).toBe(true);
+  });
+
   it('falls back to an operator device when storage is missing or damaged', () => {
     const defaults = {
       viewerMode: false,
       simpleView: false,
+      swapArrows: false,
       audioOutput: null,
       audioInput: null,
       audioMonitor: null,

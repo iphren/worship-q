@@ -66,27 +66,46 @@ export function keyPress(event: KeyPress): KeyPress {
 export type VideoKeys = 'keyed' | 'live' | null;
 
 /**
+ * With the arrow keys swapped (a setting of this computer), each arrow does what the arrow a
+ * quarter turn from it does by default: Left and Right step through the slides, which run
+ * across the screen, and Up and Down move between the items stacked down it.
+ */
+const SWAPPED_ARROWS: Record<string, string> = {
+  ArrowLeft: 'ArrowUp',
+  ArrowRight: 'ArrowDown',
+  ArrowUp: 'ArrowLeft',
+  ArrowDown: 'ArrowRight',
+};
+
+/** The keys shown to the operator for stepping through slides and moving between items. */
+export function arrowLabels(swapArrows: boolean): { slides: string; items: string } {
+  return swapArrows ? { slides: '← →', items: '↑ ↓' } : { slides: '↑ ↓', items: '← →' };
+}
+
+/**
  * The action of a key. Up and Down move within the keyed item and Left and Right between
  * items; Space hides or shows the lyrics and Enter moves on through the whole run sheet. While
  * a video item is live, Space plays or pauses it instead, wherever the slide keys are; while
  * the slide keys are on it, Up and Down jump back and forward through it (U21, M6.5). Every
- * other key does what it does otherwise.
+ * other key does what it does otherwise. `swapArrows` swaps the arrows' pairs, so Left and
+ * Right also jump through a video, as in video players.
  */
 export function presentAction(
   event: KeyPress,
-  context: { video?: VideoKeys } = {},
+  context: { video?: VideoKeys; swapArrows?: boolean } = {},
 ): PresentAction | null {
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
-  if (context.video && event.key === ' ') return 'video-toggle';
+  const key = (context.swapArrows && SWAPPED_ARROWS[event.key]) || event.key;
+  if (context.video && key === ' ') return 'video-toggle';
   if (context.video === 'keyed') {
-    switch (event.key) {
+    switch (key) {
       case 'ArrowUp':
         return 'video-back';
       case 'ArrowDown':
         return 'video-forward';
     }
   }
-  switch (event.key) {
+  switch (key) {
     case 'ArrowDown':
       return 'slide-next';
     case 'ArrowUp':
@@ -110,8 +129,8 @@ export function presentAction(
     case 'Delete':
       return 'clear';
   }
-  const key = event.key.toLowerCase();
-  const slide = key.length === 1 ? SLIDE_KEYS.indexOf(key) : -1;
+  const lower = key.toLowerCase();
+  const slide = lower.length === 1 ? SLIDE_KEYS.indexOf(lower) : -1;
   return slide < 0 ? null : { slide };
 }
 
