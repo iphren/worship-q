@@ -586,7 +586,7 @@ export const en = {
   'obs.confirmStopRecordBody': 'OBS saves the recording and stops.',
 
   'settings.sampleLine1': 'Amazing grace, how sweet the sound',
-  'settings.sampleLine2': '奇异恩典，何等甘甜',
+  'settings.sampleLine2': 'That saved a wretch like me',
 
   // Media uploads (media uploads plan)
   'media.noun.slides': 'slide deck',
@@ -733,7 +733,7 @@ export const en = {
   'bible.open': 'Bible',
   'bible.title': 'Bible',
   'bible.editTitle': 'Edit passage',
-  'bible.search': 'Type a reference, such as Mark 15:5-6 or 马可福音15章5-6节, or words to find',
+  'bible.search': 'Type a reference, such as Mark 15:5-6, or words to find',
   'bible.books': 'Books',
   'bible.oldTestament': 'Old Testament',
   'bible.newTestament': 'New Testament',
