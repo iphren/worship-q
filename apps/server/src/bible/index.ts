@@ -2,6 +2,7 @@
  * The church server's Bible (B17–B25): the providers behind the church's keys, which versions
  * are available, their contents, text with fallback, search and usage reporting.
  */
+import { join } from 'node:path';
 import { CATALOGUE, type CatalogueVersion } from '@worship-q/bible';
 import type { AdminBible, BibleVersionInfo, ChurchSettings } from '@worship-q/protocol';
 import { Availability, CHECK_EVERY_MS } from './availability';
@@ -39,7 +40,7 @@ export class Bible {
   constructor(options: BibleOptions) {
     const fetch = options.fetch ?? globalThis.fetch;
     this.keys = keysSet(options.keys);
-    this.adapters = makeAdapters(options.keys, fetch);
+    this.adapters = makeAdapters(options.keys, fetch, join(options.dataDir, 'bible', 'text'));
     this.availability = new Availability(this.adapters, options.catalogue ?? CATALOGUE);
     this.tocs = new TocStore(options.dataDir, this.adapters, this.availability, options.now);
     this.passages = new Passages(this.adapters, this.availability, this.tocs, options.now);

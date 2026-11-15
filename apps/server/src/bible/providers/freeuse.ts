@@ -3,6 +3,7 @@
  * chapter counts, and whole chapters, sliced here.
  */
 import type { Reference, TocBook } from '@worship-q/bible';
+import { LocalText, type FreeUseComplete } from '../localText';
 import { fromFreeUse, type FreeUseContent } from './normalise';
 import {
   CONTENTS_TIMEOUT_MS,
@@ -17,6 +18,8 @@ import {
 } from './types';
 
 const BASE = 'https://bible.helloao.org/api';
+/** A whole version is a few megabytes, fetched once. */
+const COMPLETE_TIMEOUT_MS = 60_000;
 
 interface FreeUseChapter {
   translation?: {
@@ -41,7 +44,17 @@ export class FreeUse implements ProviderAdapter {
   readonly name = 'freeuse' as const;
   readonly configured = true;
 
-  constructor(private readonly fetch: Fetch) {}
+  private readonly text: LocalText;
+
+  /** @param textDir where whole versions are kept for searching; none keeps them in memory. */
+  constructor(
+    private readonly fetch: Fetch,
+    textDir: string | null = null,
+  ) {
+    this.text = new LocalText(textDir, (id) =>
+      this.get<FreeUseComplete>(`/${encodeURIComponent(id)}/complete.json`, COMPLETE_TIMEOUT_MS),
+    );
+  }
 
   private get<T>(path: string, timeout = PASSAGE_TIMEOUT_MS): Promise<T> {
     return readJson<T>(this.fetch, `${BASE}${path}`, {}, timeout);
@@ -110,5 +123,10 @@ export class FreeUse implements ProviderAdapter {
       throw new ProviderError('not-found', 'No verses in the chapter for this range');
     }
     return { units, copyright, fumsToken: null };
+  }
+
+  /** The API has no search: the whole version is fetched once and searched here. */
+  search(id: string, query: string): Promise<string[]> {
+    return this.text.search(id, query);
   }
 }
