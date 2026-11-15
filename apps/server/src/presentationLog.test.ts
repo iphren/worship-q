@@ -177,10 +177,12 @@ describe('the migration (M1.3)', () => {
       const path = join(dir, 'instance.db');
       const before = openDatabase(path);
       const version = Number(before.prepare('PRAGMA user_version').get()!.user_version);
+      // The migration since then is undone too, so that it runs again.
+      before.exec('DROP TABLE stored_upload');
       before.exec('DROP TABLE presentation_log');
       before.exec('DROP TABLE audio_recording');
       before.exec(`DELETE FROM counter WHERE name = 'log'`);
-      before.exec(`PRAGMA user_version = ${version - 1}`);
+      before.exec(`PRAGMA user_version = ${version - 2}`);
       before.close();
       const after = openDatabase(path);
       expect(Number(after.prepare('PRAGMA user_version').get()!.user_version)).toBe(version);

@@ -7,6 +7,7 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { churchFilesDir, DECK_ID, workspaceFilesDir } from './files';
 import type { DeletedItem, Instance } from './instance';
+import { forgetStoredFiles } from './storedUploads';
 
 export const DEFAULT_RETENTION_DAYS = 90;
 export const SWEEP_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -62,6 +63,8 @@ export function sweepDeletedFiles(
         files++;
       }
     }
+    // The same file uploaded again is stored anew (U28).
+    forgetStoredFiles(instance, names);
     instance.markFilesRemoved(item);
   }
   return { items, files };

@@ -11,6 +11,7 @@ import { mediaLimitsFromEnv } from './media';
 import { OidcClient, oidcConfigFromEnv } from './oidc';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
 import { recordingDaysFromEnv } from './recordings';
+import { backfillStoredUploads } from './storedUploads';
 import { buildLocalServer, localPortFromEnv } from './local';
 
 const dataDir = process.env.WORSHIP_Q_DATA ?? '/data';
@@ -98,6 +99,14 @@ if (local) {
 } else {
   console.log('Local API off (WORSHIP_Q_LOCAL_PORT is empty).');
 }
+// Files kept before uploads were remembered are hashed once, in the background, so the
+// same file uploaded again is found (U28).
+void backfillStoredUploads(instance, dataDir).then(
+  (remembered) => {
+    if (remembered) console.log(`Uploads stored once: remembered ${remembered} files already kept`);
+  },
+  (error: unknown) => console.error(error),
+);
 // The first sweep runs soon after start; later ones daily (D34).
 setTimeout(() => {
   try {
