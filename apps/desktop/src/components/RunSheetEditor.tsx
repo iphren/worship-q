@@ -489,89 +489,97 @@ export function RunSheetEditor(props: {
         {dropAt !== null && dropAt >= entries.length && <DropMark />}
       </ol>
       {editable && (
-        <div className="flex gap-1.5">
-          <button type="button" className="btn btn-sm flex-1" onClick={() => setWritingSong(true)}>
-            <Icon name="add" className="h-4 w-4" />
-            {t('songs.new')}
-          </button>
-          {/* With a reference typed, the button opens on it, flashing once when one is found:
-              the key gives it a fresh start then. */}
-          <button
-            key={searchReference ? 'reference' : 'none'}
-            type="button"
-            className={`btn btn-sm px-3 ${searchReference && !bibleUnavailable ? 'appear-flash' : ''}`}
-            disabled={!!bibleUnavailable}
-            title={
-              bibleUnavailable ??
-              (searchReference
-                ? t('bible.reference', { reference: formatReference(searchReference) })
-                : t('bible.open'))
-            }
-            aria-label={t('bible.open')}
-            onClick={() => setBible({ initial: searchReference })}
-          >
-            <Icon name="bible" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm px-3"
-            disabled={!!blocked}
-            title={blocked ?? t('media.addTitle')}
-            aria-label={t('media.addTitle')}
-            onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
-          >
-            <Icon name="addMedia" className="h-4 w-4" />
-          </button>
-          <Menu
-            label={t(pinnedSongs?.length ? 'runSheet.addPinned' : 'runSheet.nothingPinned')}
-            disabled={!pinnedSongs?.length}
-            buttonClassName="btn btn-sm px-3"
-            trigger={<Icon name="pin" className="h-4 w-4" />}
-            items={(pinnedSongs ?? []).map((song) => ({
-              key: song.id,
-              label: song.title || t('songs.untitled'),
-              badge: <DeckBadge song={song} />,
-              onSelect: () => void session.addSong(date, song.id),
-            }))}
-          />
-        </div>
-      )}
-      {editable && (
         <div className={`flex flex-col gap-1.5 ${idle ? '' : 'min-h-40 flex-1'}`}>
-          <div className="flex gap-1">
-            <input
-              ref={searchRef}
-              className="field min-w-0 flex-1"
-              type="search"
-              autoCorrect="off"
-              autoCapitalize="off"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder={t('runSheet.addSong')}
-              title={t('common.searchShortcut')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter does what the flashing button beside the search would.
-                if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
-                if (searchWebsite) void addWebsite(searchWebsite);
-                else if (searchReference && !bibleUnavailable) {
-                  setBible({ initial: searchReference });
-                }
-              }}
-            />
-            {searchWebsite && (
+          {/* The search and the add buttons are one box: the search over a row of buttons. */}
+          <div className="rounded-md border border-slate-600 bg-slate-800 has-[input:focus]:border-sky-500">
+            <div className="flex items-center">
+              <input
+                ref={searchRef}
+                className="min-w-0 flex-1 rounded-t-[5px] bg-transparent px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                type="search"
+                autoCorrect="off"
+                autoCapitalize="off"
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={t('runSheet.addSong')}
+                title={t('common.searchShortcut')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter does what the flashing button beside the search would.
+                  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  if (searchWebsite) void addWebsite(searchWebsite);
+                  else if (searchReference && !bibleUnavailable) {
+                    setBible({ initial: searchReference });
+                  }
+                }}
+              />
+              {searchWebsite && (
+                <button
+                  type="button"
+                  className="appear-flash mr-2 shrink-0 rounded-sm text-fuchsia-400 hover:text-fuchsia-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={addingWebsite}
+                  title={t('runSheet.addWebsite', { address: searchWebsite })}
+                  aria-label={t('runSheet.addWebsite', { address: searchWebsite })}
+                  onClick={() => void addWebsite(searchWebsite)}
+                >
+                  <Icon name="website" className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex divide-x divide-slate-600 border-t border-slate-600">
               <button
                 type="button"
-                className="btn appear-flash shrink-0 border-fuchsia-500/60 bg-fuchsia-500/20 px-2 text-fuchsia-300 hover:bg-fuchsia-500/30"
-                disabled={addingWebsite}
-                title={t('runSheet.addWebsite', { address: searchWebsite })}
-                aria-label={t('runSheet.addWebsite', { address: searchWebsite })}
-                onClick={() => void addWebsite(searchWebsite)}
+                className={`${toolButton} flex-1 rounded-bl-[5px]`}
+                onClick={() => setWritingSong(true)}
               >
-                <Icon name="website" />
+                <Icon name="add" className="h-4 w-4" />
+                {t('songs.new')}
               </button>
-            )}
+              {/* With a reference typed, the button opens on it, its icon turning the Bible's
+                teal while one is found. */}
+              <button
+                type="button"
+                className={toolButton}
+                disabled={!!bibleUnavailable}
+                title={
+                  bibleUnavailable ??
+                  (searchReference
+                    ? t('bible.reference', { reference: formatReference(searchReference) })
+                    : t('bible.open'))
+                }
+                aria-label={t('bible.open')}
+                onClick={() => setBible({ initial: searchReference })}
+              >
+                <Icon
+                  name="bible"
+                  className={`h-4 w-4 transition-colors ${searchReference && !bibleUnavailable ? 'text-teal-300' : ''}`}
+                />
+              </button>
+              <button
+                type="button"
+                className={toolButton}
+                disabled={!!blocked}
+                title={blocked ?? t('media.addTitle')}
+                aria-label={t('media.addTitle')}
+                onClick={() => void chooseMediaFiles().then((paths) => addMedia(paths))}
+              >
+                <Icon name="addMedia" className="h-4 w-4" />
+              </button>
+              <Menu
+                label={t(pinnedSongs?.length ? 'runSheet.addPinned' : 'runSheet.nothingPinned')}
+                disabled={!pinnedSongs?.length}
+                className="flex"
+                buttonClassName={`${toolButton} rounded-br-[5px]`}
+                trigger={<Icon name="pin" className="h-4 w-4" />}
+                items={(pinnedSongs ?? []).map((song) => ({
+                  key: song.id,
+                  label: song.title || t('songs.untitled'),
+                  badge: <DeckBadge song={song} />,
+                  onSelect: () => void session.addSong(date, song.id),
+                }))}
+              />
+            </div>
           </div>
           {!idle && (
             <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
@@ -656,6 +664,10 @@ export function RunSheetEditor(props: {
 
 /** How long a removed item can be put back. */
 const UNDO_MS = 8000;
+
+/** A button in the row under the song search, borderless: the box around them both is the edge. */
+const toolButton =
+  'inline-flex items-center justify-center gap-1 px-3 py-1 text-xs font-medium bg-slate-700 text-slate-100 hover:bg-slate-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-700';
 
 /** A removed item, with what is needed to put it back where it was. */
 interface Removed {
