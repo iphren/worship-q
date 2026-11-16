@@ -42,6 +42,15 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    Delete (fn + delete on a Mac laptop) clears the screen and stays live; Enter, ↓ or
    Space then starts from the first slide. The same keys work when the slideshow window is
    the one in front.
+5. Each song is a column, side by side, with its slides down the column, so ← and → move
+   across the songs and ↓ and ↑ down a song's slides. Scroll across the songs with a
+   trackpad, the wide scroll bar under them, or a mouse wheel over the song titles; scroll a
+   song's slides with the wheel over them. A narrow window stacks the songs down the page
+   instead. **Settings → Present layout and keys** can stack them always, as in earlier
+   versions, and can swap the arrow keys, so ← and → step through the slides (and jump
+   through a video, as in video players) and ↓ and ↑ move between songs. It warns when the
+   keys go against the layout: stacked songs go with swapped keys, and songs side by side
+   with the usual ones.
 
 ## 4. Fix a lyric during the service
 

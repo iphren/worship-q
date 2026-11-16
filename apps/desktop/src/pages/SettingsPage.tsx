@@ -26,6 +26,7 @@ import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { UpdateStatusLine } from '../components/UpdateBanner';
 import { WorkspaceList } from '../components/WorkspaceSwitcher';
 import { meetingDaysLabel, t, weekdayName } from '../i18n';
+import { layoutKeysMismatch } from '../lib/presentLayout';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
 import { AudioSettings } from '../components/AudioSettings';
@@ -131,6 +132,8 @@ export function SettingsPage() {
   const [overlay, setOverlay] = useState<{ url: string; error: string | null } | null>(null);
   const [viewerMode] = useState(() => deviceSettings.get().viewerMode);
   const [swapArrows, setSwapArrows] = useState(() => deviceSettings.get().swapArrows);
+  const [presentLayout, setPresentLayout] = useState(() => deviceSettings.get().presentLayout);
+  const mismatch = layoutKeysMismatch(presentLayout, swapArrows);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const onScreenId = session.isLive ? (session.live?.presented?.songId ?? null) : null;
@@ -622,6 +625,31 @@ export function SettingsPage() {
         </Section>
 
         <Section title={t('keys.title')} hint={t('keys.hint')}>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('keys.layout')}>
+              {(['horizontal', 'vertical'] as const).map((layout) => (
+                <label
+                  key={layout}
+                  className={`btn relative cursor-pointer ${presentLayout === layout ? 'btn-primary' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="presentLayout"
+                    className="sr-only"
+                    checked={presentLayout === layout}
+                    onChange={() => {
+                      deviceSettings.set({ presentLayout: layout });
+                      setPresentLayout(layout);
+                    }}
+                  />
+                  {t(layout === 'horizontal' ? 'keys.horizontal' : 'keys.vertical')}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-slate-400">
+              {t(presentLayout === 'horizontal' ? 'keys.horizontalHint' : 'keys.verticalHint')}
+            </p>
+          </div>
           <label className="flex items-start gap-3 text-sm">
             <input
               type="checkbox"
@@ -634,9 +662,20 @@ export function SettingsPage() {
             />
             <span>
               {t('keys.swap')}
-              <span className="block text-xs text-slate-400">{t('keys.swapHint')}</span>
+              <span className="block text-xs text-slate-400">
+                {t(swapArrows ? 'keys.swappedHint' : 'keys.defaultHint')}
+              </span>
             </span>
           </label>
+          {mismatch && (
+            <p className="notice border-amber-500 bg-amber-900/40 text-amber-100">
+              {t(
+                mismatch === 'vertical-default'
+                  ? 'keys.mismatchVertical'
+                  : 'keys.mismatchHorizontal',
+              )}
+            </p>
+          )}
         </Section>
 
         <Section title={t('viewer.title')} hint={t('viewer.hint')}>
