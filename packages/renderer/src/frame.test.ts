@@ -2,7 +2,7 @@ import { createLiveState } from '@worship-q/live-state';
 import type { LiveSnapshot, OutputView } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import { buildFrame, missingFonts } from './frame';
-import { drifted, videoTarget } from './Slide';
+import { drifted, videoCorrection, videoJumped, videoTarget } from './Slide';
 
 const look: OutputView['look'] = {
   fontFamily: 'Noto Sans SC',
@@ -253,6 +253,30 @@ describe('following the live clock (M6.3)', () => {
     expect(drifted(10.4, 10)).toBe(false);
     expect(drifted(10.6, 10)).toBe(true);
     expect(drifted(9.4, 10)).toBe(true);
+  });
+
+  it('leaves a playing video that is only a little off to play', () => {
+    // Behind after starting, or after a hiccup: moving it would only stall it again.
+    expect(videoCorrection(9, 10, true, false)).toBeNull();
+    expect(videoCorrection(11.4, 10, true, false)).toBeNull();
+  });
+
+  it('moves the player for a command, a paused video, or one far off', () => {
+    expect(videoCorrection(4, 10, true, true)).toBe(10);
+    expect(videoCorrection(9.8, 10, true, true)).toBeNull();
+    expect(videoCorrection(9, 10, false, false)).toBe(10);
+    expect(videoCorrection(8, 10, true, false)).toBe(10);
+  });
+
+  it('tells a command from the same clock taken again later', () => {
+    const now = t(5);
+    expect(videoJumped(null, video, now)).toBe(true);
+    // Taken again 3 s on: still the same clock.
+    const again = { ...video, position: 13, at: new Date(t(3)).toISOString() };
+    expect(videoJumped(video, again, now)).toBe(false);
+    expect(videoJumped(video, { ...video, position: 30 }, now)).toBe(true);
+    expect(videoJumped(video, { ...video, playing: false }, now)).toBe(true);
+    expect(videoJumped(video, { ...video, url: 'w.mp4' }, now)).toBe(true);
   });
 });
 

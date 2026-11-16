@@ -381,10 +381,40 @@ export function drifted(current: number, target: number): boolean {
   return Math.abs(current - target) > VIDEO_DRIFT_SECONDS;
 }
 
+/** A playing video further than this from the clock, with no command, is moved to it. */
+export const VIDEO_SEEK_SECONDS = 1.5;
+
+/**
+ * Where a player at `current` must be moved to follow the clock's `target`, or null. A
+ * playing video starts a little behind the clock, as the frame and file take a moment to
+ * arrive, and moving it, or changing its speed, makes it stall and fall behind again (seen
+ * on the macOS slideshow window). So a playing video that is only a little off is left to
+ * play. A command that moved the clock (`jumped`: play, pause, seek, another video) is
+ * followed at once, as is a paused video or one far off.
+ */
+export function videoCorrection(
+  current: number,
+  target: number,
+  playing: boolean,
+  jumped: boolean,
+): number | null {
+  if (!playing || jumped) return drifted(current, target) ? target : null;
+  return Math.abs(target - current) > VIDEO_SEEK_SECONDS ? target : null;
+}
+
+/**
+ * Whether the clock moved between two records of the same video: not merely taken again at
+ * a later moment, but played, paused or moved elsewhere.
+ */
+export function videoJumped(before: OutputVideo | null, after: OutputVideo, nowMs: number) {
+  if (!before || before.url !== after.url || before.playing !== after.playing) return true;
+  return Math.abs(videoTarget(before, nowMs) - videoTarget(after, nowMs)) > 0.25;
+}
+
 /**
  * A video item, full screen on black, following the live state: it plays and pauses with it,
- * and is moved only when it drifts more than half a second, so it never stutters on every
- * update (U22, M6.3). It stays mounted while blank, hidden, so unblanking is immediate.
+ * is moved when a command moves the clock, and otherwise only when far off, so it never
+ * stutters (U22, M6.3; see `videoCorrection`). It stays mounted while blank, hidden, so unblanking is immediate.
  */
 function VideoLayer(props: {
   video: OutputVideo;
@@ -418,13 +448,21 @@ function VideoLayer(props: {
     // A device that is gone leaves the system default (U24).
     void element?.setSinkId?.(sinkId).catch(() => element.setSinkId?.('').catch(() => undefined));
   }, [sinkId, url]);
+  // The record last followed, to tell a command from the same clock sent again.
+  const last = useRef<OutputVideo | null>(null);
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
+    // Until the player can be moved, the first look at a new record still counts as a jump.
+    let jumped = videoJumped(last.current, video, Date.now());
+    last.current = video;
     const follow = () => {
       const target = videoTarget(video, Date.now());
-      if (element.readyState >= 1 && drifted(element.currentTime, target)) {
-        element.currentTime = target;
+      if (element.readyState >= 1) {
+        const playing = video.playing && target < video.durationSeconds;
+        const seekTo = videoCorrection(element.currentTime, target, playing, jumped);
+        jumped = false;
+        if (seekTo !== null) element.currentTime = seekTo;
       }
       if (video.playing && target < video.durationSeconds) {
         if (element.paused) {

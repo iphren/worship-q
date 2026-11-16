@@ -28,20 +28,25 @@ interface ListedAudio {
 
 /**
  * Lists this computer's audio devices with their names. Names and usable ids need microphone
- * permission, so it is asked for, and the track stopped at once (M0.3). A computer with no
- * audio input lists none on Windows. Asking in the main window while it listens or
- * broadcasts changes nothing there (L6, W3).
+ * permission, so, while they cannot be read yet, it is asked for, and the track stopped at
+ * once (M0.3). Opening the microphone makes a Mac's sound hiccup, which stalls a video
+ * playing on the slideshow, so it is opened only when needed (see `unlockAudioDeviceNames`).
+ * A computer with no audio input lists none on Windows. Asking in the main window while it
+ * listens or broadcasts changes nothing there (L6, W3).
  */
 export async function listAudioDevices(): Promise<ListedAudio> {
   const media = navigator.mediaDevices;
   if (!media) return { outputs: [], inputs: [], defaultInput: null };
-  try {
-    const stream = await media.getUserMedia({ audio: true });
-    for (const track of stream.getTracks()) track.stop();
-  } catch {
-    // Without permission, or with no input, the list has no names; it is still read.
+  let devices = await media.enumerateDevices().catch(() => []);
+  if (!devices.some((device) => device.label)) {
+    try {
+      const stream = await media.getUserMedia({ audio: true });
+      for (const track of stream.getTracks()) track.stop();
+    } catch {
+      // Without permission, or with no input, the list has no names; it is still read.
+    }
+    devices = await media.enumerateDevices().catch(() => []);
   }
-  const devices = await media.enumerateDevices().catch(() => []);
   const fallback = devices.find((d) => d.kind === 'audioinput' && d.deviceId === 'default');
   const inputs = pickableDevices(devices, 'audioinput');
   return {
@@ -49,6 +54,20 @@ export async function listAudioDevices(): Promise<ListedAudio> {
     inputs,
     defaultInput: fallback?.label ?? inputs[0]?.name ?? null,
   };
+}
+
+/**
+ * Makes the audio device names readable in this window on launch, before any video plays,
+ * so opening Settings later need not open the microphone during a service. Done only when
+ * the permission was already given: it never asks.
+ */
+export async function unlockAudioDeviceNames(): Promise<void> {
+  try {
+    const status = await navigator.permissions?.query({ name: 'microphone' as PermissionName });
+    if (status?.state === 'granted') await listAudioDevices();
+  } catch {
+    // A webview that cannot tell leaves it to Settings, as before.
+  }
 }
 
 type PickerKey = 'audioOutput' | 'audioInput' | 'audioMonitor';
