@@ -1,6 +1,7 @@
 /**
  * A workspace's run sheets, view only: the month calendar of the desktop's Calendar tab, and
- * the chosen date's run sheet beside it. Nothing here changes a run sheet.
+ * beside it the chosen date's run sheet, then that day's recordings and presentation log.
+ * Nothing here changes a run sheet.
  */
 import {
   monthGrid,
@@ -16,6 +17,7 @@ import { api } from '../api';
 import { formatDate } from '../format';
 import { Badge, Card, ErrorText, SectionTitle, Spinner } from '../ui';
 import { useLoad } from '../useLoad';
+import { DayRecords } from './Records';
 
 const POLL_MS = 20_000;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -49,7 +51,7 @@ export function RunSheetsSection({ id }: { id: string }) {
 
   return (
     <Card>
-      <SectionTitle>Run sheets</SectionTitle>
+      <SectionTitle>Run sheets and records</SectionTitle>
       <ErrorText error={days.error ?? sheet.error} className="mb-2" />
       {!days.data && !days.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
@@ -170,6 +172,9 @@ export function RunSheetsSection({ id }: { id: string }) {
                 })}
               </ol>
             )}
+            <div className="mt-6 border-t border-slate-800 pt-4">
+              <DayRecords id={id} date={selected} />
+            </div>
           </div>
         </div>
       )}

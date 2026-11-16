@@ -1,63 +1,26 @@
 /**
  * A workspace's service records for a day (service records R11, R19): the recordings of its
  * live audio broadcast, each with a player, its length and size, download and delete; and the
- * presentation log, each entry with its time, how long it was shown, and what it showed.
+ * presentation log, each entry with its time, how long it was shown, and what it showed. Shown
+ * under the run sheet of the date picked on the Run sheets calendar.
  */
 import type { IsoDate, LocalLogEntry, RecordingView } from '@worship-q/protocol';
 import { useState } from 'react';
 import { api } from '../api';
-import {
-  dayRange,
-  formatBytes,
-  formatDate,
-  formatDuration,
-  formatTimeOfDay,
-  runTime,
-} from '../format';
-import {
-  Badge,
-  Button,
-  Card,
-  Confirm,
-  Empty,
-  ErrorText,
-  INPUT,
-  SectionTitle,
-  Spinner,
-} from '../ui';
+import { dayRange, formatBytes, formatDuration, formatTimeOfDay, runTime } from '../format';
+import { Badge, Button, Confirm, Empty, ErrorText, Spinner } from '../ui';
 import { useLoad } from '../useLoad';
 
 const POLL_MS = 15_000;
 
-/** The browser's own date. */
-function todayHere(): IsoDate {
-  const now = new Date();
-  const two = (n: number) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
-}
-
-export function RecordsSection({ id }: { id: string }) {
-  const [date, setDate] = useState<IsoDate>(todayHere());
+export function DayRecords({ id, date }: { id: string; date: IsoDate }) {
   const range = dayRange(date);
   const records = useLoad(() => api.records(id, range.from, range.to), [id, date], POLL_MS);
   const [removing, setRemoving] = useState<RecordingView | null>(null);
   const now = Date.now();
 
   return (
-    <Card>
-      <SectionTitle
-        aside={
-          <input
-            type="date"
-            className={`${INPUT} w-auto`}
-            aria-label="Day"
-            value={date}
-            onChange={(event) => event.target.value && setDate(event.target.value)}
-          />
-        }
-      >
-        Records · {formatDate(date)}
-      </SectionTitle>
+    <div>
       <ErrorText error={records.error} className="mb-2" />
       {!records.data && !records.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
@@ -93,11 +56,14 @@ export function RecordsSection({ id }: { id: string }) {
             {records.data.log.length === 0 ? (
               <Empty>Nothing was presented this day.</Empty>
             ) : (
-              <ol className="divide-y divide-slate-800">
-                {records.data.log.map((entry) => (
-                  <LogRow key={entry.id} entry={entry} now={now} />
-                ))}
-              </ol>
+              // A long service's log scrolls inside its own box rather than the page.
+              <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-800 px-3">
+                <ol className="divide-y divide-slate-800">
+                  {records.data.log.map((entry) => (
+                    <LogRow key={entry.id} entry={entry} now={now} />
+                  ))}
+                </ol>
+              </div>
             )}
           </div>
         </div>
@@ -123,7 +89,7 @@ export function RecordsSection({ id }: { id: string }) {
           </p>
         </Confirm>
       )}
-    </Card>
+    </div>
   );
 }
 
