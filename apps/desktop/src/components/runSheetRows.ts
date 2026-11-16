@@ -45,8 +45,10 @@ export function mergeRows<Entry extends { item: { id: string } }>(
 
 /** One action of a run sheet item's menu, and why it cannot be used now, if it cannot. */
 export interface ItemAction {
-  action: 'edit' | 'download' | 'replace' | 'remove';
+  action: 'edit' | 'autoplay' | 'download' | 'replace' | 'reconvert' | 'remove';
   disabled: string | null;
+  /** For Autoplay, a checkbox: whether it is on. */
+  checked?: boolean;
 }
 
 export interface ItemActionState {
@@ -59,19 +61,23 @@ export interface ItemActionState {
   canReplace: boolean;
   /** The server said it did not keep the original. */
   notKept: boolean;
-  messages: { needsServer: string; notKept: string };
+  /** The item's slides or PDF are being converted again now. */
+  reconverting?: boolean;
+  messages: { needsServer: string; notKept: string; reconverting: string };
 }
 
 /**
- * The actions a run sheet item's **⋯** menu offers (U27): Edit, Download original and Upload
- * new version (media only), and Remove, last. A song removed from the library offers only
- * Download original and Remove; a run sheet that cannot be edited, only Download original.
+ * The actions a run sheet item's **⋯** menu offers (U27): Edit, an Autoplay checkbox (videos
+ * only), Download original and Upload new version (media only), Reconvert (slides and PDFs
+ * only), and Remove, last. A song removed from the library offers only Download original and
+ * Remove; a run sheet that cannot be edited, only Download original.
  */
 export function itemActions(
   song: Pick<Song, 'deck' | 'video' | 'website' | 'removedAt'>,
   state: ItemActionState,
 ): ItemAction[] {
-  const media = songMediaKind({ ...song, video: song.video ?? null }) !== null;
+  const kind = songMediaKind({ ...song, video: song.video ?? null });
+  const media = kind !== null;
   const actions: ItemAction[] = [];
   const download: ItemAction = {
     action: 'download',
@@ -83,13 +89,21 @@ export function itemActions(
   };
   if (!state.editable) return media ? [download] : [];
   if (!song.removedAt) actions.push({ action: 'edit', disabled: null });
+  if (song.video && !song.removedAt) {
+    // Older video records may lack the field: they are off.
+    actions.push({ action: 'autoplay', disabled: null, checked: song.video.autoplay === true });
+  }
   if (media) {
     actions.push(download);
     if (!song.removedAt && state.canReplace) {
-      actions.push({
-        action: 'replace',
-        disabled: state.connected ? null : state.messages.needsServer,
-      });
+      const offline = state.connected ? null : state.messages.needsServer;
+      actions.push({ action: 'replace', disabled: offline });
+      if (kind === 'slides' || kind === 'pdf') {
+        actions.push({
+          action: 'reconvert',
+          disabled: state.reconverting ? state.messages.reconverting : offline,
+        });
+      }
     }
   }
   actions.push({ action: 'remove', disabled: null });

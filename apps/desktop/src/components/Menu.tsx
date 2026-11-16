@@ -22,6 +22,8 @@ export interface MenuItem {
   separated?: boolean;
   /** The current choice, marked with this text and not selectable. */
   current?: string | null;
+  /** Makes it a checkbox, ticked when true; selecting it toggles it and keeps the menu open. */
+  checked?: boolean;
 }
 
 /**
@@ -91,7 +93,9 @@ export function Menu(props: {
 
   useLayoutEffect(() => {
     if (!open || !list.current) return;
-    const items = list.current.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    const items = list.current.querySelectorAll<HTMLButtonElement>(
+      '[role="menuitem"], [role="menuitemcheckbox"]',
+    );
     items[active]?.focus({ preventScroll: true });
   }, [open, active, place]);
 
@@ -161,7 +165,8 @@ export function Menu(props: {
               >
                 <button
                   type="button"
-                  role="menuitem"
+                  role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                  aria-checked={item.checked}
                   tabIndex={index === active ? 0 : -1}
                   disabled={!!item.disabled || !!item.current}
                   title={item.disabled ?? undefined}
@@ -174,10 +179,31 @@ export function Menu(props: {
                   } enabled:hover:bg-slate-700 focus:bg-slate-700 focus:outline-none`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    setOpen(false);
+                    // A checkbox stays open, so its new state can be seen.
+                    if (item.checked === undefined) setOpen(false);
                     item.onSelect();
                   }}
                 >
+                  {item.checked !== undefined && (
+                    <span
+                      aria-hidden
+                      className={`-mr-1 flex h-4 w-4 shrink-0 items-center justify-center self-center rounded-[3px] border ${
+                        item.checked ? 'border-sky-500 bg-sky-500' : 'border-slate-500 bg-slate-900'
+                      }`}
+                    >
+                      {item.checked && (
+                        <svg viewBox="0 0 16 16" className="h-3 w-3 text-white" fill="none">
+                          <path
+                            d="M3.5 8.5l3 3 6-7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">
                       {item.badge}

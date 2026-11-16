@@ -307,11 +307,35 @@ export function RunSheetEditor(props: {
     );
   }
 
+  // The items whose slides or PDF are being converted again (U4).
+  const [reconverting, setReconverting] = useState<ReadonlySet<string>>(new Set());
+
+  async function reconvert(song: Song) {
+    setMessage(null);
+    setReconverting((ids) => new Set(ids).add(song.id));
+    try {
+      await cloud.reconvert(song);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : String(error);
+      setMessage(
+        code === 'no-original' ? t('media.notKept') : t('media.reconvertFailed', { message: code }),
+      );
+    } finally {
+      setReconverting((ids) => {
+        const next = new Set(ids);
+        next.delete(song.id);
+        return next;
+      });
+    }
+  }
+
   function menuItems(song: Song, itemId: string): MenuItem[] {
     const labels = {
       edit: `${t('runSheet.edit')}…`,
+      autoplay: t('media.autoplay'),
       download: t('media.downloadOriginal'),
       replace: `${t('media.uploadNewVersion')}…`,
+      reconvert: t('media.reconvert'),
       remove: t('common.remove'),
     };
     return itemActions(song, {
@@ -320,16 +344,30 @@ export function RunSheetEditor(props: {
       localVideo: !!song.video && !!localVideos?.has(song.video.file),
       canReplace: canReplace(session, song),
       notKept: originalNotKept(song.id),
-      messages: { needsServer: t('media.needsServer'), notKept: t('media.notKept') },
-    }).map(({ action, disabled }) => ({
+      reconverting: reconverting.has(song.id),
+      messages: {
+        needsServer: t('media.needsServer'),
+        notKept: t('media.notKept'),
+        reconverting: t('media.processing'),
+      },
+    }).map(({ action, disabled, checked }) => ({
       key: action,
       label: labels[action],
       disabled,
+      checked,
       danger: action === 'remove',
       separated: action === 'remove',
       onSelect: () => {
         if (action === 'edit') setEditingSong(song);
         else if (action === 'remove') remove(itemId);
+        else if (action === 'autoplay') {
+          // Autoplay is part of the video's record (U23).
+          if (song.video) {
+            void session.saveSong(song.id, {
+              video: { ...song.video, autoplay: song.video.autoplay !== true },
+            });
+          }
+        } else if (action === 'reconvert') void reconvert(song);
         else if (action === 'download') {
           void downloadOriginal(cloud, song).then(setMessage);
         } else void uploadNewVersion(cloud, song).then(setMessage);

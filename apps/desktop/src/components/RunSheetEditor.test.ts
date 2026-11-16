@@ -60,7 +60,7 @@ describe('the run sheet item menu (U27)', () => {
     localVideo: false,
     canReplace: true,
     notKept: false,
-    messages: { needsServer: 'connect', notKept: 'not kept' },
+    messages: { needsServer: 'connect', notKept: 'not kept', reconverting: 'processing' },
   };
   const deck = { source: 'a.pptx', width: 1, height: 1, pages: [] };
   const video = {
@@ -90,15 +90,48 @@ describe('the run sheet item menu (U27)', () => {
     expect(names(itemActions(song({ passage }), { ...state, editable: false }))).toEqual([]);
   });
 
-  it('offers media all four, Remove last', () => {
-    for (const fields of [{ deck }, { deck: { ...deck, kind: 'image' } }, { video }]) {
+  it('offers media Edit, Download original, Upload new version and Remove last', () => {
+    expect(names(itemActions(song({ deck: { ...deck, kind: 'image' } }), state))).toEqual([
+      'edit',
+      'download',
+      'replace',
+      'remove',
+    ]);
+  });
+
+  it('offers slides and PDFs Reconvert after Upload new version', () => {
+    for (const fields of [{ deck }, { deck: { ...deck, kind: 'pdf' } }]) {
       expect(names(itemActions(song(fields), state))).toEqual([
         'edit',
         'download',
         'replace',
+        'reconvert',
         'remove',
       ]);
     }
+    const offline = itemActions(song({ deck }), { ...state, connected: false });
+    expect(offline.find((a) => a.action === 'reconvert')!.disabled).toBe('connect');
+    const busy = itemActions(song({ deck }), { ...state, reconverting: true });
+    expect(busy.find((a) => a.action === 'reconvert')!.disabled).toBe('processing');
+    expect(names(itemActions(song({ deck }), { ...state, canReplace: false }))).not.toContain(
+      'reconvert',
+    );
+  });
+
+  it('offers a video an Autoplay checkbox showing its setting', () => {
+    expect(names(itemActions(song({ video }), state))).toEqual([
+      'edit',
+      'autoplay',
+      'download',
+      'replace',
+      'remove',
+    ]);
+    const on = itemActions(song({ video: { ...video, autoplay: true } }), state);
+    expect(on.find((a) => a.action === 'autoplay')!.checked).toBe(true);
+    // An older record without the field shows it off, still as a checkbox.
+    const missing = itemActions(song({ video: { ...video, autoplay: undefined } }), state);
+    expect(missing.find((a) => a.action === 'autoplay')!.checked).toBe(false);
+    expect(names(itemActions(song({ video, removedAt: 'x' }), state))).not.toContain('autoplay');
   });
 
   it('offers a song removed from the library Download original and Remove', () => {
@@ -121,6 +154,7 @@ describe('the run sheet item menu (U27)', () => {
       { action: 'edit', disabled: null },
       { action: 'download', disabled: 'connect' },
       { action: 'replace', disabled: 'connect' },
+      { action: 'reconvert', disabled: 'connect' },
       { action: 'remove', disabled: null },
     ]);
     const local = itemActions(song({ video }), { ...offline, localVideo: true });
