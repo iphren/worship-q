@@ -1,6 +1,6 @@
 /**
  * A workspace's run sheets, view only: the month calendar of the desktop's Calendar tab, and
- * beside it the chosen date's run sheet, then that day's recordings and presentation log.
+ * under it the chosen date's run sheet; beside them, that day's recordings and presentation log.
  * Nothing here changes a run sheet.
  */
 import {
@@ -17,7 +17,7 @@ import { api } from '../api';
 import { formatDate } from '../format';
 import { Badge, Card, ErrorText, SectionTitle, Spinner } from '../ui';
 import { useLoad } from '../useLoad';
-import { DayRecords } from './Records';
+import { DayRecordings, PresentationLog, useDayRecords } from './Records';
 
 const POLL_MS = 20_000;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -44,6 +44,7 @@ export function RunSheetsSection({ id }: { id: string }) {
   const selected = picked ?? nextMeetingDate(today, meetingDays);
   const { year, month } = browsing ?? yearMonthOf(selected);
   const sheet = useLoad(() => api.runSheet(id, selected), [id, selected], POLL_MS);
+  const records = useDayRecords(id, selected);
   const planned = new Map((days.data?.dates ?? []).map((d) => [d.date, d.items]));
   const liveDate = days.data?.liveDate ?? null;
   const weeks = monthGrid(year, month);
@@ -60,7 +61,7 @@ export function RunSheetsSection({ id }: { id: string }) {
       )}
       {days.data && (
         <div className="flex flex-col gap-5 md:flex-row">
-          <div className="w-full shrink-0 md:w-72">
+          <div className="w-full shrink-0 md:w-80">
             <div className="mb-2 flex items-center gap-1">
               <span className="flex-1 text-sm font-semibold text-slate-100">
                 {monthTitle(year, month)}
@@ -135,46 +136,49 @@ export function RunSheetsSection({ id }: { id: string }) {
                 );
               })}
             </div>
+
+            <div className="mt-5">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold text-slate-100">{formatDate(selected)}</h3>
+                {selected === liveDate && <Badge tone="live">Live now</Badge>}
+              </div>
+              {!sheet.data && !sheet.error && (
+                <p className="flex items-center gap-2 text-sm text-slate-400">
+                  <Spinner /> Loading…
+                </p>
+              )}
+              {sheet.data && sheet.data.date === selected && sheet.data.items.length === 0 && (
+                <p className="text-sm text-slate-400">Nothing is planned for this date.</p>
+              )}
+              {sheet.data && sheet.data.date === selected && sheet.data.items.length > 0 && (
+                <ol className="space-y-1">
+                  {sheet.data.items.map((item, index) => {
+                    const badge = item.badge;
+                    return (
+                      <li
+                        key={item.id}
+                        className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-900 px-3 py-2 text-sm"
+                      >
+                        <span className="w-5 shrink-0 text-right text-slate-500 tabular-nums">
+                          {index + 1}
+                        </span>
+                        <span className="flex min-w-40 flex-1 items-center gap-2">
+                          {badge && <ItemBadgeMark badge={badge} />}
+                          <span className="min-w-0 truncate">{item.title || 'Untitled'}</span>
+                        </span>
+                        {item.removed && <Badge tone="warn">Removed from library</Badge>}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-slate-100">{formatDate(selected)}</h3>
-              {selected === liveDate && <Badge tone="live">Live now</Badge>}
-            </div>
-            {!sheet.data && !sheet.error && (
-              <p className="flex items-center gap-2 text-sm text-slate-400">
-                <Spinner /> Loading…
-              </p>
-            )}
-            {sheet.data && sheet.data.date === selected && sheet.data.items.length === 0 && (
-              <p className="text-sm text-slate-400">Nothing is planned for this date.</p>
-            )}
-            {sheet.data && sheet.data.date === selected && sheet.data.items.length > 0 && (
-              <ol className="space-y-1">
-                {sheet.data.items.map((item, index) => {
-                  const badge = item.badge;
-                  return (
-                    <li
-                      key={item.id}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-slate-900 px-3 py-2 text-sm"
-                    >
-                      <span className="w-5 shrink-0 text-right text-slate-500 tabular-nums">
-                        {index + 1}
-                      </span>
-                      <span className="flex min-w-40 flex-1 items-center gap-2">
-                        {badge && <ItemBadgeMark badge={badge} />}
-                        <span className="min-w-0 truncate">{item.title || 'Untitled'}</span>
-                      </span>
-                      {item.removed && <Badge tone="warn">Removed from library</Badge>}
-                    </li>
-                  );
-                })}
-              </ol>
-            )}
-            <div className="mt-6 border-t border-slate-800 pt-4">
-              <DayRecords id={id} date={selected} />
-            </div>
+          {/* The day's records: beside the calendar and run sheet, or under them on a phone. */}
+          <div className="min-w-0 flex-1 space-y-5 border-t border-slate-800 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-5">
+            <DayRecordings records={records} />
+            <PresentationLog records={records} />
           </div>
         </div>
       )}

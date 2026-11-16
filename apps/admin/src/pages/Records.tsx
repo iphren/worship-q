@@ -1,73 +1,57 @@
 /**
  * A workspace's service records for a day (service records R11, R19): the recordings of its
  * live audio broadcast, each with a player, its length and size, download and delete; and the
- * presentation log, each entry with its time, how long it was shown, and what it showed. Shown
- * under the run sheet of the date picked on the Run sheets calendar.
+ * presentation log, each entry with its time, how long it was shown, and what it showed. Both
+ * belong to the date picked on the Run sheets calendar, and are placed by that section.
  */
-import type { IsoDate, LocalLogEntry, RecordingView } from '@worship-q/protocol';
+import type { AdminRecords, IsoDate, LocalLogEntry, RecordingView } from '@worship-q/protocol';
 import { useState } from 'react';
 import { api } from '../api';
 import { dayRange, formatBytes, formatDuration, formatTimeOfDay, runTime } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, Spinner } from '../ui';
-import { useLoad } from '../useLoad';
+import { type Loaded, useLoad } from '../useLoad';
 
 const POLL_MS = 15_000;
 
-export function DayRecords({ id, date }: { id: string; date: IsoDate }) {
+/** One day's recordings and presentation log, loaded once for both lists. */
+export function useDayRecords(id: string, date: IsoDate): Loaded<AdminRecords> {
   const range = dayRange(date);
-  const records = useLoad(() => api.records(id, range.from, range.to), [id, date], POLL_MS);
+  return useLoad(() => api.records(id, range.from, range.to), [id, date], POLL_MS);
+}
+
+export function DayRecordings({ records }: { records: Loaded<AdminRecords> }) {
   const [removing, setRemoving] = useState<RecordingView | null>(null);
   const now = Date.now();
 
   return (
     <div>
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Live audio recordings</h3>
       <ErrorText error={records.error} className="mb-2" />
       {!records.data && !records.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
           <Spinner /> Loading…
         </p>
       )}
-      {records.data && (
-        <div className="space-y-5">
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-200">Live audio recordings</h3>
-            {!records.data.recordingOn && (
-              <p className="mb-2 text-xs text-amber-300">
-                Recording is turned off in Settings: new broadcasts are not recorded.
-              </p>
-            )}
-            {records.data.recordings.length === 0 ? (
-              <p className="text-sm text-slate-400">No recording this day.</p>
-            ) : (
-              <ul className="space-y-3">
-                {records.data.recordings.map((recording) => (
-                  <RecordingRow
-                    key={recording.id}
-                    recording={recording}
-                    now={now}
-                    onRemove={() => setRemoving(recording)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-200">Presentation log</h3>
-            {records.data.log.length === 0 ? (
-              <Empty>Nothing was presented this day.</Empty>
-            ) : (
-              // A long service's log scrolls inside its own box rather than the page.
-              <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-800 px-3">
-                <ol className="divide-y divide-slate-800">
-                  {records.data.log.map((entry) => (
-                    <LogRow key={entry.id} entry={entry} now={now} />
-                  ))}
-                </ol>
-              </div>
-            )}
-          </div>
-        </div>
+      {records.data && !records.data.recordingOn && (
+        <p className="mb-2 text-xs text-amber-300">
+          Recording is turned off in Settings: new broadcasts are not recorded.
+        </p>
       )}
+      {records.data &&
+        (records.data.recordings.length === 0 ? (
+          <p className="text-sm text-slate-400">No recording this day.</p>
+        ) : (
+          <ul className="space-y-3">
+            {records.data.recordings.map((recording) => (
+              <RecordingRow
+                key={recording.id}
+                recording={recording}
+                now={now}
+                onRemove={() => setRemoving(recording)}
+              />
+            ))}
+          </ul>
+        ))}
       {removing && (
         <Confirm
           title="Delete this recording?"
@@ -89,6 +73,33 @@ export function DayRecords({ id, date }: { id: string; date: IsoDate }) {
           </p>
         </Confirm>
       )}
+    </div>
+  );
+}
+
+export function PresentationLog({ records }: { records: Loaded<AdminRecords> }) {
+  const now = Date.now();
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">Presentation log</h3>
+      {!records.data && !records.error && (
+        <p className="flex items-center gap-2 text-sm text-slate-400">
+          <Spinner /> Loading…
+        </p>
+      )}
+      {records.data &&
+        (records.data.log.length === 0 ? (
+          <Empty>Nothing was presented this day.</Empty>
+        ) : (
+          // A long service's log scrolls inside its own box rather than the page.
+          <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-800 px-3">
+            <ol className="divide-y divide-slate-800">
+              {records.data.log.map((entry) => (
+                <LogRow key={entry.id} entry={entry} now={now} />
+              ))}
+            </ol>
+          </div>
+        ))}
     </div>
   );
 }
