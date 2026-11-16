@@ -20,6 +20,11 @@ export interface DeviceSettings {
    * round from the default, which comes from the app the operators used before.
    */
   swapArrows: boolean;
+  /**
+   * The Present page's slides: items as columns side by side (the default), or stacked down
+   * the page as before. A narrow window stacks them either way.
+   */
+  presentLayout: 'vertical' | 'horizontal';
   /** Where video items' sound plays; null for the system default (U24). */
   audioOutput: AudioDevice | null;
   /** The source for live audio broadcast; null for the system default. */
@@ -33,6 +38,7 @@ const DEFAULTS: DeviceSettings = {
   viewerMode: false,
   simpleView: false,
   swapArrows: false,
+  presentLayout: 'horizontal',
   audioOutput: null,
   audioInput: null,
   audioMonitor: null,
@@ -118,6 +124,8 @@ export function createDeviceSettings(storage: () => SettingsStorage | null) {
           viewerMode: parsed.viewerMode === true,
           simpleView: parsed.simpleView === true,
           swapArrows: parsed.swapArrows === true,
+          // Saved before the setting existed, or anything unknown: the default.
+          presentLayout: parsed.presentLayout === 'vertical' ? 'vertical' : 'horizontal',
           audioOutput: audioDevice(parsed.audioOutput),
           audioInput: audioDevice(parsed.audioInput),
           audioMonitor: audioDevice(parsed.audioMonitor),

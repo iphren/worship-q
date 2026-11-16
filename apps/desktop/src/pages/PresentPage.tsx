@@ -1,10 +1,9 @@
 import { nextMeetingDate } from '@worship-q/calendar';
-import type { LiveState, Presented, Song } from '@worship-q/protocol';
+import type { Presented, Song } from '@worship-q/protocol';
 import { SUBTITLE_BAR_FRACTION } from '@worship-q/renderer';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { deviceSettings } from '../app/deviceSettings';
 import { useCloud, useObs, useQuery, useSession, useUpdates } from '../app/context';
-import { SlideImage } from '../components/SlideImage';
 import { Icon } from '../components/Icon';
 import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
 import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
@@ -12,19 +11,21 @@ import { RunSheetEditor } from '../components/RunSheetEditor';
 import { UpdateBanner } from '../components/UpdateBanner';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
-import { PassageWarnings } from '../components/PassageWarnings';
-import { VideoControls, VideoTile } from '../components/VideoStatus';
+import { ItemSlides } from '../components/ItemSlides';
+import { VideoControls } from '../components/VideoStatus';
 import { formatDate, t } from '../i18n';
 import { AudioPanel } from '../components/AudioListen';
-import { useScrollMemory } from '../lib/scrollMemory';
 import {
-  arrowLabels,
-  presentAction,
-  runPresentAction,
-  slideKeyLabel,
-  videoKeys,
-} from '../lib/shortcuts';
-import { DeckBadge } from '../components/DeckBadge';
+  presentLayoutFor,
+  scrollAlong,
+  scroller,
+  scrollToCentre,
+  scrollToNearest,
+  scrollToStart,
+  span,
+} from '../lib/presentLayout';
+import { useScrollMemory } from '../lib/scrollMemory';
+import { arrowLabels, presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
@@ -40,33 +41,6 @@ function KeyHint(props: { children: string }) {
     <kbd className="ml-1 rounded bg-black/25 px-1.5 font-sans text-[11px] leading-4 font-semibold opacity-80">
       {props.children}
     </kbd>
-  );
-}
-
-/**
- * True for the slide an item last showed, so operators see where they left off. Not on the
- * item on screen, which has its own highlight, nor on an item with only one slide.
- */
-/** A song of lyrics, as opposed to a deck, PDF, image, video or website. */
-function isLyrics(song: { deck: unknown; video: unknown; website: unknown }): boolean {
-  return !song.deck && !song.video && !song.website;
-}
-
-function isLastShown(
-  live: LiveState | null,
-  presented: Presented | null | undefined,
-  entry: { item: { id: string }; pieces: readonly unknown[] },
-  pieceId: string,
-): boolean {
-  if (!live || entry.pieces.length < 2 || presented?.itemId === entry.item.id) return false;
-  return live.lastShown[entry.item.id]?.pieceId === pieceId;
-}
-
-function LastShownChip() {
-  return (
-    <span className="pointer-events-none absolute -top-0.5 -right-0.5 z-10 rounded-tr-md rounded-bl-md bg-slate-600 px-1.5 font-sans text-[10px] leading-4 font-semibold text-slate-100">
-      {t('present.lastShown')}
-    </span>
   );
 }
 
@@ -159,6 +133,23 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
   // Set in Settings, which this page is reopened from.
   const [swapArrows] = useState(() => deviceSettings.get().swapArrows);
   const arrows = arrowLabels(swapArrows);
+  // Items side by side as columns, unless chosen otherwise or too few columns fit (H4).
+  const [layoutSetting] = useState(() => deviceSettings.get().presentLayout);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const [areaWidth, setAreaWidth] = useState(0);
+  useLayoutEffect(() => {
+    const area = areaRef.current;
+    if (!area) return;
+    const measure = () => setAreaWidth(area.clientWidth);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, []);
+  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const horizontal = presentLayoutFor(areaWidth, layoutSetting, remPx) === 'horizontal';
+  // The axis the slides area scrolls along: across the columns, or down the stacked items.
+  const axis = horizontal ? 'x' : 'y';
   function chooseSimpleView(on: boolean) {
     deviceSettings.set({ simpleView: on });
     setSimpleView(on);
@@ -184,7 +175,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     !viewOnly && !!liveDate && session.keptTooLong && !dismissedNotices.has(liveDate);
   const blankStyle = live?.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
-  useScrollMemory(slidesRef, `present.slides:${liveDate}`);
+  useScrollMemory(slidesRef, `present.slides:${liveDate}:${axis}`, axis);
   useScrollMemory(slideshowRef, 'present.slideshow');
 
   useEffect(() => {
@@ -217,19 +208,34 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     followUntilRef.current = 0;
     if (!active || !following) return;
 
-    // Moving to another item by keyboard or the controls brings its title to the top, as
-    // long as the presented slide stays in view.
+    // Moving to another item by keyboard or the controls brings its title to the top, or its
+    // column to the left edge, as long as the presented slide stays in view.
     const section = active.closest('section');
-    if (itemChanged && !clicked && section && scrollToTop(section, active)) return;
-    active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [presented?.itemId, presented?.pieceId, presentedShown, viewOnly]);
+    if (!horizontal) {
+      if (
+        itemChanged &&
+        !clicked &&
+        section &&
+        scrollToItem(slidesRef.current, 'y', section, active)
+      )
+        return;
+      active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
+    const row = slidesRef.current;
+    const column = active.closest<HTMLElement>('[data-item-slides]');
+    if (column) scrollAlong(column, 'y', scrollToNearest(scroller(column, 'y'), span(active, 'y')));
+    if (!row || !section || (itemChanged && !clicked && scrollToItem(row, 'x', section))) return;
+    scrollAlong(row, 'x', scrollToNearest(scroller(row, 'x'), span(section, 'x')));
+  }, [presented?.itemId, presented?.pieceId, presentedShown, viewOnly, horizontal]);
 
   /** Lets the column follow the move about to be made here. */
   function follow() {
     followUntilRef.current = performance.now() + 1000;
   }
 
-  // Offer the locate button while the presented slide is scrolled out of view.
+  // Offer the locate button while the presented slide is scrolled out of view: out of the
+  // slides area, or out of its own column, which an observer of the area also sees (M0.4).
   useEffect(() => {
     const active = activeRef.current;
     const slides = slidesRef.current;
@@ -241,32 +247,48 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     );
     observer.observe(active);
     return () => observer.disconnect();
-  }, [presented?.itemId, presented?.pieceId, view]);
+  }, [presented?.itemId, presented?.pieceId, view, horizontal]);
 
-  // Moving to another item with left and right brings it to the top, without the flash.
+  // Moving to another item with the keys brings it to the top, or its column to the left
+  // edge, without the flash.
   useEffect(() => {
     const section = slidesRef.current?.querySelector(`section[data-item-id="${browsedItemId}"]`);
-    if (browsedItemId && section) scrollToTop(section);
-  }, [browsedItemId]);
+    if (browsedItemId && section) scrollToItem(slidesRef.current, axis, section);
+  }, [browsedItemId, axis]);
 
-  /** Scrolls the slides column so `section` starts at the top, unless `keep` would leave view. */
-  function scrollToTop(section: Element, keep?: Element): boolean {
-    const slides = slidesRef.current;
-    if (!slides) return false;
-    const sectionTop = section.getBoundingClientRect().top;
-    if (keep && keep.getBoundingClientRect().bottom - sectionTop > slides.clientHeight) {
-      return false;
-    }
-    const offset = sectionTop - slides.getBoundingClientRect().top;
-    slides.scrollTo({ top: slides.scrollTop + offset, behavior: 'smooth' });
-    return true;
+  // A mouse wheel over a column's title bar, or the row's scroll bar, scrolls the row across;
+  // over a column's slides it scrolls that column. Mostly sideways movement, as a trackpad
+  // makes, is left as it is (H5).
+  useEffect(() => {
+    const row = slidesRef.current;
+    if (!row || !horizontal) return;
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if ((event.target as Element).closest('[data-item-slides]')) return;
+      row.scrollLeft += event.deltaY;
+      event.preventDefault();
+    };
+    row.addEventListener('wheel', onWheel, { passive: false });
+    return () => row.removeEventListener('wheel', onWheel);
+  }, [horizontal]);
+
+  /** Brings the presented slide back into view, in the middle. */
+  function locate() {
+    const active = activeRef.current;
+    const row = slidesRef.current;
+    if (!active || !row) return;
+    if (!horizontal) return active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const section = active.closest('section');
+    const column = active.closest<HTMLElement>('[data-item-slides]');
+    if (section) scrollAlong(row, 'x', scrollToCentre(scroller(row, 'x'), span(section, 'x')));
+    if (column) scrollAlong(column, 'y', scrollToCentre(scroller(column, 'y'), span(active, 'y')));
   }
 
   function showItem(itemId: string) {
     if (!viewOnly) void session.browseTo(itemId);
     const section = slidesRef.current?.querySelector(`section[data-item-id="${itemId}"]`);
     if (!section) return;
-    scrollToTop(section);
+    scrollToItem(slidesRef.current, axis, section);
     setFlash((last) => ({ itemId, count: (last?.count ?? 0) + 1 }));
   }
 
@@ -510,135 +532,52 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <ObsLiveMonitor />
-          <div className="relative min-h-0 flex-1">
-            <main ref={slidesRef} className="h-full space-y-4 overflow-auto pr-1">
+          <div ref={areaRef} className="relative min-h-0 flex-1">
+            <main
+              ref={slidesRef}
+              className={
+                horizontal
+                  ? 'present-row flex h-full gap-3 overflow-x-auto overflow-y-hidden pb-1'
+                  : 'h-full space-y-4 overflow-auto pr-1'
+              }
+            >
               {!liveDate && <p className="p-6 text-center text-slate-500">{t('viewer.waiting')}</p>}
               {liveDate && view && entries.length === 0 && (
                 <p className="p-6 text-slate-500">{t('present.emptyRunSheet')}</p>
               )}
-              {entries.map((entry, index) => {
-                // The item the slide keys act on has an indigo title bar and slide key labels.
-                const keyed = entry.item.id === keyedItemId;
-                return (
-                  <section
-                    key={entry.item.id}
-                    data-item-id={entry.item.id}
-                    aria-current={keyed || undefined}
-                    className="relative"
-                  >
-                    <header
-                      className={`mb-2 flex items-center gap-2 rounded-t-md border-b px-2 pt-1.5 pb-1.5 ${
-                        keyed ? 'border-indigo-400 bg-indigo-500/25' : 'border-slate-700'
-                      }`}
-                    >
-                      <h3 className="min-w-0 truncate text-lg text-slate-50">
-                        <span className={`mr-2 ${keyed ? 'text-indigo-300' : 'text-slate-400'}`}>
-                          {index + 1}
-                        </span>
-                        <DeckBadge song={entry.song} />
-                        {entry.song.title || t('songs.untitled')}
-                      </h3>
-                      {entry.song.removedAt && (
-                        <span className="text-xs text-amber-400">{t('songs.removedBadge')}</span>
-                      )}
-                      <span className="flex-1" />
-                      {!entry.song.removedAt && !viewOnly && (
-                        <button
-                          className="btn btn-ghost btn-sm shrink-0 whitespace-nowrap"
-                          onClick={() => setEditingSong(entry.song)}
-                        >
-                          ✎ {t('present.edit')}
-                        </button>
-                      )}
-                    </header>
-                    <PassageWarnings song={entry.song} className="mb-2 px-2" />
-                    {entry.pieces.length === 0 && (
-                      <p className="text-sm text-slate-500">{t('present.noLyrics')}</p>
-                    )}
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2">
-                      {entry.pieces.map((piece, pieceIndex) => {
-                        const keyLabel = keyed ? slideKeyLabel(pieceIndex) : null;
-                        // A lyrics song's second, fourth… block; its slides and key labels shade.
-                        const shaded = isLyrics(entry.song) && piece.blockIndex % 2 === 1;
-                        const active =
-                          presented?.itemId === entry.item.id && presented.pieceId === piece.id;
-                        return (
-                          <button
-                            key={piece.id}
-                            ref={active ? activeRef : undefined}
-                            // A viewer sees the slides but cannot present them.
-                            disabled={viewOnly}
-                            onClick={() => {
-                              if (entry.item.id !== presented?.itemId)
-                                clickedItemRef.current = true;
-                              follow();
-                              void session.play(entry.item.id, piece.id);
-                            }}
-                            className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
-                              active
-                                ? live?.blank
-                                  ? 'border-amber-400 bg-amber-900/30'
-                                  : 'border-emerald-500 bg-emerald-900/40'
-                                : // Alternate a lyrics song's styles by block so its slides read as
-                                  // groups; decks, PDFs, images, videos and websites keep one style.
-                                  shaded
-                                  ? `border-sky-700 bg-sky-900/60 ${viewOnly ? '' : 'hover:border-sky-500'}`
-                                  : `border-slate-700 bg-slate-800 ${viewOnly ? '' : 'hover:border-slate-500'}`
-                            } ${piece.indexInBlock === 0 ? '' : 'opacity-95'}`}
-                          >
-                            {keyLabel && (
-                              <kbd
-                                className={`absolute -top-0.5 -left-0.5 rounded-tl-md rounded-br-md px-1 font-sans text-[10px] leading-4 font-semibold ${shaded ? 'bg-indigo-300 text-indigo-950' : 'bg-indigo-600 text-slate-100'}`}
-                              >
-                                {keyLabel}
-                              </kbd>
-                            )}
-                            {isLastShown(live, presented, entry, piece.id) && <LastShownChip />}
-                            {entry.song.video ? (
-                              <VideoTile video={entry.song.video} />
-                            ) : piece.image && entry.song.deck ? (
-                              <SlideImage
-                                image={piece.image}
-                                className="w-full rounded-sm"
-                                style={{
-                                  aspectRatio: `${entry.song.deck.width} / ${entry.song.deck.height}`,
-                                }}
-                              />
-                            ) : (
-                              piece.lines.map((line) => (
-                                <span key={line.id} className="block truncate whitespace-pre">
-                                  {line.text}
-                                </span>
-                              ))
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Last, so it paints over the slides. */}
-                    {flash?.itemId === entry.item.id && (
-                      <div
-                        key={flash.count}
-                        className="item-flash pointer-events-none absolute inset-0 rounded-md"
-                        onAnimationEnd={() => setFlash(null)}
-                      />
-                    )}
-                  </section>
-                );
-              })}
+              {entries.map((entry, index) => (
+                <ItemSlides
+                  key={entry.item.id}
+                  entry={entry}
+                  number={index + 1}
+                  arrangement={horizontal ? 'column' : 'grid'}
+                  keyed={entry.item.id === keyedItemId}
+                  viewOnly={viewOnly}
+                  live={live}
+                  presented={presented}
+                  activeRef={activeRef}
+                  onPlay={(pieceId) => {
+                    if (entry.item.id !== presented?.itemId) clickedItemRef.current = true;
+                    follow();
+                    void session.play(entry.item.id, pieceId);
+                  }}
+                  onEdit={() => setEditingSong(entry.song)}
+                  flash={flash?.itemId === entry.item.id ? flash.count : null}
+                  onFlashEnd={() => setFlash(null)}
+                />
+              ))}
             </main>
             {presented && !activeInView && (
               <button
-                className={`absolute right-4 bottom-4 z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
+                // Clear of the row's scroll bar in columns.
+                className={`absolute right-4 ${horizontal ? 'bottom-10' : 'bottom-4'} z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 bg-slate-900/90 shadow-lg shadow-black/50 hover:bg-slate-800 ${
                   live?.blank
                     ? 'border-amber-400 text-amber-300'
                     : 'border-emerald-500 text-emerald-300'
                 }`}
                 title={t('present.locate')}
                 aria-label={t('present.locate')}
-                onClick={() =>
-                  activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                }
+                onClick={locate}
               >
                 <Icon name="locate" />
               </button>
@@ -651,6 +590,22 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
       {editingSong && <ItemEditDialog song={editingSong} onClose={() => setEditingSong(null)} />}
     </div>
   );
+}
+
+/**
+ * Scrolls the slides area so `section` starts at its top, or at its left edge in columns,
+ * unless `keep` would leave view. False when it stays put.
+ */
+function scrollToItem(
+  slides: HTMLElement | null,
+  axis: 'x' | 'y',
+  section: Element,
+  keep?: Element,
+): boolean {
+  if (!slides) return false;
+  const to = scrollToStart(scroller(slides, axis), span(section, axis), keep && span(keep, axis));
+  scrollAlong(slides, axis, to);
+  return to !== null;
 }
 
 /** The title of the presented item, as the run sheet names it, or null when nothing is. */

@@ -45,11 +45,24 @@ describe('device settings (M3.1)', () => {
     expect(createDeviceSettings(() => storage).get().swapArrows).toBe(true);
   });
 
+  it('lays the present page out horizontally by default, also for settings saved before', () => {
+    const disk = new Map<string, string>([['wq.device', JSON.stringify({ viewerMode: false })]]);
+    const storage = {
+      getItem: (k: string) => disk.get(k) ?? null,
+      setItem: (k: string, v: string) => void disk.set(k, v),
+    };
+    const first = createDeviceSettings(() => storage);
+    expect(first.get().presentLayout).toBe('horizontal');
+    first.set({ presentLayout: 'vertical' });
+    expect(createDeviceSettings(() => storage).get().presentLayout).toBe('vertical');
+  });
+
   it('falls back to an operator device when storage is missing or damaged', () => {
     const defaults = {
       viewerMode: false,
       simpleView: false,
       swapArrows: false,
+      presentLayout: 'horizontal',
       audioOutput: null,
       audioInput: null,
       audioMonitor: null,

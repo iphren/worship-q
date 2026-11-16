@@ -420,12 +420,25 @@ export const en = {
   'live.demoted': 'Another computer carried on, this one now follows.',
   'live.fontWarning': '“{name}” does not have the font {fonts}. Its slides use another font.',
 
-  'keys.title': 'Arrow keys',
+  'keys.title': 'Present layout and keys',
   'keys.hint':
-    'For this computer only. By default Up and Down step through a song’s slides and Left and Right move between run sheet items.',
+    'How the Present page lays out the slides, and what the arrow keys do. For this computer only.',
+  'keys.layout': 'Slides layout',
+  'keys.horizontal': 'Side by side',
+  'keys.vertical': 'Stacked',
+  'keys.horizontalHint':
+    'Each run sheet item is a column, side by side, with its slides down the column. A narrow window stacks the items instead.',
+  'keys.verticalHint':
+    'The run sheet items are stacked down the page, with their slides across it, as in earlier versions.',
   'keys.swap': 'Swap the arrow keys',
-  'keys.swapHint':
-    'Left and Right step through the slides, as they run across the screen, and jump through a video, as in video players. Up and Down move between run sheet items.',
+  'keys.defaultHint':
+    'Up and Down step through a song’s slides and jump through a video; Left and Right move between run sheet items.',
+  'keys.swappedHint':
+    'Left and Right step through a song’s slides and jump through a video, as in video players; Up and Down move between run sheet items.',
+  'keys.mismatchVertical':
+    'The arrow keys go against this layout: the slides run across the page but Up and Down step through them. Swap the arrow keys, or lay the items side by side.',
+  'keys.mismatchHorizontal':
+    'The arrow keys go against this layout: the items run across the page but Up and Down move between them. Turn off the swap, or stack the items.',
 
   'viewer.title': 'Viewer mode',
   'viewer.hint':
