@@ -4,6 +4,7 @@ import {
   layoutKeysMismatch,
   presentLayoutFor,
   scrollToCentre,
+  scrollToFocus,
   scrollToNearest,
   scrollToStart,
 } from './presentLayout';
@@ -74,5 +75,21 @@ describe('scrolling', () => {
     expect(scrollToCentre(container, { start: 700, end: 800 })).toBe(650);
     expect(scrollToCentre(container, { start: 0, end: 100 })).toBe(0);
     expect(scrollToCentre(container, { start: 1900, end: 2000 })).toBe(1000);
+  });
+
+  it('centres the focused column in a row less than three columns wide', () => {
+    // 2 columns fit: 2 × 256 + 12 = 524; 3 need 792.
+    const row = { start: 0, end: 700, scroll: 1000, max: 5000 };
+    expect(scrollToFocus(row, { start: 1000, end: 1256 })).toBe(1000 + 1128 - 350);
+  });
+
+  it('puts the focused column second from the left from three columns wide', () => {
+    // 3 columns fit: 3 × 256 + 2 × 12 = 792.
+    const row = { start: 0, end: 800, scroll: 1000, max: 5000 };
+    expect(scrollToFocus(row, { start: 1000, end: 1256 })).toBe(1000 + 1000 - 268);
+    // The first column stays at the start.
+    expect(scrollToFocus({ ...row, scroll: 0 }, { start: 0, end: 256 })).toBe(0);
+    // The last column stops at the end.
+    expect(scrollToFocus(row, { start: 4800, end: 5056 })).toBe(5000);
   });
 });

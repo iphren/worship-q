@@ -83,6 +83,27 @@ export function scrollToCentre(container: Scroller, target: Span): number {
   return clamp(container.scroll + centre, container.max);
 }
 
+/** Up to this many columns across, the focused column is centred; more, and it is second. */
+export const CENTRE_UP_TO_COLUMNS = 2;
+
+/**
+ * The scroll position for the focused item's column in the row: in the middle while the row
+ * is less than three columns wide, otherwise second from the left, so the column before it shows
+ * too; as far as the row can scroll.
+ */
+export function scrollToFocus(container: Scroller, target: Span, remPx = 16): number {
+  if (columnsFit(container.end - container.start, remPx) <= CENTRE_UP_TO_COLUMNS) {
+    return scrollToCentre(container, target);
+  }
+  const slot = COLUMN_REM * remPx + COLUMN_GAP_PX;
+  return clamp(container.scroll + target.start - container.start - slot, container.max);
+}
+
+/** The root font size in pixels, which `rem` widths are measured in. */
+export function remPx(): number {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
+
 /** An element's span and scroll along an axis, read from the page. */
 export function scroller(element: HTMLElement, axis: 'x' | 'y'): Scroller {
   const rect = element.getBoundingClientRect();

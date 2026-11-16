@@ -20,6 +20,8 @@ import {
   scrollAlong,
   scroller,
   scrollToCentre,
+  scrollToFocus,
+  remPx,
   scrollToNearest,
   scrollToStart,
   span,
@@ -146,8 +148,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     observer.observe(area);
     return () => observer.disconnect();
   }, []);
-  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-  const horizontal = presentLayoutFor(areaWidth, layoutSetting, remPx) === 'horizontal';
+  const horizontal = presentLayoutFor(areaWidth, layoutSetting, remPx()) === 'horizontal';
   // The axis the slides area scrolls along: across the columns, or down the stacked items.
   const axis = horizontal ? 'x' : 'y';
   function chooseSimpleView(on: boolean) {
@@ -595,7 +596,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
 
 /**
  * Brings an item into view: its title to the top of the stacked items, unless `keep` would
- * leave view, or its column to the middle of the row of columns. False when it stays put.
+ * leave view, or its column to the middle of a row less than three columns wide, else second
+ * from the left. False when it stays put.
  */
 function scrollToItem(
   slides: HTMLElement | null,
@@ -606,7 +608,7 @@ function scrollToItem(
   if (!slides) return false;
   const to =
     axis === 'x'
-      ? scrollToCentre(scroller(slides, 'x'), span(section, 'x'))
+      ? scrollToFocus(scroller(slides, 'x'), span(section, 'x'), remPx())
       : scrollToStart(scroller(slides, 'y'), span(section, 'y'), keep && span(keep, 'y'));
   scrollAlong(slides, axis, to);
   return to !== null;
