@@ -11,7 +11,7 @@ export const COLUMN_REM = 16;
 /** The gap between columns, in pixels (Tailwind `gap-3`). */
 export const COLUMN_GAP_PX = 12;
 /** Fewer columns than this fit: the slides stack down the page instead (H4). */
-export const MIN_COLUMNS = 3;
+export const MIN_COLUMNS = 2;
 
 /** How many columns fit across `width` pixels. */
 export function columnsFit(width: number, remPx = 16): number {

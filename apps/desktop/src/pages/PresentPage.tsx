@@ -208,8 +208,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     followUntilRef.current = 0;
     if (!active || !following) return;
 
-    // Moving to another item by keyboard or the controls brings its title to the top, or its
-    // column to the left edge, as long as the presented slide stays in view.
+    // Moving to another item by keyboard or the controls brings its title to the top, as long
+    // as the presented slide stays in view, or its column to the middle of the row.
     const section = active.closest('section');
     if (!horizontal) {
       if (
@@ -249,11 +249,12 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
     return () => observer.disconnect();
   }, [presented?.itemId, presented?.pieceId, view, horizontal]);
 
-  // Moving to another item with the keys brings it to the top, or its column to the left
-  // edge, without the flash.
+  // Moving to another item with the keys brings it to the top, or its column to the middle of
+  // the row, without the flash.
   useEffect(() => {
-    const section = slidesRef.current?.querySelector(`section[data-item-id="${browsedItemId}"]`);
-    if (browsedItemId && section) scrollToItem(slidesRef.current, axis, section);
+    const slides = slidesRef.current;
+    const section = slides?.querySelector(`section[data-item-id="${browsedItemId}"]`);
+    if (browsedItemId && section) scrollToItem(slides, axis, section);
   }, [browsedItemId, axis]);
 
   // A mouse wheel over a column's title bar, or the row's scroll bar, scrolls the row across;
@@ -593,8 +594,8 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
 }
 
 /**
- * Scrolls the slides area so `section` starts at its top, or at its left edge in columns,
- * unless `keep` would leave view. False when it stays put.
+ * Brings an item into view: its title to the top of the stacked items, unless `keep` would
+ * leave view, or its column to the middle of the row of columns. False when it stays put.
  */
 function scrollToItem(
   slides: HTMLElement | null,
@@ -603,7 +604,10 @@ function scrollToItem(
   keep?: Element,
 ): boolean {
   if (!slides) return false;
-  const to = scrollToStart(scroller(slides, axis), span(section, axis), keep && span(keep, axis));
+  const to =
+    axis === 'x'
+      ? scrollToCentre(scroller(slides, 'x'), span(section, 'x'))
+      : scrollToStart(scroller(slides, 'y'), span(section, 'y'), keep && span(keep, 'y'));
   scrollAlong(slides, axis, to);
   return to !== null;
 }

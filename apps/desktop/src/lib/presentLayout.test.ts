@@ -17,9 +17,11 @@ describe('the layout shown', () => {
     expect(columnsFit(1800)).toBe(6);
   });
 
-  it('shows columns only from three wide, with no gap or overlap at the switch', () => {
-    expect(presentLayoutFor(791, 'horizontal')).toBe('vertical');
-    expect(presentLayoutFor(792, 'horizontal')).toBe('horizontal');
+  it('shows columns only from two wide, with no gap or overlap at the switch', () => {
+    expect(columnsFit(523)).toBe(1);
+    expect(columnsFit(524)).toBe(2);
+    expect(presentLayoutFor(523, 'horizontal')).toBe('vertical');
+    expect(presentLayoutFor(524, 'horizontal')).toBe('horizontal');
     expect(presentLayoutFor(0, 'horizontal')).toBe('vertical');
   });
 
