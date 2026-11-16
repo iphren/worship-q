@@ -177,8 +177,8 @@ export function RunSheetsSection({ id }: { id: string }) {
 
           {/* The day's records: beside the calendar and run sheet, or under them on a phone. */}
           <div className="min-w-0 flex-1 space-y-5 border-t border-slate-800 pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-5">
-            <DayRecordings records={records} />
             <PresentationLog records={records} />
+            <DayRecordings records={records} />
           </div>
         </div>
       )}

@@ -92,7 +92,7 @@ export function PresentationLog({ records }: { records: Loaded<AdminRecords> }) 
           <Empty>Nothing was presented this day.</Empty>
         ) : (
           // A long service's log scrolls inside its own box rather than the page.
-          <div className="max-h-96 overflow-y-auto rounded-lg border border-slate-800 px-3">
+          <div className="max-h-[48rem] overflow-y-auto rounded-lg border border-slate-800 px-3">
             <ol className="divide-y divide-slate-800">
               {records.data.log.map((entry) => (
                 <LogRow key={entry.id} entry={entry} now={now} />
