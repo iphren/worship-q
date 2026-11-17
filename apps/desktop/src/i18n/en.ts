@@ -170,7 +170,7 @@ export const en = {
   'present.nothingLiveBody': 'Go live with a run sheet to present it on the slideshow screen.',
   'present.goLiveWith': 'Go live with {date}',
   'present.emptyRunSheet':
-    'The live run sheet is empty. Add songs, slides or websites on the left.',
+    'The live run sheet is empty. Add songs, Bible passages, slides or websites on the left.',
   'present.previous': 'Previous',
   'present.next': 'Next',
   'present.blank': 'Blank',
