@@ -1,11 +1,12 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite';
+import { FEATURES, SUMMARY } from './src/content.ts';
 import { FAQ } from './src/faq.ts';
+import { indexMd, llmsFullTxt, llmsTxt, SITE, type ReleaseFacts } from './src/llms.ts';
 
 // The public site at worship-q.com, built again whenever a release is published.
-const SITE = 'https://worship-q.com';
 const REPO = 'iphren/worship-q';
 const RELEASES = `https://github.com/${REPO}/releases`;
 
@@ -14,13 +15,12 @@ const PAGES = ['/'];
 
 /** The installer each download button serves, by the end of its file name. */
 const INSTALLERS = {
-  '%MAC_URL%': '_universal.dmg',
-  '%WINDOWS_URL%': '_x64-setup.exe',
+  mac: '_universal.dmg',
+  windows: '_x64-setup.exe',
 };
 
-/** One sentence that says what Worship Q is, for the structured data and anything quoting it. */
-const SUMMARY =
-  'Worship Q is a free, open-source church presentation app for macOS and Windows that shows song lyrics, Bible passages, slides and videos on the projector and the live stream.';
+/** The volunteer guide, copied whole into llms-full.txt. */
+const VOLUNTEER_GUIDE = resolve(import.meta.dirname, '../../docs/volunteer-guide.md');
 
 interface Release {
   tag_name: string;
@@ -52,6 +52,14 @@ const jsonLd = (data: object): HtmlTagDescriptor => ({
   children: JSON.stringify(data).replaceAll('<', '\\u003c'),
   injectTo: 'head',
 });
+
+/** The features as they appear on the page. */
+function featuresHtml(): string {
+  return FEATURES.map(
+    ({ title, text }) =>
+      `<div><h3 class="font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-sm text-slate-400">${escapeHtml(text)}</p></div>`,
+  ).join('\n');
+}
 
 /** The questions as they appear on the page. */
 function faqHtml(): string {
@@ -126,61 +134,91 @@ function structuredData(release: Release | null, installers: string[]): HtmlTagD
   return [app, organization, website, faq].map(jsonLd);
 }
 
+/** The latest release, and what the pages say about it. */
+interface Facts {
+  release: Release | null;
+  /** The installers' addresses, Mac then Windows, as far as the release has them. */
+  installers: string[];
+  page: ReleaseFacts;
+}
+
+/** Reads the latest release once per build; in CI a release without installers fails it. */
+async function releaseFacts(): Promise<Facts> {
+  const release = await latestRelease().catch(() => null);
+  // A deployed page must link to real installers and name their version.
+  const missing = (what: string) => {
+    if (process.env.CI) throw new Error(`${what} for ${REPO}`);
+    console.warn(`${what}; the page shows placeholders.`);
+  };
+  if (!release) missing('No published release found');
+  const installer = (suffix: string) => {
+    const asset = release?.assets.find((a) => a.name.endsWith(suffix));
+    if (release && !asset) missing(`${release.tag_name} has no *${suffix}`);
+    return asset?.browser_download_url ?? null;
+  };
+  const mac = installer(INSTALLERS.mac);
+  const windows = installer(INSTALLERS.windows);
+  return {
+    release,
+    installers: [mac, windows].filter((url): url is string => url !== null),
+    page: {
+      version: release?.tag_name.replace(/^v/, '') ?? null,
+      date: release
+        ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(
+            new Date(release.published_at),
+          )
+        : null,
+      notesUrl: release?.html_url ?? RELEASES,
+      macUrl: mac ?? RELEASES,
+      windowsUrl: windows ?? RELEASES,
+    },
+  };
+}
+
 /**
  * Writes the release's installer links, version, date and notes link into the home page, with
- * its questions and structured data, and lists the pages in sitemap.xml.
+ * its summary, features, questions and structured data. Lists the pages in sitemap.xml, and
+ * writes the site in Markdown for AI assistants: llms.txt, llms-full.txt and index.md.
  */
 function releaseInfo(): Plugin {
-  let release: Promise<Release | null> | undefined;
-  const getRelease = () => (release ??= latestRelease().catch(() => null));
+  let facts: Promise<Facts> | undefined;
+  const getFacts = () => (facts ??= releaseFacts());
 
   return {
     name: 'release-info',
     async transformIndexHtml(html, ctx) {
       if (ctx.path !== '/index.html') return html;
-      const latest = await getRelease();
-      // A deployed page must link to real installers and name their version.
-      const missing = (what: string) => {
-        if (process.env.CI) throw new Error(`${what} for ${REPO}`);
-        console.warn(`${what}; the page shows placeholders.`);
-      };
-      if (!latest) missing('No published release found');
-
-      const installers: string[] = [];
-      for (const [placeholder, suffix] of Object.entries(INSTALLERS)) {
-        const asset = latest?.assets.find((a) => a.name.endsWith(suffix));
-        if (latest && !asset) missing(`${latest.tag_name} has no *${suffix}`);
-        if (asset) installers.push(asset.browser_download_url);
-        html = html.replaceAll(placeholder, asset?.browser_download_url ?? RELEASES);
-      }
-
-      const date = latest
-        ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(
-            new Date(latest.published_at),
-          )
-        : '—';
+      const { release, installers, page } = await getFacts();
       html = html
-        .replaceAll('%RELEASE_VERSION%', latest?.tag_name.replace(/^v/, '') ?? '—')
-        .replaceAll('%RELEASE_DATE%', date)
-        .replaceAll('%RELEASE_URL%', latest?.html_url ?? RELEASES)
+        .replaceAll('%MAC_URL%', page.macUrl)
+        .replaceAll('%WINDOWS_URL%', page.windowsUrl)
+        .replaceAll('%RELEASE_VERSION%', page.version ?? '—')
+        .replaceAll('%RELEASE_DATE%', page.date ?? '—')
+        .replaceAll('%RELEASE_URL%', page.notesUrl)
+        .replace('%SUMMARY%', escapeHtml(SUMMARY))
+        .replace('<!-- %FEATURES% -->', featuresHtml())
         .replace('<!-- %FAQ% -->', faqHtml());
-      return { html, tags: structuredData(latest, installers) };
+      return { html, tags: structuredData(release, installers) };
     },
     async generateBundle() {
-      const latest = await getRelease();
-      const lastmod = latest ? `<lastmod>${latest.published_at.slice(0, 10)}</lastmod>` : '';
+      const { release, page } = await getFacts();
+      const lastmod = release ? `<lastmod>${release.published_at.slice(0, 10)}</lastmod>` : '';
       const urls = PAGES.map((path) => `  <url><loc>${SITE}${path}</loc>${lastmod}</url>`);
-      this.emitFile({
-        type: 'asset',
-        fileName: 'sitemap.xml',
-        source: [
+      const emit = (fileName: string, source: string) =>
+        this.emitFile({ type: 'asset', fileName, source });
+      emit(
+        'sitemap.xml',
+        [
           '<?xml version="1.0" encoding="UTF-8"?>',
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
           ...urls,
           '</urlset>',
           '',
         ].join('\n'),
-      });
+      );
+      emit('llms.txt', llmsTxt(page));
+      emit('llms-full.txt', llmsFullTxt(page, readFileSync(VOLUNTEER_GUIDE, 'utf8')));
+      emit('index.md', indexMd(page));
     },
   };
 }

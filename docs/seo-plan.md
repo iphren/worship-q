@@ -113,6 +113,9 @@ static site (Vite multi-page input; no framework needed).
 1. **Docs on the domain.** Render `docs/volunteer-guide.md` and `docs/server-deployment.md` to
    `/guide/` and `/server/` at build time with a Markdown library, so the GitHub files stay
    the one source. Footer links move to these pages; each page links back to the GitHub source.
+   The site's English pages show no Chinese, so the guide's Chinese examples (such as
+   `马可福音15章5-6节` and `当代译本`) come out of the English guide then, and out of
+   `llms-full.txt` with it; they belong in the Chinese guide.
 2. **Feature pages**, each aimed at one of the searches listed above: `/bible/`,
    `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`. Short, with a
    screenshot, and linking to the guide section.
@@ -129,6 +132,11 @@ static site (Vite multi-page input; no framework needed).
    dated content on the domain after every release.
 
 ## Phase 4 — Make it easy for AI agents (code)
+
+**Status (17 November 2026):** done. `llms.txt`, `llms-full.txt` (with the volunteer guide) and
+`index.md` are generated at each build from `apps/website/src/content.ts`, `faq.ts` and
+`docs/volunteer-guide.md`, the same sources as the page; the page's `<head>` names `index.md`
+as its Markdown version. Item 3 is done for the home page; other pages get theirs in phase 3.
 
 1. **`/llms.txt`**: a short Markdown summary (what it is, who it is for, platforms, price,
    features, links to the guide, FAQ, download and repo), following the llms.txt convention.

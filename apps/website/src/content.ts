@@ -1,0 +1,61 @@
+// What worship-q.com says about Worship Q, kept here once: the build writes it into the home
+// page, its structured data, llms.txt, llms-full.txt and index.md. Plain text only, in
+// English (a Chinese site comes later); keep every sentence true for the latest release.
+
+/** One sentence that says what Worship Q is; the page opens with it and others quote it. */
+export const SUMMARY =
+  'Worship Q is a free, open-source church presentation app for macOS and Windows that shows song lyrics, Bible passages, slides and videos on the projector and the live stream.';
+
+export interface Feature {
+  title: string;
+  text: string;
+}
+
+export const FEATURES: Feature[] = [
+  {
+    title: 'Songs in any language',
+    text: 'Search by title or lyrics, and Chinese songs by pinyin or initials. A line in one language and the same line in another share a slide.',
+  },
+  {
+    title: 'Bible passages',
+    text: "With your church's server: type a reference such as Mark 15:5-6, or browse by book and chapter, and show up to two versions side by side.",
+  },
+  {
+    title: 'A run sheet for every meeting',
+    text: "Plan on a calendar, reuse an earlier week, and open on today's service, already live.",
+  },
+  {
+    title: 'Slides, PDFs, photos and videos',
+    text: "With your church's server, PowerPoint, Keynote and PDF decks become slides beside the songs. Videos download ahead of time and never stream during the service.",
+  },
+  {
+    title: 'Projector and live stream together',
+    text: 'A full-screen slideshow with image or video backgrounds, and a subtitle overlay for OBS. Switch OBS scenes and start the stream from Worship Q.',
+  },
+  {
+    title: 'Control from a phone',
+    text: 'Scan a QR code, approve the phone once, and move through the slides or add a Bible passage from anywhere in the room.',
+  },
+  {
+    title: 'Several computers, one presentation',
+    text: 'Every connected computer shows the same slide. If the presenting one fails, another carries on from the same slide.',
+  },
+  {
+    title: 'Live audio',
+    text: 'Send the sound from the mixing desk to other computers and phones, so someone outside the room can switch slides in time.',
+  },
+  {
+    title: 'Works on its own',
+    text: "No account or internet needed. Connect to your church's own server for shared songs, media, Bible passages and phones.",
+  },
+  {
+    title: 'Free and open source',
+    text: 'MIT licence, no ads, no subscription. Installed copies update themselves, never while the slideshow is open.',
+  },
+];
+
+/** Requirements, as the download buttons state them. */
+export const PLATFORMS = {
+  mac: 'macOS 11 or later, Apple Silicon and Intel',
+  windows: 'Windows 10 or later, 64-bit',
+};
