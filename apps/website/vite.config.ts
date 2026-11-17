@@ -102,7 +102,7 @@ function structuredData(release: Release | null, installers: string[]): HtmlTagD
       releaseNotes: `${SITE}/releases/`,
     }),
     featureList: [
-      'Song lyrics in any language, two or more languages on one slide',
+      'Song lyrics in any language, bilingual or multilingual on one slide',
       'Search songs by title, lyrics, pinyin or initials',
       'Bible passages in up to two versions side by side',
       'Run sheets planned on a calendar',

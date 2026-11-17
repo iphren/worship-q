@@ -47,7 +47,7 @@ export const PAGES: PageSpec[] = [
     path: '/multilingual-lyrics/',
     title: 'Lyrics in two or more languages on one slide — Worship Q',
     description:
-      'Show worship lyrics in two or more languages, such as Chinese, pinyin and English, on the same slide. Search Chinese songs by pinyin or initials.',
+      'Show bilingual or multilingual worship lyrics, such as Chinese, pinyin and English, on the same slide. Search Chinese songs by pinyin or initials.',
     source: { page: 'multilingual-lyrics.md' },
   },
   {

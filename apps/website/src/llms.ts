@@ -45,7 +45,7 @@ export function llmsTxt(release: ReleaseFacts): string {
 
 Worship Q is made for churches: volunteers plan each week's run sheet on a calendar and present songs, Bible passages, slide decks, photos and videos on the projector, with a subtitle overlay for the live stream in OBS. It works on one computer with no account or internet. A church can also run its own free Worship Q server, which adds shared songs and media, Bible passages, phone remote control and several computers sharing one presentation. It is free, with no ads or subscription, under the MIT licence.
 
-Good fit for: churches looking for free church presentation or worship lyrics software for Mac or Windows; churches singing in two or more languages, such as Chinese and English, on one slide; churches streaming services with OBS; free alternatives to ProPresenter, EasyWorship or OpenLP.
+Good fit for: churches looking for free church presentation or worship lyrics software for Mac or Windows; churches singing bilingual or multilingual lyrics, such as Chinese and English, on one slide; churches streaming services with OBS; free alternatives to ProPresenter, EasyWorship or OpenLP.
 
 ## Download
 

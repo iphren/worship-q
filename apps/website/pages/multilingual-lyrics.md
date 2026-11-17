@@ -1,8 +1,8 @@
 # Lyrics in two or more languages on one slide
 
-Churches that worship in more than one language can show them all on the same slide: each
-line of the song, followed by the same line in the other language, or in two others, such as
-Chinese, its pinyin and English.
+Churches that worship in more than one language can show bilingual or multilingual lyrics on
+the same slide: each line of the song, followed by the same line in the other language, or in
+two others, such as Chinese, its pinyin and English.
 
 ![A slide on the projector with each line of O Come, All Ye Faithful in Latin, followed by the same line in English](/screenshots/slideshow-bilingual.webp)
 
