@@ -4,7 +4,7 @@
  * slide never breaks inside it; a verse a version lacks leaves its cell empty, and the
  * operator is told (never the audience).
  */
-import { bookName } from './books';
+import { bookName, type BibleLanguage } from './books';
 import { inReference, type Reference } from './reference';
 import { passageReference, type Passage, type PassageUnit } from './passage';
 
@@ -159,14 +159,15 @@ export function describeWarning(warning: AlignWarning, book: string): string {
 
 /**
  * A warning's parts, for an interface to put into words in its own language: the version's
- * credit, the chapter, the verses (`12–13`) and the book's name.
+ * credit, the chapter, the verses (`12–13`) and the book's name in `language`.
  */
 export function warningParams(
   warning: AlignWarning,
   book: string,
+  language: BibleLanguage = 'en',
 ): { credit: string; chapter: number; span: string; book: string } {
   const first = warning.verses[0];
   const last = warning.verses[warning.verses.length - 1];
   const span = first === last ? `${first}` : `${first}–${last}`;
-  return { credit: warning.credit, chapter: warning.chapter, span, book: bookName(book, 'en') };
+  return { credit: warning.credit, chapter: warning.chapter, span, book: bookName(book, language) };
 }

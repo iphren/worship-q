@@ -22,7 +22,7 @@ import {
   type Toc,
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useState } from 'react';
-import { t, type MessageKey } from '@worship-q/i18n/remote';
+import { baseLocale, t, type MessageKey } from '@worship-q/i18n/remote';
 import type { RemoteConnection } from './connection';
 
 const {
@@ -52,7 +52,7 @@ const ERRORS: Record<string, MessageKey> = {
 function warningText(warning: AlignWarning, book: string): string {
   return t(
     warning.kind === 'joined' ? 'bible.warningJoined' : 'bible.warningMissing',
-    warningParams(warning, book),
+    warningParams(warning, book, baseLocale()),
   );
 }
 

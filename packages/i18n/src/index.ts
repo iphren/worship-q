@@ -5,9 +5,15 @@
  * messages with its own.
  */
 import { common, type CommonKey } from './en/common';
+import { common as commonHans } from './zh-hans/common';
+import { common as commonHant } from './zh-hant/common';
 
-/** The interface languages a person can choose. */
-export const LOCALES = [{ code: 'en', nativeName: 'English' }] as const;
+/** The interface languages a person can choose, each named in itself. */
+export const LOCALES = [
+  { code: 'en', nativeName: 'English' },
+  { code: 'zh-Hans', nativeName: '简体中文' },
+  { code: 'zh-Hant', nativeName: '繁體中文' },
+] as const;
 
 export type Locale = (typeof LOCALES)[number]['code'];
 /** The development test language wraps every message, so text outside the catalogue shows. */
@@ -20,10 +26,14 @@ export type Params = Record<string, string | number>;
 
 const isLocale = (code: string): code is Locale => LOCALES.some((locale) => locale.code === code);
 
+/** A language code written in any case, such as `zh-hans` in an address, as Worship Q's own. */
+const canonicalLocale = (code: string): Locale | null =>
+  LOCALES.find((locale) => locale.code.toLowerCase() === code.toLowerCase())?.code ?? null;
+
 /** A stored preference, read back safely: anything unknown is `auto`. */
 export function parsePreference(value: unknown): LanguagePreference | typeof PSEUDO {
   if (value === PSEUDO && pseudoAllowed()) return PSEUDO;
-  return typeof value === 'string' && isLocale(value) ? value : 'auto';
+  return (typeof value === 'string' && canonicalLocale(value)) || 'auto';
 }
 
 /**
@@ -42,10 +52,21 @@ export function resolveLocale(
   return 'en';
 }
 
-/** The language Worship Q has for a BCP 47 tag, such as `en-GB`, if any. */
+/** Regions whose Chinese is written in Traditional characters (T2). */
+const TRADITIONAL_REGIONS = new Set(['tw', 'hk', 'mo']);
+
+/**
+ * The language Worship Q has for a BCP 47 tag, such as `en-GB`, if any. Chinese follows its
+ * script when the tag names one (`zh-Hant`), else its region: Taiwan, Hong Kong and Macau
+ * read Traditional, and mainland China, Singapore and every other Chinese read Simplified.
+ */
 export function matchLanguage(tag: string): Locale | null {
-  const language = tag.toLowerCase().split(/[-_]/)[0] ?? '';
-  return isLocale(language) ? language : null;
+  const [language = '', ...rest] = tag.toLowerCase().split(/[-_]/);
+  if (language === 'en') return 'en';
+  if (language !== 'zh') return null;
+  if (rest.includes('hant')) return 'zh-Hant';
+  if (rest.includes('hans')) return 'zh-Hans';
+  return rest.some((part) => TRADITIONAL_REGIONS.has(part)) ? 'zh-Hant' : 'zh-Hans';
 }
 
 function browserLanguages(): readonly string[] {
@@ -87,7 +108,9 @@ export function applyPreference(preference: LanguagePreference | typeof PSEUDO):
   const forced =
     typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lang') : null;
   const next =
-    forced === PSEUDO ? PSEUDO : forced && isLocale(forced) ? forced : resolveLocale(preference);
+    forced === PSEUDO
+      ? PSEUDO
+      : ((forced ? canonicalLocale(forced) : null) ?? resolveLocale(preference));
   setLocale(next);
   return next;
 }
@@ -130,6 +153,11 @@ export function subscribeLocale(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
+/** The current language as one Worship Q has, for names such as the Bible's books: the test language counts as English. */
+export function baseLocale(active: ActiveLocale = locale): Locale {
+  return active === PSEUDO ? 'en' : active;
+}
+
 /** The language `Intl` formats with: the test language formats as English. */
 export function intlLocale(active: ActiveLocale = locale): string {
   return active === PSEUDO ? 'en' : active;
@@ -149,9 +177,10 @@ export function pseudo(text: string): string {
   return `⟦${text}⟧`;
 }
 
-/** Every language's messages for one app; English has every key, the others must too. */
-export type Catalogues<M extends Record<string, string>> = { en: M } & Partial<
-  Record<Exclude<Locale, 'en'>, Record<keyof M, string>>
+/** Every language's messages for one app: each language has every key English has (T4). */
+export type Catalogues<M extends Record<string, string>> = { en: M } & Record<
+  Exclude<Locale, 'en'>,
+  Record<keyof M, string>
 >;
 
 /** Looks up a key in the current language, falling back to English. */
@@ -172,7 +201,11 @@ export function pluralCategory(count: number): 'one' | 'other' {
 /** The keys that have `.one` and `.other` forms, without the ending. */
 export type PluralBase<K extends string> = K extends `${infer B}.other` ? B : never;
 
-const commonText = translator<Record<CommonKey, string>>({ en: common });
+const commonText = translator<Record<CommonKey, string>>({
+  en: common,
+  'zh-Hans': commonHans,
+  'zh-Hant': commonHant,
+});
 
 // ── Dates ──────────────────────────────────────────────────────────────────
 
@@ -181,15 +214,25 @@ const utcDate = (date: string) => new Date(`${date}T00:00:00Z`);
 const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
 const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
 
-/** A run sheet's name, such as "Sunday 1st Nov". */
+/** A run sheet's name, such as "Sunday 1st Nov", or `11月22日 星期日` in Chinese (T6). */
 export function formatDate(date: string): string {
   const name = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(intlLocale(), { timeZone: 'UTC', ...options }).format(utcDate(date));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
   if (intlLocale() === 'en') {
-    const day = Number(date.slice(8, 10));
     return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
   }
+  if (intlLocale().startsWith('zh')) return `${month}月${day}日 ${name({ weekday: 'long' })}`;
   return name({ weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/** A run sheet's name with its year, for the window's title: "Sunday 1st Nov 2026", `2026年11月1日 星期日`. */
+export function formatDateWithYear(date: string): string {
+  const year = date.slice(0, 4);
+  return intlLocale().startsWith('zh')
+    ? `${year}年${formatDate(date)}`
+    : `${formatDate(date)} ${year}`;
 }
 
 export function formatMonth(year: number, month: number): string {
