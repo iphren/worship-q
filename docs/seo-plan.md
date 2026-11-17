@@ -42,8 +42,8 @@ specific searches that match what is different about Worship Q:
 
 ## Phase 1 — Get indexed (a day, mostly by hand)
 
-**Status (17 November 2026):** 3–6 done. 1 and 2 (Search Console, Bing) wait on the owner's
-accounts.
+**Status (17 November 2026):** done. Search Console is verified by DNS; Bing Webmaster Tools
+is set up.
 
 1. **Google Search Console**: add `worship-q.com` as a domain property, verify with a DNS TXT
    record, submit the sitemap, request indexing of the home page. _(Your account; manual.)_
@@ -110,12 +110,16 @@ without anyone taking them by hand. The share image (`apps/website/og-image.svg`
 One page is not enough to rank for many searches. Turn `apps/website` into a small multi-page
 static site (Vite multi-page input; no framework needed).
 
+**Scope (17 November 2026):** items 1, 2, 3 and 5, in English. Chinese pages (item 4) are part
+of the [Translation plan](translation-plan.md), so the website is translated together with the
+desktop app, the admin app and the phone remote.
+
 1. **Docs on the domain.** Render `docs/volunteer-guide.md` and `docs/server-deployment.md` to
    `/guide/` and `/server/` at build time with a Markdown library, so the GitHub files stay
    the one source. Footer links move to these pages; each page links back to the GitHub source.
    The site's English pages show no Chinese, so the guide's Chinese examples (such as
    `马可福音15章5-6节` and `当代译本`) come out of the English guide then, and out of
-   `llms-full.txt` with it; they belong in the Chinese guide.
+   `llms-full.txt` with it; they belong in the Chinese guide (Translation plan).
 2. **Feature pages**, each aimed at one of the searches listed above: `/bible/`,
    `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`. Short, with a
    screenshot, and linking to the guide section.
@@ -124,10 +128,10 @@ static site (Vite multi-page input; no framework needed).
    OBS, phone control). "X alternative" searches are common, and AI agents answering "what
    is a free alternative to ProPresenter" lean on comparison pages. Keep every claim about
    other products checkable and dated.
-4. **Chinese pages** (`/zh/`, with `hreflang` both ways): the home page, FAQ and Bible page in
-   Simplified Chinese. Chinese-speaking churches abroad are a natural audience, and the
-   Chinese search space for this is much less crowded. (Baidu does not matter for this
-   audience; Google and Bing in Chinese do.)
+4. **Chinese pages:** moved to the [Translation plan](translation-plan.md), in Simplified and
+   Traditional Chinese, with `hreflang` both ways. Chinese-speaking churches abroad are a
+   natural audience, and the Chinese search space for this is much less crowded. (Baidu does
+   not matter for this audience; Google and Bing in Chinese do.)
 5. **Release notes page** `/releases/` generated from GitHub releases at build time: fresh,
    dated content on the domain after every release.
 
@@ -177,9 +181,11 @@ it in this repo).
   first month, then monthly.
 - **GitHub release download counts** (`gh api repos/iphren/worship-q/releases`) as the
   real outcome measure.
-- **Analytics** (optional): a cookie-free one such as Cloudflare Web Analytics or Plausible,
-  so there is no consent banner. GitHub Pages has no server logs, so without it there is no
-  way to see AI crawler visits or referrers.
+- **Analytics:** Cloudflare Web Analytics, which sets no cookies, so there is no consent
+  banner. worship-q.com is not proxied through Cloudflare, so it uses Cloudflare's JS beacon
+  (`static.cloudflareinsights.com/beacon.min.js` with the site's token) on every page. GitHub
+  Pages has no server logs, so this is the only view of visits and referrers. It does not see
+  crawlers, which run no JavaScript.
 - **AI answer check, monthly**: ask ChatGPT, Claude, Perplexity, Gemini and Copilot the same
   five prompts (e.g. "free church lyrics software for Mac", "software to show Chinese and
   English worship lyrics", "how to show Bible verses on the projector and in OBS") and note
@@ -195,7 +201,7 @@ weeks to a few months as pages and links grow, and AI answers to lag behind both
 | Phase 1                      | Under a day    | You (accounts), me (files, workflow) |
 | Phase 2                      | 1–2 days       | Me, plus screenshots from you or the app |
 | Phase 4                      | Half a day     | Me             |
-| Phase 3                      | 3–5 days       | Me; Chinese pages need a native check |
+| Phase 3                      | 3–5 days       | Me (English pages; Chinese in the translation plan) |
 | Phase 5                      | Ongoing        | You            |
 | Phase 6                      | Ongoing        | You, with me updating this file |
 
@@ -203,8 +209,12 @@ Phase 4 comes before phase 3 because it is small and only depends on phase 2's w
 
 ## Open questions
 
-1. Chinese pages: Simplified only, or Traditional too?
-2. Analytics: add a cookie-free one, or rely on Search Console and download counts?
-3. Comparison pages: comfortable naming commercial products directly?
-4. Importing from other software: is any importer planned? It changes the FAQ answer and is
-   a strong selling point on comparison pages.
+None open. Answered:
+
+- **Chinese pages:** Simplified and Traditional, as a separate piece of work with the apps'
+  translation ([Translation plan](translation-plan.md)).
+- **Naming other products:** yes, on comparison pages and in `llms.txt`, with factual, dated
+  claims.
+- **Importing from other software:** none yet; the FAQ invites churches that need one to get in
+  touch.
+- **Analytics:** Cloudflare Web Analytics, with its JS beacon (phase 6).
