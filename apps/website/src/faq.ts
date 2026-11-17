@@ -31,7 +31,7 @@ export const FAQ: Question[] = [
   {
     question: 'How do I show a Bible passage?',
     answer:
-      'Type a reference the way you would write it, such as Mark 15:5-6 or 马可福音15章5-6节, or browse by book and chapter, or search for words. Up to two versions are shown side by side on each slide. Passages come through the church server, which can use the keyless Free Use Bible API (for example 新标点和合本, KJV, BSB) or the church’s own API.Bible or YouVersion key.',
+      'Type a reference the way you would write it, such as Mark 15:5-6 or Mk 15.5-6, or browse by book and chapter, or search for words. Up to two versions are shown side by side on each slide. Passages come through the church server, which can use the keyless Free Use Bible API (for example KJV, BSB and the Chinese Union Version) or the church’s own API.Bible or YouVersion key.',
   },
   {
     question: 'Can it show PowerPoint, Keynote, PDFs, photos and videos?',
