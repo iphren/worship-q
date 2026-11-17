@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite';
@@ -184,8 +185,28 @@ function releaseInfo(): Plugin {
   };
 }
 
+/**
+ * Checks that every screenshot the pages show is in `public/screenshots`. They are rendered
+ * from the app by `pnpm screenshots apps/website/public/screenshots`, not kept in git.
+ */
+function screenshots(): Plugin {
+  return {
+    name: 'screenshots',
+    transformIndexHtml(html) {
+      const files = [...html.matchAll(/["'(]\/(screenshots\/[^"')\s]+)/g)].map((m) => m[1]!);
+      const missing = [...new Set(files)].filter(
+        (file) => !existsSync(resolve(import.meta.dirname, 'public', file)),
+      );
+      if (missing.length === 0) return;
+      const message = `Missing ${missing.join(', ')}: run pnpm screenshots apps/website/public/screenshots`;
+      if (process.env.CI) throw new Error(message);
+      console.warn(`${message}; the page shows broken images.`);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [tailwindcss(), releaseInfo()],
+  plugins: [tailwindcss(), releaseInfo(), screenshots()],
   build: {
     rollupOptions: {
       input: {

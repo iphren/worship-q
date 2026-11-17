@@ -15,7 +15,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "version:check": "node scripts/version.mjs check",
-    "version:bump": "node scripts/version.mjs bump"
+    "version:bump": "node scripts/version.mjs bump",
+    "screenshots": "pnpm --filter @worship-q/screenshots render"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

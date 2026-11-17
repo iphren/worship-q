@@ -57,9 +57,19 @@ reads the latest published release and fills in the installer links (`*_universa
 GitHub Pages when a release is published or when the site changes. Run that workflow by hand
 after you point "latest" at another release.
 
+The page's screenshots are not kept in git. `apps/screenshots` renders them from the desktop
+app's own code: it runs the app's front end in headless Chromium with Tauri's native side
+replaced by a stand-in, and a database filled with public-domain hymns and Psalm 23 (BSB and
+KJV). The workflow renders them on macOS before each build, so they always show the current
+interface. Scenes are in `apps/screenshots/src/scenes.ts`, the content in `content.ts`.
+
 ```sh
+pnpm screenshots apps/website/public/screenshots   # once, and after changing the UI
 pnpm --filter @worship-q/website dev
 ```
+
+The first run needs Playwright's Chromium: `pnpm --filter @worship-q/screenshots exec
+playwright install chromium`.
 
 ## Layout
 
@@ -70,6 +80,7 @@ apps/remote/           Phone remote-control page, served by the church server
 apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
 apps/admin/            Admin web app for the church's administrators, served by the church server at /admin/
 apps/website/          worship-q.com download page, on GitHub Pages
+apps/screenshots/      Renders the website's screenshots from the desktop app's code
 
 packages/protocol/     Shared record schemas, wire messages and the protocol version
 packages/lyrics/       Lyrics parsing, pieces and piece identity

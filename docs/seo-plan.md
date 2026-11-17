@@ -66,9 +66,10 @@ accounts.
 
 ## Phase 2 — Make the home page say what it is (code, `apps/website`)
 
-**Status (17 November 2026):** done except 6: no app screenshots yet. The share image
-(`apps/website/og-image.svg` → `public/og.png`) is a designed card for now; swap in a real
-screenshot when there is one. FAQ answers live in `apps/website/src/faq.ts`.
+**Status (17 November 2026):** done. Screenshots are rendered from the app's code at every
+site build by `apps/screenshots` (public-domain hymns and Bible text), so they follow the UI
+without anyone taking them by hand. The share image (`apps/website/og-image.svg` →
+`public/og.png`) is still a designed card. FAQ answers live in `apps/website/src/faq.ts`.
 
 1. **Title and description** with the words people search:
    - Title: `Worship Q — free church presentation software for lyrics, Bible and slides`

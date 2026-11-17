@@ -3,13 +3,16 @@ name: Website
 # Builds worship-q.com and publishes it to GitHub Pages. It runs when a release is published,
 # so the page names the version its buttons serve, and when the site itself changes. After
 # pointing "latest" at another release by hand, run it from the Actions tab.
+#
+# The screenshots on the page are rendered from the app's code first (apps/screenshots), on
+# macOS so the text is drawn in the Mac app's system font.
 
 on:
   release:
     types: [published]
   push:
     branches: [main]
-    paths: [apps/website/**, .github/workflows/website.yml]
+    paths: [apps/website/**, apps/screenshots/**, .github/workflows/website.yml]
   workflow_dispatch:
 
 permissions:
@@ -22,7 +25,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  screenshots:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @worship-q/screenshots exec playwright install chromium
+      - run: pnpm screenshots screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots
+          if-no-files-found: error
+
   build:
+    needs: screenshots
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +54,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: screenshots
+          path: apps/website/public/screenshots
       - run: pnpm --filter @worship-q/website build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

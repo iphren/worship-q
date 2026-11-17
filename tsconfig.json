@@ -25,6 +25,7 @@
     "apps/admin/src",
     "apps/output/src",
     "apps/website/src",
+    "apps/screenshots/src",
     "apps/website/vite.config.ts",
     "apps/desktop/vite.config.ts",
     "vitest.config.ts"

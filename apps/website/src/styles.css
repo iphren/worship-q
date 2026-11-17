@@ -48,3 +48,11 @@ body {
 .faq p {
   @apply pb-4 text-sm text-slate-400;
 }
+
+.shot {
+  @apply h-auto w-full rounded-lg border border-slate-800;
+}
+
+figcaption {
+  @apply mt-2 text-sm text-slate-400;
+}

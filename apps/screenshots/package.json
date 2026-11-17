@@ -1,0 +1,21 @@
+{
+  "name": "@worship-q/screenshots",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "render": "tsx src/render.ts"
+  },
+  "dependencies": {
+    "@worship-q/bible": "workspace:*",
+    "@worship-q/protocol": "workspace:*",
+    "@worship-q/store": "workspace:*"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
+    "vite": "^8.3.4"
+  }
+}
