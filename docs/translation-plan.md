@@ -1,7 +1,7 @@
 # Worship Q — Translation Plan
 
 **Drafted:** 17 November 2026; owner's answers and the two phases added the same day  
-**Status:** Planned in two phases (§4): phase 1 sets up translation in English everywhere, phase 2 adds Simplified and Traditional Chinese. Nothing is built yet.  
+**Status:** Phase 1 built (17 November 2026): every app and the website read their words from a catalogue, with a Language setting everywhere, in English only (§7). Phase 2, Simplified and Traditional Chinese, is next.  
 **Source:** the project owner's request of 17 November 2026 (Chinese in Simplified and Traditional, across the apps and the website, as one piece of work); the [Search and AI discovery plan](seo-plan.md), phase 3 item 4; the code at version 2.9.0.
 
 ## 1. Goal
@@ -17,7 +17,7 @@ Worship Q in **English**, **Simplified Chinese** and **Traditional Chinese**, ev
 
 Done as one piece of work, so the same words mean the same things in the app, on the phone and on the website.
 
-## 2. Where we are
+## 2. Where we were (before phase 1)
 
 | Part | Text today |
 | --- | --- |
@@ -146,3 +146,38 @@ Answered (17 November 2026):
 - **Who translates and reviews:** Claude translates; the project owner reviews (T5).
 - **Which documents:** everything that goes on worship-q.com (T9).
 - **Phases:** two (§4). Phase 1 takes all English out of the code and sets up the layer and the Language setting on every platform; phase 2 adds Simplified and Traditional Chinese.
+
+## 7. Phase 1 as built
+
+**Where the words are**
+
+| Part | Where |
+| --- | --- |
+| Shared layer | `packages/i18n/src/index.ts`: the current language, `parsePreference`, `resolveLocale`, `applyPreference`, the browser apps' saved choice, `format`, `translator`, plural forms, dates (`formatDate`, `formatMonth`, `weekdayName`, `meetingDaysLabel`), `listFormat` and `formatNumber` |
+| Catalogues | `packages/i18n/src/en/`: `common.ts` (shared), `desktop.ts`, `remote.ts`, `admin.ts`, `output.ts` |
+| Each app's entry | `@worship-q/i18n/desktop` (and `/remote`, `/admin`, `/output`): `t(key, params)`, `tp(key, count)` for `key.one` and `key.other`, `messages`, and `formatNodes` and `useLocale` for React |
+| Website | `apps/website/src/locales.ts` (the site's languages and paths), `words.ts` (header, footer, not-found page), `home.ts` (the home page, as HTML), `content.ts` `CONTENT` and `faq.ts` `FAQS`; Markdown pages per language through `PAGES_BY_LOCALE` in `pages.ts` |
+
+**Adding or changing text**
+
+- Add the English to the app's catalogue and use `t('area.key')`. A message with an element in it (a name in bold, a time) uses `formatNodes(t('key'), { name: <strong>…</strong> })`; a count uses `tp('key', n)` with `key.one` and `key.other`.
+- The lint rule `worship-q/no-literal-ui-text` (`eslint/no-literal-ui-text.js`) refuses JSX text and plain strings in `title`, `aria-label`, `placeholder`, `alt`, `label` and the like in the apps' components. Names and symbols are on its allow list.
+- `t()` runs when a component renders, so text in a module-level constant is a key, translated where it is shown.
+- The test in `packages/i18n/src/index.test.ts` checks that every language has every key with the same placeholders.
+
+**Choosing the language**
+
+- Desktop: **Settings → Language** (Automatic or English), kept per computer with the other device settings; the slideshow window follows. Changing it draws the window again without losing the page.
+- Phone remote: the globe in its header. Admin app: the Language select beside **Sign out**. Both are kept in the browser (`wq.language`).
+- Output pages and the localhost slideshow and subtitle pages follow the browser.
+- `?lang=qps` in the address shows the **test language**, which wraps every message in `⟦…⟧` so text that missed the catalogue stands out; it is also offered in the Language lists in development only. `SCREENSHOT_LANG=qps pnpm screenshots <dir>` renders the app in it (the scenes after the first find buttons by their English names, so they stop there).
+
+**Messages from the server and the native core (T7)**: upload refusals reach the desktop as `refused:<code>:<message>`; the server sends an image's `reason` (`image-too-large`, `image-unreadable`) beside its message, and the desktop shows its own words for the codes it knows and the message otherwise, so older servers still read. The slideshow window's title is set from the interface. Left in English on purpose: the OBS connection's technical details shown after the translated sentence, and the power-assertion reasons on macOS and Windows, which only diagnostic tools show.
+
+**Notes for phase 2**
+
+- The website's other home pages: `index.html` is the English one; the Chinese home pages are written from it with `HOME[locale]` (`HOME_LOCALE` in `vite.config.ts`), and the not-found page likewise.
+- Words placed inside sentences, such as the Church Library type nouns in the admin app (`libraryType.noun.*`), are translated alone; check the sentences read well in Chinese.
+- The desktop's window title adds the year after the run sheet's date in English order (`App.tsx`).
+- The Bible's joined and missing verse notes name the book in English (`warningParams` in `packages/bible`).
+- The release notes page stays English.
