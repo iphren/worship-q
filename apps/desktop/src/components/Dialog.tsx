@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 export function Dialog(props: {
   title: string;

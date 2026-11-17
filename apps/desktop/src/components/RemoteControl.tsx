@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { useApp, useCloud, useRemoteHost, useSession } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { Dialog } from './Dialog';
 
 /** How often the QR code is redrawn, picking up a fresh invitation when one is made. */

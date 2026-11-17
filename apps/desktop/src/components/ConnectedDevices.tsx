@@ -1,7 +1,7 @@
 import type { ConnectedDevice } from '@worship-q/protocol';
 import { useState } from 'react';
 import { useApp, useCloud, useRemoteHost } from '../app/context';
-import { t, type MessageKey } from '../i18n';
+import { t, type MessageKey } from '@worship-q/i18n/desktop';
 import { ConfirmDialog } from './Dialog';
 
 const ROLE_KEY: Record<ConnectedDevice['role'], MessageKey> = {

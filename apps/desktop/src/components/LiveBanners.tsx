@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useApp, useAudio, useCloud } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 /** The "another computer carried on" notice clears itself after this long. */
 const DEMOTED_NOTICE_MS = 8000;

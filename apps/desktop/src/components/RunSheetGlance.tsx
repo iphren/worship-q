@@ -1,5 +1,5 @@
 import type { RunSheetView } from '@worship-q/session';
-import { formatDate, t } from '../i18n';
+import { formatDate, t } from '@worship-q/i18n/desktop';
 import { DeckBadge } from './DeckBadge';
 
 /** How many items the glance lists; a longer run sheet shows only its last ones. */

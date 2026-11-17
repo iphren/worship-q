@@ -11,6 +11,7 @@
   "dependencies": {
     "@worship-q/audio": "workspace:*",
     "@worship-q/calendar": "workspace:*",
+    "@worship-q/i18n": "workspace:*",
     "@worship-q/protocol": "workspace:*",
     "@worship-q/renderer": "workspace:*",
     "@worship-q/ui": "workspace:*",

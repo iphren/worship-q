@@ -11,7 +11,7 @@ import {
 } from '@worship-q/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { formatDate, t } from '../i18n';
+import { formatDate, t } from '@worship-q/i18n/desktop';
 import { SongBackgroundFields } from './BackgroundPicker';
 import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';

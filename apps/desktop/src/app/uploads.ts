@@ -15,7 +15,7 @@ import {
   type SongFields,
   type Video,
 } from '@worship-q/protocol';
-import { t } from '../i18n';
+import { t, type MessageKey } from '@worship-q/i18n/desktop';
 import {
   baseName,
   isHeic,
@@ -96,6 +96,25 @@ export interface UploadDeps {
   addSong(date: IsoDate, songId: string, afterItemId?: string | null): Promise<{ id: string }>;
 }
 
+/** The server's codes for a refused upload that have their own text (translation plan T7). */
+const REFUSALS = {
+  'heic-unsupported': 'media.heicUnsupported',
+  'image-too-large': 'media.imageTooLarge',
+  'image-unreadable': 'media.imageUnreadable',
+} as const satisfies Record<string, MessageKey>;
+
+/**
+ * A refusal, `<code>:<message>`: the code's own text when it has one, else the server's
+ * message as it is.
+ */
+export function refusalMessage(refusal: string): string {
+  const colon = refusal.indexOf(':');
+  const code = colon < 0 ? '' : refusal.slice(0, colon);
+  const message = colon < 0 ? refusal : refusal.slice(colon + 1);
+  if (code in REFUSALS) return t(REFUSALS[code as keyof typeof REFUSALS]);
+  return message;
+}
+
 /** An upload stopped on purpose; the entry is removed. */
 class Cancelled extends Error {}
 
@@ -113,7 +132,7 @@ export function uploadMessage(
     const limits = { image: limit, deck: limit, video: limit };
     return sizeProblem(kind, Math.max(bytes ?? limit + 1, limit + 1), limits)!;
   }
-  if (code.startsWith('refused:')) return code.slice('refused:'.length);
+  if (code.startsWith('refused:')) return refusalMessage(code.slice('refused:'.length));
   if (code.startsWith('file:')) return t('media.fileGone', { path });
   switch (code) {
     case 'proxy-too-large':

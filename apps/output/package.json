@@ -9,6 +9,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@worship-q/i18n": "workspace:*",
     "@worship-q/protocol": "workspace:*",
     "@worship-q/renderer": "workspace:*",
     "react": "^19.0.0",

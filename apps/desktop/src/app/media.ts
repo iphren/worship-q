@@ -3,7 +3,7 @@
  * plan, U1, U2, U7, U19, U25). One table of formats serves the checks and the file dialogs.
  */
 import type { MediaKind, MediaLimits, ServerInfo } from '@worship-q/protocol';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 export { songMediaKind, type MediaKind } from '@worship-q/protocol';
 

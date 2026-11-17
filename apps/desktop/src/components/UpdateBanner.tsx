@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp, useUpdates } from '../app/context';
 import type { UpdateStatus } from '../app/update';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { ConfirmDialog } from './Dialog';
 import { useOutputStatus } from './OutputPanel';
 

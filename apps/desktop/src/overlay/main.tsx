@@ -4,11 +4,15 @@
  * runs in an ordinary browser, so nothing here may use the Tauri interface.
  */
 import { EMPTY_FRAME, type OutputFrame } from '@worship-q/protocol';
+import { applyPreference } from '@worship-q/i18n/desktop';
 import { Slide } from '@worship-q/renderer';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const RETRY_MS = 1000;
+
+// The page has no words of its own; its `lang` follows the browser.
+applyPreference('auto');
 
 function socketUrl(): string {
   // In development the page comes from Vite and is told where the app's server is.

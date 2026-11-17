@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useApp, useCloud, useSession } from '../app/context';
 import { replacementKinds, songMediaKind } from '../app/media';
 import type { Upload } from '../app/uploads';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
 import { chooseMediaFiles, UploadBar, useUploads } from './UploadProgress';
 

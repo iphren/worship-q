@@ -66,6 +66,7 @@ describe('device settings (M3.1)', () => {
       audioOutput: null,
       audioInput: null,
       audioMonitor: null,
+      language: 'auto',
     };
     expect(createDeviceSettings(() => null).get()).toEqual(defaults);
     const broken = { getItem: () => '{not json', setItem: () => undefined };

@@ -23,7 +23,7 @@ import {
 } from './components/RemoteControl';
 import { UpdateBanner } from './components/UpdateBanner';
 import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
-import { formatDate, t, type MessageKey } from './i18n';
+import { formatDate, t, type MessageKey } from '@worship-q/i18n/desktop';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
 import { SettingsPage } from './pages/SettingsPage';

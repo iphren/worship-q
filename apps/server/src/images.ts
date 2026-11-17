@@ -10,7 +10,19 @@ import type { ConvertedDeck } from './decks/convert';
 export const MAX_IMAGE_PIXELS = 100_000_000;
 
 /** An image that cannot be used, with the reason for the operator. */
-export class ImageError extends Error {}
+/**
+ * An image the server could not convert. The `reason` is a code the apps translate; the
+ * message stays for older apps, which show it as it is (translation plan T7).
+ */
+export class ImageError extends Error {
+  constructor(
+    readonly reason: 'image-too-large' | 'image-unreadable',
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
 
 /**
  * Writes `001.jpg`, fitting within 1920 × 1080 and never enlarged, and its small copy
@@ -30,11 +42,17 @@ export async function convertImage(source: string, outDir: string): Promise<Conv
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/pixel limit/i.test(message)) {
-      throw new ImageError('This image is too large: it has more than 100 megapixels.', {
-        cause: error,
-      });
+      throw new ImageError(
+        'image-too-large',
+        'This image is too large: it has more than 100 megapixels.',
+        {
+          cause: error,
+        },
+      );
     }
-    throw new ImageError('This file is not an image Worship Q can read.', { cause: error });
+    throw new ImageError('image-unreadable', 'This file is not an image Worship Q can read.', {
+      cause: error,
+    });
   }
   await sharp(image)
     .resize({ width: 320, height: 240, fit: 'inside', withoutEnlargement: true })

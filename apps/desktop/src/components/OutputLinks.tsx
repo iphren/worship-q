@@ -2,7 +2,7 @@ import type { OutputKind, OutputLink } from '@worship-q/protocol';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { useApp, useCloud } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { ConfirmDialog, Dialog } from './Dialog';
 
 function QrCode(props: { value: string }) {

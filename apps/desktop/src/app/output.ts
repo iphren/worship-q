@@ -7,7 +7,7 @@ import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api
 import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/protocol';
 import type { Session } from '@worship-q/session';
 import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { type KeyPress, presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
 import { native } from '../platform/native';
 import { deviceSettings } from './deviceSettings';

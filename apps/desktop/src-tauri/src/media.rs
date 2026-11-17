@@ -123,8 +123,9 @@ fn client() -> Result<reqwest::blocking::Client, String> {
 
 /// Why an upload failed, as a short code the interface explains: `too-large:<bytes>` when
 /// the instance refused the size, `proxy-too-large` when a proxy in front of it did,
-/// `refused:<message>` with the instance's reason, `connection-closed` when the connection
-/// broke while sending, and `cancelled`, `unauthorized`, `update-needed`,
+/// `refused:<code>:<message>` with the instance's reason (its `reason` code, else its `error`
+/// code, for the interface to translate; the message for when it cannot), `connection-closed`
+/// when the connection broke while sending, and `cancelled`, `unauthorized`, `update-needed`,
 /// `decks-unavailable`, `not-found` or `server answered <status>` otherwise.
 fn answer_error(status: u16, body: &str) -> String {
     let json = serde_json::from_str::<serde_json::Value>(body).ok();
@@ -142,7 +143,12 @@ fn answer_error(status: u16, body: &str) -> String {
         501 => "decks-unavailable".into(),
         404 => field("error").unwrap_or_else(|| "not-found".into()),
         400 | 422 => match field("message") {
-            Some(message) => format!("refused:{message}"),
+            Some(message) => {
+                let code = field("reason")
+                    .or_else(|| field("error"))
+                    .unwrap_or_default();
+                format!("refused:{code}:{message}")
+            }
             None => field("error").unwrap_or_else(|| format!("server answered {status}")),
         },
         status => format!("server answered {status}"),
@@ -643,7 +649,14 @@ mod tests {
                 422,
                 r#"{"error":"conversion-failed","message":"Bad file."}"#
             ),
-            "refused:Bad file."
+            "refused:conversion-failed:Bad file."
+        );
+        assert_eq!(
+            answer_error(
+                422,
+                r#"{"error":"conversion-failed","reason":"image-unreadable","message":"No: it isn't."}"#
+            ),
+            "refused:image-unreadable:No: it isn't."
         );
         assert_eq!(answer_error(400, r#"{"error":"empty"}"#), "empty");
         assert_eq!(

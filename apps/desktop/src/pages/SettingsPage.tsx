@@ -25,7 +25,8 @@ import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { UpdateStatusLine } from '../components/UpdateBanner';
 import { WorkspaceList } from '../components/WorkspaceSwitcher';
-import { meetingDaysLabel, t, weekdayName } from '../i18n';
+import { languageChoices, meetingDaysLabel, t, weekdayName } from '@worship-q/i18n/desktop';
+import { setLanguage } from '../app/language';
 import { layoutKeysMismatch } from '../lib/presentLayout';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
@@ -133,6 +134,7 @@ export function SettingsPage() {
   const [viewerMode] = useState(() => deviceSettings.get().viewerMode);
   const [swapArrows, setSwapArrows] = useState(() => deviceSettings.get().swapArrows);
   const [presentLayout, setPresentLayout] = useState(() => deviceSettings.get().presentLayout);
+  const [language, setLanguageChoice] = useState(() => deviceSettings.get().language);
   const mismatch = layoutKeysMismatch(presentLayout, swapArrows);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -676,6 +678,25 @@ export function SettingsPage() {
               )}
             </p>
           )}
+        </Section>
+
+        <Section title={t('language.label')} hint={t('settings.languageHint')}>
+          <select
+            className="field max-w-sm"
+            aria-label={t('language.label')}
+            value={language}
+            onChange={(e) => {
+              const next = e.target.value as typeof language;
+              setLanguageChoice(next);
+              setLanguage(next);
+            }}
+          >
+            {languageChoices().map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
         </Section>
 
         <Section title={t('viewer.title')} hint={t('viewer.hint')}>

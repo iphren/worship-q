@@ -4,7 +4,7 @@
  */
 import type { DelayFigure, ListenStatus } from '@worship-q/audio';
 import type { AudioShared } from '../app/audioShare';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 /** The sending computer's status line in Settings. */
 export function broadcastStatusText(shared: AudioShared): string {

@@ -1,4 +1,6 @@
 import { emit, listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { t } from '@worship-q/i18n/desktop';
 import { EMPTY_FRAME, youtubeEmbedUrl, type OutputFrame } from '@worship-q/protocol';
 import { Slide } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
@@ -23,6 +25,15 @@ export function OutputApp() {
   videoLive.current = !!frame.video;
   const sinkId = useAudioOutput();
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const title = t('output.windowTitle');
+
+  // The native core names the window in English when it opens it; this names it in the
+  // interface language, as the window switcher shows it.
+  useEffect(() => {
+    getCurrentWindow()
+      .setTitle(title)
+      .catch((error) => console.error(error));
+  }, [title]);
 
   // The slideshow keeps its pace out of view too, as the main window does (`boot`): it is open
   // only while presenting, so the tone plays for as long as it is.

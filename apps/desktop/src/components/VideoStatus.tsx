@@ -2,7 +2,7 @@ import type { Video } from '@worship-q/protocol';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp, useQuery, useSession } from '../app/context';
 import type { CopyStatus } from '../app/videoCache';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { Icon } from './Icon';
 import { native } from '../platform/native';
 import { videoPosition } from '@worship-q/live-state';

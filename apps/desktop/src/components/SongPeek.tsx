@@ -2,7 +2,7 @@ import { parseBlocks } from '@worship-q/lyrics';
 import type { Song } from '@worship-q/protocol';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 /** How long the pointer rests on a song before its details show. */
 const SHOW_DELAY_MS = 400;

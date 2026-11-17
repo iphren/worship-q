@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useApp, useObs, useObsLink } from '../app/context';
 import { DEFAULT_OBS_ADDRESS, type ObsLinkView } from '../app/obs';
-import { t, type MessageKey } from '../i18n';
+import { t, type MessageKey } from '@worship-q/i18n/desktop';
 import { ObsStatusDot } from './Obs';
 
 function linkStatusText(view: ObsLinkView): string {

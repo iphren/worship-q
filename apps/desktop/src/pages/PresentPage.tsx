@@ -13,7 +13,7 @@ import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
 import { ItemSlides } from '../components/ItemSlides';
 import { VideoControls } from '../components/VideoStatus';
-import { formatDate, t } from '../i18n';
+import { formatDate, t } from '@worship-q/i18n/desktop';
 import { AudioPanel } from '../components/AudioListen';
 import {
   presentLayoutFor,

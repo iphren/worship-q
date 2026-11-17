@@ -18,7 +18,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useNow, useObs, useObsImage, useObsThumbnails } from '../app/context';
 import type { ObsShared } from '../app/obsShare';
-import { t, type MessageKey } from '../i18n';
+import { t, type MessageKey } from '@worship-q/i18n/desktop';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { remPx } from '../lib/presentLayout';

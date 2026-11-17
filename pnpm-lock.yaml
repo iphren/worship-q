@@ -44,6 +44,9 @@ importers:
       '@worship-q/calendar':
         specifier: workspace:*
         version: link:../../packages/calendar
+      '@worship-q/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -99,6 +102,9 @@ importers:
       '@worship-q/calendar':
         specifier: workspace:*
         version: link:../../packages/calendar
+      '@worship-q/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@worship-q/live-state':
         specifier: workspace:*
         version: link:../../packages/live-state
@@ -166,6 +172,9 @@ importers:
 
   apps/output:
     dependencies:
+      '@worship-q/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -197,6 +206,9 @@ importers:
       '@worship-q/audio':
         specifier: workspace:*
         version: link:../../packages/audio
+      '@worship-q/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -352,6 +364,16 @@ importers:
         version: 4.6.5
 
   packages/calendar: {}
+
+  packages/i18n:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.3.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
 
   packages/live-state:
     dependencies:

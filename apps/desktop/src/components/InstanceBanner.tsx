@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useEffect, useState } from 'react';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 
 /**
  * Warns while the app is open more than once on this computer. The copies share one church

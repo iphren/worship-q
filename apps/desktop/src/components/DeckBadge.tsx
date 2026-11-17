@@ -1,6 +1,6 @@
 import { songBadge, type ItemBadge, type Song } from '@worship-q/protocol';
 import { ItemBadgeMark } from '@worship-q/ui';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { Icon } from './Icon';
 
 /** The kinds of item that carry a badge, each with its own colour and icon (U12). */

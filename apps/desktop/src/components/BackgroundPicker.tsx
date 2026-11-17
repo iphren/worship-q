@@ -6,7 +6,7 @@ import {
 import { BuiltinBackgroundCanvas } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
 
 /**

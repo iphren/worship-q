@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp, useCloud } from '../app/context';
 import { deviceSettings } from '../app/deviceSettings';
 import type { LiveRole } from '../app/liveLink';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { ConfirmDialog } from './Dialog';
 import { Icon, type IconName } from './Icon';
 

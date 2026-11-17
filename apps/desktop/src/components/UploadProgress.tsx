@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { useApp, useCloud } from '../app/context';
 import { dialogExtensions, type MediaKind } from '../app/media';
 import { MediaUploads, type Upload } from '../app/uploads';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { KindBadge } from './DeckBadge';
 
 /** The uploads of this computer, re-rendering the caller when they change. */

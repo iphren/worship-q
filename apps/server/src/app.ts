@@ -890,7 +890,9 @@ export async function buildServer(config: ServerConfig) {
         );
       } catch (error) {
         if (error instanceof ImageError) {
-          return reply.code(422).send({ error: 'conversion-failed', message: error.message });
+          return reply
+            .code(422)
+            .send({ error: 'conversion-failed', reason: error.reason, message: error.message });
         }
         return uploadRefused(reply, error);
       } finally {

@@ -10,7 +10,7 @@ import {
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { useEdgeScroll } from '../lib/edgeScroll';
 import { scrollAlong, scroller, scrollToNearest, span } from '../lib/presentLayout';
 import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';

@@ -7,6 +7,7 @@
  * was made. A pass runs after each pull and each run sheet edit.
  */
 import type { IsoDate } from '@worship-q/protocol';
+import { t } from '@worship-q/i18n/desktop';
 
 export type CopyStatus =
   | { kind: 'ready' }
@@ -35,7 +36,7 @@ export interface VideoCacheDeps {
 /** The operator's message for a failed fetch. */
 function fetchMessage(error: unknown): string {
   const code = error instanceof Error ? error.message : String(error);
-  return code === 'disk-full' ? 'Not enough space on this computer.' : code;
+  return code === 'disk-full' ? t('media.diskFull') : code;
 }
 
 export class VideoCache {

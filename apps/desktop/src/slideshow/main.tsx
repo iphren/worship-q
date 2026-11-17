@@ -6,11 +6,15 @@
  * interface.
  */
 import { EMPTY_FRAME, youtubeEmbedUrl, type OutputFrame } from '@worship-q/protocol';
+import { applyPreference, t } from '@worship-q/i18n/desktop';
 import { Slide } from '@worship-q/renderer';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const RETRY_MS = 1000;
+
+// An ordinary browser, often on another program's behalf: it follows that browser's language.
+applyPreference('auto');
 
 function socketUrl(): string {
   // In development the page comes from Vite and is told where the app's server is.
@@ -61,7 +65,7 @@ function SlideshowApp() {
       />
       {frame.website && (
         <iframe
-          title="Website"
+          title={t('output.websiteFrame')}
           // A YouTube link shows its video alone: YouTube's page refuses to be framed.
           src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
           allow="autoplay; encrypted-media; fullscreen"

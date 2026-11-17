@@ -1,6 +1,6 @@
 import type { Song } from '@worship-q/protocol';
 import { useState } from 'react';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { BibleWindow } from './BibleWindow';
 import { Dialog } from './Dialog';
 import { ScribblingPencil } from './ScribblingPencil';

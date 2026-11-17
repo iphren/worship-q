@@ -14,7 +14,7 @@ import {
   useMediaBlocked,
   useUploads,
 } from '../components/UploadProgress';
-import { formatDate, t } from '../i18n';
+import { formatDate, t } from '@worship-q/i18n/desktop';
 import { useFileDrop } from '../lib/fileDrop';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';

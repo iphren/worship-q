@@ -1,7 +1,7 @@
 import type { LiveState, Presented } from '@worship-q/protocol';
 import type { RunSheetEntry } from '@worship-q/session';
 import type { Ref } from 'react';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { COLUMN_REM } from '../lib/presentLayout';
 import { slideKeyLabel } from '../lib/shortcuts';
 import { DeckBadge } from './DeckBadge';

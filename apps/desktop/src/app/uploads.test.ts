@@ -1,7 +1,13 @@
 import type { Deck, Song, SongFields } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import type { MediaOffer } from './media';
-import { MediaUploads, uploadMessage, type UploadDeps, type Upload } from './uploads';
+import {
+  MediaUploads,
+  refusalMessage,
+  uploadMessage,
+  type UploadDeps,
+  type Upload,
+} from './uploads';
 
 const MB = 1024 * 1024;
 
@@ -585,5 +591,16 @@ describe('HEIC photos (U25)', () => {
     expect((h.uploads.list[0]!.stage as { message: string }).message).toContain(
       'This computer cannot read HEIC photos.',
     );
+  });
+});
+
+describe('refusals from the server (translation plan T7)', () => {
+  it('translates the codes it knows and shows the message otherwise', () => {
+    expect(refusalMessage('image-unreadable:This file is not an image.')).toBe(
+      'This file is not an image Worship Q can read.',
+    );
+    expect(refusalMessage('heic-unsupported:HEIC photos cannot be read here.')).toContain('HEIC');
+    expect(refusalMessage('conversion-failed:LibreOffice: no.')).toBe('LibreOffice: no.');
+    expect(refusalMessage('Bad file.')).toBe('Bad file.');
   });
 });

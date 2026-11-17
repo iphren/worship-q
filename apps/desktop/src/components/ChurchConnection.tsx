@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useApp, useCloud } from '../app/context';
 import type { JoinPreview } from '../app/cloud';
 import { canPair, joinMethod } from '../app/joinMethod';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
 import { ConfirmDialog, Dialog } from './Dialog';
 

@@ -1,5 +1,5 @@
-/** English interface text. Other languages provide the same keys (decision D8). */
-export const en = {
+/** The desktop app's English text. Other languages provide the same keys (decision D8). */
+export const desktop = {
   'app.name': 'Worship Q',
   'app.windowTitle': '{workspace} · {date}',
   'app.loading': 'Opening your workspace…',
@@ -127,8 +127,8 @@ export const en = {
     'This is a church song, used here on {count} dates ({dates}). It is hidden in this workspace only, those run sheets keep it, marked as removed.',
 
   'calendar.meetingDays': 'Meeting days: {label}',
-  'calendar.anyDay': 'Any day',
-  'calendar.everyDay': 'Every day',
+  'calendar.previousMonth': 'Previous month',
+  'calendar.nextMonth': 'Next month',
   'calendar.live': 'Live',
   'calendar.editing': 'Editing',
   'calendar.liveAndEditing': 'Live and editing',
@@ -189,6 +189,8 @@ export const en = {
   'present.lastShown': 'Last shown',
 
   'output.title': 'Slideshow screen',
+  'output.windowTitle': 'Worship Q — Slideshow',
+  'output.websiteFrame': 'Website',
   'output.unset': 'Choose a screen, then open the slideshow.',
   'output.closed': 'The slideshow is closed.',
   'output.missing':
@@ -211,6 +213,8 @@ export const en = {
   'output.failed': 'The slideshow could not be opened: {error}',
 
   'settings.meetingDays': 'Meeting days',
+  'settings.languageHint':
+    'The language of Worship Q on this computer. Songs and Bible passages keep their own languages.',
   'settings.meetingDaysHint': 'The calendar opens on the next of these days. Currently: {label}.',
   'settings.lyrics': 'Lyrics',
   'settings.linesPerPiece': 'Lines per slide',
@@ -640,6 +644,11 @@ export const en = {
     'Added to the library, but not to the run sheet of {date}: it can no longer be edited.',
   'media.videoOnly': 'A video item can only be replaced by another video.',
   'media.uploading': 'Uploading… {percent}%',
+  'media.diskFull': 'Not enough space on this computer.',
+  'media.heicUnsupported':
+    'HEIC photos cannot be read here. Export the photo as JPEG and try again.',
+  'media.imageTooLarge': 'This image is too large: it has more than 100 megapixels.',
+  'media.imageUnreadable': 'This file is not an image Worship Q can read.',
   'media.waiting': 'Waiting…',
   'media.processing': 'Processing on the church server…',
   'media.converting': 'Preparing the photo…',
@@ -803,4 +812,4 @@ export const en = {
     'This passage keeps its own versions; changing them here changes only this item.',
 } as const;
 
-export type MessageKey = keyof typeof en;
+export type DesktopKey = keyof typeof desktop;

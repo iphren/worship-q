@@ -2,7 +2,7 @@ import type { MonitorIdentity } from '@worship-q/protocol';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../app/context';
 import type { OutputStatus } from '../app/output';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { monitorLabel, sameMonitor } from '../lib/monitors';
 import { Icon, type IconName } from './Icon';
 

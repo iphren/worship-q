@@ -1,6 +1,6 @@
 import { monthGrid, shiftMonth, weekdayOf, yearMonthOf } from '@worship-q/calendar';
 import type { IsoDate } from '@worship-q/protocol';
-import { formatMonth, t, weekdayName } from '../i18n';
+import { formatMonth, t, weekdayName } from '@worship-q/i18n/desktop';
 
 export function MonthCalendar(props: {
   year: number;
@@ -36,11 +36,15 @@ export function MonthCalendar(props: {
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => shift(-1)}
-          aria-label="Previous month"
+          aria-label={t('calendar.previousMonth')}
         >
           ‹
         </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => shift(1)} aria-label="Next month">
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => shift(1)}
+          aria-label={t('calendar.nextMonth')}
+        >
           ›
         </button>
       </div>

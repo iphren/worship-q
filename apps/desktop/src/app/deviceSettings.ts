@@ -4,6 +4,8 @@
  * workspaces (plan M3.1).
  */
 
+import { parsePreference, type LanguagePreference, type PSEUDO } from '@worship-q/i18n/desktop';
+
 /** An audio device chosen on this computer, kept by its id and its name (U24). */
 export interface AudioDevice {
   id: string;
@@ -31,6 +33,8 @@ export interface DeviceSettings {
   audioInput: AudioDevice | null;
   /** Where **Listen** plays live audio (A11); null for the system default. */
   audioMonitor: AudioDevice | null;
+  /** The interface language: `auto` follows the computer's (translation plan T2). */
+  language: LanguagePreference | typeof PSEUDO;
 }
 
 const KEY = 'wq.device';
@@ -42,6 +46,7 @@ const DEFAULTS: DeviceSettings = {
   audioOutput: null,
   audioInput: null,
   audioMonitor: null,
+  language: 'auto',
 };
 
 function audioDevice(value: unknown): AudioDevice | null {
@@ -129,6 +134,7 @@ export function createDeviceSettings(storage: () => SettingsStorage | null) {
           audioOutput: audioDevice(parsed.audioOutput),
           audioInput: audioDevice(parsed.audioInput),
           audioMonitor: audioDevice(parsed.audioMonitor),
+          language: parsePreference(parsed.language),
         };
       } catch {
         return { ...DEFAULTS };

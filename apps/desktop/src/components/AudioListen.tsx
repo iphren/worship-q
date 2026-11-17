@@ -6,7 +6,7 @@
  */
 import { useRef } from 'react';
 import { useApp, useAudio, useAudioListen } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { Marquee } from '@worship-q/ui';
 import { Icon } from './Icon';
 import { broadcastStatusText, broadcastTone, delayText, listenStatusText } from './audioText';

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp, useCloud, useSession } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { native, type WorkspaceEntry } from '../platform/native';
 import { ChurchConnection, useChurchProblem } from './ChurchConnection';
 import { ConfirmDialog, Dialog } from './Dialog';

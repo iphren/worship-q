@@ -5,7 +5,7 @@ import { useApp, useQuery, useSession } from '../app/context';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { MonthCalendar } from '../components/MonthCalendar';
 import { RunSheetEditor } from '../components/RunSheetEditor';
-import { formatDate, meetingDaysLabel, t } from '../i18n';
+import { formatDate, meetingDaysLabel, t } from '@worship-q/i18n/desktop';
 
 type CopyStep = { step: 'choose' | 'confirm-replace'; source: IsoDate } | null;
 

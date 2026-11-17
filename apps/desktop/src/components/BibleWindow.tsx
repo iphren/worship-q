@@ -29,7 +29,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { BibleRequestError, workspaceVersions } from '../app/bible';
 import { bibleWindow } from '@worship-q/protocol';
 import { useApp, useCloud, useSession } from '../app/context';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
 

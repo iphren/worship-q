@@ -9,7 +9,7 @@ import {
   type AudioDevice,
 } from '../app/deviceSettings';
 import { AUDIO_OUTPUT_EVENT, OUTPUT_WINDOW } from '../app/output';
-import { t } from '../i18n';
+import { t } from '@worship-q/i18n/desktop';
 import {
   broadcastAdvice,
   broadcastStatusText,
