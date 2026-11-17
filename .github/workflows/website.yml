@@ -65,14 +65,18 @@ jobs:
         id: deployment
 
   # Tells Bing (and through it ChatGPT search and Copilot) and the other IndexNow engines that
-  # the site changed, so a new release is crawled within hours. The key is the file in
+  # the site's pages changed, so a new release is crawled within hours. The key is the file in
   # apps/website/public named after it. A failed ping never fails the deploy.
   indexnow:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
+      # Every page in the sitemap just deployed, so new pages are announced with the rest.
       - run: |
-          curl -sS -X POST https://api.indexnow.org/indexnow \
-            -H 'Content-Type: application/json; charset=utf-8' \
-            -d '{"host":"worship-q.com","key":"d0de7861dfc420c4e31cfe9ff3e0fde6","keyLocation":"https://worship-q.com/d0de7861dfc420c4e31cfe9ff3e0fde6.txt","urlList":["https://worship-q.com/"]}' \
-            -w 'IndexNow: HTTP %{http_code}\n' || true
+          urls=$(curl -sS https://worship-q.com/sitemap.xml | grep -o '<loc>[^<]*</loc>' | sed 's/<[^>]*>//g' | jq -R . | jq -sc .)
+          [ "$urls" != "[]" ] || urls='["https://worship-q.com/"]'
+          echo "IndexNow: $(echo "$urls" | jq length) pages"
+          jq -nc --argjson urls "$urls" '{host: "worship-q.com", key: "d0de7861dfc420c4e31cfe9ff3e0fde6", keyLocation: "https://worship-q.com/d0de7861dfc420c4e31cfe9ff3e0fde6.txt", urlList: $urls}' |
+            curl -sS -X POST https://api.indexnow.org/indexnow \
+              -H 'Content-Type: application/json; charset=utf-8' --data-binary @- \
+              -w 'IndexNow: HTTP %{http_code}\n' || true
