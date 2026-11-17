@@ -110,6 +110,13 @@ without anyone taking them by hand. The share image (`apps/website/og-image.svg`
 One page is not enough to rank for many searches. Turn `apps/website` into a small multi-page
 static site (Vite multi-page input; no framework needed).
 
+**Status (17 November 2026):** items 1, 2, 3 and 5 done, in English: `/guide/`, `/server/`,
+`/bible/`, `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`,
+`/compare/` and `/releases/`, each with its Markdown copy (`index.md`) and in the sitemap and
+`llms.txt`. The pages are Markdown: the guides from `docs/`, the others in
+`apps/website/pages/`, the release notes from GitHub; `apps/website/src/pages.ts` lists them.
+The comparison's facts were checked on 17 November 2026; check them again now and then.
+
 **Scope (17 November 2026):** items 1, 2, 3 and 5, in English. Chinese pages (item 4) are part
 of the [Translation plan](translation-plan.md), so the website is translated together with the
 desktop app, the admin app and the phone remote.

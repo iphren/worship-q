@@ -59,6 +59,13 @@ reads the latest published release and fills in the installer links (`*_universa
 GitHub Pages when a release is published or when the site changes. Run that workflow by hand
 after you point "latest" at another release.
 
+Besides the home page, the site has Markdown pages: the volunteer and server guides from
+`docs/`, feature and comparison pages from `apps/website/pages/`, and release notes from
+GitHub, all listed in `apps/website/src/pages.ts`. Each is published with its Markdown copy
+beside it (`/guide/index.md`) and in the sitemap and `llms.txt`. Editing `docs/volunteer-guide.md`
+or `docs/server-deployment.md` changes the site: keep them free of Chinese text, which belongs
+in the Chinese site to come.
+
 The page's screenshots are not kept in git. `apps/screenshots` renders them from the desktop
 app's own code: it runs the app's front end in headless Chromium with Tauri's native side
 replaced by a stand-in, and a database filled with public-domain hymns and Psalm 23 (BSB and

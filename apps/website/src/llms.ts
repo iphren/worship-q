@@ -4,9 +4,8 @@
 
 import { FEATURES, PLATFORMS, SUMMARY } from './content.ts';
 import { FAQ } from './faq.ts';
-
-export const SITE = 'https://worship-q.com';
-export const REPO_URL = 'https://github.com/iphren/worship-q';
+import { REPO_URL, SITE } from './layout.ts';
+import { PAGES } from './pages.ts';
 
 /** What the build knows about the release the download buttons serve. */
 export interface ReleaseFacts {
@@ -56,8 +55,7 @@ ${download(release)}
 
 - [Worship Q home page in Markdown](${SITE}/index.md): features, download and questions
 - [Everything in one file](${SITE}/llms-full.txt): this file, the features, the questions and the volunteer guide
-- [Volunteer guide](${docUrl('volunteer-guide.md')}): adding songs, building a run sheet, presenting, Bible passages, media, phones, OBS and live audio
-- [Church server setup](${docUrl('server-deployment.md')}): running a church's own Worship Q server with Docker
+${PAGES.map((page) => `- [${page.title.replace(/ — Worship Q$/, '')}](${SITE}${page.path}index.md): ${page.description}`).join('\n')}
 
 ## Optional
 
@@ -85,7 +83,7 @@ ${questions()}
 
 ## Volunteer guide
 
-Source: ${docUrl('volunteer-guide.md')}
+Source: ${SITE}/guide/
 
 ${guide}
 `;
@@ -112,8 +110,9 @@ ${questions()}
 ## More
 
 - [Screenshots](${SITE}/#screenshots)
-- [Volunteer guide](${docUrl('volunteer-guide.md')})
-- [Church server setup](${docUrl('server-deployment.md')})
+- [Volunteer guide](${SITE}/guide/)
+- [Church server setup](${SITE}/server/)
+- [Compared with other church presentation software](${SITE}/compare/)
 - [Source code](${REPO_URL})
 `;
 }

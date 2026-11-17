@@ -109,8 +109,8 @@ is clicked: the video then plays silently with **Click for sound**.
 When the speaker reads a passage that is not in the run sheet, click the **book** button
 beside the song search on the Present page (or in the calendar's run sheet editor).
 
-- **Type it** the way you would write it: `Mark 15:5-6`, `Mk 15.5-6`, `马可福音15章5-6节`,
-  `可15:5`. Or **browse**: choose a book, then a chapter, then the first and the last verse
+- **Type it** the way you would write it: `Mark 15:5-6` or `Mk 15.5-6`, and Chinese
+  references too. Or **browse**: choose a book, then a chapter, then the first and the last verse
   (choose one verse twice for that verse alone). **Continue into chapter …** carries a range
   into the next chapter. Words that are not a reference, such as `love your enemies`, search
   the Bible after a pause.
@@ -128,7 +128,7 @@ beside the song search on the Present page (or in the calendar's run sheet edito
   **Edit…** opens the Bible window on it to change the verses or its versions, keeping its
   place. Changing the workspace's versions never changes passages already added.
 - **Notes under a passage** (ⓘ) explain why it may look different from the speaker's Bible:
-  a version that joins two verses into one (当代译本 joins 1 Chronicles 16:12–13), or one that
+  a version that joins two verses into one (the Chinese Contemporary Bible joins 1 Chronicles 16:12–13), or one that
   has no such verse (NIVUK has no Revelation 12:18). The screen never shows these notes.
 - Passages have **their own background**: **Settings → Background → Bible** sets one for every
   passage, apart from songs' backgrounds. They are on black until you choose another, or

@@ -314,10 +314,10 @@ never sent to a desktop or a phone, and the admin app shows only whether each is
 
 | Provider | Variable | Where to get a key | What it serves |
 | --- | --- | --- | --- |
-| YouVersion Platform | `WORSHIP_Q_YOUVERSION_KEY` | Register an app at developers.youversion.com; accept each publisher's licence (Biblica for NIV and 当代译本, Lockman for NASB) in the portal, or those versions answer 403 | NIVUK, 当代译本 (CCB, CCBT), 中文标准译本 (CSBS, CSBT), BSB |
-| API.Bible | `WORSHIP_Q_API_BIBLE_KEY` | api.bible; the Starter plan allows 5,000 calls a month for the whole church | NKJV, NLT, KJV, and NIVUK and the open 当代译本 as fallbacks |
+| YouVersion Platform | `WORSHIP_Q_YOUVERSION_KEY` | Register an app at developers.youversion.com; accept each publisher's licence (Biblica for NIV and the Chinese Contemporary Bible, Lockman for NASB) in the portal, or those versions answer 403 | NIVUK, Chinese Contemporary Bible (CCB, CCBT), Chinese Standard Bible (CSBS, CSBT), BSB |
+| API.Bible | `WORSHIP_Q_API_BIBLE_KEY` | api.bible; the Starter plan allows 5,000 calls a month for the whole church | NKJV, NLT, KJV, and NIVUK and the open Chinese Contemporary Bible as fallbacks |
 | ESV API | `WORSHIP_Q_ESV_KEY` | api.esv.org | ESV |
-| Free Use Bible API | — | No key | 新标点和合本 (CUNP-S, CUNP-T), KJV, BSB, 当代译本 and 中文标准译本 as fallbacks |
+| Free Use Bible API | — | No key | Chinese Union Version with New Punctuation (CUNP-S, CUNP-T), KJV, BSB, and the Chinese Contemporary Bible and Chinese Standard Bible as fallbacks |
 
 The keys belong to the church, registered by the church for its own use, as each provider's
 terms require (see the Bible passages discovery, §4). Set them in `.env` beside the others

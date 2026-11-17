@@ -9,15 +9,19 @@ export const SUMMARY =
 export interface Feature {
   title: string;
   text: string;
+  /** The feature's own page on the site, when it has one. */
+  page?: string;
 }
 
 export const FEATURES: Feature[] = [
   {
     title: 'Songs in any language',
+    page: '/bilingual-lyrics/',
     text: 'Search by title or lyrics, and Chinese songs by pinyin or initials. A line in one language and the same line in another share a slide.',
   },
   {
     title: 'Bible passages',
+    page: '/bible/',
     text: "With your church's server: type a reference such as Mark 15:5-6, or browse by book and chapter, and show up to two versions side by side.",
   },
   {
@@ -30,14 +34,17 @@ export const FEATURES: Feature[] = [
   },
   {
     title: 'Projector and live stream together',
+    page: '/obs/',
     text: 'A full-screen slideshow with image or video backgrounds, and a subtitle overlay for OBS. Switch OBS scenes and start the stream from Worship Q.',
   },
   {
     title: 'Control from a phone',
+    page: '/phone-remote/',
     text: 'Scan a QR code, approve the phone once, and move through the slides or add a Bible passage from anywhere in the room.',
   },
   {
     title: 'Several computers, one presentation',
+    page: '/several-computers/',
     text: 'Every connected computer shows the same slide. If the presenting one fails, another carries on from the same slide.',
   },
   {

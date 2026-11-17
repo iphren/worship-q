@@ -13,7 +13,13 @@ on:
     types: [published]
   push:
     branches: [main]
-    paths: [apps/website/**, apps/screenshots/**, .github/workflows/website.yml]
+    paths:
+      - apps/website/**
+      - apps/screenshots/**
+      # The guides are pages of the site.
+      - docs/volunteer-guide.md
+      - docs/server-deployment.md
+      - .github/workflows/website.yml
   workflow_dispatch:
   # Every Monday morning, so the screenshots' run sheet is always the coming Sunday's.
   schedule:

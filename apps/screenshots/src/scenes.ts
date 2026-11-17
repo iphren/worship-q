@@ -44,6 +44,13 @@ export const SCENES: Scene[] = [
     },
   },
   {
+    name: 'slideshow-bilingual',
+    async setup(page, tools) {
+      await show(page, 'Adeste fideles');
+      return tools.slideshow();
+    },
+  },
+  {
     name: 'calendar',
     async setup(page) {
       await page.getByRole('button', { name: 'Calendar', exact: true }).click();

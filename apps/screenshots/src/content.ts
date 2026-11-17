@@ -14,6 +14,29 @@ export interface Hymn {
 
 export const HYMNS: Hymn[] = [
   {
+    // Two languages on one slide: each Latin line followed by Oakeley's English (1841).
+    title: 'O Come, All Ye Faithful',
+    author: 'Words: John Francis Wade; Translator: Frederick Oakeley',
+    year: 1751,
+    lyrics: `Adeste fideles,
+O come, all ye faithful,
+Laeti triumphantes,
+Joyful and triumphant,
+Venite, venite in Bethlehem.
+O come ye, O come ye to Bethlehem.
+Natum videte,
+Come and behold Him,
+Regem angelorum.
+Born the King of angels;
+
+Venite adoremus,
+O come, let us adore Him,
+Venite adoremus,
+O come, let us adore Him,
+Venite adoremus Dominum.
+O come, let us adore Him, Christ the Lord.`,
+  },
+  {
     title: 'Amazing Grace',
     author: 'John Newton',
     year: 1779,
@@ -338,4 +361,5 @@ export const RUN_SHEET: (string | Passage | Sermon | VideoItem)[] = [
   SERMON,
   'Amazing Grace',
   'It Is Well with My Soul',
+  'O Come, All Ye Faithful',
 ];

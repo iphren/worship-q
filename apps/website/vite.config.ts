@@ -1,17 +1,25 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite';
 import { FEATURES, SUMMARY } from './src/content.ts';
 import { FAQ } from './src/faq.ts';
-import { indexMd, llmsFullTxt, llmsTxt, SITE, type ReleaseFacts } from './src/llms.ts';
+import { ANALYTICS, footer, header, SITE } from './src/layout.ts';
+import { indexMd, llmsFullTxt, llmsTxt, type ReleaseFacts } from './src/llms.ts';
+import { buildPages, PAGES as MARKDOWN_PAGES, type BuiltPage } from './src/pages.ts';
 
 // The public site at worship-q.com, built again whenever a release is published.
 const REPO = 'iphren/worship-q';
 const RELEASES = `https://github.com/${REPO}/releases`;
 
 /** The pages listed in the sitemap, by path. */
-const PAGES = ['/'];
+const PAGES = ['/', ...MARKDOWN_PAGES.map((page) => page.path)];
+
+/**
+ * Where the Markdown pages are written as HTML for Vite to build (git-ignored). Each moves to
+ * its own address, such as `/guide/`, when the build is written out.
+ */
+const GENERATED = resolve(import.meta.dirname, 'generated');
 
 /** The installer each download button serves, by the end of its file name. */
 const INSTALLERS = {
@@ -56,8 +64,10 @@ const jsonLd = (data: object): HtmlTagDescriptor => ({
 /** The features as they appear on the page. */
 function featuresHtml(): string {
   return FEATURES.map(
-    ({ title, text }) =>
-      `<div><h3 class="font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-sm text-slate-400">${escapeHtml(text)}</p></div>`,
+    ({ title, text, page }) =>
+      `<div><h3 class="font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-sm text-slate-400">${escapeHtml(text)}${
+        page ? ` <a href="${page}" class="text-sky-400 hover:text-sky-300">More</a>` : ''
+      }</p></div>`,
   ).join('\n');
 }
 
@@ -196,6 +206,9 @@ function releaseInfo(): Plugin {
         .replaceAll('%RELEASE_DATE%', page.date ?? '—')
         .replaceAll('%RELEASE_URL%', page.notesUrl)
         .replace('%SUMMARY%', escapeHtml(SUMMARY))
+        .replace('<!-- %HEADER% -->', header('/'))
+        .replace('<!-- %FOOTER% -->', footer())
+        .replace('<!-- %ANALYTICS% -->', ANALYTICS)
         .replace('<!-- %FEATURES% -->', featuresHtml())
         .replace('<!-- %FAQ% -->', faqHtml());
       return { html, tags: structuredData(release, installers) };
@@ -224,6 +237,72 @@ function releaseInfo(): Plugin {
 }
 
 /**
+ * The Markdown pages (src/pages.ts): written as HTML into `generated/` for Vite to build, served
+ * at their own addresses in development, moved there in the build, each with its Markdown
+ * copy beside it as `index.md`.
+ */
+function markdownPages(): Plugin {
+  let built: BuiltPage[] = [];
+  const file = (path: string) => resolve(GENERATED, `.${path}`, 'index.html');
+  return {
+    name: 'markdown-pages',
+    enforce: 'post',
+    async config() {
+      built = await buildPages(REPO);
+      rmSync(GENERATED, { recursive: true, force: true });
+      for (const page of built) {
+        mkdirSync(dirname(file(page.spec.path)), { recursive: true });
+        writeFileSync(file(page.spec.path), page.html);
+      }
+      return {
+        build: {
+          rollupOptions: {
+            input: Object.fromEntries(
+              built.map((page) => [
+                `page-${page.spec.path.replaceAll('/', '')}`,
+                file(page.spec.path),
+              ]),
+            ),
+          },
+        },
+      };
+    },
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const path = req.url?.split('?')[0] ?? '';
+        const page = built.find((p) => p.spec.path === path || `${p.spec.path}index.md` === path);
+        if (page)
+          req.url = path.endsWith('.md') ? `/generated${path}` : `/generated${path}index.html`;
+        next();
+      });
+      // The Markdown copies, for the development server.
+      for (const page of built)
+        writeFileSync(resolve(dirname(file(page.spec.path)), 'index.md'), page.markdown);
+    },
+    generateBundle(_options, bundle) {
+      // Each page moves from generated/ to its own address. Rolldown takes no new entries
+      // in `bundle`, so the page is emitted again under its new name.
+      for (const [name, output] of Object.entries(bundle)) {
+        if (!name.startsWith('generated/') || output.type !== 'asset') continue;
+        delete bundle[name];
+        this.emitFile({
+          type: 'asset',
+          fileName: name.slice('generated/'.length),
+          source: output.source,
+        });
+      }
+      for (const page of built) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `${page.spec.path.slice(1)}index.md`,
+          source: page.markdown,
+        });
+      }
+    },
+  };
+}
+
+/**
  * Checks that every screenshot the pages show is in `public/screenshots`. They are rendered
  * from the app by `pnpm screenshots apps/website/public/screenshots`, not kept in git.
  */
@@ -244,7 +323,7 @@ function screenshots(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [tailwindcss(), releaseInfo(), screenshots()],
+  plugins: [tailwindcss(), releaseInfo(), markdownPages(), screenshots()],
   build: {
     rollupOptions: {
       input: {
