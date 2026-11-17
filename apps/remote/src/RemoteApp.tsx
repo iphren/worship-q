@@ -371,7 +371,6 @@ function Live({ view }: { view: RemoteView | null }) {
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <LanguageButton />
             {/* On a phone on its side, a dot that says the same. */}
             <span
               className={`rounded-full px-2 py-0.5 text-xs land:h-2.5 land:w-2.5 land:p-0 ${
@@ -385,6 +384,7 @@ function Live({ view }: { view: RemoteView | null }) {
                 {t(connected ? 'live.connected' : 'live.reconnecting')}
               </span>
             </span>
+            <LanguageButton />
             {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
             {(canEdit || editing) && (
               <button
