@@ -60,7 +60,7 @@ No phone app exists; a phone is a browser page served by the church server.
 
 | Item | Source |
 | --- | --- |
-| Voice recognition with automatic slide switching | Spec §17 |
+| Voice recognition with automatic slide switching | Spec §17; [requirements](voice-recognition-requirements.md) and [discovery](voice-recognition-discovery.md) drafted 17 November 2026 |
 | Automatic translation | Spec §17 (later, optional) |
 | Semantic verse and chorus structures | Spec §17 (deferred) |
 | Automatic coordinator election and failover; recovery stays the operator's **Carry on here** | Phase 2 §3, D18; spec §17 (deferred) |
