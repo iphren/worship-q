@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.8.0](https://github.com/iphren/worship-q/compare/v2.7.0...v2.8.0) (2026-11-17)
+
+
+### Features
+
+* a pin button on the run sheet adds pinned items in one click ([154379f](https://github.com/iphren/worship-q/commit/154379fd57294e6dc0a81849868dca0939652131))
+* a setting swaps the arrow keys, so left and right step through slides ([790d15d](https://github.com/iphren/worship-q/commit/790d15d7ab5c93d12a1e6c88a3c5f55c5fe2c2dd))
+* admin presentation log comes before the recordings, in a box twice as tall ([670b3bd](https://github.com/iphren/worship-q/commit/670b3bd1fc3943cce1e0d93e0d43a9964c0a9484))
+* admin run sheet sits under the calendar, with the day's recordings and log beside them ([7ebc95b](https://github.com/iphren/worship-q/commit/7ebc95b9cdcad8a05565659c065331e1190aec24))
+* admin run sheets and records share one date, and the presentation log scrolls in its own box ([35f5998](https://github.com/iphren/worship-q/commit/35f599884819c8fcdad1383322d40da1ebf472f9))
+* columns from two wide, and the focused column comes to the middle ([97848de](https://github.com/iphren/worship-q/commit/97848ded47cba9c15385ff4e4217cbc958614734))
+* from three columns wide, the focused column sits second from the left ([69b9904](https://github.com/iphren/worship-q/commit/69b9904bf9c20c8bcbd1766c70b9b6821f0d06f9))
+* horizontal present layout ([6d7f836](https://github.com/iphren/worship-q/commit/6d7f8360b07bff26e8774ecfbce003d9969697de))
+* present page drops the slideshow and OBS tabs, the slideshow preview sits beside the OBS monitor ([863b608](https://github.com/iphren/worship-q/commit/863b608864ad7abde99071bfa5b6dc049c27c181))
+* present page slideshow preview matches the OBS monitor's height, titled with the item presented ([5aa4bff](https://github.com/iphren/worship-q/commit/5aa4bffde8a4ed1bd055de8e9f4e94be6b0b6c32))
+* sidebar puts Present first, then the calendar, the library and settings ([95bb4ad](https://github.com/iphren/worship-q/commit/95bb4adff91237aa18eb6c71de708241de17da5b))
+* the present page lays run sheet items side by side as columns ([cbc141e](https://github.com/iphren/worship-q/commit/cbc141e59665cae30faa70cc0188b2f7986348e4))
+* the Present tab's broadcast banner shows the input level ([d61f754](https://github.com/iphren/worship-q/commit/d61f754cc4da9df5b31bae197b11c5bb764bf03b))
+* the Present tab's broadcast banner shows the input level ([eb1e1c4](https://github.com/iphren/worship-q/commit/eb1e1c4e7d2bb06034008c2871c0b198b791596f))
+* the run sheet item menu has an Autoplay checkbox and Reconvert ([9a8758e](https://github.com/iphren/worship-q/commit/9a8758e931793c26c4e84c3e336bc0cf5fe398f3))
+* the run sheet's quick Edit window has the media file buttons ([46522e8](https://github.com/iphren/worship-q/commit/46522e85c900d707005d7f491abca75a8bf95905))
+* the run sheet's song search and add buttons are one box ([46a506a](https://github.com/iphren/worship-q/commit/46a506a46a66eb60f83413ddca9d0937bfad73dc))
+* the viewer's simple view shows the update restart banner ([e02a406](https://github.com/iphren/worship-q/commit/e02a40655052ab864f691405923be13a117e8ced))
+
+
+### Bug Fixes
+
+* presenting no longer lags with the window minimized or on another desktop on macOS ([64fe4f3](https://github.com/iphren/worship-q/commit/64fe4f330a729a8359abea7141bb7498c9771b9f))
+* slideshow video no longer stutters on starting or when Settings opens ([f12d7eb](https://github.com/iphren/worship-q/commit/f12d7ebf7de376c342605be19461d36dbd398f88))
+* the slideshow keeps its pace out of view on macOS too ([ce5a4f1](https://github.com/iphren/worship-q/commit/ce5a4f150fb005ae36da33d2d4f93521ae72f60d))
+
 ## [2.7.0](https://github.com/iphren/worship-q/compare/v2.6.0...v2.7.0) (2026-11-15)
 
 
