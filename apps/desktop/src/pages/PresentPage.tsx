@@ -404,10 +404,7 @@ function Live(props: { viewOnly?: boolean }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <ObsLiveMonitor
-            slideshow={<SlidePreview />}
-            slideshowTitle={presentedTitle(entries, presented)}
-          />
+          <ObsLiveMonitor />
           <div ref={areaRef} className="relative min-h-0 flex-1">
             <main
               ref={slidesRef}
