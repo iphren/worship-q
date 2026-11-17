@@ -42,7 +42,12 @@ import type { RunSheetChange, Session } from '@worship-q/session';
 import type { AudioShare } from './audioShare';
 import type { ObsShare } from './obsShare';
 
-/** Snapshots are sent at most this often; a burst of changes is sent together. */
+/**
+ * Snapshots are sent at most this often. A change after a quiet spell is sent at once, and
+ * those that follow it within this time are sent together at its end: a lone command, such
+ * as one tap on a remote, never waits on a timer, which the system may hold back while the
+ * window is out of view.
+ */
 const PUBLISH_DELAY_MS = 100;
 /** The server copy is refreshed at most this often (decision D17). */
 const BACKUP_DELAY_MS = 1000;
@@ -141,6 +146,8 @@ export class LiveLink {
   private readonly watch = new CoordinatorWatch();
   private lastPublished: LiveSnapshot | null = null;
   private publishTimer: ReturnType<typeof setTimeout> | null = null;
+  /** When a snapshot was last sent, by `now`; null before the first. */
+  private publishedAt: number | null = null;
   private backupTimer: ReturnType<typeof setTimeout> | null = null;
   private backupDue: LiveSnapshot | null = null;
   private aliveTimer: ReturnType<typeof setInterval> | null = null;
@@ -714,15 +721,20 @@ export class LiveLink {
 
   private schedulePublish(): void {
     if (!this.coordinator || this.publishTimer) return;
+    const since = this.publishedAt === null ? Infinity : this.now() - this.publishedAt;
+    // A clock that went backwards waits the whole time, as if a snapshot had just been sent.
+    const wait = since >= PUBLISH_DELAY_MS ? 0 : PUBLISH_DELAY_MS - Math.max(since, 0);
+    if (wait === 0) return void this.publishNow();
     this.publishTimer = setTimeout(() => {
       this.publishTimer = null;
       void this.publishNow();
-    }, PUBLISH_DELAY_MS);
+    }, wait);
   }
 
   private async publishNow(): Promise<void> {
     const coordinator = this.coordinator;
     if (!coordinator) return;
+    this.publishedAt = this.now();
     const outbound = await coordinator.publish();
     if (this.coordinator !== coordinator || outbound.message.type !== 'snapshot') return;
     await this.reserveRevisions(outbound.message.snapshot.revision);

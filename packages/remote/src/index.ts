@@ -153,7 +153,11 @@ export const PHONE_AUDIO_GRACE_MS = 10_000;
 export const INVITE_MS = 15 * 60 * 1000;
 /** A request not answered in this time is dropped. */
 const REQUEST_MS = 5 * 60 * 1000;
-/** Bursts of changes are sent to phones together. */
+/**
+ * Views are sent to phones at most this often. A change after a quiet spell is sent at once,
+ * and those that follow it within this time are sent together at its end, so a lone change
+ * never waits on a timer, which the system may hold back while the window is out of view.
+ */
 const VIEW_DELAY_MS = 80;
 /** How long the operator is shown a remote edit, and can undo it from the notice. */
 export const NOTICE_MS = 20_000;
@@ -272,6 +276,8 @@ export class RemoteHost {
   private readonly noticeTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly listeners = new Set<() => void>();
   private viewTimer: ReturnType<typeof setTimeout> | null = null;
+  /** When a view was last sent to phones, by the clock; null before the first. */
+  private viewSentAt: number | null = null;
   private unsubscribe: (() => void) | null = null;
   private version_ = 0;
   private coordination: RemoteCoordination | null = null;
@@ -847,14 +853,19 @@ export class RemoteHost {
 
   private scheduleView(): void {
     if (!this.link || this.controllers.size === 0 || this.viewTimer) return;
+    const since = this.viewSentAt === null ? Infinity : this.clock() - this.viewSentAt;
+    // A clock that went backwards waits the whole time, as if a view had just been sent.
+    const wait = since >= VIEW_DELAY_MS ? 0 : VIEW_DELAY_MS - Math.max(since, 0);
+    if (wait === 0) return void this.sendView();
     this.viewTimer = setTimeout(() => {
       this.viewTimer = null;
       void this.sendView();
-    }, VIEW_DELAY_MS);
+    }, wait);
   }
 
   private async sendView(): Promise<void> {
     if (!this.link || this.controllers.size === 0) return;
+    this.viewSentAt = this.clock();
     const view = await this.view();
     for (const connection of this.controllers.keys()) {
       this.link?.send(connection, { type: 'view', view });

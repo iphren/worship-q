@@ -49,6 +49,8 @@ pub fn run() {
                 restore_main_window(&window);
                 // Presenting carries on at full speed behind a slideshow on the same screen.
                 output::ignore_covering(window.as_ref());
+                // Its heartbeats keep their time while it is minimized.
+                output::steady_timers(window.as_ref());
             }
             let root = app.path().app_data_dir()?;
             app.manage(instances::Instances::start(app.handle().clone(), &root));

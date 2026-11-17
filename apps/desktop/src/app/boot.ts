@@ -4,6 +4,7 @@ import { tauriDriver } from '../platform/native';
 import { CloudController } from './cloud';
 import { deviceSettings } from './deviceSettings';
 import { OutputController } from './output';
+import { needsSteadyPace, SteadyPace } from './steadyPace';
 import { UpdateController } from './update';
 
 /** Keeps the live state from expiring while the app is open. */
@@ -35,6 +36,13 @@ export async function boot(): Promise<Booted> {
     reportUsage: (tokens, liveSession) => cloud?.bible.reportUsage(tokens, liveSession),
   });
   window.setInterval(() => void session.heartbeat(), HEARTBEAT_MS);
+  // Presenting carries on at full speed with the window minimized or on another desktop.
+  if (needsSteadyPace(navigator.userAgent)) {
+    const pace = new SteadyPace();
+    const keepPace = () => pace.set(session.isLive);
+    session.subscribe(keepPace);
+    keepPace();
+  }
   const output = new OutputController(session);
   await output.start();
   cloud = new CloudController(session, output);

@@ -46,6 +46,53 @@ pub fn ignore_covering(webview: &tauri::Webview) {
 #[cfg(not(target_os = "macos"))]
 pub fn ignore_covering(_webview: &tauri::Webview) {}
 
+/// Has a page's repeating timers keep their time while its window is minimized. WebKit
+/// counts a minimized window's page as hidden whatever `ignore_covering` asked, and holds a
+/// hidden page's timers to once a second, more with time, whatever the throttling policy
+/// says: the heartbeats to the other devices then come late. As with `ignore_covering`,
+/// WebKit offers this only outside its public interface, so it is asked for only where it
+/// is there. The interface keeps the page's process itself from being slowed (its
+/// `steadyPace`).
+#[cfg(target_os = "macos")]
+pub fn steady_timers(webview: &tauri::Webview) {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2::{msg_send, sel};
+
+    let _ = webview.with_webview(|platform| {
+        let view = platform.inner() as *const AnyObject;
+        let Some(view) = (unsafe { view.as_ref() }) else {
+            return;
+        };
+        // The view's configuration is a copy, but its preferences are the view's own.
+        let configuration: Option<Retained<AnyObject>> = unsafe { msg_send![view, configuration] };
+        let Some(configuration) = configuration else {
+            return;
+        };
+        let preferences: Option<Retained<AnyObject>> =
+            unsafe { msg_send![&*configuration, preferences] };
+        let Some(preferences) = preferences else {
+            return;
+        };
+        let throttling = sel!(_setHiddenPageDOMTimerThrottlingEnabled:);
+        let known: bool = unsafe { msg_send![&*preferences, respondsToSelector: throttling] };
+        if known {
+            let _: () =
+                unsafe { msg_send![&*preferences, _setHiddenPageDOMTimerThrottlingEnabled: false] };
+        }
+        let increasing = sel!(_setHiddenPageDOMTimerThrottlingAutoIncreases:);
+        let known: bool = unsafe { msg_send![&*preferences, respondsToSelector: increasing] };
+        if known {
+            let _: () = unsafe {
+                msg_send![&*preferences, _setHiddenPageDOMTimerThrottlingAutoIncreases: false]
+            };
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn steady_timers(_webview: &tauri::Webview) {}
+
 /// Tells macOS the app is at work for its user while the slideshow is open, so the app is
 /// not napped once none of its windows is in view: with one display, moving to another
 /// desktop takes them all away, and the napped app would be slow to pass on what a remote
@@ -260,6 +307,7 @@ pub async fn open_output(
                     .map_err(|e| e.to_string())?;
             // A windowed slideshow can itself be covered, by the main window.
             ignore_covering(built.as_ref());
+            steady_timers(built.as_ref());
             set_presenting(true);
             built.as_ref().window()
         }
