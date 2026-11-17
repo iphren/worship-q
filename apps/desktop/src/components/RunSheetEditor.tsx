@@ -55,8 +55,11 @@ export function RunSheetEditor(props: {
   live?: boolean;
   /** Kept at the bottom, under the song search. */
   footer?: ReactNode;
-  /** Shown under the song search while nothing is typed in it, where the results would go. */
-  idleBelowSearch?: ReactNode;
+  /**
+   * Shown under the song search while nothing is typed in it, where the results would go, or
+   * straight under the items when there is no search.
+   */
+  preview?: ReactNode;
   /** Shows the song search for its `/` shortcut when it is on a tab that is not shown. */
   onRevealSearch?: () => void;
   /** Shows the items only: no search, no moving, no item menu (viewer mode). */
@@ -528,6 +531,7 @@ export function RunSheetEditor(props: {
         })}
         {dropAt !== null && dropAt >= entries.length && <DropMark />}
       </ol>
+      {!editable && props.preview && <div className="mt-1.5">{props.preview}</div>}
       {editable && (
         <div className={`flex flex-col gap-1.5 ${idle ? '' : 'min-h-40 flex-1'}`}>
           {/* The search and the add buttons are one box: the search over a row of buttons. */}
@@ -621,7 +625,7 @@ export function RunSheetEditor(props: {
               />
             </div>
           </div>
-          {idle && props.idleBelowSearch}
+          {idle && props.preview}
           {!idle && (
             <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
               {searchReference && (

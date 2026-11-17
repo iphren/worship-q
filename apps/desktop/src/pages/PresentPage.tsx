@@ -340,6 +340,7 @@ function Live(props: { viewOnly?: boolean }) {
                 onSelectItem={showItem}
                 live
                 readOnly
+                preview={<SlidePreview />}
                 footer={
                   // A viewer moves no slides, but opens and places its own output.
                   <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
@@ -354,7 +355,7 @@ function Live(props: { viewOnly?: boolean }) {
                 keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
                 onSelectItem={showItem}
                 live
-                idleBelowSearch={<SlidePreview />}
+                preview={<SlidePreview />}
                 footer={
                   <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
                     <button
