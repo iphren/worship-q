@@ -30,9 +30,9 @@ import { SettingsPage } from './pages/SettingsPage';
 import { SongsPage } from './pages/SongsPage';
 
 const PAGES: { page: Page; label: MessageKey; icon: IconName }[] = [
-  { page: 'songs', label: 'nav.songs', icon: 'songs' },
-  { page: 'calendar', label: 'nav.calendar', icon: 'calendar' },
   { page: 'present', label: 'nav.present', icon: 'screen' },
+  { page: 'calendar', label: 'nav.calendar', icon: 'calendar' },
+  { page: 'songs', label: 'nav.songs', icon: 'songs' },
   { page: 'settings', label: 'nav.settings', icon: 'settings' },
 ];
 
