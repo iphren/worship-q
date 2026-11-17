@@ -12,6 +12,7 @@ import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
 import { t } from '../i18n';
 import { useEdgeScroll } from '../lib/edgeScroll';
+import { scrollAlong, scroller, scrollToNearest, span } from '../lib/presentLayout';
 import { dropIndex, inside, useFileDrop, type Point } from '../lib/fileDrop';
 import { native } from '../platform/native';
 import { BibleWindow } from './BibleWindow';
@@ -36,6 +37,17 @@ import { SongPeek } from './SongPeek';
 import { DeckBadge } from './DeckBadge';
 
 type Drag = { id: string; from: number; to: number; dy: number; step: number };
+
+/**
+ * Scrolls the run sheet just far enough to show an item's row, if it is out of view. Only the
+ * list moves, never the panels around it.
+ */
+function scrollRowIntoView(list: HTMLElement | null, itemId: string | null | undefined) {
+  const row = itemId && list?.querySelector(`li[data-item-id="${CSS.escape(itemId)}"]`);
+  if (!list || !row) return;
+  const to = scrollToNearest(scroller(list, 'y'), span(row, 'y'));
+  if (Math.abs(to - list.scrollTop) >= 1) scrollAlong(list, 'y', to);
+}
 
 function reorder<T>(list: readonly T[], from: number, to: number): T[] {
   const next = [...list];
@@ -100,6 +112,22 @@ export function RunSheetEditor(props: {
   const mode = props.live ? 'live' : 'plan';
   useScrollMemory(listRef, `runSheet:${mode}:${date}`);
   useScrollMemory(songsRef, `runSheet.songs:${mode}:${search}`);
+  // Read, not watched: finishing a drag leaves the list where the row was dropped.
+  const dragging = useRef(false);
+  dragging.current = drag !== null;
+  // On the Present tab the list keeps in view the item the keys have moved to and the presented
+  // one, whether this computer or a phone moved it: each time either changes, the list scrolls
+  // just far enough to show it. Rows already in view stay where they are.
+  const rowShown = (id: string | null | undefined) =>
+    !!id && entries.some((entry) => entry.item.id === id);
+  const keyedShown = rowShown(props.keyedItemId);
+  const activeShown = rowShown(props.activeItemId);
+  useEffect(() => {
+    if (props.live && !dragging.current) scrollRowIntoView(listRef.current, props.keyedItemId);
+  }, [props.live, props.keyedItemId, keyedShown]);
+  useEffect(() => {
+    if (props.live && !dragging.current) scrollRowIntoView(listRef.current, props.activeItemId);
+  }, [props.live, props.activeItemId, activeShown]);
   const grab = useRef<{
     y: number;
     scroll: number;
@@ -455,6 +483,7 @@ export function RunSheetEditor(props: {
             <DropLine key={entry.item.id} show={dropAt === index}>
               <li
                 data-item
+                data-item-id={entry.item.id}
                 className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
                   entry.item.id === drag?.id
                     ? 'relative z-10 bg-slate-700 shadow-lg ring-1 ring-sky-500'
