@@ -63,13 +63,17 @@ Besides the home page, the site has Markdown pages: the volunteer and server gui
 `docs/`, feature and comparison pages from `apps/website/pages/`, and release notes from
 GitHub, all listed in `apps/website/src/pages.ts`. Each is published with its Markdown copy
 beside it (`/guide/index.md`) and in the sitemap and `llms.txt`. Editing `docs/volunteer-guide.md`
-or `docs/server-deployment.md` changes the site: keep them free of Chinese text, which belongs
-in the Chinese site to come.
+or `docs/server-deployment.md` changes the site: keep the English pages free of Chinese text.
+The site is also in Simplified and Traditional Chinese, under `/zh-hans/` and `/zh-hant/`: the
+pages are in `docs/zh-hans/`, `docs/zh-hant/`, `apps/website/pages/zh-hans/` and
+`apps/website/pages/zh-hant/`, the rest in `apps/website/src/zh-hans.ts` and `zh-hant.ts`. An
+English change needs the same change there ([translation plan](docs/translation-plan.md) §8).
 
 The page's screenshots are not kept in git. `apps/screenshots` renders them from the desktop
 app's own code: it runs the app's front end in headless Chromium with Tauri's native side
 replaced by a stand-in, and a database filled with public-domain hymns and Psalm 23 (BSB and
-KJV). The workflow renders them on Linux before each build, with Inter standing in for the system
+KJV); in Chinese (`SCREENSHOT_LANG=zh-Hans` or `zh-Hant`), also songs and Psalm 23 from the
+1919 Chinese Union Version (`content-zh.ts`). The workflow renders them on Linux before each build, with Inter standing in for the system
 font (`apps/screenshots/linux`), so they always show the current interface. Scenes are in `apps/screenshots/src/scenes.ts`, the content in `content.ts`.
 
 ```sh

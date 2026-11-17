@@ -1,13 +1,15 @@
 // What worship-q.com says about Worship Q, kept here once: the build writes it into the home
-// page, its structured data, llms.txt, llms-full.txt and index.md. Plain text only, in
-// English (a Chinese site comes later); keep every sentence true for the latest release.
-// `CONTENT` holds it per language; llms.txt and index.md stay English.
+// page, its structured data, llms.txt, llms-full.txt and index.md. Plain text only; keep
+// every sentence true for the latest release. `CONTENT` holds it per language, the Chinese
+// in zh-hans.ts and zh-hant.ts; llms.txt and llms-full.txt stay English.
 
 /** One sentence that says what Worship Q is; the page opens with it and others quote it. */
 export const SUMMARY =
   'Worship Q is a free, open-source church presentation app for macOS and Windows that shows song lyrics, Bible passages, slides and videos on the projector and the live stream.';
 
 import type { SiteLocale } from './locales.ts';
+import { content as hans } from './zh-hans.ts';
+import { content as hant } from './zh-hant.ts';
 
 export interface Feature {
   title: string;
@@ -85,10 +87,17 @@ export const FEATURE_LIST = [
   'Works offline with no account',
 ];
 
+/** What the home page says in one language. */
+export interface SiteContent {
+  summary: string;
+  features: Feature[];
+  featureList: string[];
+  platforms: { mac: string; windows: string };
+}
+
 /** The home page's summary, features and feature list, in each of the site's languages. */
-export const CONTENT: Record<
-  SiteLocale,
-  { summary: string; features: Feature[]; featureList: string[] }
-> = {
-  en: { summary: SUMMARY, features: FEATURES, featureList: FEATURE_LIST },
+export const CONTENT: Record<SiteLocale, SiteContent> = {
+  en: { summary: SUMMARY, features: FEATURES, featureList: FEATURE_LIST, platforms: PLATFORMS },
+  'zh-hans': hans,
+  'zh-hant': hant,
 };

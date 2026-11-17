@@ -5,7 +5,14 @@ import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite';
 import { CONTENT } from './src/content.ts';
 import { FAQS } from './src/faq.ts';
 import { HOME } from './src/home.ts';
-import { ANALYTICS, escapeHtml as escapeAttribute, footer, header, SITE } from './src/layout.ts';
+import {
+  alternates,
+  ANALYTICS,
+  escapeHtml as escapeAttribute,
+  footer,
+  header,
+  SITE,
+} from './src/layout.ts';
 import { indexMd, llmsFullTxt, llmsTxt, type ReleaseFacts } from './src/llms.ts';
 import { LOCALE_INFO, localePath, SITE_LOCALES, type SiteLocale } from './src/locales.ts';
 import { buildPages, PAGES as MARKDOWN_PAGES, type BuiltPage } from './src/pages.ts';
@@ -16,15 +23,28 @@ const REPO = 'iphren/worship-q';
 const RELEASES = `https://github.com/${REPO}/releases`;
 
 /** The pages listed in the sitemap, by path, in every language the site has. */
-const PAGES = SITE_LOCALES.flatMap((locale) =>
-  ['/', ...MARKDOWN_PAGES.map((page) => page.path)].map((path) => localePath(locale, path)),
-);
+const PAGES = [
+  ...new Set(
+    SITE_LOCALES.flatMap((locale) =>
+      ['/', ...MARKDOWN_PAGES.map((page) => page.path)].map((path) => localePath(locale, path)),
+    ),
+  ),
+];
 
 /**
- * The home page's language. index.html is the English home page; the other languages' home
- * pages are written from it in phase 2 of the translation plan.
+ * index.html is the English home page. The other languages' are written from it into
+ * `generated/` (as `generated/zh-hans/index.html`), and the build fills each in its language.
+ * The not-found page stays one, in English: GitHub Pages serves only the site's root 404.html.
  */
-const HOME_LOCALE: SiteLocale = 'en';
+const FRAME_PAGES = ['index.html'] as const;
+
+/** The language of a page Vite transforms, from its path: `/generated/zh-hans/index.html`. */
+function pageLocale(path: string): SiteLocale {
+  const match = /^\/generated\/([^/]+)\//.exec(path);
+  return (SITE_LOCALES as readonly string[]).includes(match?.[1] ?? '')
+    ? (match![1] as SiteLocale)
+    : 'en';
+}
 
 /**
  * Where the Markdown pages are written as HTML for Vite to build (git-ignored). Each moves to
@@ -183,17 +203,20 @@ async function releaseFacts(): Promise<Facts> {
     installers: [mac, windows].filter((url): url is string => url !== null),
     page: {
       version: release?.tag_name.replace(/^v/, '') ?? null,
-      date: release
-        ? new Intl.DateTimeFormat(LOCALE_INFO.en.dates, {
-            dateStyle: 'long',
-            timeZone: 'UTC',
-          }).format(new Date(release.published_at))
-        : null,
+      date: release ? releaseDate(release, 'en') : null,
       notesUrl: `${SITE}/releases/`,
       macUrl: mac ?? RELEASES,
       windowsUrl: windows ?? RELEASES,
     },
   };
+}
+
+/** The day a release was published, as written in a language. */
+function releaseDate(release: Release, locale: SiteLocale): string {
+  return new Intl.DateTimeFormat(LOCALE_INFO[locale].dates, {
+    dateStyle: 'long',
+    timeZone: 'UTC',
+  }).format(new Date(release.published_at));
 }
 
 /** The not-found page in a language. */
@@ -220,12 +243,21 @@ function releaseInfo(): Plugin {
   return {
     name: 'release-info',
     async transformIndexHtml(html, ctx) {
-      if (ctx.path === '/404.html') return notFoundHtml(html, HOME_LOCALE);
-      if (ctx.path !== '/index.html') return html;
+      const locale = pageLocale(ctx.path);
+      const file = ctx.path.split('/').pop();
+      if (file === '404.html') return notFoundHtml(html, locale);
+      if (
+        ctx.path !== '/index.html' &&
+        ctx.path !== `/generated${localePath(locale, '/')}index.html`
+      )
+        return html;
       const { release, installers, page } = await getFacts();
-      const locale = HOME_LOCALE;
       const home = HOME[locale];
+      const path = localePath(locale, '/');
       html = html
+        .replace('%ALTERNATES%', alternates('/'))
+        .replaceAll('%URL%', `${SITE}${path}`)
+        .replace('%MARKDOWN%', `${path}index.md`)
         .replace('<!-- %HOME% -->', () => home.body)
         .replace('%LANG%', LOCALE_INFO[locale].lang)
         .replace('%TITLE%', escapeAttribute(home.title))
@@ -237,9 +269,9 @@ function releaseInfo(): Plugin {
         .replaceAll('%MAC_URL%', page.macUrl)
         .replaceAll('%WINDOWS_URL%', page.windowsUrl)
         .replaceAll('%RELEASE_VERSION%', page.version ?? '—')
-        .replaceAll('%RELEASE_DATE%', page.date ?? '—')
+        .replaceAll('%RELEASE_DATE%', release ? releaseDate(release, locale) : '—')
         .replace('%SUMMARY%', escapeHtml(CONTENT[locale].summary))
-        .replace('<!-- %HEADER% -->', header(localePath(locale, '/'), locale))
+        .replace('<!-- %HEADER% -->', header('/', locale))
         .replace('<!-- %FOOTER% -->', footer(locale))
         .replace('<!-- %ANALYTICS% -->', ANALYTICS)
         .replace('<!-- %FEATURES% -->', featuresHtml(locale))
@@ -264,7 +296,11 @@ function releaseInfo(): Plugin {
       );
       emit('llms.txt', llmsTxt(page));
       emit('llms-full.txt', llmsFullTxt(page, readFileSync(VOLUNTEER_GUIDE, 'utf8')));
-      emit('index.md', indexMd(page));
+      for (const locale of SITE_LOCALES)
+        emit(
+          `${localePath(locale, '/').slice(1)}index.md`,
+          indexMd({ ...page, date: release ? releaseDate(release, locale) : null }, locale),
+        );
     },
   };
 }
@@ -287,22 +323,38 @@ function markdownPages(): Plugin {
         mkdirSync(dirname(file(page.path)), { recursive: true });
         writeFileSync(file(page.path), page.html);
       }
+      // The other languages' home and not-found pages, from the English ones.
+      const frames = SITE_LOCALES.filter((locale) => locale !== 'en').flatMap((locale) =>
+        FRAME_PAGES.map((name) => {
+          const target = resolve(GENERATED, `.${localePath(locale, '/')}`, name);
+          mkdirSync(dirname(target), { recursive: true });
+          writeFileSync(target, readFileSync(resolve(import.meta.dirname, name), 'utf8'));
+          return [`${name.replace('.html', '')}-${locale}`, target] as const;
+        }),
+      );
       return {
         build: {
           rollupOptions: {
-            input: Object.fromEntries(
-              built.map((page) => [`page-${page.path.replaceAll('/', '')}`, file(page.path)]),
-            ),
+            input: {
+              ...Object.fromEntries(
+                built.map((page) => [`page-${page.path.replaceAll('/', '')}`, file(page.path)]),
+              ),
+              ...Object.fromEntries(frames),
+            },
           },
         },
       };
     },
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
-        const path = req.url?.split('?')[0] ?? '';
+        const path = decodeURI(req.url?.split('?')[0] ?? '');
         const page = built.find((p) => p.path === path || `${p.path}index.md` === path);
+        const home = SITE_LOCALES.some(
+          (locale) => locale !== 'en' && localePath(locale, '/') === path,
+        );
         if (page)
           req.url = path.endsWith('.md') ? `/generated${path}` : `/generated${path}index.html`;
+        else if (home) req.url = `/generated${path}index.html`;
         next();
       });
       // The Markdown copies, for the development server.

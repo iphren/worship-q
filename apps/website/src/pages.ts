@@ -6,10 +6,18 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Marked, type Tokens } from 'marked';
 import { escapeHtml, pageHtml, REPO_URL, SITE } from './layout.ts';
-import { localePath, type SiteLocale } from './locales.ts';
+import { localePath, SITE_LOCALES, type SiteLocale } from './locales.ts';
+import { pages as hans } from './zh-hans.ts';
+import { pages as hant } from './zh-hant.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DOCS = resolve(ROOT, '../../docs');
+
+/** A page's title and meta description in one language. */
+export interface PageText {
+  title: string;
+  description: string;
+}
 
 export interface PageSpec {
   /** The address on the site, ending in `/`. */
@@ -87,12 +95,28 @@ export const PAGES: PageSpec[] = [
   },
 ];
 
+/** The other languages' titles and descriptions, by the page's English path. */
+const PAGE_TEXT: Record<Exclude<SiteLocale, 'en'>, Record<string, PageText>> = {
+  'zh-hans': hans,
+  'zh-hant': hant,
+};
+
 /**
  * The Markdown pages in each of the site's languages, with their titles and descriptions in
  * that language. A language's sources are in a folder of its name beside the English ones
- * (`pages/zh-hans/`, `docs/zh-hans/`).
+ * (`pages/zh-hans/`, `docs/zh-hans/`). The release notes are in English only.
  */
-export const PAGES_BY_LOCALE: Record<SiteLocale, PageSpec[]> = { en: PAGES };
+export const PAGES_BY_LOCALE: Record<SiteLocale, PageSpec[]> = Object.fromEntries(
+  SITE_LOCALES.map((locale) => [
+    locale,
+    locale === 'en'
+      ? PAGES
+      : PAGES.flatMap((page) => {
+          const text = PAGE_TEXT[locale][page.path];
+          return text ? [{ ...page, ...text }] : [];
+        }),
+  ]),
+) as Record<SiteLocale, PageSpec[]>;
 
 /** Where a language's sources are: the folder itself for English. */
 const localeDir = (base: string, locale: SiteLocale) =>
@@ -116,9 +140,12 @@ function siteLink(href: string, fromDocs: boolean, absolute: boolean, locale: Si
   if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('#')) return href;
   let target = href;
   if (fromDocs && !href.startsWith('/')) {
-    const [file = '', anchor] = href.split('#');
+    // A translated document links to an English one beside it from its own folder.
+    const [file = '', anchor] = href.replace(/^\.\.\//, '').split('#');
     const page = DOC_PAGES.get(file);
-    target = page ? `${page}${anchor ? `#${anchor}` : ''}` : `${REPO_URL}/blob/main/docs/${href}`;
+    target = page
+      ? `${page}${anchor ? `#${anchor}` : ''}`
+      : `${REPO_URL}/blob/main/docs/${file}${anchor ? `#${anchor}` : ''}`;
   }
   // A page links to the site's other pages in its own language; llms.txt is in English only.
   if (target.startsWith('/') && !target.startsWith('/llms')) target = localePath(locale, target);
@@ -271,6 +298,7 @@ export async function buildPages(repo: string, locale: SiteLocale = 'en'): Promi
         html: pageHtml(
           {
             path,
+            page: spec.path,
             title: spec.title,
             description: spec.description,
             markdown: `${path}index.md`,
