@@ -1,0 +1,19 @@
+<!-- Source of public/og.png, the picture shown when a link to worship-q.com is shared.
+     Regenerate with: rsvg-convert -w 1200 -h 630 og-image.svg -o public/og.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="wq-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fee173"/><stop offset="1" stop-color="#fcbb00"/></linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#020617"/>
+  <g transform="translate(96 96) scale(0.25)">
+    <rect width="512" height="512" rx="115" fill="url(#wq-tile)"/>
+    <path transform="translate(256 258) scale(0.72) translate(-250.5 -241)" fill="#0f172b" d="M334.7,243C343.1,230.5,450,119,450,119s-153.4,36.3-160.4,32.9c7.8,3.8-54.4-134.1-61.6-133.9c-4.9,0.2-22,132-36.3,140.5C175.2,168.2,51,189,51,189s100.5,68.6,103.7,83.3C157.3,284.3,117,442,117,442s106.5-90.4,118.8-88.8C253.9,355.6,392,464,392,464S331.4,247.9,334.7,243z"/>
+  </g>
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="252" y="165" font-size="56" font-weight="700" fill="#f1f5f9">Worship Q</text>
+    <text x="96" y="330" font-size="64" font-weight="700" fill="#f1f5f9">Every screen. In harmony.</text>
+    <text x="96" y="410" font-size="34" fill="#cbd5e1">Free church presentation software for lyrics,</text>
+    <text x="96" y="458" font-size="34" fill="#cbd5e1">Bible passages, slides and the live stream.</text>
+    <text x="96" y="550" font-size="28" fill="#94a3b8">macOS and Windows · open source · worship-q.com</text>
+  </g>
+</svg>

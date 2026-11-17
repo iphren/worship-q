@@ -27,3 +27,24 @@ body {
 .download[data-primary] small {
   @apply text-slate-800;
 }
+
+.faq summary {
+  @apply cursor-pointer list-none py-4 font-medium text-slate-100 hover:text-white;
+}
+
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq summary::after {
+  content: '+';
+  @apply float-right text-slate-500;
+}
+
+.faq[open] summary::after {
+  content: '−';
+}
+
+.faq p {
+  @apply pb-4 text-sm text-slate-400;
+}

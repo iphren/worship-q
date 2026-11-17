@@ -48,3 +48,16 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment
+
+  # Tells Bing (and through it ChatGPT search and Copilot) and the other IndexNow engines that
+  # the site changed, so a new release is crawled within hours. The key is the file in
+  # apps/website/public named after it. A failed ping never fails the deploy.
+  indexnow:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' \
+            -d '{"host":"worship-q.com","key":"d0de7861dfc420c4e31cfe9ff3e0fde6","keyLocation":"https://worship-q.com/d0de7861dfc420c4e31cfe9ff3e0fde6.txt","urlList":["https://worship-q.com/"]}' \
+            -w 'IndexNow: HTTP %{http_code}\n' || true

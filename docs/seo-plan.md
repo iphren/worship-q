@@ -42,6 +42,9 @@ specific searches that match what is different about Worship Q:
 
 ## Phase 1 — Get indexed (a day, mostly by hand)
 
+**Status (17 November 2026):** 3–6 done. 1 and 2 (Search Console, Bing) wait on the owner's
+accounts.
+
 1. **Google Search Console**: add `worship-q.com` as a domain property, verify with a DNS TXT
    record, submit the sitemap, request indexing of the home page. _(Your account; manual.)_
 2. **Bing Webmaster Tools**: import from Search Console, submit the sitemap. This is what
@@ -62,6 +65,10 @@ specific searches that match what is different about Worship Q:
    are read by AI crawlers, so this is the cheapest win.
 
 ## Phase 2 — Make the home page say what it is (code, `apps/website`)
+
+**Status (17 November 2026):** done except 6: no app screenshots yet. The share image
+(`apps/website/og-image.svg` → `public/og.png`) is a designed card for now; swap in a real
+screenshot when there is one. FAQ answers live in `apps/website/src/faq.ts`.
 
 1. **Title and description** with the words people search:
    - Title: `Worship Q — free church presentation software for lyrics, Bible and slides`
