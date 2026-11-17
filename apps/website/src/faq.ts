@@ -56,6 +56,6 @@ export const FAQ: Question[] = [
   {
     question: 'Can I import songs from ProPresenter, EasyWorship or OpenLP?',
     answer:
-      'Not yet. Paste the lyrics of each song as text, with a blank line between sections; Worship Q splits them into slides.',
+      'Not yet. For now, paste the lyrics of each song as text, with a blank line between sections; Worship Q splits them into slides. If your church would like to move over and needs an import, email hello@ihs.technology to talk about it. Pull requests are welcome too at github.com/iphren/worship-q.',
   },
 ];
