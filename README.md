@@ -193,10 +193,9 @@ If a release turns out bad, mark the previous release as latest again, or edit i
 `latest.json` back. Then ship a fix. This stops further updates, but it doesn't downgrade
 computers that already updated.
 
-A release that raises the protocol version may need the church server updated first; phase 2
-did, phase 3 does not. See
-[Church server deployment](docs/server-deployment.md#updating-to-phase-2-protocol-version-2)
-and [Updating to phase 3](docs/server-deployment.md#updating-to-phase-3-protocol-version-3).
+A release that raises the protocol version needs the church server updated first; say so in
+its release notes. See
+[Updating the server](docs/server-deployment.md#updating-the-server).
 
 Release builds need the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, which sign the updates. If you lose that key, installed

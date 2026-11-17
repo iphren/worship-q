@@ -7,10 +7,9 @@ app for the church's administrators. Desktops work without it; connecting is opt
 It is one Node process with one SQLite database and a folder of background files and
 backups, all under the data directory (`/data` in the container).
 
-> **Live audio is recorded.** From the release with service records, once this server and a
-> broadcasting desktop are both updated, every workspace's live audio broadcast is recorded on
-> this server unless an administrator turns **Record live audio** off in the admin app's
-> Settings. Tell the church before updating. See [Service records](#service-records).
+> **Live audio is recorded.** Every workspace's live audio broadcast is recorded on this
+> server unless an administrator turns **Record live audio** off in the admin app's Settings.
+> Tell the church. See [Service records](#service-records).
 
 ## Run it with Docker
 
@@ -203,8 +202,6 @@ Church defaults: `linesPerPiece` (1–8), `wrapLongLines` (true/false),
 `'"Noto Sans SC"'`). A workspace that sets its own value in Settings keeps it; "Use church
 default" goes back to the church's.
 
-| `import legacy <workspace-id> <file\|-> [--dry-run]` | Imports songs from the legacy lyrics service |
-
 The connection code lets any computer join the workspace. It works for every workspace until
 the server has an administrator; from then on it works only for a workspace whose code an
 administrator turned on, and new computers normally join by approval instead (see
@@ -266,40 +263,6 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js works
 Every live church item of those types becomes the workspace's own, with its history and
 files. Every other workspace sees it deleted from the Church Library; one that made its own
 version keeps that as its own. The church's deleted item cannot be restored.
-
-Import legacy songs only once, into the workspace that manages the Church Library. The
-imported songs keep the same identifiers every time, so importing them again into another
-workspace makes them that workspace's own versions of the church's.
-
-## Importing songs from the legacy lyrics service
-
-Export the live songs from the legacy service's MariaDB as tab-separated text, with the text
-columns in hexadecimal so line breaks in lyrics survive any client. Run this in the legacy
-service's folder, which holds its `.env`:
-
-```sh
-set -a; . ./.env; set +a
-sudo mysql --default-character-set=utf8mb4 -B "$MARIADB" -e "
-  SELECT songId, HEX(id) id_hex, HEX(title) title_hex, HEX(lyricist) lyricist_hex,
-    HEX(composer) composer_hex, HEX(lyrics) lyrics_hex, HEX(copyright) copyright_hex, year,
-    HEX(ccli) ccli_hex
-  FROM songs WHERE deleted = 0 AND id NOT LIKE '%-probation' ORDER BY songId" > ~/legacy-songs.tsv
-```
-
-The import also reads a JSON array of the same columns, as a database tool exports it.
-
-Then, from the repository folder, import it into a workspace. Check with `--dry-run` first:
-
-```sh
-docker compose -f apps/server/compose.yaml exec -T worship-q \
-  node dist/cli.js import legacy <workspace-id> - --dry-run < ~/legacy-songs.tsv
-```
-
-The author is the lyricist and the composer, named once when they are the same person.
-Importing again later updates the songs changed in the legacy service and removes the ones
-deleted there. Songs edited in Worship Q since they were imported are left as they are. Do
-the import before a workspace's first computer connects, so that computer can choose
-**Use the church's copy**.
 
 ## Media: slide decks, PDFs, images and videos
 
@@ -382,8 +345,7 @@ the server in the background, as its terms ask.
    the request there after sign-in), checks the code and the computer's name, chooses the
    workspace, chooses whether the computer may merge its own songs and run sheets into it
    (there is no default), and approves. The request lasts fifteen minutes. Without an
-   administrator yet, or on a server before phase 3, the computer asks for a connection code
-   instead: create
+   administrator yet, the computer asks for a connection code instead: create
    the workspace in the admin app or with `workspace create`, and enter the code it prints.
    An administrator can also turn a workspace's code on for a while, and the computer offers
    **I have a connection code instead**.
@@ -395,16 +357,13 @@ the server in the background, as its terms ask.
    The admin app warns when that would leave the computer with no songs at all. Either way
    a backup is saved first in the app's data folder, under `backups/`.
 
-Computers connected before phase 3 stay connected; the device list shows them as joined with
-a connection code.
-
 After that, content synchronizes every minute, a few seconds after each edit, and
 straight away when another computer changes something. Off-site backups are sent every 12
 hours while the app is open, or with **Back up now**.
 
 ## One live state across the venue
 
-Every desktop of a workspace shares one presentation (phase 2). The first operator computer
+Every desktop of a workspace shares one presentation. The first operator computer
 to connect holds it, as the **coordinator**; the others follow it, showing the same slide on
 their own slideshow screens and subtitle overlays, and their Go live, slide changes, blank
 and clear, and live run-sheet edits go through it. **Use this computer** under **Settings →
@@ -436,8 +395,7 @@ the sidebar; both change every few minutes. A phone that scans or opens it asks 
 and shows a four-digit code. The operator sees the same code in a banner and approves it.
 The approval belongs to the workspace: the phone then stays approved on every computer of the
 workspace, also when the computer that approved it closes, until someone chooses
-**Disconnect** or **Disconnect all** (which also ends every browser output link). Phones
-approved before phase 2 keep working without a new scan.
+**Disconnect** or **Disconnect all** (which also ends every browser output link).
 
 Phones can move between slides, jump to any slide of the live run sheet, and blank the
 screen. With **Edit** they can also search the library and add, remove, or reorder songs on
@@ -466,52 +424,6 @@ internet at `http://127.0.0.1:47310/slideshow`, next to the subtitle overlay at
 **Settings → Connected devices** lists every computer, phone and browser output following the
 presentation, its role and how it is connected, with **Disconnect** for phones and outputs
 and **Disconnect all**.
-
-## Updating to phase 2 (protocol version 2)
-
-Phase 2 raises the protocol version, so the day the server is updated is the only day that
-affects the branches.
-
-Before the server update, every church computer must run a release with the automatic
-updater (0.2.0 or later). Computers installed from a build of `main` before 25 October 2026
-report version 0.1.0 and never update themselves: install the current release over the
-existing app, on a weekday. Workspaces, songs, run sheets, phone approvals and the church
-enrollment are all kept.
-
-Run `scripts/update-server.sh` early in a week. The server migrates its own database on
-start. From then on an older desktop shows **The server runs a newer version** and stops
-synchronizing and receiving phones; presenting from local data keeps working. The desktop
-downloads the new version within six hours and installs it when the operator restarts the
-app. Tell the branches to restart once the update banner appears.
-
-The update keeps the enrollment; the device token moves into the system keychain (Keychain
-on macOS, Credential Manager on Windows), and Settings says so when the keychain refused.
-Phone approvals are kept. The OBS subtitle overlay keeps its address. Viewer mode and
-browser output links are new and off until an operator turns them on.
-
-## Updating to phase 3 (protocol version 3)
-
-Phase 3 raises the protocol version to 3 but keeps accepting version 2, and a desktop speaks
-the server's version when the server is older. So the server and the desktops can update in
-either order, and nothing stops working on the day of either.
-
-Before the server update, register the application with the church's provider (see
-**Administrator sign-in**), choose the first administrator's e-mail address, and add the
-variables to `apps/server/.env`. Check that the reverse proxy passes cookies and the new
-paths (`/admin/`, `/auth/`, `/api/v1/admin/`). Without the variables the server starts as
-before and the admin app says that sign-in is not configured.
-
-Run `scripts/update-server.sh` early in a week. The server migrates its database on start,
-adds the first administrator, and starts the retention sweep, which removes nothing for 90
-days. Connection codes keep working until that administrator exists; from then on new
-computers ask for approval, so tell the branches who approves.
-
-Desktops update themselves within six hours of the release, whether or not the server has
-been updated. A desktop still on version 2 keeps presenting and synchronizing; it shows no
-**Church** or **2 versions** badges and no toggle until it restarts into version 3. The first
-pull after the desktop update is a full one, so every song learns where it came from; a
-workspace of a few thousand songs takes under a minute. Every enrollment, device token, phone
-approval, output link and viewer setting is kept; no computer re-pairs.
 
 ## Live audio
 
@@ -595,64 +507,19 @@ off).
 - Check it on the server itself: `curl -s localhost:8081/local/v1` answers with the API's
   version; the same request from another machine gets no answer.
 
-## Updating for service records
+## Updating the server
 
-Update in any order: the protocol version does not change, and a desktop uploads only what
-the server's `/api/v1/info` offers (`"records":{"audio":true,"log":true}`). Against an older
-server a desktop records and uploads nothing, and says nothing. Recordings and log entries
-start arriving once both the server and a desktop are updated. **Tell the church first:**
-from then on services are recorded unless an administrator turns **Record live audio** off.
-The database gains two tables on first start. Add the second port to `compose.yaml` as above
-if you keep your own copy of it.
+Run `scripts/update-server.sh` on the server, early in a week. It pulls the latest commit and
+rebuilds and restarts the container; the server migrates its own database on start. Desktops
+update themselves within six hours of a release and install the update when the operator
+restarts the app.
 
-## Updating for websites from phones (protocol version 8)
+When a release raises the protocol version, update the server first. It keeps accepting
+older desktops, which go on presenting and synchronizing, and offers each new feature only
+to desktops that know it. Release notes say when a release needs the server updated, or
+needs anything set up first.
 
-A phone can add a website to the live run sheet by typing its address into the search. This
-raises the protocol version to 8 and keeps accepting versions 2 to 7; no record changes, so
-there is nothing to configure. Update the server first: the relay must know the new command
-before passing it on. The phone shows **Add website to run sheet** only when the computer it
-is connected to and the church's server are both on version 8; when the presenting computer
-is still older, the phone's website is refused and nothing else changes.
-
-## Updating for live audio (protocol version 7)
-
-Live audio raises the protocol version to 7 and keeps accepting versions 2 to 6. Update the
-server first: the relay must know the new messages before any desktop can share a broadcast.
-It changes nothing for a workspace that does not broadcast. Until the server is updated, the
-broadcasting computer's switch and level meter work and its Settings says a server update is
-needed. A desktop still on version 6 presents as before and is sent no audio messages.
-
-## Updating for media (protocol version 5)
-
-Media uploads raise the protocol version to 5 and keep accepting versions 2 to 4. Update the
-server first: a desktop with media against an older server still imports slide decks and
-PDFs, and says that images and videos need a server update. Raise the reverse proxy's body
-limit at the same time (see above). Image items work on older desktops too, as one-page
-slide decks. A desktop older than version 5 shows a video item as a title with nothing to
-present, and the server keeps the video when such a desktop renames it; ask every computer
-to update before planning a service with videos.
-
-## Updating for Bible passages (protocol version 6)
-
-Bible passages raise the protocol version to 6 and keep accepting versions 2 to 5. Update
-the server first, set the church's keys and choose the offered versions; desktops update
-themselves as usual. A desktop older than version 6 shows a passage item as plain lyrics
-(the passage's first version), and the server keeps the passage when such a desktop saves
-the item, so churches can update desktops at their own pace. The Bible window appears only
-on updated desktops connected to an updated server. A phone connected through an older
-desktop cannot add passages; its Bible screen says the computer has no Bible.
-
-## Updating for OBS control (protocol version 4)
-
-OBS control raises the protocol version to 4 and keeps accepting versions 2 and 3; there is
-nothing to configure. The server only passes the new OBS messages on, and refuses them before
-version 4, so updating it is the one step needed for the OBS computer's controls to reach the
-other computers and phones. Until then the OBS computer's own controls work and its Settings
-says a server update is needed. Desktops update themselves as usual; a desktop still on
-version 3 presents as before and is sent no OBS messages, and phones step down to its version
-so they keep working with it. A workspace without OBS sees nothing new.
-
-
+## Known limits
 
 - When two computers edit the same song or the same date's run sheet before synchronizing,
   the later edit wins. Earlier song versions are kept in the song's history.
@@ -664,5 +531,5 @@ so they keep working with it. A workspace without OBS sees nothing new.
   changing the song does not bring it back either.
 - A phone browser usually refuses the coordinator's self-signed certificate, so phones use
   the server and need internet at the venue; the desktops do not.
-- The venue network's part of phase 2 has not yet been tried on real hardware; see
-  `docs/spikes/lan.md`.
+- Computers sharing one presentation over the venue network alone, with no internet, have
+  not yet been tried on real hardware; see `docs/spikes/lan.md`.

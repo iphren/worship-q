@@ -120,6 +120,10 @@ desktop app, the admin app and the phone remote.
    The site's English pages show no Chinese, so the guide's Chinese examples (such as
    `马可福音15章5-6节` and `当代译本`) come out of the English guide then, and out of
    `llms-full.txt` with it; they belong in the Chinese guide (Translation plan).
+   Decided 17 November 2026: these two documents only. The server guide lost its legacy import
+   section and its notes on updating from earlier phases, so it goes on the site whole; it
+   links to `docs/local-api.md`, which stays on GitHub. Plans, the spec, task breakdowns,
+   acceptance records and spikes stay on GitHub.
 2. **Feature pages**, each aimed at one of the searches listed above: `/bible/`,
    `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`. Short, with a
    screenshot, and linking to the guide section.
