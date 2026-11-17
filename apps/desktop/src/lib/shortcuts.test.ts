@@ -44,7 +44,7 @@ describe('presentAction', () => {
   });
 
   it('hides or shows the lyrics with space, and with the period as remotes send it', () => {
-    expect(press(' ')).toBe('toggle-blank-or-present');
+    expect(press(' ')).toBe('toggle-lyrics');
     expect(press('.')).toBe('toggle-blank');
   });
 
@@ -138,7 +138,7 @@ describe('keys while a video item is live (M6.5)', () => {
   });
 
   it('does what it does otherwise with a song live', () => {
-    expect(press(' ')).toBe('toggle-blank-or-present');
+    expect(press(' ')).toBe('toggle-lyrics');
     expect(press('ArrowDown')).toBe('slide-next');
   });
 
@@ -209,16 +209,16 @@ describe('runPresentAction', () => {
 
   it('hides and shows the lyrics with space while a slide is on screen', () => {
     const shown = controls(false);
-    runPresentAction(shown.session, 'toggle-blank-or-present');
+    runPresentAction(shown.session, 'toggle-lyrics');
     const hidden = controls(true);
-    runPresentAction(hidden.session, 'toggle-blank-or-present');
+    runPresentAction(hidden.session, 'toggle-lyrics');
     expect([...shown.calls, ...hidden.calls]).toEqual(['setBlank(true)', 'setBlank(false)']);
   });
 
-  it('presents with space when nothing is on screen, as enter does', () => {
+  it('does nothing with space when nothing is on screen', () => {
     const { session, calls } = controls(false, null);
-    runPresentAction(session, 'toggle-blank-or-present');
-    expect(calls).toEqual(['unblankOrNext']);
+    runPresentAction(session, 'toggle-lyrics');
+    expect(calls).toEqual([]);
   });
 
   it('leaves enter to the session, which knows whether to unblank or move on', () => {

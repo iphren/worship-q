@@ -39,8 +39,8 @@ Other dates are read-only until you choose **Edit run sheet** on them.
    the next slide, and after the last slide of a song, the first slide of the next one.
    Space hides the lyrics and keeps the background; press Space again to show the same
    slide. (Space does not move to the next slide, as it does in PowerPoint or Keynote.)
-   Delete (fn + delete on a Mac laptop) clears the screen and stays live; Enter, ↓ or
-   Space then starts from the first slide. The same keys work when the slideshow window is
+   Delete (fn + delete on a Mac laptop) clears the screen and stays live; Enter or ↓
+   then starts from the first slide (Space does nothing while the screen is clear). The same keys work when the slideshow window is
    the one in front.
 5. Each song is a column, side by side, with its slides down the column, so ← and → move
    across the songs and ↓ and ↑ down a song's slides. Scroll across the songs with a

@@ -21,11 +21,8 @@ export type PresentAction =
   /** Removes the lyrics and keeps the background. */
   | 'hide-lyrics'
   | 'toggle-blank'
-  /**
-   * Hides or shows the lyrics while a slide is on screen; with nothing on screen, the same as
-   * `unblank-or-next`, so the key always does something.
-   */
-  | 'toggle-blank-or-present'
+  /** Hides or shows the lyrics while a slide is on screen; does nothing with nothing on screen. */
+  | 'toggle-lyrics'
   /** Takes the slide off the screen, staying live. */
   | 'clear'
   /** A slide of the browsed or presented item by its position, counted from zero. */
@@ -84,7 +81,7 @@ export function arrowLabels(swapArrows: boolean): { slides: string; items: strin
 
 /**
  * The action of a key. Up and Down move within the keyed item and Left and Right between
- * items; Space hides or shows the lyrics and Enter moves on through the whole run sheet. While
+ * items; Space hides or shows the lyrics (nothing with nothing on screen) and Enter moves on through the whole run sheet. While
  * a video item is live, Space plays or pauses it instead, wherever the slide keys are; while
  * the slide keys are on it, Up and Down jump back and forward through it (U21, M6.5). Every
  * other key does what it does otherwise. `swapArrows` swaps the arrows' pairs, so Left and
@@ -119,7 +116,7 @@ export function presentAction(
     case 'Enter':
       return 'unblank-or-next';
     case ' ':
-      return 'toggle-blank-or-present';
+      return 'toggle-lyrics';
     case 'PageUp':
       return 'previous';
     case 'Backspace':
@@ -171,10 +168,9 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.setBlank(true);
     case 'toggle-blank':
       return void session.setBlank(!session.live?.blank);
-    case 'toggle-blank-or-present':
-      return void (session.live?.presented
-        ? session.setBlank(!session.live.blank)
-        : session.unblankOrNext());
+    case 'toggle-lyrics':
+      if (!session.live?.presented) return;
+      return void session.setBlank(!session.live.blank);
     case 'clear':
       return void session.clear();
     case 'video-toggle':
