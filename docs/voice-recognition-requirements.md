@@ -1,8 +1,9 @@
 # Worship Q — Voice Recognition Requirements
 
 **Drafted:** 17 November 2026
-**Status:** Reviewed with the project owner on 17 November 2026, who answered every question in
-§8. Nothing is built. The requirements stand as written, to be checked against the spike. The
+**Status:** Reviewed with the project owner on 17 November 2026, who answered Q1–Q9 in §8. The
+hardware requirements (V24–V28) were added afterwards and wait for Q10. Nothing is built. The
+requirements stand as written, to be checked against the spike. The
 [discovery](voice-recognition-discovery.md) looks at how to meet them.
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md) §17
 (*Voice recognition and automatic slide switching*); §6 (lyrics format, language-agnostic
@@ -84,6 +85,25 @@ something wrong on screen more readily than a volunteer would.
 | V18 | **A download, not a bundle.** Whatever the recognition needs (models, for instance) is downloaded when a church first turns the feature on, not shipped with every install. |
 | V19 | **Nothing kept.** The feature keeps no audio and no transcript. The broadcast's recording (R1–R11) is unchanged by it. |
 
+### Hardware
+
+Some workspaces run on basic laptops, so Q must be useful on one, and must use a better computer
+well when there is one.
+
+| Tier | Reference machine | What Q offers |
+| --- | --- | --- |
+| **Basic** | Windows 10 or 11, 64-bit; a 4-core x86 processor from about 2018 (Intel Core i5-8250U or similar); 8 GB of memory; integrated graphics; an SSD. An Intel Mac of the same age counts as basic. To be confirmed against the branches' weakest laptops (Q10). | Suggest mode with the light model. Auto only if the light model meets V13 in the spike. |
+| **Standard** | Any Apple Silicon Mac (M1 with 8 GB upward); or Windows with 6 cores or more, 16 GB, and graphics that support Vulkan | Suggest and Auto with the middle model |
+| **Recommended** | Apple Silicon with 16 GB; or Windows with 8 cores or more, 16 GB and a dedicated graphics card | Suggest and Auto with the most accurate model |
+
+| # | Requirement |
+| --- | --- |
+| V24 | **Useful on a basic laptop.** On the basic reference machine, Q runs in Suggest mode, in real time, while the same laptop presents, shows the slideshow and broadcasts live audio, and none of those stutters or lags (V17). Below the basic machine, Q says it cannot run there rather than running badly. |
+| V25 | **Picks its own model.** When Q is turned on, the listening computer tests its own speed and chooses the most accurate model it can run with a safe margin (at least twice as fast as real time). Settings says which tier it chose and why. Nobody has to know what a model is. |
+| V26 | **Stays within a budget.** While listening on a basic machine, Q uses no more than about two processor cores and 1.5 GB of memory; on the others, no more than about 3 GB. It runs below the slideshow and presenting in priority. |
+| V27 | **Steps down rather than falls behind.** If it starts falling behind during a service (the laptop on battery, another program busy), it moves to a lighter model, and if that is not enough it pauses itself and says so (V14). It never lets the slideshow pay for it. |
+| V28 | **Any computer can be the listener.** The listening computer does not have to be the one presenting (V16): any desktop of the workspace can listen, in any role, as with the live-audio broadcast (A3), including one in viewer mode, whose changes Q makes on its behalf. A workspace with only basic laptops can still have one stronger computer listen for everyone, such as the OBS computer or a small computer kept for the purpose. Settings recommends this when the computer it runs on is basic. |
+
 ### How it is measured
 
 | # | Requirement |
@@ -110,7 +130,10 @@ something wrong on screen more readily than a volunteer would.
 ## 5. Settings
 
 - **On the listening computer:** a switch to listen on this computer, using the audio input
-  already chosen in Settings for live audio (U24, A8). Turning it on downloads what it needs.
+  already chosen in Settings for live audio (U24, A8). Turning it on tests the computer,
+  downloads the model that suits it (V25), and says which tier it chose; on a basic computer it
+  recommends listening on a stronger one if the workspace has one (V28), and running on mains
+  power.
 - **Per workspace:** the mode it starts in when a live state begins (Off by default), and how
   its Chinese is sung: Mandarin, Cantonese, or not set (worked out from the singing) (V22).
 
@@ -151,3 +174,4 @@ something wrong on screen more readily than a volunteer would.
 | Q7 | What does the feature call itself to volunteers? | **Answered 17 November 2026:** **Q** |
 | Q8 | Should what is learned (V21) be per workspace, or shared across the church's workspaces for the same song? | **Answered 17 November 2026:** per workspace first, falling back to the church's when a workspace has too few services of that song |
 | Q9 | When a non-song item (a Bible passage, the sermon slides) sits between two songs, should the song beyond it still be a candidate? | **Answered 17 November 2026:** no, the non-song item ends the set (V23); within a set, every song is a candidate, so weaving works between songs that are not adjacent on that side, since the band does not usually sing across it |
+| Q10 | What are the weakest laptops the branches present with (Windows or Mac, processor and year, memory)? | Survey the branches and set the basic reference machine (V24) to the weakest one still in use, or say plainly that machines below it need a stronger listener (V28) |

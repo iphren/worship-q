@@ -4,7 +4,7 @@
 **Status:** Discovery. Nothing is built and nothing has been measured. Figures below are
 published numbers, several of them reported by the model's own authors, and are marked so. The
 spike in §11 is what turns them into decisions.
-**Source:** [Voice Recognition Requirements](voice-recognition-requirements.md) (V1–V23, Q1–Q9),
+**Source:** [Voice Recognition Requirements](voice-recognition-requirements.md) (V1–V28, Q1–Q10),
 referred to here as "the requirements"; the [Live Audio Broadcast Plan](live-audio-plan.md) and
 [spike](spikes/live-audio.md), whose capture this reuses; the
 [Service Records Task Breakdown](service-records-task-breakdown.md), whose recordings and
@@ -386,11 +386,47 @@ would land one or two seconds into the next.
 
 ## 9. Running on the listening computer
 
-- **Models are downloaded** when the feature is turned on (V18): about 0.5–1 GB for
-  Qwen3-ASR-0.6B quantised or Whisper large-v3-turbo, under 100 MB for a Zipformer.
+### 9.1 Model tiers (V24–V28)
+
+The requirements define three tiers of computer. Each needs a model it can run at least twice as
+fast as real time, since audio is recognised in overlapping windows, while the slideshow keeps
+its pace. Sizes are approximate, for quantised builds; speeds are to be measured.
+
+| Tier | Candidate models | Download | Why |
+| --- | --- | --- | --- |
+| **Basic** (4-core 2018 laptop, 8 GB, no usable GPU; Intel Macs) | **SenseVoice-small** (int8, sherpa-onnx), with **sherpa-onnx keyword spotting** on the lyrics as a constrained second opinion | ~250 MB, plus tens of MB | Non-autoregressive, so one pass per window instead of word-by-word decoding: the cheapest models that cover Mandarin, Cantonese and English. Keyword spotting needs a Cantonese model, or is used for Mandarin and English only |
+| **Standard** (Apple Silicon M1 8 GB; Windows 6+ cores, 16 GB, Vulkan graphics) | **Qwen3-ASR-0.6B** (4-bit GGUF or MLX), or Whisper small | ~0.5 GB | Best published singing accuracy at a laptop size, on the GPU through Metal or Vulkan |
+| **Recommended** (Apple Silicon 16 GB; Windows 8+ cores, discrete GPU) | Qwen3-ASR-0.6B at 8-bit, or Qwen3-ASR-1.7B at 4-bit; Whisper large-v3-turbo as the alternative | ~1–1.5 GB | The most accurate the machine can keep up with |
+
+- **Why the basic tier can still work:** the task is identifying a known line among a few
+  hundred, not transcribing (§1). A model with twice the word error rate may still pick the
+  right line, especially with the learned prior (§7.1). Whether it does on singing is the open
+  question, and the spike measures exactly that on a basic laptop (§11). Neither SenseVoice nor
+  the Zipformer models publish singing figures.
+- **Doing less work** helps every tier, most of all the basic one: recognise only while a song or
+  passage is presented and activity detection hears singing (§4); keep windows short; skip a
+  window when the tracker is already confident and the next change is not due.
+- **Choosing at run time (V25, V27):** on first use, time each candidate on a few seconds of
+  built-in test audio and keep the best that clears twice real time with the slideshow running.
+  During a service, watch how far behind recognition runs; above a threshold step down a tier,
+  and if the lightest falls behind, pause (V14). Battery power is the common cause on laptops, so
+  Settings recommends mains power.
+- **Intel Macs** count as basic: Metal on their integrated or AMD graphics gives whisper.cpp and
+  llama.cpp little or nothing, so they run on the CPU.
+- **A stronger listener (V28)** is often the cheapest fix: the OBS computer, or a small computer
+  kept for the purpose, listens for a workspace whose presenting laptops are basic. Its changes
+  go through the coordinator like a person's press. A listener in viewer mode needs one
+  exception to D16 (viewer mode is read-only): Q's changes are allowed from it, while the
+  person at that computer still has no controls.
+- **Not the church server.** Running recognition on the server would break V15 (it needs the
+  internet), the server is a small machine without a GPU, and every branch's service would
+  load it on the same Sunday morning. Not proposed.
+
+### 9.2 Running alongside presenting
+
+- **Models are downloaded** when the feature is turned on (V18), only the one the tier needs.
 - **GPU where available:** Metal (and Core ML for Whisper's encoder) on Apple Silicon; Vulkan
-  on Windows through whisper.cpp or llama.cpp. CPU-only Windows laptops are the worst case and
-  set the minimum model.
+  on Windows through whisper.cpp or llama.cpp. CPU-only laptops are the basic tier.
 - **Never disturb presenting (V17).** Recent releases fixed the slideshow's pace when the window
   is minimised or on another desktop on macOS; recognition must run on its own low-priority
   thread, with a fixed budget, and must be measured beside the slideshow, the broadcast and OBS
@@ -435,6 +471,13 @@ The church server holds exactly the data needed:
       which is what matters.
 - [ ] Speed of each on an Apple Silicon Mac and on a Windows laptop without a discrete GPU,
       beside a running slideshow.
+- [ ] On a basic reference laptop (V24; one of the branches' own, once Q10 is answered):
+      SenseVoice-small and keyword spotting, real-time factor, processor and memory use, with
+      the slideshow, presenting and the broadcast running, on mains and on battery; line
+      identification accuracy against the larger models on the same recordings. This decides
+      whether the basic tier gets Suggest only, or Auto too.
+- [ ] The run-time speed test (V25): does a few seconds of test audio predict how a model keeps
+      up over a whole service.
 - [ ] Silero VAD on singing over a band: does it detect sung passages; what does it do in
       instrumental breaks.
 - [ ] Bilingual songs: how each recogniser handles the switch; one pass with both languages
@@ -481,6 +524,7 @@ The church server holds exactly the data needed:
 | Mode, status and suggestions | Shared by the coordinator to every operator device and remote controller, with new protocol message kinds (V7, V9) |
 | Mandarin and Cantonese | A workspace setting for how Chinese is sung, detected when unset; pinyin or Jyutping matching to suit (V22) |
 | Where it runs | The listening desktop's Rust core; models downloaded on first use |
+| Hardware | Three tiers; SenseVoice-small for basic laptops, Qwen3-ASR-0.6B above; the model chosen by a speed test, stepping down under load; a stronger computer can listen for the workspace (V24–V28) |
 | Order of delivery | Harness → Suggest mode → Auto mode |
 
 ## Sources
