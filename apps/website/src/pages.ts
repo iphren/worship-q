@@ -133,12 +133,20 @@ function slug(text: string, seen: Map<string, number>): string {
   return count ? `${base}-${count}` : base;
 }
 
-/** Markdown to HTML, with GitHub's heading ids and tables wrapped to scroll on phones. */
+/**
+ * Markdown to HTML, with GitHub's heading ids, tables wrapped to scroll on phones, and each
+ * screenshot linked to its full-size picture, which opens in the lightbox (src/lightbox.ts).
+ */
 function render(markdown: string): string {
   const seen = new Map<string, number>();
   const marked = new Marked({
     gfm: true,
     renderer: {
+      image({ href, text }: Tokens.Image) {
+        const full = /^(\/screenshots\/[^/]+)\.webp$/.exec(href);
+        if (!full) return false;
+        return `<a href="${full[1]}.png"><img src="${escapeHtml(href)}" alt="${escapeHtml(text)}" /></a>`;
+      },
       heading({ tokens, depth, text }: Tokens.Heading) {
         const id = slug(text, seen);
         return `<h${depth} id="${escapeHtml(id)}">${this.parser.parseInline(tokens)}</h${depth}>\n`;

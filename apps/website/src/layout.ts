@@ -95,6 +95,7 @@ export function pageHtml(page: PageFrame): string {
     <meta property="og:image" content="${SITE}/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/lightbox.ts"></script>
   </head>
   <body class="min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-3xl flex-col px-4 sm:px-6">

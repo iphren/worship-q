@@ -1,5 +1,6 @@
 // Puts the download for the visitor's computer first. Without this every button stays equal.
 import './styles.css';
+import './lightbox.ts';
 
 type System = 'mac' | 'windows';
 
