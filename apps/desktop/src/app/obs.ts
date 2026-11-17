@@ -39,6 +39,21 @@ export const SNAPSHOT_EVERY_MS = OBS_SNAPSHOT_EVERY_MS;
 export const SNAPSHOT_WIDTH = 576;
 export const SNAPSHOT_QUALITY = 50;
 
+/**
+ * The scene thumbnails beside the live monitor, on the OBS computer only: one scene's image
+ * every two seconds, in turn, small (about 160 CSS pixels wide on a Retina screen), so OBS
+ * renders far less than for the monitor. The scene on program shows the monitor's image.
+ */
+export const THUMBNAIL_EVERY_MS = 2000;
+export const THUMBNAIL_WIDTH = 320;
+export const THUMBNAIL_QUALITY = 40;
+
+/** A scene's latest thumbnail, taken at `takenAt` on this computer's clock. */
+export interface ObsThumbnail {
+  image: string;
+  takenAt: number;
+}
+
 /** obs-websocket's codes for an output already in the state asked for. */
 const OUTPUT_RUNNING = 500;
 const OUTPUT_NOT_RUNNING = 501;
@@ -325,6 +340,14 @@ export class ObsLink {
   private wake: (() => void) | null = null;
   private transitionTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly transitionEndListeners = new Set<() => void>();
+  /** Screenshots are asked of OBS one at a time, whichever loop wants them. */
+  private screenshots: Promise<unknown> = Promise.resolve();
+  private thumbnails_: ReadonlyMap<string, ObsThumbnail> = new Map();
+  private readonly thumbnailListeners = new Set<() => void>();
+  private thumbnailWatchers = 0;
+  private thumbnailing = false;
+  /** Where the round of thumbnails has got to, in the scene list. */
+  private thumbnailNext = 0;
   private stopped = false;
   private readonly now: () => number;
   private readonly delay: (ms: number) => Promise<void>;
@@ -504,6 +527,7 @@ export class ObsLink {
     const at = this.now();
     this.collectionChanging = false;
     clearTimeout(this.transitionTimer);
+    this.setThumbnails(new Map());
     this.update({
       ready: false,
       closing: false,
@@ -565,6 +589,7 @@ export class ObsLink {
     });
     this.update({ ...patch, outputs: nextOutputs, measuredAt });
     this.maybeShoot();
+    this.maybeThumbnail();
   }
 
   /** Reads an output's duration again after OBS said its state changed. */
@@ -642,6 +667,13 @@ export class ObsLink {
           this.saveSettings({ favourites: [rename(first), rename(second)] });
         }
         if (this.view_.currentScene === from) this.sceneEvents++;
+        const thumbnail = this.thumbnails_.get(from);
+        if (thumbnail) {
+          const moved = new Map(this.thumbnails_);
+          moved.delete(from);
+          moved.set(to, thumbnail);
+          this.setThumbnails(moved);
+        }
         this.update({
           scenes: this.view_.scenes.map((scene) => (scene === from ? to : scene)),
           currentScene: rename(this.view_.currentScene),
@@ -653,6 +685,8 @@ export class ObsLink {
         return;
       case 'CurrentSceneCollectionChanged':
         this.collectionChanging = false;
+        // Another collection's scenes can share names with this one's, but not their images.
+        this.setThumbnails(new Map());
         this.sceneListEvents++;
         this.sceneEvents++;
         void this.reloadScenes();
@@ -837,27 +871,122 @@ export class ObsLink {
   /** Asks OBS for an image of the scene on program. */
   private async capture(): Promise<ObsSnapshot | null> {
     const scene = this.view_.currentScene;
-    if (!scene || this.collectionChanging) return null;
-    const format = this.imageFormat;
-    try {
-      const result = await this.deps.native.request<{ imageData?: unknown }>(
-        'GetSourceScreenshot',
-        {
-          sourceName: scene,
-          imageFormat: format,
-          imageWidth: SNAPSHOT_WIDTH,
-          imageCompressionQuality: SNAPSHOT_QUALITY,
-        },
-      );
-      const snapshot = ObsSnapshotSchema.safeParse({
-        image: result?.imageData,
-        takenAt: new Date(this.now()).toISOString(),
-      });
-      return snapshot.success ? snapshot.data : null;
-    } catch (raw) {
-      // A format OBS turned down this time is not asked for again.
-      if (format === 'webp' && requestError(raw).code > 0) this.imageFormat = 'jpg';
-      return null;
-    }
+    if (!scene) return null;
+    const image = await this.screenshot(scene, SNAPSHOT_WIDTH, SNAPSHOT_QUALITY);
+    if (!image) return null;
+    return { image, takenAt: new Date(this.now()).toISOString() };
+  }
+
+  /**
+   * Asks OBS for an image of one scene, after any screenshot already asked for, so OBS never
+   * renders two at once. Null when OBS gave none, or something that is not an image.
+   */
+  private screenshot(scene: string, width: number, quality: number): Promise<string | null> {
+    const taken = this.screenshots.then(async () => {
+      if (this.collectionChanging) return null;
+      const format = this.imageFormat;
+      try {
+        const result = await this.deps.native.request<{ imageData?: unknown }>(
+          'GetSourceScreenshot',
+          {
+            sourceName: scene,
+            imageFormat: format,
+            imageWidth: width,
+            imageCompressionQuality: quality,
+          },
+        );
+        const image = ObsSnapshotSchema.shape.image.safeParse(result?.imageData);
+        return image.success ? image.data : null;
+      } catch (raw) {
+        // A format OBS turned down this time is not asked for again.
+        if (format === 'webp' && requestError(raw).code > 0) this.imageFormat = 'jpg';
+        return null;
+      }
+    });
+    this.screenshots = taken;
+    return taken;
+  }
+
+  // ── Scene thumbnails ─────────────────────────────────────────────────────
+
+  /** Each scene's latest thumbnail, by name; the scene on program is left to the monitor. */
+  get thumbnails(): ReadonlyMap<string, ObsThumbnail> {
+    return this.thumbnails_;
+  }
+
+  onThumbnails(listener: () => void): () => void {
+    this.thumbnailListeners.add(listener);
+    return () => this.thumbnailListeners.delete(listener);
+  }
+
+  /** A panel on this computer shows the scene thumbnails; the returned function stops it. */
+  watchThumbnails(): () => void {
+    this.thumbnailWatchers++;
+    this.maybeThumbnail();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.thumbnailWatchers--;
+    };
+  }
+
+  private setThumbnails(thumbnails: ReadonlyMap<string, ObsThumbnail>): void {
+    if (thumbnails.size === 0 && this.thumbnails_.size === 0) return;
+    this.thumbnails_ = thumbnails;
+    for (const listener of [...this.thumbnailListeners]) listener();
+  }
+
+  private canThumbnail(): boolean {
+    return (
+      this.thumbnailWatchers > 0 &&
+      !this.stopped &&
+      this.view_.settings.active &&
+      this.view_.link.state === 'connected' &&
+      this.view_.ready
+    );
+  }
+
+  /**
+   * The next scene to take: one without a thumbnail yet first, so the grid fills quickly,
+   * else the next in the list after the last one taken. Never the scene on program.
+   */
+  private nextThumbnailScene(): string | null {
+    const scenes = this.view_.scenes.filter((scene) => scene !== this.view_.currentScene);
+    if (scenes.length === 0) return null;
+    const missing = scenes.find((scene) => !this.thumbnails_.has(scene));
+    if (missing) return missing;
+    const scene = scenes[this.thumbnailNext % scenes.length]!;
+    this.thumbnailNext = (this.thumbnailNext + 1) % scenes.length;
+    return scene;
+  }
+
+  /** Takes one scene's thumbnail every `THUMBNAIL_EVERY_MS` while a panel here shows them. */
+  private maybeThumbnail(): void {
+    if (this.thumbnailing || !this.canThumbnail()) return;
+    this.thumbnailing = true;
+    void (async () => {
+      try {
+        while (this.canThumbnail()) {
+          const started = this.now();
+          const scene = this.nextThumbnailScene();
+          if (scene) {
+            const generation = this.generation;
+            const image = await this.screenshot(scene, THUMBNAIL_WIDTH, THUMBNAIL_QUALITY);
+            if (image && generation === this.generation && this.view_.scenes.includes(scene)) {
+              // Scenes no longer in OBS's list are dropped along the way.
+              const next = new Map(
+                [...this.thumbnails_].filter(([name]) => this.view_.scenes.includes(name)),
+              );
+              next.set(scene, { image, takenAt: this.now() });
+              this.setThumbnails(next);
+            }
+          }
+          await this.delay(Math.max(0, THUMBNAIL_EVERY_MS - (this.now() - started)));
+        }
+      } finally {
+        this.thumbnailing = false;
+      }
+    })();
   }
 }

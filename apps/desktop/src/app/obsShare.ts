@@ -29,7 +29,7 @@ import {
   type ObsState,
   type RemoteObsView,
 } from '@worship-q/protocol';
-import type { ObsLink } from './obs';
+import type { ObsLink, ObsThumbnail } from './obs';
 
 /** A command sent to the OBS computer is given up on after this long without an answer. */
 export const OBS_COMMAND_TIMEOUT_MS = 10_000;
@@ -85,6 +85,8 @@ export interface ObsShareDeps {
 
 type Role = 'alone' | 'coordinator' | 'follower';
 
+const NO_THUMBNAILS: ReadonlyMap<string, ObsThumbnail> = new Map();
+
 const EMPTY: ObsShared = {
   state: null,
   local: false,
@@ -99,6 +101,8 @@ export class ObsShare {
   private unsubscribeLink: (() => void) | null = null;
   private unsubscribeShots: (() => void) | null = null;
   private unsubscribeEnds: (() => void) | null = null;
+  private unsubscribeThumbnails: (() => void) | null = null;
+  private readonly thumbnailListeners = new Set<() => void>();
   private readonly transitionEndListeners = new Set<() => void>();
   private transport: ObsTransport | null = null;
   private phones: ObsPhones | null = null;
@@ -150,6 +154,24 @@ export class ObsShare {
     return this.image_;
   }
 
+  /**
+   * The scene thumbnails, while this computer's link holds the state; empty otherwise. They
+   * stay on this computer: nothing is sent to the workspace.
+   */
+  get thumbnails(): ReadonlyMap<string, ObsThumbnail> {
+    return this.localActive() && this.link ? this.link.thumbnails : NO_THUMBNAILS;
+  }
+
+  subscribeThumbnails = (listener: () => void): (() => void) => {
+    this.thumbnailListeners.add(listener);
+    return () => this.thumbnailListeners.delete(listener);
+  };
+
+  /** A panel here shows the scene thumbnails; the returned function stops it. */
+  watchThumbnails(): () => void {
+    return this.link?.watchThumbnails() ?? (() => undefined);
+  }
+
   /** The local OBS link, once it is started. */
   get localLink(): ObsLink | null {
     return this.link;
@@ -185,7 +207,12 @@ export class ObsShare {
     this.unsubscribeLink?.();
     this.unsubscribeShots?.();
     this.unsubscribeEnds?.();
+    this.unsubscribeThumbnails?.();
     this.link = link;
+    this.unsubscribeThumbnails =
+      link?.onThumbnails(() => {
+        for (const listener of [...this.thumbnailListeners]) listener();
+      }) ?? null;
     this.unsubscribeEnds =
       link?.onTransitionEnded(() => {
         for (const listener of [...this.transitionEndListeners]) listener();

@@ -671,3 +671,77 @@ describe('transitions', () => {
     expect(native.count('GetSourceScreenshot')).toBe(0);
   });
 });
+
+describe('scene thumbnails', () => {
+  const image = 'data:image/webp;base64,UklGRoY=';
+  const shotOf = (asked: { data: unknown }) => (asked.data as { sourceName: string }).sourceName;
+  const shots = (native: { asked: { type: string; data: unknown }[] }) =>
+    native.asked.filter((a) => a.type === 'GetSourceScreenshot');
+
+  it('takes one small image of each scene not on program in turn, while a panel shows them', async () => {
+    const { native, link, tick } = await connected();
+    native.answers.set('GetSourceScreenshot', () => ({ imageData: image }));
+    const changes = vi.fn();
+    link.onThumbnails(changes);
+    const release = link.watchThumbnails();
+    // Watching twice starts no second loop.
+    const again = link.watchThumbnails();
+    await flush();
+    expect(shots(native).map(shotOf)).toEqual(['Camera']);
+    expect(shots(native)[0]!.data).toEqual({
+      sourceName: 'Camera',
+      imageFormat: 'webp',
+      imageWidth: 320,
+      imageCompressionQuality: 40,
+    });
+    await tick();
+    await tick();
+    await tick();
+    // Lyrics is on program: the monitor's image stands for it.
+    expect(shots(native).map(shotOf)).toEqual(['Camera', 'Blank', 'Camera', 'Blank']);
+    expect([...link.thumbnails.keys()].sort()).toEqual(['Blank', 'Camera']);
+    expect(changes).toHaveBeenCalled();
+
+    release();
+    await tick();
+    expect(shots(native)).toHaveLength(5);
+    again();
+    await tick();
+    await tick();
+    expect(shots(native)).toHaveLength(5);
+  });
+
+  it('never asks OBS for two images at once, monitor and thumbnails together', async () => {
+    const { native, link } = await connected();
+    link.setWatchingHere(true);
+    link.watchThumbnails();
+    await flush();
+    expect(shots(native)).toHaveLength(1);
+    native.answer('GetSourceScreenshot', { imageData: image });
+    await flush();
+    expect(shots(native)).toHaveLength(2);
+    expect(native.waiting.filter((a) => a.type === 'GetSourceScreenshot')).toHaveLength(1);
+  });
+
+  it('follows a renamed scene, drops a removed one, and forgets them all when OBS goes away', async () => {
+    const { native, link, tick } = await connected();
+    native.answers.set('GetSourceScreenshot', () => ({ imageData: image }));
+    link.watchThumbnails();
+    await flush();
+    await tick();
+    native.event('SceneNameChanged', { oldSceneName: 'Camera', sceneName: 'Pulpit' });
+    expect([...link.thumbnails.keys()].sort()).toEqual(['Blank', 'Pulpit']);
+
+    native.event('SceneListChanged', {
+      scenes: [
+        { sceneIndex: 0, sceneName: 'Pulpit' },
+        { sceneIndex: 1, sceneName: 'Lyrics' },
+      ],
+    });
+    await tick();
+    expect([...link.thumbnails.keys()]).toEqual(['Pulpit']);
+
+    native.status({ state: 'not-running' });
+    expect(link.thumbnails.size).toBe(0);
+  });
+});

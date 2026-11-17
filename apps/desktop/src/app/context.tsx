@@ -11,7 +11,7 @@ import {
 import type { AudioListenState } from './audioListen';
 import type { AudioShared } from './audioShare';
 import type { CloudController, CloudStatus } from './cloud';
-import type { ObsLinkView } from './obs';
+import type { ObsLinkView, ObsThumbnail } from './obs';
 import type { ObsMonitorImage, ObsShared } from './obsShare';
 import type { OutputController } from './output';
 import type { UpdateController, UpdateStatus } from './update';
@@ -88,6 +88,12 @@ export function useObsLink(): ObsLinkView | null {
 export function useObsImage(): ObsMonitorImage | null {
   const { cloud } = useApp();
   return useSyncExternalStore(cloud.obs.subscribeImage, () => cloud.obs.image);
+}
+
+/** The scene thumbnails, by scene name, while this computer holds the OBS state. */
+export function useObsThumbnails(): ReadonlyMap<string, ObsThumbnail> {
+  const { cloud } = useApp();
+  return useSyncExternalStore(cloud.obs.subscribeThumbnails, () => cloud.obs.thumbnails);
 }
 
 /** The time now, refreshed every `ms` while `on`, for timers. */

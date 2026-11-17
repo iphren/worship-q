@@ -13,13 +13,15 @@ import {
   type ObsConnection,
   type ObsOutput,
   type ObsResult,
+  type ObsState,
 } from '@worship-q/protocol';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useApp, useNow, useObs, useObsImage } from '../app/context';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useApp, useNow, useObs, useObsImage, useObsThumbnails } from '../app/context';
 import type { ObsShared } from '../app/obsShare';
 import { t, type MessageKey } from '../i18n';
 import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
+import { remPx } from '../lib/presentLayout';
 import { Menu, type MenuItem } from './Menu';
 
 export function obsErrorText(result: ObsResult): string {
@@ -488,6 +490,93 @@ export function ObsLiveMonitor() {
         )}
         {action.error && <p className="mt-2 text-xs text-rose-300">{action.error}</p>}
       </div>
+      {shared.local && (
+        <ObsSceneThumbnails state={state} usable={shared.reachable} action={action} />
+      )}
+    </div>
+  );
+}
+
+/** The narrowest a thumbnail gets. */
+const THUMBNAIL_MIN_REM = 7.5;
+
+/** Two thumbnails, the gap between them and the grid's padding either side. */
+const TWO_COLUMNS_REM = THUMBNAIL_MIN_REM * 2 + 0.5 + 0.25;
+
+/** The scrollbar's width, as `styles.css` sets it for every scrolling box. */
+const SCROLLBAR_PX = 10;
+
+/**
+ * Every scene as a small image, in the space the live monitor leaves, on the OBS computer
+ * only: clicking one switches to it. The scene on program shows the monitor's own image.
+ * Images are taken only while the grid is shown, so a narrow window asks OBS for none.
+ */
+function ObsSceneThumbnails(props: {
+  state: ObsState;
+  usable: boolean;
+  action: ReturnType<typeof useObsAction>;
+}) {
+  const { cloud } = useApp();
+  const { state, action } = props;
+  const ref = useRef<HTMLDivElement>(null);
+  const [roomy, setRoomy] = useState(false);
+  const thumbnails = useObsThumbnails();
+  const programImage = useObsImage();
+  const locked = useTransitionLock(state.transitioning === true);
+  useLayoutEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    // The box takes what the monitor and outputs leave, and never scrolls itself, so what
+    // the grid holds cannot change the answer. Two columns must fit beside a scrollbar
+    // whether or not one shows. The width is read unrounded: a whole pixel can round up
+    // past what two columns need. The observer reports it once at the start.
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      setRoomy(entry.contentRect.width >= TWO_COLUMNS_REM * remPx() + SCROLLBAR_PX);
+    });
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => (roomy ? cloud.obs.watchThumbnails() : undefined), [cloud, roomy]);
+  return (
+    // Stretched to the panel's height without adding to it: the grid scrolls inside.
+    <div ref={ref} className="relative min-w-0 flex-1 self-stretch">
+      {roomy && (
+        <ul className="absolute inset-0 grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-2 overflow-x-hidden overflow-y-auto p-0.5">
+          {state.scenes.map((scene) => {
+            const live = scene === state.currentScene;
+            const image = live
+              ? (programImage?.image ?? thumbnails.get(scene)?.image)
+              : thumbnails.get(scene)?.image;
+            return (
+              <li key={scene}>
+                <button
+                  className={`group block w-full space-y-1 text-left ${live ? 'cursor-default' : ''} disabled:opacity-60`}
+                  title={live ? scene : t('obs.thumbnailSwitch', { scene })}
+                  disabled={!props.usable || action.busy || locked}
+                  onClick={() => {
+                    if (!live) void action.command({ type: 'setScene', scene });
+                  }}
+                >
+                  <div
+                    className={`aspect-video overflow-hidden rounded bg-black ring-2 ${
+                      live ? 'ring-emerald-500' : 'ring-transparent group-hover:ring-slate-500'
+                    }`}
+                  >
+                    {image && <img src={image} alt="" className="h-full w-full object-contain" />}
+                  </div>
+                  <span className="flex items-center gap-1 text-xs">
+                    <span className={`min-w-0 flex-1 truncate ${live ? '' : 'text-slate-400'}`}>
+                      {scene}
+                    </span>
+                    {live && <span className="font-medium text-emerald-400">{t('obs.live')}</span>}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

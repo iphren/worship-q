@@ -579,6 +579,7 @@ export const en = {
   'obs.panelTitle': 'OBS · {name}',
   'obs.scenes': 'Scenes',
   'obs.live': 'Live',
+  'obs.thumbnailSwitch': 'Switch to {scene}',
   'obs.stream': 'Stream',
   'obs.record': 'Record',
   'obs.virtualCam': 'Camera',
