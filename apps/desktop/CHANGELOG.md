@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.9.0](https://github.com/iphren/worship-q/compare/v2.8.0...v2.9.0) (2026-11-17)
+
+
+### Features
+
+* drop the slideshow preview beside the OBS monitor on the present page ([177ed0b](https://github.com/iphren/worship-q/commit/177ed0bbb858114950eeb83253c2e2c14455f80f))
+* scene thumbnails beside the OBS monitor on the OBS computer, shown once two columns fit ([765fa97](https://github.com/iphren/worship-q/commit/765fa973923eef6f466320d4a9fe74bd2f79134a))
+* slideshow preview under the run sheet in view-only mode too ([624ba87](https://github.com/iphren/worship-q/commit/624ba8711ccc3132c08a16643fa3904537acd97d))
+* slideshow preview under the search on the present page while nothing is typed ([94ea82e](https://github.com/iphren/worship-q/commit/94ea82e85f8dbc93e6a54d7a94bd4957a1fbe121))
+
+
+### Bug Fixes
+
+* mention Bible passages in the empty live run sheet message ([e94b82d](https://github.com/iphren/worship-q/commit/e94b82d93dc68cf5cd1a6c918e46b5218c93e421))
+* no focus ring on a clicked slide on Windows ([26eca9b](https://github.com/iphren/worship-q/commit/26eca9be9d17999a3034ce0d3e564304a4444fb5))
+* space does nothing when nothing is on screen ([55cfeed](https://github.com/iphren/worship-q/commit/55cfeedd1b51b658a0ed28603ed7aeee24df0278))
+
 ## [2.8.0](https://github.com/iphren/worship-q/compare/v2.7.0...v2.8.0) (2026-11-17)
 
 
