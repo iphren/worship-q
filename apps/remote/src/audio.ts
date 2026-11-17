@@ -19,6 +19,7 @@ import {
 } from '@worship-q/audio';
 import type { IceServer, RemoteAudioView } from '@worship-q/protocol';
 import type { RemoteConnection } from './connection';
+import { t } from '@worship-q/i18n/remote';
 
 export type PhoneListenState = ListenState;
 
@@ -96,28 +97,31 @@ export class PhoneListen {
 export function phoneListenText(status: ListenStatus): string {
   switch (status.kind) {
     case 'off':
-      return 'Not listening';
+      return t('listen.off');
     case 'connecting':
-      return 'Connecting…';
+      return t('listen.connecting');
     case 'playing':
-      return 'Playing';
+      return t('listen.playing');
     case 'waiting':
-      return 'Connected; the broadcast is waiting for its input';
+      return t('listen.waiting');
     case 'reconnecting':
-      return 'Reconnecting…';
+      return t('live.reconnecting');
     case 'full':
-      return 'The broadcast is full: ten are listening already';
+      return t('listen.full');
     case 'unreachable':
-      return status.relay
-        ? 'Could not connect. The church’s relay was tried; this network may block it.'
-        : 'Could not connect from this network, and the church’s server offers no relay.';
+      return t(status.relay ? 'listen.unreachableRelay' : 'listen.unreachable');
   }
 }
 
 /** The delay figure and path on one line; null while there is none. */
 export function phoneDelayText(delay: DelayFigure | null): string | null {
   if (!delay) return null;
-  const figure = delay.delayMs === null ? '–' : `${delay.delayMs} ms`;
-  const path = delay.path === 'relayed' ? 'Relayed' : delay.path === 'direct' ? 'Direct' : null;
+  const figure = delay.delayMs === null ? '–' : t('listen.delay', { ms: delay.delayMs });
+  const path =
+    delay.path === 'relayed'
+      ? t('listen.relayed')
+      : delay.path === 'direct'
+        ? t('listen.direct')
+        : null;
   return path ? `${figure} · ${path}` : figure;
 }

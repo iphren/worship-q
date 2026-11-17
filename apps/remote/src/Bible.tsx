@@ -8,7 +8,8 @@ import {
   align,
   bibleWindow,
   bookName,
-  describeWarning,
+  warningParams,
+  type AlignWarning,
   formatReference,
   fromUsfm,
   toUsfm,
@@ -21,6 +22,7 @@ import {
   type Toc,
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useState } from 'react';
+import { t, type MessageKey } from '@worship-q/i18n/remote';
 import type { RemoteConnection } from './connection';
 
 const {
@@ -38,13 +40,21 @@ const {
 } = bibleWindow;
 type BibleWindowState = bibleWindow.BibleWindowState;
 
-const ERRORS: Record<string, string> = {
-  offline: 'The presenting computer cannot reach the church server, or has no Bible.',
-  'not-offered': 'That version is not offered by the church.',
-  'not-found': 'That passage is not in this version.',
-  'too-large': 'That passage is too long; choose at most 500 verses.',
-  unavailable: 'The Bible is not answering just now. Try again.',
+const ERRORS: Record<string, MessageKey> = {
+  offline: 'bible.error.offline',
+  'not-offered': 'bible.error.notOffered',
+  'not-found': 'bible.error.notFound',
+  'too-large': 'bible.error.tooLarge',
+  unavailable: 'bible.error.unavailable',
 };
+
+/** A joined or missing verse in the interface language. */
+function warningText(warning: AlignWarning, book: string): string {
+  return t(
+    warning.kind === 'joined' ? 'bible.warningJoined' : 'bible.warningMissing',
+    warningParams(warning, book),
+  );
+}
 
 export function PhoneBible(props: {
   connection: RemoteConnection;
@@ -105,7 +115,11 @@ export function PhoneBible(props: {
       void connection.biblePassage(usfm, versions).then((answer) => {
         if (!current) return;
         if (answer?.passage) setPreview({ kind: 'ready', passage: answer.passage });
-        else setPreview({ kind: 'failed', message: ERRORS[answer?.error ?? 'unavailable']! });
+        else
+          setPreview({
+            kind: 'failed',
+            message: t(ERRORS[answer?.error ?? 'unavailable'] ?? 'bible.error.unavailable'),
+          });
       });
     }, 300);
     return () => {
@@ -163,7 +177,7 @@ export function PhoneBible(props: {
             autoComplete="off"
             spellCheck={false}
             className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
-            placeholder="Mark 15:5-6, 马可福音15章5节, or words"
+            placeholder={t('bible.placeholder')}
             value={state.input}
             onChange={(event) => setState(typed(event.target.value, toc))}
           />
@@ -171,7 +185,7 @@ export function PhoneBible(props: {
             className="rounded-lg bg-slate-800 px-3 text-sm font-semibold"
             onClick={() => props.onDone(null)}
           >
-            Back
+            {t('add.back')}
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -182,7 +196,7 @@ export function PhoneBible(props: {
             >
               {index > 0 && (
                 <button
-                  aria-label={`Show ${credit(id)} first`}
+                  aria-label={t('bible.showFirst', { version: credit(id) })}
                   onClick={() => changeVersions([id, ...versions.filter((v) => v !== id)])}
                 >
                   ◀
@@ -190,7 +204,7 @@ export function PhoneBible(props: {
               )}
               {credit(id)}
               <button
-                aria-label={`Remove ${credit(id)}`}
+                aria-label={t('bible.removeVersion', { version: credit(id) })}
                 onClick={() => changeVersions(versions.filter((v) => v !== id))}
               >
                 ✕
@@ -200,7 +214,7 @@ export function PhoneBible(props: {
           {offered && versions.length < 2 && offered.some((v) => !versions.includes(v.id)) && (
             <select
               className="rounded-full border border-slate-600 bg-slate-900 px-2 py-1 text-xs"
-              aria-label="Add a version"
+              aria-label={t('bible.addVersion')}
               value=""
               onChange={(event) =>
                 event.target.value &&
@@ -210,23 +224,23 @@ export function PhoneBible(props: {
                 ])
               }
             >
-              <option value="">+ Version</option>
+              <option value="">+ {t('bible.version')}</option>
               {offered.map((v) => (
                 <option key={v.id} value={v.id} disabled={versions.includes(v.id)}>
                   {v.credit}
-                  {versions.includes(v.id) ? ' (selected)' : ''}
+                  {versions.includes(v.id) ? ` ${t('bible.selected')}` : ''}
                 </option>
               ))}
             </select>
           )}
         </div>
         {offered && offered.length === 0 && (
-          <p className="text-sm text-amber-300">
-            The church does not offer a Bible on this computer.
-          </p>
+          <p className="text-sm text-amber-300">{t('bible.noneOffered')}</p>
         )}
         <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-400">
-          <button onClick={() => setState(backTo(state, 'books', language))}>Books</button>
+          <button onClick={() => setState(backTo(state, 'books', language))}>
+            {t('bible.books')}
+          </button>
           {state.book && (
             <>
               ›{' '}
@@ -250,14 +264,12 @@ export function PhoneBible(props: {
         <div className="space-y-4 land:col-start-1 land:row-span-2 land:row-start-2 land:min-h-0 land:overflow-y-auto land:border-r land:border-slate-800 land:px-3 land:py-2">
           {state.searchText ? (
             <ul className="space-y-1">
-              {!results && <li className="text-sm text-slate-400">Searching…</li>}
+              {!results && <li className="text-sm text-slate-400">{t('bible.searching')}</li>}
               {results && !results.searched && (
-                <li className="text-sm text-slate-400">
-                  This version cannot be searched by words; type a reference.
-                </li>
+                <li className="text-sm text-slate-400">{t('bible.noWordSearch')}</li>
               )}
               {results?.searched && results.references.length === 0 && (
-                <li className="text-sm text-slate-400">No verses found.</li>
+                <li className="text-sm text-slate-400">{t('bible.noVerses')}</li>
               )}
               {results?.references.map((ref) => {
                 const parsed = fromUsfm(ref);
@@ -305,9 +317,7 @@ export function PhoneBible(props: {
             </div>
           ) : (
             <div>
-              <p className="mb-2 text-xs text-slate-400">
-                Tap the first verse, then the last. Tap one verse twice for that verse alone.
-              </p>
+              <p className="mb-2 text-xs text-slate-400">{t('bible.tapVerses')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {verseCells(state, toc)?.map((c) => (
                   <button
@@ -317,39 +327,35 @@ export function PhoneBible(props: {
                   >
                     {c.label}
                   </button>
-                )) ?? <span className="text-sm text-slate-400">Loading…</span>}
+                )) ?? <span className="text-sm text-slate-400">{t('bible.loading')}</span>}
               </div>
               {toc && canContinue(state, toc) && (
                 <button
                   className="mt-2 text-sm text-sky-300"
                   onClick={() => setState(continueToNextChapter(state, toc, language))}
                 >
-                  Continue into chapter {state.chapter + 1}
+                  {t('bible.continueChapter', { chapter: state.chapter + 1 })}
                 </button>
               )}
             </div>
           )}
           {check.kind === 'no-chapter' && (
             <p className="text-sm text-amber-300">
-              Not in this version: it ends at chapter {check.nearest}.
+              {t('bible.noChapter', { chapter: check.nearest })}
             </p>
           )}
           {check.kind === 'no-verse' && (
-            <p className="text-sm text-amber-300">
-              This chapter has only {check.verses} verses in this version.
-            </p>
+            <p className="text-sm text-amber-300">{t('bible.noVerse', { verses: check.verses })}</p>
           )}
         </div>
 
         <div className="space-y-4 land:col-start-2 land:row-span-2 land:row-start-1 land:min-h-0 land:overflow-y-auto land:px-3 land:py-2">
           {preview.kind === 'idle' && (
-            <p className="hidden text-sm text-slate-500 land:block">
-              Choose a passage to see it here.
-            </p>
+            <p className="hidden text-sm text-slate-500 land:block">{t('bible.choose')}</p>
           )}
 
           {preview.kind === 'loading' && (
-            <p className="text-sm text-slate-400">Loading the passage…</p>
+            <p className="text-sm text-slate-400">{t('bible.loadingPassage')}</p>
           )}
           {preview.kind === 'failed' && <p className="text-sm text-amber-300">{preview.message}</p>}
           {aligned && (
@@ -357,7 +363,7 @@ export function PhoneBible(props: {
               {aligned.warnings.length > 0 && (
                 <ul className="mb-2 text-xs text-slate-400">
                   {aligned.warnings.map((warning, i) => (
-                    <li key={i}>ⓘ {describeWarning(warning, aligned.reference.book)}</li>
+                    <li key={i}>ⓘ {warningText(warning, aligned.reference.book)}</li>
                   ))}
                 </ul>
               )}
@@ -379,14 +385,14 @@ export function PhoneBible(props: {
           disabled={!connected || !ready}
           onClick={() => add(false)}
         >
-          Add to run sheet
+          {t('bible.add')}
         </button>
         <button
           className="flex-1 rounded-lg bg-sky-600 py-3 text-[15px] font-semibold whitespace-nowrap land:py-2.5 land:text-sm text-white active:scale-[0.98] disabled:opacity-40"
           disabled={!connected || !ready}
           onClick={() => add(true)}
         >
-          Present ▶
+          {t('bible.present')} ▶
         </button>
       </div>
     </div>

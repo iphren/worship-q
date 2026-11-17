@@ -88,6 +88,39 @@ export function applyPreference(preference: LanguagePreference | typeof PSEUDO):
   return next;
 }
 
+/** Where a browser app keeps its Language choice: per browser, as nothing else is kept. */
+const BROWSER_KEY = 'wq.language';
+
+/** The browser app's saved choice; `auto` when there is none or storage is unavailable. */
+export function loadBrowserPreference(): LanguagePreference | typeof PSEUDO {
+  try {
+    return parsePreference(localStorage.getItem(BROWSER_KEY));
+  } catch {
+    return 'auto';
+  }
+}
+
+/** Saves and applies a browser app's choice. */
+export function saveBrowserPreference(preference: LanguagePreference | typeof PSEUDO): void {
+  try {
+    if (preference === 'auto') localStorage.removeItem(BROWSER_KEY);
+    else localStorage.setItem(BROWSER_KEY, preference);
+  } catch {
+    // Storage unavailable: the choice lasts while the page is open.
+  }
+  applyPreference(preference);
+}
+
+/**
+ * Starts a browser app in its saved language, following the browser's own language while
+ * the choice is Automatic.
+ */
+export function startBrowserLanguage(): void {
+  applyPreference(loadBrowserPreference());
+  if (typeof window === 'undefined') return;
+  window.addEventListener('languagechange', () => applyPreference(loadBrowserPreference()));
+}
+
 export function subscribeLocale(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);

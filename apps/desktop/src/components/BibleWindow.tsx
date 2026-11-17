@@ -9,7 +9,6 @@ import {
   align,
   bookName,
   chapterReference,
-  describeWarning,
   formatReference,
   fromUsfm,
   passageReference,
@@ -32,6 +31,7 @@ import { useApp, useCloud, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
+import { warningText } from './PassageWarnings';
 
 const {
   backTo,
@@ -381,7 +381,7 @@ export function BibleWindow(props: {
                     {t('bible.warnings')}
                     <ul className="list-inside list-disc">
                       {aligned.warnings.map((warning, i) => (
-                        <li key={i}>{describeWarning(warning, aligned.reference.book)}</li>
+                        <li key={i}>{warningText(warning, aligned.reference.book)}</li>
                       ))}
                     </ul>
                   </div>

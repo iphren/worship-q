@@ -22,6 +22,8 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { PassageColumns, PhoneBible } from './Bible';
 import { PhoneListen, phoneDelayText, phoneListenText } from './audio';
 import { RemoteConnection } from './connection';
+import { LanguageButton } from './Language';
+import { formatDate, t, type MessageKey } from '@worship-q/i18n/remote';
 
 const connection = new RemoteConnection(window.location);
 const listen = new PhoneListen(connection);
@@ -37,42 +39,40 @@ export function RemoteApp() {
     case 'name':
       return <NameForm />;
     case 'connecting':
-      return <Message title="Connecting…" />;
+      return <Message title={t('connect.connecting')} />;
     case 'pending':
       return (
-        <Message title="Waiting for approval">
-          <p>Ask the operator to approve this phone. They will see this code:</p>
+        <Message title={t('connect.pendingTitle')}>
+          <p>{t('connect.pending')}</p>
           <p className="my-6 font-mono text-5xl tracking-[0.3em] text-white">{state.code}</p>
         </Message>
       );
     case 'offline':
       return (
-        <Message title="Waiting for presentation">
-          <p>The presenting computer is not connected right now. This page reconnects by itself.</p>
+        <Message title={t('connect.offlineTitle')}>
+          <p>{t('connect.offline')}</p>
         </Message>
       );
     case 'denied':
       return (
-        <Message title={state.reason === 'denied' ? 'Not approved' : 'Scan the QR code again'}>
+        <Message
+          title={t(state.reason === 'denied' ? 'connect.deniedTitle' : 'connect.expiredTitle')}
+        >
           <p>
-            {state.reason === 'denied'
-              ? 'The operator did not approve this phone.'
-              : state.reason === 'revoked'
-                ? 'This phone was disconnected by the operator.'
-                : 'This link has expired or was already used. Scan the QR code shown on the presenting computer.'}
+            {t(
+              state.reason === 'denied'
+                ? 'connect.denied'
+                : state.reason === 'revoked'
+                  ? 'connect.revoked'
+                  : 'connect.expired',
+            )}
           </p>
         </Message>
       );
     case 'no-workspace':
-      return (
-        <Message title="Presentation not found">This link does not lead to a presentation.</Message>
-      );
+      return <Message title={t('connect.notFoundTitle')}>{t('connect.notFound')}</Message>;
     case 'update-needed':
-      return (
-        <Message title="Update needed">
-          The presenting computer runs a different version of Worship Q. Update it, then reload.
-        </Message>
-      );
+      return <Message title={t('connect.updateTitle')}>{t('connect.update')}</Message>;
     case 'live':
       return <Live view={state.view} />;
   }
@@ -98,23 +98,21 @@ function NameForm() {
           if (name.trim()) connection.start(name);
         }}
       >
-        <h1 className="text-xl font-semibold text-white">Remote control</h1>
-        <p className="text-sm text-slate-400">
-          Enter your name. The operator sees it when approving this phone.
-        </p>
+        <h1 className="text-xl font-semibold text-white">{t('name.title')}</h1>
+        <p className="text-sm text-slate-400">{t('name.hint')}</p>
         <input
           autoFocus
           className="w-full rounded-lg border border-slate-600 bg-slate-900 px-4 py-3 text-lg"
           value={name}
           maxLength={40}
-          placeholder="Your name"
+          placeholder={t('name.placeholder')}
           onChange={(event) => setName(event.target.value)}
         />
         <button
           className="w-full rounded-lg bg-sky-600 py-3 text-lg font-semibold text-white disabled:opacity-40"
           disabled={!name.trim()}
         >
-          Continue
+          {t('name.continue')}
         </button>
       </form>
     </main>
@@ -174,7 +172,7 @@ function Live({ view }: { view: RemoteView | null }) {
     if (!hasObs) setObsOpen(false);
   }, [hasObs]);
 
-  if (!view) return <Message title="Connecting…" />;
+  if (!view) return <Message title={t('connect.connecting')} />;
   const canEdit = view.editable === true;
   const editing = mode === 'edit' || mode === 'add' || mode === 'bible';
   const control =
@@ -196,7 +194,7 @@ function Live({ view }: { view: RemoteView | null }) {
       <div className="contents land:flex land:min-w-0 land:flex-1 land:flex-col land:pl-[env(safe-area-inset-left)]">
         {view.previousContent && (
           <p className="order-1 border-b border-amber-700 bg-amber-900/40 px-4 py-2 text-xs text-amber-100">
-            Still presenting previous content until you choose a slide.
+            {t('live.previousContent')}
           </p>
         )}
 
@@ -241,15 +239,13 @@ function Live({ view }: { view: RemoteView | null }) {
                   className="h-full space-y-9 overflow-y-auto px-3 py-4 land:space-y-6 land:py-3"
                 >
                   {view.items.length === 0 && (
-                    <p className="p-6 text-center text-sm text-slate-400">
-                      The run sheet has no items yet.
-                    </p>
+                    <p className="p-6 text-center text-sm text-slate-400">{t('live.empty')}</p>
                   )}
                   {view.items.map((item) => (
                     <section key={item.itemId}>
                       <h2 className="mb-3 flex items-center gap-2 px-1 text-xl font-semibold text-white">
                         <ItemMark item={item} />
-                        <span className="min-w-0">{item.title || 'Untitled'}</span>
+                        <span className="min-w-0">{item.title || t('live.untitled')}</span>
                       </h2>
                       <div
                         className={`grid gap-2 ${item.pieces.some((p) => p.thumbnail) ? 'grid-cols-2 land:grid-cols-3' : 'land:grid-cols-2'}`}
@@ -289,7 +285,7 @@ function Live({ view }: { view: RemoteView | null }) {
                             >
                               {lastShown && (
                                 <span className="pointer-events-none absolute -top-px -right-px z-10 rounded-tr-lg rounded-bl-lg bg-slate-600 px-2 text-[11px] leading-5 font-semibold text-slate-100">
-                                  Last shown
+                                  {t('live.lastShown')}
                                 </span>
                               )}
                               {piece.thumbnail ? (
@@ -302,7 +298,7 @@ function Live({ view }: { view: RemoteView | null }) {
                                   className="block aspect-video w-full rounded object-contain"
                                 />
                               ) : item.kind === 'video' ? (
-                                <div>▶ Video · {piece.lines[0] ?? ''}</div>
+                                <div>▶ {t('live.video', { title: piece.lines[0] ?? '' })}</div>
                               ) : piece.passage ? (
                                 <PassageColumns columns={piece.passage.columns} />
                               ) : (
@@ -314,7 +310,7 @@ function Live({ view }: { view: RemoteView | null }) {
                           );
                         })}
                         {item.pieces.length === 0 && (
-                          <p className="px-1 text-xs text-slate-500">This item has no content.</p>
+                          <p className="px-1 text-xs text-slate-500">{t('live.noContent')}</p>
                         )}
                       </div>
                     </section>
@@ -322,7 +318,7 @@ function Live({ view }: { view: RemoteView | null }) {
                 </main>
                 {view.presented && !activeInView && (
                   <button
-                    aria-label="Go to current slide"
+                    aria-label={t('live.goToCurrent')}
                     onClick={() =>
                       activeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
                     }
@@ -371,10 +367,11 @@ function Live({ view }: { view: RemoteView | null }) {
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-white land:text-sm">{view.workspaceName}</h1>
             <p className="text-xs text-slate-400 land:text-[11px]">
-              {view.status === 'live' && view.date ? runSheetName(view.date) : 'Presentation ended'}
+              {view.status === 'live' && view.date ? formatDate(view.date) : t('live.ended')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <LanguageButton />
             {/* On a phone on its side, a dot that says the same. */}
             <span
               className={`rounded-full px-2 py-0.5 text-xs land:h-2.5 land:w-2.5 land:p-0 ${
@@ -382,11 +379,11 @@ function Live({ view }: { view: RemoteView | null }) {
                   ? 'bg-emerald-800 text-emerald-100 land:bg-emerald-400'
                   : 'bg-amber-800 text-amber-100 land:bg-amber-400'
               }`}
-              title={
-                connection.via === 'lan' ? 'On this network' : 'Connected through the church server'
-              }
+              title={t(connection.via === 'lan' ? 'live.viaLan' : 'live.viaServer')}
             >
-              <span className="land:sr-only">{connected ? 'Connected' : 'Reconnecting…'}</span>
+              <span className="land:sr-only">
+                {t(connected ? 'live.connected' : 'live.reconnecting')}
+              </span>
             </span>
             {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
             {(canEdit || editing) && (
@@ -400,7 +397,7 @@ function Live({ view }: { view: RemoteView | null }) {
                   setBefore(null);
                 }}
               >
-                {editing ? 'Done' : 'Edit'}
+                {t(editing ? 'live.done' : 'live.edit')}
               </button>
             )}
           </div>
@@ -426,8 +423,8 @@ function Live({ view }: { view: RemoteView | null }) {
           <button
             className={`${control} bg-slate-800 land:col-start-1 land:row-start-2`}
             disabled={!connected}
-            title="Previous"
-            aria-label="Previous"
+            title={t('controls.previous')}
+            aria-label={t('controls.previous')}
             onClick={() => step('previous')}
           >
             <ControlIcon name="previous" className={`${controlIcon} land:h-8 land:w-8`} />
@@ -435,8 +432,8 @@ function Live({ view }: { view: RemoteView | null }) {
           <button
             className={`${control} land:row-start-1 ${view.blank ? 'bg-amber-600 text-white' : 'bg-slate-800'}`}
             disabled={!connected}
-            title={view.blank ? 'Show' : 'Blank'}
-            aria-label={view.blank ? 'Show' : 'Blank'}
+            title={t(view.blank ? 'controls.show' : 'controls.blank')}
+            aria-label={t(view.blank ? 'controls.show' : 'controls.blank')}
             aria-pressed={view.blank}
             onClick={() => connection.send({ type: view.blank ? 'unblank' : 'blank' })}
           >
@@ -445,8 +442,8 @@ function Live({ view }: { view: RemoteView | null }) {
           <button
             className={`${control} bg-slate-800 land:row-start-1`}
             disabled={!connected || (!view.presented && !view.previousContent)}
-            title="Clear"
-            aria-label="Clear"
+            title={t('controls.clear')}
+            aria-label={t('controls.clear')}
             onClick={() => connection.send({ type: 'clear' })}
           >
             <ControlIcon name="clear" className={controlIcon} />
@@ -455,8 +452,8 @@ function Live({ view }: { view: RemoteView | null }) {
             <button
               className={`${control} land:row-start-1 ${mode === 'add' && !obsOpen ? 'bg-violet-600 text-white' : 'bg-violet-900 text-violet-100'}`}
               disabled={!connected}
-              title="Add"
-              aria-label="Add"
+              title={t('controls.add')}
+              aria-label={t('controls.add')}
               onClick={openSearch}
             >
               <ControlIcon name="addToList" className={controlIcon} />
@@ -465,8 +462,8 @@ function Live({ view }: { view: RemoteView | null }) {
           <button
             className={`${control} bg-sky-600 text-white land:row-start-2 ${canEdit ? 'land:col-span-2' : ''}`}
             disabled={!connected}
-            title="Next"
-            aria-label="Next"
+            title={t('controls.next')}
+            aria-label={t('controls.next')}
             onClick={() => step('next')}
           >
             <ControlIcon name="next" className={`${controlIcon} land:h-8 land:w-8`} />
@@ -490,14 +487,14 @@ function liveText(view: RemoteView): string | null {
   const item = view.items.find((i) => i.itemId === view.presented!.itemId);
   const piece = item?.pieces.find((p) => p.id === view.presented!.pieceId);
   if (!item || !piece) return null;
-  const title = item.title || 'Untitled';
+  const title = item.title || t('live.untitled');
   // Desktops that do not send the kind: a thumbnail marks a slide, and anything else is
   // read as lyrics.
   const kind = item.kind ?? (piece.thumbnail ? 'deck' : 'lyrics');
   const lines = piece.lines.join(' ').replace(/\s+/g, ' ').trim();
   if (kind === 'lyrics') return lines || title;
   if (kind === 'deck') {
-    if (piece.textless || !lines) return `Slide ${(piece.block ?? 0) + 1} · ${title}`;
+    if (piece.textless || !lines) return t('live.slide', { number: (piece.block ?? 0) + 1, title });
     return lines;
   }
   return title;
@@ -538,7 +535,7 @@ function VideoBar(props: {
       <button
         className={button}
         disabled={!connected}
-        aria-label="Back 10 seconds"
+        aria-label={t('video.back')}
         onClick={() => seek(position - 10)}
       >
         <ControlIcon name="back10" className="h-6 w-6" />
@@ -546,7 +543,7 @@ function VideoBar(props: {
       <button
         className={`${button} min-w-14 bg-violet-600 text-white`}
         disabled={!connected}
-        aria-label={video.playing ? 'Pause' : 'Play'}
+        aria-label={t(video.playing ? 'video.pause' : 'video.play')}
         onClick={() =>
           connection.send({
             type: video.playing ? 'videoPause' : 'videoPlay',
@@ -559,7 +556,7 @@ function VideoBar(props: {
       <button
         className={button}
         disabled={!connected}
-        aria-label="Forward 10 seconds"
+        aria-label={t('video.forward')}
         onClick={() => seek(position + 10)}
       >
         <ControlIcon name="forward10" className="h-6 w-6" />
@@ -568,17 +565,17 @@ function VideoBar(props: {
         <div className="flex items-center gap-2 text-[13px] font-medium">
           {view.blank && (
             <span className="shrink-0 rounded bg-amber-500 px-1.5 text-[11px] font-semibold text-amber-950">
-              Blank
+              {t('controls.blankBadge')}
             </span>
           )}
-          <span className="min-w-0 flex-1 truncate">{liveText(view) ?? 'Video'}</span>
+          <span className="min-w-0 flex-1 truncate">{liveText(view) ?? t('video.title')}</span>
           <span className="shrink-0 text-xs text-violet-200 tabular-nums">
             {clock(position)} / {clock(video.durationSeconds)}
           </span>
         </div>
         <input
           type="range"
-          aria-label="Video position"
+          aria-label={t('video.position')}
           className="block h-5 w-full accent-violet-400"
           min={0}
           max={video.durationSeconds || 1}
@@ -611,12 +608,11 @@ function LiveLine({ view }: { view: RemoteView }) {
     >
       {view.blank && (
         <span className="shrink-0 rounded bg-amber-500 px-1.5 text-[11px] font-semibold text-amber-950">
-          Blank
+          {t('controls.blankBadge')}
         </span>
       )}
       <p className="min-w-0 flex-1 truncate">
-        {text ??
-          (view.previousContent ? 'A slide from the previous run sheet' : 'Nothing on screen')}
+        {text ?? t(view.previousContent ? 'live.previousSlide' : 'live.nothing')}
       </p>
     </div>
   );
@@ -652,7 +648,7 @@ function EditRunSheet(props: {
   return (
     <main className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-indigo-950 px-3 py-4 land:py-3">
       {items.length === 0 && (
-        <p className="p-6 text-center text-sm text-slate-400">The run sheet has no items yet.</p>
+        <p className="p-6 text-center text-sm text-slate-400">{t('live.empty')}</p>
       )}
       <ol className="space-y-2">
         {items.map((item, index) => (
@@ -670,15 +666,15 @@ function EditRunSheet(props: {
             <span className="w-5 shrink-0 text-right text-xs text-slate-500">{index + 1}</span>
             <ItemMark item={item} />
             <span className="min-w-0 flex-1 truncate text-[15px] text-white">
-              {item.title || 'Untitled'}
+              {item.title || t('live.untitled')}
             </span>
             {isNew(item.itemId) && (
               <span className="shrink-0 rounded bg-sky-700 px-1.5 text-[11px] font-semibold text-white">
-                New
+                {t('edit.new')}
               </span>
             )}
             <button
-              aria-label="Move up"
+              aria-label={t('edit.moveUp')}
               className={button}
               disabled={!connected || index === 0}
               onClick={() =>
@@ -692,7 +688,7 @@ function EditRunSheet(props: {
               ↑
             </button>
             <button
-              aria-label="Move down"
+              aria-label={t('edit.moveDown')}
               className={button}
               disabled={!connected || index === items.length - 1}
               onClick={() =>
@@ -714,11 +710,11 @@ function EditRunSheet(props: {
                   connection.send({ type: 'removeItem', itemId: item.itemId });
                 }}
               >
-                Remove
+                {t('edit.remove')}
               </button>
             ) : (
               <button
-                aria-label="Remove"
+                aria-label={t('edit.remove')}
                 className={button}
                 disabled={!connected}
                 onClick={() => setRemoving(item.itemId)}
@@ -735,14 +731,14 @@ function EditRunSheet(props: {
           disabled={!connected}
           onClick={props.onAdd}
         >
-          + Add an item
+          + {t('edit.addItem')}
         </button>
         <button
           className="w-full rounded-lg border border-dashed border-teal-700 py-3 text-[15px] font-semibold text-teal-300 active:scale-[0.98] disabled:opacity-40"
           disabled={!connected}
           onClick={props.onBible}
         >
-          📖 Add a Bible passage
+          📖 {t('edit.addPassage')}
         </button>
       </div>
     </main>
@@ -805,7 +801,7 @@ function AddSongs(props: {
         ? { type: 'addItem', songId: song.id, afterItemId: presented }
         : { type: 'addItem', songId: song.id },
     );
-    setAdded((list) => [...list, song.title || 'Untitled']);
+    setAdded((list) => [...list, song.title || t('live.untitled')]);
     // Ready for the next song. Focusing while handling the tap keeps the phone's keyboard up.
     setQuery('');
     inputRef.current?.focus();
@@ -829,7 +825,7 @@ function AddSongs(props: {
           autoComplete="off"
           spellCheck={false}
           className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
-          placeholder="Find songs, Bible, slides, websites…"
+          placeholder={t('add.placeholder')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -837,7 +833,7 @@ function AddSongs(props: {
           className="rounded-lg bg-slate-800 px-3 text-sm font-semibold"
           onClick={props.onDone}
         >
-          Back
+          {t('add.back')}
         </button>
       </div>
       {searching && (
@@ -861,7 +857,7 @@ function AddSongs(props: {
               strokeLinecap="round"
             />
           </svg>
-          Searching the library…
+          {t('add.searching')}
         </p>
       )}
       <ul
@@ -871,10 +867,10 @@ function AddSongs(props: {
       >
         {!query.trim() && added.length > 0 && (
           <li role="status" className="p-6 text-center text-sm text-emerald-300 land:col-span-2">
-            Added “{added[added.length - 1]}” to the run sheet.
+            {t('add.added', { title: added[added.length - 1]! })}
             {added.length > 1 && (
               <span className="mt-1 block text-xs text-slate-400">
-                {added.length} items added. Search for another, or tap Back to see the run sheet.
+                {t('add.addedMany', { count: added.length })}
               </span>
             )}
           </li>
@@ -887,7 +883,7 @@ function AddSongs(props: {
               onClick={() => props.onOpenBible(query.trim())}
             >
               <ItemBadgeMark badge="bible" />
-              Open {formatReference(reference)} in the Bible
+              {t('add.openBible', { reference: formatReference(reference) })}
             </button>
           </li>
         )}
@@ -900,14 +896,16 @@ function AddSongs(props: {
             >
               <ItemBadgeMark badge="website" />
               <span className="min-w-0 flex-1">
-                Add website to run sheet
+                {t('add.website')}
                 <span className="block truncate text-xs font-normal text-slate-400">{website}</span>
               </span>
             </button>
           </li>
         )}
         {results?.songs.length === 0 && !searching && !reference && !website && (
-          <li className="p-6 text-center text-sm text-slate-400 land:col-span-2">Nothing found.</li>
+          <li className="p-6 text-center text-sm text-slate-400 land:col-span-2">
+            {t('add.nothing')}
+          </li>
         )}
         {results?.songs.map((song) => {
           return (
@@ -918,7 +916,7 @@ function AddSongs(props: {
               <div className="mb-1 flex items-center gap-2">
                 <ItemMark item={song} />
                 <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-white">
-                  {song.title || 'Untitled'}
+                  {song.title || t('live.untitled')}
                 </span>
               </div>
               {song.preview.length > 0 && (
@@ -932,7 +930,7 @@ function AddSongs(props: {
                   disabled={!connected}
                   onClick={() => add(song, false)}
                 >
-                  Add to end
+                  {t('add.toEnd')}
                 </button>
                 {presented && (
                   <button
@@ -940,7 +938,7 @@ function AddSongs(props: {
                     disabled={!connected}
                     onClick={() => add(song, true)}
                   >
-                    Add after current
+                    {t('add.afterCurrent')}
                   </button>
                 )}
               </div>
@@ -952,46 +950,34 @@ function AddSongs(props: {
   );
 }
 
-const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
-const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
-
-/** A run sheet's name, such as "Sunday 1st Nov". */
-function runSheetName(date: string): string {
-  const day = Number(date.slice(8, 10));
-  const name = (options: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat('en', { timeZone: 'UTC', ...options }).format(
-      new Date(`${date}T00:00:00Z`),
-    );
-  return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
-}
-
 // ── OBS (OBS control plan M4, M5.2) ─────────────────────────────────────────
 
-const OBS_ERROR_TEXT: Record<string, string> = {
-  'no-obs': 'No computer controls OBS.',
-  'not-connected': 'OBS is not connected.',
-  timeout: 'OBS did not answer.',
-  'owner-left': 'The OBS computer left before answering.',
+const OBS_ERROR_TEXT: Record<string, MessageKey> = {
+  'no-obs': 'obs.error.noObs',
+  'not-connected': 'obs.error.notConnected',
+  timeout: 'obs.error.timeout',
+  'owner-left': 'obs.error.ownerLeft',
 };
 
 /** Behind the OBS bar and the OBS screen alike, set apart from the home page and run sheet. */
 const OBS_BACKGROUND = 'bg-neutral-800';
 
 function obsError(result: ObsResult): string {
-  return (result.error && OBS_ERROR_TEXT[result.error]) || `OBS: ${result.error ?? result.code}`;
+  const known = result.error ? OBS_ERROR_TEXT[result.error] : undefined;
+  return known ? t(known) : t('obs.error.other', { code: String(result.error ?? result.code) });
 }
 
 function obsStatusText(obs: RemoteObsView): string {
-  if (!obs.reachable) return 'OBS cannot be reached from here';
+  if (!obs.reachable) return t('obs.unreachable');
   switch (obs.status) {
     case 'connected':
-      return 'OBS connected';
+      return t('obs.connected');
     case 'connecting':
-      return 'Connecting to OBS…';
+      return t('obs.connecting');
     case 'not-running':
-      return 'OBS is not running';
+      return t('obs.notRunning');
     case 'refused':
-      return 'OBS refused the connection';
+      return t('obs.refused');
   }
 }
 
@@ -1051,7 +1037,7 @@ function AudioRow({
   const on = state.status.kind !== 'off';
   if (!audio && !on) return null;
   const line = [
-    'Listen',
+    t('listen.title'),
     on ? phoneListenText(state.status) : null,
     on ? phoneDelayText(state.delay) : null,
   ]
@@ -1076,7 +1062,7 @@ function AudioRow({
             on ? 'bg-sky-600 text-white' : 'bg-slate-800'
           }`}
           title={line}
-          aria-label={on ? 'Stop' : 'Listen'}
+          aria-label={t(on ? 'listen.stop' : 'listen.title')}
           aria-pressed={on}
           onClick={() => (on ? listen.stop() : listen.start())}
         >
@@ -1130,7 +1116,7 @@ function ObsRow(props: {
               ? obsStatusText(obs)
               : target
                 ? `⇄ ${target}`
-                : 'Choose scenes on the OBS computer'}
+                : t('obs.chooseScenes')}
           </span>
         </button>
         <button
@@ -1165,18 +1151,18 @@ function useNow(ms: number): number {
 }
 
 const OUTPUTS = [
-  { kind: 'stream', label: 'Stream', start: 'startStream', stop: 'stopStream' },
-  { kind: 'record', label: 'Record', start: 'startRecord', stop: 'stopRecord' },
-  { kind: 'virtualCam', label: 'Camera', start: 'startVirtualCam', stop: 'stopVirtualCam' },
+  { kind: 'stream', label: 'obs.stream', start: 'startStream', stop: 'stopStream' },
+  { kind: 'record', label: 'obs.record', start: 'startRecord', stop: 'stopRecord' },
+  { kind: 'virtualCam', label: 'obs.camera', start: 'startVirtualCam', stop: 'stopVirtualCam' },
 ] as const;
 
 function outputText(output: ObsOutput, elapsed: number | null): string {
-  if (output.phase === 'starting') return 'Starting…';
-  if (output.phase === 'stopping') return 'Stopping…';
-  if (output.phase === 'reconnecting') return 'Reconnecting…';
-  if (!output.active) return 'Off';
-  const time = elapsed !== null ? formatDuration(elapsed) : 'On';
-  return output.paused ? `${time} · Paused` : time;
+  if (output.phase === 'starting') return t('obs.starting');
+  if (output.phase === 'stopping') return t('obs.stopping');
+  if (output.phase === 'reconnecting') return t('live.reconnecting');
+  if (!output.active) return t('obs.off');
+  const time = elapsed !== null ? formatDuration(elapsed) : t('obs.on');
+  return output.paused ? t('obs.paused', { time }) : time;
 }
 
 /** The OBS screen (M4.2): the live monitor, the scenes and the outputs. */
@@ -1219,12 +1205,12 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
             {image ? (
               <img
                 src={image.image}
-                alt="Program"
+                alt={t('obs.program')}
                 className={`h-full w-full object-contain ${stale ? 'opacity-50' : ''}`}
               />
             ) : (
               <p className="flex h-full items-center justify-center text-xs text-slate-500">
-                {usable ? 'Waiting for an image…' : ''}
+                {usable ? t('obs.waitingImage') : ''}
               </p>
             )}
             {/* Sweeps in from the left and out to the right between images. */}
@@ -1239,7 +1225,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
           </div>
           {stale && (
             <figcaption className="pt-1 text-right text-xs text-amber-300">
-              From {Math.round((age ?? 0) / 1000)} s ago
+              {t('obs.imageAge', { seconds: Math.round((age ?? 0) / 1000) })}
             </figcaption>
           )}
         </figure>
@@ -1262,7 +1248,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
                   className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
                 />
                 <span className="flex-1">
-                  <span className="block font-medium">{label}</span>
+                  <span className="block font-medium">{t(label)}</span>
                   <span className="block text-xs text-slate-400 tabular-nums">
                     {outputText(output, elapsed)}
                   </span>
@@ -1279,7 +1265,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
                     void command.run({ type: stop });
                   }}
                 >
-                  {running ? (confirming === kind ? 'Tap to stop' : 'Stop') : 'Start'}
+                  {t(running ? (confirming === kind ? 'obs.tapToStop' : 'obs.stop') : 'obs.start')}
                 </button>
               </div>
             );
@@ -1288,10 +1274,10 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
 
         <section>
           <h2 className="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-            Scenes
+            {t('obs.scenes')}
           </h2>
           {obs.scenes.length === 0 && (
-            <p className="text-sm text-slate-500">The scenes appear once OBS is connected.</p>
+            <p className="text-sm text-slate-500">{t('obs.scenesLater')}</p>
           )}
           <ul className="space-y-2 land:grid land:grid-cols-2 land:gap-1.5 land:space-y-0">
             {obs.scenes.map((scene) => {
@@ -1308,7 +1294,11 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
                     onClick={() => void command.run({ type: 'setScene', scene })}
                   >
                     <span className="min-w-0 flex-1 truncate">{scene}</span>
-                    {live && <span className="text-xs font-semibold text-emerald-300">Live</span>}
+                    {live && (
+                      <span className="text-xs font-semibold text-emerald-300">
+                        {t('obs.live')}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

@@ -152,9 +152,21 @@ export function align(passage: Passage): Aligned {
  * `NIVUK has no Revelation 12:18`.
  */
 export function describeWarning(warning: AlignWarning, book: string): string {
+  const { credit, chapter, span, book: name } = warningParams(warning, book);
+  if (warning.kind === 'joined') return `${credit} joins verses ${chapter}:${span}`;
+  return `${credit} has no ${name} ${chapter}:${span}`;
+}
+
+/**
+ * A warning's parts, for an interface to put into words in its own language: the version's
+ * credit, the chapter, the verses (`12–13`) and the book's name.
+ */
+export function warningParams(
+  warning: AlignWarning,
+  book: string,
+): { credit: string; chapter: number; span: string; book: string } {
   const first = warning.verses[0];
   const last = warning.verses[warning.verses.length - 1];
   const span = first === last ? `${first}` : `${first}–${last}`;
-  if (warning.kind === 'joined') return `${warning.credit} joins verses ${warning.chapter}:${span}`;
-  return `${warning.credit} has no ${bookName(book, 'en')} ${warning.chapter}:${span}`;
+  return { credit: warning.credit, chapter: warning.chapter, span, book: bookName(book, 'en') };
 }
