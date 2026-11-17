@@ -11,11 +11,21 @@ import sharp from 'sharp';
 import { createServer } from 'vite';
 import { SCENES, type SceneTools } from './scenes';
 import { seed } from './seed';
-import { installTauriMock, nativeCommands, type Sent } from './tauri';
+import { FILES_ORIGIN, installTauriMock, nativeCommands, type Sent } from './tauri';
 
-/** The Sunday morning the pictures are taken: mid-service, so the app opens live. */
-const DATE = '2026-11-15';
-const NOW = '2026-11-15T10:24:00Z';
+/** The next Sunday from `from`, as an ISO day: `from` itself when it is a Sunday. */
+function nextSunday(from: Date): string {
+  const day = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
+  day.setUTCDate(day.getUTCDate() + ((7 - day.getUTCDay()) % 7));
+  return day.toISOString().slice(0, 10);
+}
+
+/**
+ * The Sunday morning the pictures are taken: the next Sunday from when they are rendered,
+ * mid-service, so the app opens live on it. 10:24 UTC is mid-morning in London all year.
+ */
+const DATE = nextSunday(new Date());
+const NOW = `${DATE}T10:24:00Z`;
 const TIMEZONE = 'Europe/London';
 /** Must match OUTPUT_WINDOW and FRAME_EVENT in apps/desktop/src/app/output.ts. */
 const OUTPUT_WINDOW = 'output';
@@ -70,7 +80,7 @@ try {
   for (const scene of SCENES) {
     if (only && scene.name !== only) continue;
     console.log(scene.name);
-    const driver = await seed(DATE, NOW, TIMEZONE);
+    const seeded = await seed(DATE, NOW, TIMEZONE);
     const sent: Sent = new Map();
     const viewport = scene.viewport ?? { width: 1440, height: 900 };
     const context = await browser.newContext({
@@ -82,8 +92,16 @@ try {
     });
     await context.exposeFunction(
       '__wqInvoke',
-      nativeCommands(driver, sent, (cmd) => console.log(`  native: ${cmd}`)),
+      nativeCommands(seeded, sent, (cmd) => console.log(`  native: ${cmd}`)),
     );
+    // The stored files the page asks for, such as a deck's slide images.
+    await context.route(`${FILES_ORIGIN}/**`, (route) => {
+      const name = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
+      const file = seeded.files.get(name);
+      return file
+        ? route.fulfill({ body: file, contentType: 'image/jpeg' })
+        : route.fulfill({ status: 404 });
+    });
     const page = await openWindow(context, 'main', viewport);
     const tools: SceneTools = {
       async slideshow(size = { width: 1920, height: 1080 }) {
@@ -111,7 +129,7 @@ try {
       .webp({ quality: 82 })
       .toFile(resolve(out, `${scene.name}.webp`));
     await context.close();
-    driver.close();
+    seeded.driver.close();
   }
 } finally {
   await browser.close();

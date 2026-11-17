@@ -1,6 +1,6 @@
-// What the screenshots show: hymns and a Bible passage that are in the public domain, so the
-// pictures can be published anywhere. Keep it that way: no song or Bible version under
-// copyright, and no real church's name.
+// What the screenshots show: hymns and a Bible passage that are in the public domain, and a
+// sermon deck and a video item written for them, so the pictures can be published anywhere.
+// Keep it that way: no song or Bible version under copyright, and no real church's name.
 
 import type { Passage } from '@worship-q/bible';
 
@@ -278,11 +278,64 @@ export const PSALM_23: Passage = {
   ],
 };
 
-/** The run sheet of the Sunday the screenshots show, in order: hymns by title, and passages. */
-export const RUN_SHEET: (string | Passage)[] = [
+/** One slide of a sermon deck, drawn as an image by media.ts. */
+export interface SermonSlide {
+  /** The large line; the title on the first slide. */
+  heading: string;
+  /** Smaller lines under it. */
+  lines: string[];
+}
+
+/** A sermon's slides, as if imported from PowerPoint. */
+export interface Sermon {
+  kind: 'sermon';
+  title: string;
+  source: string;
+  slides: SermonSlide[];
+}
+
+/** A video item, as if uploaded. Only its record is made: no scene plays it. */
+export interface VideoItem {
+  kind: 'video';
+  title: string;
+  source: string;
+  durationSeconds: number;
+}
+
+export const SERMON: Sermon = {
+  kind: 'sermon',
+  title: 'The Good Shepherd',
+  source: 'The Good Shepherd.pptx',
+  slides: [
+    { heading: 'The Good Shepherd', lines: ['Psalm 23 · John 10:11'] },
+    {
+      heading: '1. He provides',
+      lines: ['“The LORD is my shepherd; I shall not want.”', 'Psalm 23:1'],
+    },
+    { heading: '2. He restores', lines: ['“He restores my soul.”', 'Psalm 23:3'] },
+    {
+      heading: '3. He stays',
+      lines: ['“I will fear no evil, for You are with me.”', 'Psalm 23:4'],
+    },
+  ],
+};
+
+export const WELCOME_VIDEO: VideoItem = {
+  kind: 'video',
+  title: 'Welcome',
+  source: 'Welcome.mp4',
+  durationSeconds: 95,
+};
+
+/**
+ * The run sheet of the Sunday the screenshots show, in order: hymns by title, a passage, the
+ * sermon and a video. The first four are the columns the Present page shows.
+ */
+export const RUN_SHEET: (string | Passage | Sermon | VideoItem)[] = [
+  WELCOME_VIDEO,
   'Holy, Holy, Holy',
-  'Come, Thou Fount of Every Blessing',
   PSALM_23,
+  SERMON,
   'Amazing Grace',
   'It Is Well with My Soul',
 ];

@@ -4,7 +4,10 @@
 // database or with what a computer with no slideshow, server or OBS would answer.
 
 import type { SqlValue, Statement } from '@worship-q/store';
-import type { NodeDriver } from '@worship-q/store/testing';
+import type { Seeded } from './seed';
+
+/** Where the page loads stored files from; must match `convertFileSrc` below. */
+export const FILES_ORIGIN = 'https://files.wq.test';
 
 declare global {
   interface Window {
@@ -51,8 +54,8 @@ export function installTauriMock(label: string) {
     unregisterCallback: (id: number) => callbacks.delete(id),
     runCallback: (id: number, data: unknown) => callbacks.get(id)?.(data),
     callbacks,
-    convertFileSrc: (path: string, protocol = 'asset') =>
-      `${protocol}://localhost/${encodeURIComponent(path)}`,
+    // Stored files are served to the page by the renderer at this address (FILES_ORIGIN).
+    convertFileSrc: (path: string) => `https://files.wq.test/${encodeURIComponent(path)}`,
     metadata: {
       currentWindow: { label },
       currentWebview: { windowLabel: label, label },
@@ -84,7 +87,7 @@ export type Sent = Map<string, unknown>;
 
 /** Answers a command from the page. Unknown commands answer null and are listed once. */
 export function nativeCommands(
-  driver: NodeDriver,
+  { driver, files, videos }: Seeded,
   sent: Sent,
   log = (cmd: string) => console.warn(cmd),
 ) {
@@ -116,10 +119,13 @@ export function nativeCommands(
       case 'other_instances':
         return 0;
       case 'list_workspaces':
-      case 'list_videos':
         return [];
+      case 'list_videos':
+        return [...videos];
       case 'video_location':
-        return { path: '', exists: false };
+        return { path: args.file, exists: videos.has(args.file as string) };
+      case 'background_path':
+        return files.has(args.fileName as string) ? args.fileName : null;
       case 'overlay_status':
         return ['http://localhost:4545/overlay', null];
       case 'plugin:updater|check':

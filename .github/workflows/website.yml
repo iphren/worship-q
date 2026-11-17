@@ -5,7 +5,8 @@ name: Website
 # pointing "latest" at another release by hand, run it from the Actions tab.
 #
 # The screenshots on the page are rendered from the app's code first (apps/screenshots), on
-# macOS so the text is drawn in the Mac app's system font.
+# macOS so the text is drawn in the Mac app's system font. Their run sheet is dated the next
+# Sunday, so the site is also rebuilt every Monday.
 
 on:
   release:
@@ -14,6 +15,9 @@ on:
     branches: [main]
     paths: [apps/website/**, apps/screenshots/**, .github/workflows/website.yml]
   workflow_dispatch:
+  # Every Monday morning, so the screenshots' run sheet is always the coming Sunday's.
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
