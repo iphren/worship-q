@@ -2,18 +2,29 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type HtmlTagDescriptor, type Plugin } from 'vite';
-import { FEATURES, SUMMARY } from './src/content.ts';
-import { FAQ } from './src/faq.ts';
-import { ANALYTICS, footer, header, SITE } from './src/layout.ts';
+import { CONTENT } from './src/content.ts';
+import { FAQS } from './src/faq.ts';
+import { HOME } from './src/home.ts';
+import { ANALYTICS, escapeHtml as escapeAttribute, footer, header, SITE } from './src/layout.ts';
 import { indexMd, llmsFullTxt, llmsTxt, type ReleaseFacts } from './src/llms.ts';
+import { LOCALE_INFO, localePath, SITE_LOCALES, type SiteLocale } from './src/locales.ts';
 import { buildPages, PAGES as MARKDOWN_PAGES, type BuiltPage } from './src/pages.ts';
+import { WORDS } from './src/words.ts';
 
 // The public site at worship-q.com, built again whenever a release is published.
 const REPO = 'iphren/worship-q';
 const RELEASES = `https://github.com/${REPO}/releases`;
 
-/** The pages listed in the sitemap, by path. */
-const PAGES = ['/', ...MARKDOWN_PAGES.map((page) => page.path)];
+/** The pages listed in the sitemap, by path, in every language the site has. */
+const PAGES = SITE_LOCALES.flatMap((locale) =>
+  ['/', ...MARKDOWN_PAGES.map((page) => page.path)].map((path) => localePath(locale, path)),
+);
+
+/**
+ * The home page's language. index.html is the English home page; the other languages' home
+ * pages are written from it in phase 2 of the translation plan.
+ */
+const HOME_LOCALE: SiteLocale = 'en';
 
 /**
  * Where the Markdown pages are written as HTML for Vite to build (git-ignored). Each moves to
@@ -62,31 +73,42 @@ const jsonLd = (data: object): HtmlTagDescriptor => ({
 });
 
 /** The features as they appear on the page. */
-function featuresHtml(): string {
-  return FEATURES.map(
-    ({ title, text, page }) =>
-      `<div><h3 class="font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-sm text-slate-400">${escapeHtml(text)}${
-        page ? ` <a href="${page}" class="text-sky-400 hover:text-sky-300">More</a>` : ''
-      }</p></div>`,
-  ).join('\n');
+function featuresHtml(locale: SiteLocale): string {
+  return CONTENT[locale].features
+    .map(
+      ({ title, text, page }) =>
+        `<div><h3 class="font-semibold">${escapeHtml(title)}</h3><p class="mt-1 text-sm text-slate-400">${escapeHtml(text)}${
+          page
+            ? ` <a href="${localePath(locale, page)}" class="text-sky-400 hover:text-sky-300">${WORDS[locale].more}</a>`
+            : ''
+        }</p></div>`,
+    )
+    .join('\n');
 }
 
 /** The questions as they appear on the page. */
-function faqHtml(): string {
-  return FAQ.map(
-    ({ question, answer }) =>
-      `<details class="faq"><summary>${escapeHtml(question)}</summary><p>${escapeHtml(answer)}</p></details>`,
-  ).join('\n');
+function faqHtml(locale: SiteLocale): string {
+  return FAQS[locale]
+    .map(
+      ({ question, answer }) =>
+        `<details class="faq"><summary>${escapeHtml(question)}</summary><p>${escapeHtml(answer)}</p></details>`,
+    )
+    .join('\n');
 }
 
 /** What search engines read about the app, the site and the questions. */
-function structuredData(release: Release | null, installers: string[]): HtmlTagDescriptor[] {
+function structuredData(
+  release: Release | null,
+  installers: string[],
+  locale: SiteLocale,
+): HtmlTagDescriptor[] {
+  const { summary, featureList } = CONTENT[locale];
   const app = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'Worship Q',
     alternateName: 'WorshipQ',
-    description: SUMMARY,
+    description: summary,
     url: `${SITE}/`,
     applicationCategory: 'MultimediaApplication',
     applicationSubCategory: 'Church presentation software',
@@ -101,19 +123,7 @@ function structuredData(release: Release | null, installers: string[]): HtmlTagD
       datePublished: release.published_at.slice(0, 10),
       releaseNotes: `${SITE}/releases/`,
     }),
-    featureList: [
-      'Song lyrics in any language, bilingual or multilingual on one slide',
-      'Search songs by title, lyrics, pinyin or initials',
-      'Bible passages in up to two versions side by side',
-      'Run sheets planned on a calendar',
-      'PowerPoint, Keynote, PDF, photo and video slides',
-      'Image or video backgrounds',
-      'Subtitle overlay for OBS and control of OBS scenes, streaming and recording',
-      'Control from a phone',
-      'Several computers sharing one presentation, with failover',
-      'Live audio from the mixing desk to other computers and phones',
-      'Works offline with no account',
-    ],
+    featureList,
     publisher: { '@id': `${SITE}/#organization` },
   };
   const organization = {
@@ -135,7 +145,7 @@ function structuredData(release: Release | null, installers: string[]): HtmlTagD
   const faq = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    mainEntity: FAQ.map(({ question, answer }) => ({
+    mainEntity: FAQS[locale].map(({ question, answer }) => ({
       '@type': 'Question',
       name: question,
       acceptedAnswer: { '@type': 'Answer', text: answer },
@@ -174,15 +184,28 @@ async function releaseFacts(): Promise<Facts> {
     page: {
       version: release?.tag_name.replace(/^v/, '') ?? null,
       date: release
-        ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'long', timeZone: 'UTC' }).format(
-            new Date(release.published_at),
-          )
+        ? new Intl.DateTimeFormat(LOCALE_INFO.en.dates, {
+            dateStyle: 'long',
+            timeZone: 'UTC',
+          }).format(new Date(release.published_at))
         : null,
       notesUrl: `${SITE}/releases/`,
       macUrl: mac ?? RELEASES,
       windowsUrl: windows ?? RELEASES,
     },
   };
+}
+
+/** The not-found page in a language. */
+function notFoundHtml(html: string, locale: SiteLocale): string {
+  const words = WORDS[locale].notFound;
+  return html
+    .replace('%LANG%', LOCALE_INFO[locale].lang)
+    .replace('%NOT_FOUND_TITLE%', escapeAttribute(words.title))
+    .replace('%NOT_FOUND_HEADING%', escapeHtml(words.heading))
+    .replace('%NOT_FOUND_TEXT%', escapeHtml(words.text))
+    .replace('%NOT_FOUND_LINK%', escapeHtml(words.link))
+    .replace('%NOT_FOUND_HOME%', localePath(locale, '/'));
 }
 
 /**
@@ -197,20 +220,31 @@ function releaseInfo(): Plugin {
   return {
     name: 'release-info',
     async transformIndexHtml(html, ctx) {
+      if (ctx.path === '/404.html') return notFoundHtml(html, HOME_LOCALE);
       if (ctx.path !== '/index.html') return html;
       const { release, installers, page } = await getFacts();
+      const locale = HOME_LOCALE;
+      const home = HOME[locale];
       html = html
+        .replace('<!-- %HOME% -->', () => home.body)
+        .replace('%LANG%', LOCALE_INFO[locale].lang)
+        .replace('%TITLE%', escapeAttribute(home.title))
+        .replace('%DESCRIPTION%', escapeAttribute(home.description))
+        .replace('%OG_TITLE%', escapeAttribute(home.ogTitle))
+        .replace('%OG_DESCRIPTION%', escapeAttribute(home.ogDescription))
+        .replace('%OG_IMAGE_ALT%', escapeAttribute(home.ogImageAlt))
+        .replace('%MARKDOWN_TITLE%', escapeAttribute(home.markdownTitle))
         .replaceAll('%MAC_URL%', page.macUrl)
         .replaceAll('%WINDOWS_URL%', page.windowsUrl)
         .replaceAll('%RELEASE_VERSION%', page.version ?? '—')
         .replaceAll('%RELEASE_DATE%', page.date ?? '—')
-        .replace('%SUMMARY%', escapeHtml(SUMMARY))
-        .replace('<!-- %HEADER% -->', header('/'))
-        .replace('<!-- %FOOTER% -->', footer())
+        .replace('%SUMMARY%', escapeHtml(CONTENT[locale].summary))
+        .replace('<!-- %HEADER% -->', header(localePath(locale, '/'), locale))
+        .replace('<!-- %FOOTER% -->', footer(locale))
         .replace('<!-- %ANALYTICS% -->', ANALYTICS)
-        .replace('<!-- %FEATURES% -->', featuresHtml())
-        .replace('<!-- %FAQ% -->', faqHtml());
-      return { html, tags: structuredData(release, installers) };
+        .replace('<!-- %FEATURES% -->', featuresHtml(locale))
+        .replace('<!-- %FAQ% -->', faqHtml(locale));
+      return { html, tags: structuredData(release, installers, locale) };
     },
     async generateBundle() {
       const { release, page } = await getFacts();
@@ -247,20 +281,17 @@ function markdownPages(): Plugin {
     name: 'markdown-pages',
     enforce: 'post',
     async config() {
-      built = await buildPages(REPO);
+      built = (await Promise.all(SITE_LOCALES.map((locale) => buildPages(REPO, locale)))).flat();
       rmSync(GENERATED, { recursive: true, force: true });
       for (const page of built) {
-        mkdirSync(dirname(file(page.spec.path)), { recursive: true });
-        writeFileSync(file(page.spec.path), page.html);
+        mkdirSync(dirname(file(page.path)), { recursive: true });
+        writeFileSync(file(page.path), page.html);
       }
       return {
         build: {
           rollupOptions: {
             input: Object.fromEntries(
-              built.map((page) => [
-                `page-${page.spec.path.replaceAll('/', '')}`,
-                file(page.spec.path),
-              ]),
+              built.map((page) => [`page-${page.path.replaceAll('/', '')}`, file(page.path)]),
             ),
           },
         },
@@ -269,14 +300,14 @@ function markdownPages(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
         const path = req.url?.split('?')[0] ?? '';
-        const page = built.find((p) => p.spec.path === path || `${p.spec.path}index.md` === path);
+        const page = built.find((p) => p.path === path || `${p.path}index.md` === path);
         if (page)
           req.url = path.endsWith('.md') ? `/generated${path}` : `/generated${path}index.html`;
         next();
       });
       // The Markdown copies, for the development server.
       for (const page of built)
-        writeFileSync(resolve(dirname(file(page.spec.path)), 'index.md'), page.markdown);
+        writeFileSync(resolve(dirname(file(page.path)), 'index.md'), page.markdown);
     },
     generateBundle(_options, bundle) {
       // Each page moves from generated/ to its own address. Rolldown takes no new entries
@@ -293,7 +324,7 @@ function markdownPages(): Plugin {
       for (const page of built) {
         this.emitFile({
           type: 'asset',
-          fileName: `${page.spec.path.slice(1)}index.md`,
+          fileName: `${page.path.slice(1)}index.md`,
           source: page.markdown,
         });
       }

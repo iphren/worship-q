@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Marked, type Tokens } from 'marked';
 import { escapeHtml, pageHtml, REPO_URL, SITE } from './layout.ts';
+import { localePath, type SiteLocale } from './locales.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const DOCS = resolve(ROOT, '../../docs');
@@ -86,6 +87,17 @@ export const PAGES: PageSpec[] = [
   },
 ];
 
+/**
+ * The Markdown pages in each of the site's languages, with their titles and descriptions in
+ * that language. A language's sources are in a folder of its name beside the English ones
+ * (`pages/zh-hans/`, `docs/zh-hans/`).
+ */
+export const PAGES_BY_LOCALE: Record<SiteLocale, PageSpec[]> = { en: PAGES };
+
+/** Where a language's sources are: the folder itself for English. */
+const localeDir = (base: string, locale: SiteLocale) =>
+  locale === 'en' ? base : resolve(base, locale);
+
 /** Where each document of docs/ lives on the site; the others stay on GitHub. */
 const DOC_PAGES = new Map(
   PAGES.flatMap((page) =>
@@ -100,7 +112,7 @@ const DOC_PAGES = new Map(
  * document's page, or to GitHub when it has none; `absolute` makes site links full URLs, for
  * the Markdown copies read away from the site.
  */
-function siteLink(href: string, fromDocs: boolean, absolute: boolean): string {
+function siteLink(href: string, fromDocs: boolean, absolute: boolean, locale: SiteLocale): string {
   if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('#')) return href;
   let target = href;
   if (fromDocs && !href.startsWith('/')) {
@@ -108,15 +120,22 @@ function siteLink(href: string, fromDocs: boolean, absolute: boolean): string {
     const page = DOC_PAGES.get(file);
     target = page ? `${page}${anchor ? `#${anchor}` : ''}` : `${REPO_URL}/blob/main/docs/${href}`;
   }
+  // A page links to the site's other pages in its own language; llms.txt is in English only.
+  if (target.startsWith('/') && !target.startsWith('/llms')) target = localePath(locale, target);
   return absolute && target.startsWith('/') ? `${SITE}${target}` : target;
 }
 
 /** Rewrites every Markdown link and image address with `siteLink`. */
-function rewriteLinks(markdown: string, fromDocs: boolean, absolute: boolean): string {
+function rewriteLinks(
+  markdown: string,
+  fromDocs: boolean,
+  absolute: boolean,
+  locale: SiteLocale,
+): string {
   return markdown.replace(
     /(\]\()([^)\s]+)(\))/g,
     (_, open: string, href: string, close: string) =>
-      `${open}${siteLink(href, fromDocs, absolute)}${close}`,
+      `${open}${siteLink(href, fromDocs, absolute, locale)}${close}`,
   );
 }
 
@@ -210,36 +229,56 @@ ${sections.join('\n\n')}
 }
 
 /** A page's Markdown source, before links are rewritten. */
-async function source(page: PageSpec, repo: string): Promise<{ text: string; fromDocs: boolean }> {
+async function source(
+  page: PageSpec,
+  repo: string,
+  locale: SiteLocale,
+): Promise<{ text: string; fromDocs: boolean }> {
   if (page.source === 'releases') return { text: await releasesMarkdown(repo), fromDocs: false };
   if ('doc' in page.source)
-    return { text: readFileSync(resolve(DOCS, page.source.doc), 'utf8'), fromDocs: true };
-  return { text: readFileSync(resolve(ROOT, 'pages', page.source.page), 'utf8'), fromDocs: false };
+    return {
+      text: readFileSync(resolve(localeDir(DOCS, locale), page.source.doc), 'utf8'),
+      fromDocs: true,
+    };
+  return {
+    text: readFileSync(
+      resolve(localeDir(resolve(ROOT, 'pages'), locale), page.source.page),
+      'utf8',
+    ),
+    fromDocs: false,
+  };
 }
 
 export interface BuiltPage {
   spec: PageSpec;
+  /** The page's address in its language, such as `/guide/`. */
+  path: string;
   /** The page, as `<path>index.html`. */
   html: string;
   /** Its Markdown copy, as `<path>index.md`, with full URLs. */
   markdown: string;
 }
 
-/** Every Markdown page, built. */
-export async function buildPages(repo: string): Promise<BuiltPage[]> {
+/** Every Markdown page in a language, built. */
+export async function buildPages(repo: string, locale: SiteLocale = 'en'): Promise<BuiltPage[]> {
   return Promise.all(
-    PAGES.map(async (spec) => {
-      const { text, fromDocs } = await source(spec, repo);
+    PAGES_BY_LOCALE[locale].map(async (spec) => {
+      const { text, fromDocs } = await source(spec, repo, locale);
+      const path = localePath(locale, spec.path);
       return {
         spec,
-        html: pageHtml({
-          path: spec.path,
-          title: spec.title,
-          description: spec.description,
-          markdown: `${spec.path}index.md`,
-          body: render(rewriteLinks(text, fromDocs, false)),
-        }),
-        markdown: rewriteLinks(text, fromDocs, true),
+        path,
+        html: pageHtml(
+          {
+            path,
+            title: spec.title,
+            description: spec.description,
+            markdown: `${path}index.md`,
+            body: render(rewriteLinks(text, fromDocs, false, locale)),
+          },
+          locale,
+        ),
+        markdown: rewriteLinks(text, fromDocs, true, locale),
       };
     }),
   );

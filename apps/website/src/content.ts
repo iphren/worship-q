@@ -1,10 +1,13 @@
 // What worship-q.com says about Worship Q, kept here once: the build writes it into the home
 // page, its structured data, llms.txt, llms-full.txt and index.md. Plain text only, in
 // English (a Chinese site comes later); keep every sentence true for the latest release.
+// `CONTENT` holds it per language; llms.txt and index.md stay English.
 
 /** One sentence that says what Worship Q is; the page opens with it and others quote it. */
 export const SUMMARY =
   'Worship Q is a free, open-source church presentation app for macOS and Windows that shows song lyrics, Bible passages, slides and videos on the projector and the live stream.';
+
+import type { SiteLocale } from './locales.ts';
 
 export interface Feature {
   title: string;
@@ -65,4 +68,27 @@ export const FEATURES: Feature[] = [
 export const PLATFORMS = {
   mac: 'macOS 11 or later, Apple Silicon and Intel',
   windows: 'Windows 10 or later, 64-bit',
+};
+
+/** What the app does, as a list for search engines' structured data. */
+export const FEATURE_LIST = [
+  'Song lyrics in any language, bilingual or multilingual on one slide',
+  'Search songs by title, lyrics, pinyin or initials',
+  'Bible passages in up to two versions side by side',
+  'Run sheets planned on a calendar',
+  'PowerPoint, Keynote, PDF, photo and video slides',
+  'Image or video backgrounds',
+  'Subtitle overlay for OBS and control of OBS scenes, streaming and recording',
+  'Control from a phone',
+  'Several computers sharing one presentation, with failover',
+  'Live audio from the mixing desk to other computers and phones',
+  'Works offline with no account',
+];
+
+/** The home page's summary, features and feature list, in each of the site's languages. */
+export const CONTENT: Record<
+  SiteLocale,
+  { summary: string; features: Feature[]; featureList: string[] }
+> = {
+  en: { summary: SUMMARY, features: FEATURES, featureList: FEATURE_LIST },
 };

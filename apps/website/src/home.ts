@@ -1,0 +1,201 @@
+// The home page's words in each of the site's languages (translation plan T9). The page's
+// frame is index.html; the build puts these into its marks. Long text is kept as HTML, so a
+// translation can follow the page's own shape.
+//
+// Tailwind finds the classes used here by reading this file, so write class names out in
+// full: never build them from pieces.
+
+import type { SiteLocale } from './locales.ts';
+
+export interface Home {
+  title: string;
+  description: string;
+  ogTitle: string;
+  ogDescription: string;
+  ogImageAlt: string;
+  /** The title of the page's Markdown copy, in its alternate link. */
+  markdownTitle: string;
+  /**
+   * The page's main content, in HTML. Its marks (`%SUMMARY%`, `%MAC_URL%`, `<!-- %FEATURES% -->`
+   * and the others) are filled in by the build.
+   */
+  body: string;
+}
+
+export const HOME: Record<SiteLocale, Home> = {
+  en: {
+    title: 'Worship Q — free church presentation software for lyrics, Bible and slides',
+    description:
+      'Free, open-source worship presentation software for Mac and Windows. Bilingual and multilingual song lyrics on one slide, Bible passages in two versions, slides, PDFs and videos, OBS subtitles and phone control. No account needed.',
+    ogTitle: 'Worship Q — free church presentation software',
+    ogDescription:
+      'Song lyrics, Bible passages, slides and videos on the projector and the live stream. Free and open source, for Mac and Windows.',
+    ogImageAlt:
+      'Worship Q: free church presentation software for lyrics, Bible passages, slides and the live stream',
+    markdownTitle: 'Worship Q in Markdown',
+    body: `<p class="text-sm font-medium tracking-wide text-amber-300">Every screen. In harmony.</p>
+<h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
+  Free church presentation software for lyrics, Bible and slides
+</h1>
+<p class="mt-4 max-w-xl text-lg text-slate-300">
+  %SUMMARY% Plan each week's run sheet and present it, with no account and no internet
+  needed.
+</p>
+
+<section class="mt-10" aria-labelledby="download">
+  <h2 id="download" class="sr-only">Download</h2>
+  <div class="grid gap-3 sm:max-w-md">
+    <a class="download" data-download="mac" href="%MAC_URL%">
+      <svg
+        viewBox="0 0 24 24"
+        class="size-7 shrink-0"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.75.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.47-.03-.01-2.3-.88-2.32-3.5zM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.64-1.05 1.67-.92 2.66.97.08 1.96-.49 2.56-1.21z"
+        />
+      </svg>
+      <span>
+        <span class="font-semibold">Download for Mac</span>
+        <small>Apple Silicon and Intel · macOS 11 or later</small>
+      </span>
+    </a>
+    <a class="download" data-download="windows" href="%WINDOWS_URL%">
+      <svg
+        viewBox="0 0 24 24"
+        class="size-7 shrink-0"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          d="M3 5.5 10.4 4.5v7H3zM11.4 4.36 21 3v8.5h-9.6zM3 12.5h7.4v7L3 18.5zM11.4 12.5H21V21l-9.6-1.36z"
+        />
+      </svg>
+      <span>
+        <span class="font-semibold">Download for Windows</span>
+        <small>64-bit · Windows 10 or later</small>
+      </span>
+    </a>
+  </div>
+  <p class="mt-4 text-sm text-slate-400">
+    Version %RELEASE_VERSION% · %RELEASE_DATE% ·
+    <a href="/releases/" class="text-sky-400 hover:text-sky-300">What's new</a>
+  </p>
+  <p class="mt-1 text-sm text-slate-400">
+    Installed copies update themselves, and never while the slideshow is open.
+  </p>
+</section>
+
+<!-- The Mac app is signed and notarized; until the Windows app is signed too (plan
+     phase 5): how to open it the first time. -->
+<section
+  class="mt-10 rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300"
+  aria-labelledby="first-open"
+>
+  <h2 id="first-open" class="font-semibold text-slate-100">Opening it the first time</h2>
+  <dl class="mt-3 space-y-2">
+    <div>
+      <dt class="font-medium text-slate-100">Mac</dt>
+      <dd>Drag Worship Q to Applications and open it.</dd>
+    </div>
+    <div>
+      <dt class="font-medium text-slate-100">Windows</dt>
+      <dd>
+        Worship Q is not yet signed with Microsoft, so Windows asks before opening it once.
+        If “Windows protected your PC” appears, choose More info, then Run anyway. Updates
+        after that need nothing.
+      </dd>
+    </div>
+  </dl>
+</section>
+
+<!-- Rendered from the app's code by apps/screenshots (\`pnpm screenshots\`), with
+     public-domain hymns and Bible text, each time the site is built. -->
+<section class="mt-14" aria-labelledby="screenshots">
+  <h2 id="screenshots" class="text-2xl font-bold tracking-tight">See it</h2>
+  <figure class="mt-6">
+    <a href="/screenshots/present.png">
+      <img
+        src="/screenshots/present.webp"
+        width="1600"
+        height="1000"
+        class="shot"
+        alt="The Present page of Worship Q: the run sheet on the left with a preview of the slideshow showing Psalm 23 in two versions, and beside it a video, a hymn, the Bible passage and a sermon slide deck, each in its own column of slides"
+      />
+    </a>
+    <figcaption>
+      Presenting: the run sheet, what is on the screen now, and every slide one click away.
+    </figcaption>
+  </figure>
+  <div class="mt-8 grid gap-8 sm:grid-cols-2">
+    <figure>
+      <a href="/screenshots/slideshow.png">
+        <img
+          src="/screenshots/slideshow.webp"
+          width="1600"
+          height="900"
+          class="shot"
+          loading="lazy"
+          alt="The slideshow on the projector showing the first lines of Amazing Grace"
+        />
+      </a>
+      <figcaption>Lyrics on the projector.</figcaption>
+    </figure>
+    <figure>
+      <a href="/screenshots/slideshow-bible.png">
+        <img
+          src="/screenshots/slideshow-bible.webp"
+          width="1600"
+          height="900"
+          class="shot"
+          loading="lazy"
+          alt="Psalm 23 on the projector in the Berean Standard Bible and the King James Version side by side, with verse numbers"
+        />
+      </a>
+      <figcaption>A Bible passage in two versions side by side.</figcaption>
+    </figure>
+    <figure>
+      <a href="/screenshots/calendar.png">
+        <img
+          src="/screenshots/calendar.webp"
+          width="1600"
+          height="1000"
+          class="shot"
+          loading="lazy"
+          alt="The calendar: a month with meeting days marked, and the run sheet of the chosen Sunday"
+        />
+      </a>
+      <figcaption>Run sheets planned on a calendar.</figcaption>
+    </figure>
+    <figure>
+      <a href="/screenshots/library.png">
+        <img
+          src="/screenshots/library.webp"
+          width="1600"
+          height="1000"
+          class="shot"
+          loading="lazy"
+          alt="The song library with the lyrics of Amazing Grace open for editing"
+        />
+      </a>
+      <figcaption>Songs typed or pasted in, split into slides for you.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="mt-14" aria-labelledby="features">
+  <h2 id="features" class="text-2xl font-bold tracking-tight">What it does</h2>
+  <div class="mt-6 grid gap-6 sm:grid-cols-2">
+    <!-- %FEATURES% -->
+  </div>
+</section>
+
+<section class="mt-14" aria-labelledby="faq">
+  <h2 id="faq" class="text-2xl font-bold tracking-tight">Questions</h2>
+  <div class="mt-4 divide-y divide-slate-800 border-y border-slate-800">
+    <!-- %FAQ% -->
+  </div>
+</section>`,
+  },
+};

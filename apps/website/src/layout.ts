@@ -5,6 +5,9 @@
 // Tailwind finds the classes used here by reading this file, so write class names out in
 // full: never build them from pieces.
 
+import { LOCALE_INFO, localePath, type SiteLocale } from './locales.ts';
+import { WORDS } from './words.ts';
+
 export const SITE = 'https://worship-q.com';
 export const REPO_URL = 'https://github.com/iphren/worship-q';
 
@@ -17,41 +20,50 @@ export const escapeHtml = (text: string) =>
 
 /** The header's links, in order. */
 const NAV = [
-  { href: '/guide/', label: 'Guide' },
-  { href: '/compare/', label: 'Compare' },
-  { href: '/releases/', label: 'Releases' },
-];
+  { href: '/guide/', label: 'guide' },
+  { href: '/compare/', label: 'compare' },
+  { href: '/releases/', label: 'releases' },
+] as const;
 
-/** The site's header; `current` is the path of the page it is on. */
-export function header(current = '/'): string {
-  const links = NAV.map(
-    ({ href, label }) =>
-      `<a href="${href}" class="${current === href ? 'text-slate-100' : 'text-slate-400 hover:text-slate-200'}"${current === href ? ' aria-current="page"' : ''}>${label}</a>`,
-  ).join('');
+/** The site's header; `current` is the path of the page it is on, in its language. */
+export function header(current = '/', locale: SiteLocale = 'en'): string {
+  const words = WORDS[locale];
+  const links = NAV.map(({ href, label }) => ({
+    href: localePath(locale, href),
+    label: words.nav[label],
+  }))
+    .map(
+      ({ href, label }) =>
+        `<a href="${href}" class="${current === href ? 'text-slate-100' : 'text-slate-400 hover:text-slate-200'}"${current === href ? ' aria-current="page"' : ''}>${label}</a>`,
+    )
+    .join('');
   return `<header class="flex flex-wrap items-center gap-x-5 gap-y-2 py-6">
-  <a href="/" class="flex items-center gap-3"><img src="/logo.svg" alt="" class="size-9" /><span class="text-lg font-semibold text-slate-100">Worship Q</span></a>
+  <a href="${localePath(locale, '/')}" class="flex items-center gap-3"><img src="/logo.svg" alt="" class="size-9" /><span class="text-lg font-semibold text-slate-100">Worship Q</span></a>
   <span class="flex-1"></span>
-  <nav class="flex gap-5 text-sm" aria-label="Site">${links}</nav>
+  <nav class="flex gap-5 text-sm" aria-label="${words.navLabel}">${links}</nav>
 </header>`;
 }
 
-/** The feature pages, for the footer. */
+/** The feature pages, for the footer, in order; their names are in words.ts. */
 export const FEATURE_PAGES = [
-  { href: '/bible/', label: 'Bible passages' },
-  { href: '/multilingual-lyrics/', label: 'Lyrics in several languages' },
-  { href: '/obs/', label: 'OBS and live streams' },
-  { href: '/phone-remote/', label: 'Phone remote' },
-  { href: '/several-computers/', label: 'Several computers' },
+  '/bible/',
+  '/multilingual-lyrics/',
+  '/obs/',
+  '/phone-remote/',
+  '/several-computers/',
 ];
 
-/** The site's footer. */
-export function footer(): string {
-  const link = (href: string, label: string) =>
-    `<a href="${href}" class="hover:text-slate-200">${label}</a>`;
+/** The site's footer, in a language. */
+export function footer(locale: SiteLocale = 'en'): string {
+  const words = WORDS[locale];
+  const f = words.footer;
+  // Site pages in the footer's language; llms.txt and other sites as they are.
+  const link = (href: string, label: string, translated = href.startsWith('/')) =>
+    `<a href="${translated ? localePath(locale, href) : href}" class="hover:text-slate-200">${label}</a>`;
   return `<footer class="grid gap-6 border-t border-slate-800 py-8 text-sm text-slate-400 sm:grid-cols-3">
-  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">Features</span>${FEATURE_PAGES.map((p) => link(p.href, p.label)).join('')}</div>
-  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">Help</span>${link('/guide/', 'Volunteer guide')}${link('/server/', 'Church server setup')}${link('/compare/', 'Compare')}${link('/releases/', 'Release notes')}</div>
-  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">Project</span>${link(REPO_URL, 'Source code')}${link(`${REPO_URL}/blob/main/LICENSE`, 'MIT licence')}${link('/llms.txt', 'For AI assistants')}</div>
+  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.features}</span>${FEATURE_PAGES.map((path) => link(path, words.featurePages[path] ?? path)).join('')}</div>
+  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.help}</span>${link('/guide/', f.guide)}${link('/server/', f.server)}${link('/compare/', f.compare)}${link('/releases/', f.releases)}</div>
+  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.project}</span>${link(REPO_URL, f.source)}${link(`${REPO_URL}/blob/main/LICENSE`, f.licence)}${link('/llms.txt', f.llms, false)}</div>
 </footer>`;
 }
 
@@ -70,13 +82,13 @@ export interface PageFrame {
   body: string;
 }
 
-/** A whole page around `body`. */
-export function pageHtml(page: PageFrame): string {
+/** A whole page around `body`, in a language; `page.path` is already the language's. */
+export function pageHtml(page: PageFrame, locale: SiteLocale = 'en'): string {
   const url = `${SITE}${page.path}`;
   const title = escapeHtml(page.title);
   const description = escapeHtml(page.description);
   return `<!doctype html>
-<html lang="en">
+<html lang="${LOCALE_INFO[locale].lang}">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -99,11 +111,11 @@ export function pageHtml(page: PageFrame): string {
   </head>
   <body class="min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-3xl flex-col px-4 sm:px-6">
-      ${header(page.path)}
+      ${header(page.path, locale)}
       <main class="prose flex-1 py-8 sm:py-12">
 ${page.body}
       </main>
-      ${footer()}
+      ${footer(locale)}
     </div>
     ${ANALYTICS}
   </body>
