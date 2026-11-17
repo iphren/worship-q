@@ -55,6 +55,8 @@ export function RunSheetEditor(props: {
   live?: boolean;
   /** Kept at the bottom, under the song search. */
   footer?: ReactNode;
+  /** Shown under the song search while nothing is typed in it, where the results would go. */
+  idleBelowSearch?: ReactNode;
   /** Shows the song search for its `/` shortcut when it is on a tab that is not shown. */
   onRevealSearch?: () => void;
   /** Shows the items only: no search, no moving, no item menu (viewer mode). */
@@ -619,6 +621,7 @@ export function RunSheetEditor(props: {
               />
             </div>
           </div>
+          {idle && props.idleBelowSearch}
           {!idle && (
             <ul ref={songsRef} className="min-h-0 flex-1 space-y-1.5 overflow-auto">
               {searchReference && (

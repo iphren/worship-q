@@ -354,6 +354,7 @@ function Live(props: { viewOnly?: boolean }) {
                 keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
                 onSelectItem={showItem}
                 live
+                idleBelowSearch={<SlidePreview />}
                 footer={
                   <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
                     <button
