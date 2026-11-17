@@ -11,6 +11,7 @@ import {
 } from '../app/output';
 import { keyPress, presentAction } from '../lib/shortcuts';
 import { deviceSettings, findDevice } from '../app/deviceSettings';
+import { needsSteadyPace, SteadyPace } from '../app/steadyPace';
 import { listAudioDevices } from '../components/AudioSettings';
 import { native } from '../platform/native';
 
@@ -22,6 +23,15 @@ export function OutputApp() {
   videoLive.current = !!frame.video;
   const sinkId = useAudioOutput();
   const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+  // The slideshow keeps its pace out of view too, as the main window does (`boot`): it is open
+  // only while presenting, so the tone plays for as long as it is.
+  useEffect(() => {
+    if (!needsSteadyPace(navigator.userAgent)) return;
+    const pace = new SteadyPace();
+    pace.set(true);
+    return () => pace.set(false);
+  }, []);
 
   useEffect(() => {
     let stop: (() => void) | undefined;

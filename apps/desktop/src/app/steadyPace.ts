@@ -1,8 +1,9 @@
 /**
- * Keeps the main window's page at full speed while the workspace is live and the window is
- * out of view on macOS. Minimized, or on another desktop for a minute, the page's process
- * is slowed by the system: a message from a remote waits up to a fifth of a second to be
- * seen and timers come late, whatever the throttling policy and the app's own activity say.
+ * Keeps a window's page at full speed out of view on macOS: the main window's while the
+ * workspace is live, the slideshow's while it is open. Minimized, or on another desktop for
+ * a minute, a page's process is slowed by the system: a message from a remote waits up to a
+ * fifth of a second to be seen and timers come late, whatever the throttling policy and the
+ * app's own activity say.
  * A page that is making sound is left alone, and a silent one is not counted as making any;
  * so the page plays a tone too low and too quiet to hear, for as long as it is needed.
  */
