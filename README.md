@@ -18,6 +18,7 @@ share one presentation.
 | Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                                      |
 | Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                         |
 | OBS control             | [Plan](docs/obs-control-plan.md), [task breakdown](docs/obs-control-task-breakdown.md), [acceptance record](docs/acceptance/obs-control.md), [spike](docs/spikes/obs.md) |
+| Search and AI discovery | [Plan](docs/seo-plan.md)                                                                                                                                                 |
 
 ## Develop
 
