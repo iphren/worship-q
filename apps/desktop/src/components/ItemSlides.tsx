@@ -85,6 +85,9 @@ export function ItemSlides(props: {
               ref={active ? props.activeRef : undefined}
               // A viewer sees the slides but cannot present them.
               disabled={viewOnly}
+              // A click leaves the focus where it was. On Windows, WebView2 would otherwise focus
+              // the slide and, at the next key press, ring it over the presented slide's border.
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => props.onPlay(piece.id)}
               className={`relative rounded-md border-2 text-center ${piece.image ? 'p-0.5' : 'min-h-16 px-2 py-2'} text-sm leading-snug ${
                 active
