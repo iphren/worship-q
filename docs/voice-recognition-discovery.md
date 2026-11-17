@@ -13,7 +13,7 @@ presentation log are the test data.
 ## 1. What kind of problem this is
 
 It is **not transcription**. The app already knows the text that will be sung: the lyrics of
-the presented song and of the songs either side of it on the run sheet (V23), split into blocks
+the presented song and of the other songs of its set on the run sheet (V23), split into blocks
 (blank lines), lines and pieces (§6 of the spec). The job
 is to work out, a second or two at a time, **where in that known text the singer is**, and to
 move to the next piece just before it is needed.
@@ -88,7 +88,7 @@ from day one (§10).
           ▼
    singing/speech activity ─▶ recogniser ─▶ words + timing ─▶ matcher ─▶ line likelihoods
                                                                               │
-          presented song + songs either side ─────▶ tracker (HMM) ◀───────────┘
+          presented song + rest of its set ───────▶ tracker (HMM) ◀───────────┘
           learned transition prior (§7) ──────────▶      │
                                                          ▼
                                      decision policy ─▶ Suggest / Advance / Wait
@@ -251,24 +251,25 @@ A **hidden Markov model over lines** of the presented song and its neighbours, u
 evidence arrives — the
 HMM-with-jumps family of §2, simplified by knowing the blocks.
 
-- **States:** each line of the presented item and, for a song, of the songs immediately before
-  and after it on the run sheet (V23); plus *not singing* (talking, instrumental, a song not on
-  the run sheet). For bilingual items, each state carries the active set of lines (§6). Three
-  songs are still only a few hundred lines, so the cost is negligible.
+- **States:** each line of the presented item and, for a song, of the other songs of its set:
+  the unbroken run of songs around it on the run sheet (V23); plus *not singing* (talking,
+  instrumental, a song not on the run sheet). For bilingual items, each state carries the
+  active set of lines (§6). A set of four or five songs is still well under a thousand lines,
+  so the cost is negligible.
 - **Transitions:** stay on the line; go to the next line; at the end of a block, go to the start
   of any block (repeat, skip, back to the chorus); switch the active set of lines (a change of
   language); go to or from *not singing*. Mid-block jumps are allowed but improbable.
 - **Between songs:** from the end of any block of the presented song to the start of any block
-  of the next song or of the previous one: the next song's first block after a song ends, but
-  also chorus to chorus when a leader weaves two songs (A, B, A, B). These transitions start
-  improbable, become likely after the piece that usually ends the song, and are learned per
-  pair of songs (§7.1). Bible passages and media never take part (V3).
-- **Weaving keeps both songs in play.** When the app moves from A to B, the context recentres on
-  B, whose neighbours include A, so A stays a candidate without any special case. What must
-  not happen is treating the move as A being *finished*: the tracker keeps where in A the
-  leader left, since a return to A often resumes from there or from A's chorus. When A and B
-  are not adjacent on the run sheet, the run sheet is what it is (V23): weaving is followed only
-  between neighbours.
+  of another song of the set: the next song's first block after a song ends, but also chorus
+  to chorus when a leader weaves two songs (A, B, A, B). Run-sheet order shapes the starting
+  probabilities: the next song is the likeliest, the previous one next, songs further away
+  less likely. These transitions start improbable, become likely after the piece that usually
+  ends the song, and are learned per pair of songs (§7.1). Bible passages and media never take
+  part (V3).
+- **Weaving keeps both songs in play.** The set does not change when the app moves from A to B,
+  so A stays a candidate without any special case, whether or not A and B are adjacent. What
+  must not happen is treating the move as A being *finished*: the tracker keeps where in A the
+  leader left, since a return to A often resumes from there or from A's chorus.
 - **Emissions:** the matcher's line scores (§6), and a high *not singing* likelihood when the
   activity detector hears nothing.
 - **Belief:** the forward algorithm gives, at every update, a probability for every line; the
@@ -446,7 +447,7 @@ The church server holds exactly the data needed:
 - [ ] A first tracker and the transition counts from the logs, in the harness: wrong changes,
       missed changes and lead or lag per service, against the one-second-ahead target (V12).
 - [ ] From the logs alone: how often each song ends on its most common last piece, and how often
-      run-sheet neighbours are sung back to back, and how often they are woven (A, B, A, B), with
+      songs of a set are sung back to back, and how often they are woven (A, B, A, B), with
       their crossing points. This says how far the move to the next song can
       be predicted before any audio work.
 - [ ] Capture from the broadcast's track through an `AudioWorklet` to the Rust core, with the
@@ -476,7 +477,7 @@ The church server holds exactly the data needed:
 | Tracker | HMM over lines with block-level jumps and an active-line-set variable for bilingual items |
 | Next-slide prediction | Counted from the presentation log with backoff; a prior only (V21) |
 | Audio source | The broadcast's capture; recommend a vocal aux from the desk |
-| Neighbouring songs | The songs either side of the presented song are part of the tracker; the move to the next song is predicted from the learned last piece, never left until its words are heard (V23) |
+| Neighbouring songs | Every song of the presented song's set (the run of songs between non-song items) is part of the tracker; the move to the next song is predicted from the learned last piece, never left until its words are heard (V23) |
 | Mode, status and suggestions | Shared by the coordinator to every operator device and remote controller, with new protocol message kinds (V7, V9) |
 | Mandarin and Cantonese | A workspace setting for how Chinese is sung, detected when unset; pinyin or Jyutping matching to suit (V22) |
 | Where it runs | The listening desktop's Rust core; models downloaded on first use |

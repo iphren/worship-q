@@ -1,8 +1,8 @@
 # Worship Q — Voice Recognition Requirements
 
 **Drafted:** 17 November 2026
-**Status:** Draft for review with the project owner. Nothing is built. Every requirement is
-proposed unless marked as answered; the open questions are in §8. The
+**Status:** Reviewed with the project owner on 17 November 2026, who answered every question in
+§8. Nothing is built. The requirements stand as written, to be checked against the spike. The
 [discovery](voice-recognition-discovery.md) looks at how to meet them.
 **Source:** [Requirements and Architecture](worship-q-requirements-and-architecture.md) §17
 (*Voice recognition and automatic slide switching*); §6 (lyrics format, language-agnostic
@@ -50,7 +50,7 @@ something wrong on screen more readily than a volunteer would.
 | V1 | **Moves within the presented item and its neighbouring songs.** The app changes which piece is shown, either within the presented item or to a piece of a neighbouring song (V23). It never presents anything else on the run sheet, never blanks or clears the screen, never ends a blank, and never edits anything. |
 | V2 | **Follows any piece, in any order.** Any piece of the presented item can be the next one: forward, backward, repeated or skipped. Run-sheet order is a hint, not a rule. |
 | V3 | **Songs and Bible passages.** It follows song lyrics and the text of Bible passages. A passage is followed within itself only. Media items (slide decks such as sermon slides, videos, images, websites) are never followed and never moved to. |
-| V23 | **The songs before and after are in context.** While a song is presented, the run-sheet items immediately before and after it are candidates too, if they are songs. Bible passages, sermon slides and other media are never candidates, and a non-song item ends the context on that side (Q9). Moving to another song needs stronger evidence than moving within one (V10). A move can come from any piece and land on any piece, not only from the end of one song to the start of the next, and it can go back and forth any number of times (A, B, A, B). Leaving a song is not the same as finishing it: the song left stays a candidate while the leader is in the other one. |
+| V23 | **The songs of the same set are in context.** While a song is presented, every other song in its *set* is a candidate too: the unbroken run of songs around it on the run sheet, up to the nearest non-song item on each side. Bible passages, sermon slides and other media are never candidates, and a non-song item ends the set (Q9). So a leader can weave any two songs of the set, not only adjacent ones; these are the *neighbouring songs* meant elsewhere in this document. Moving to another song needs stronger evidence than moving within one (V10). A move can come from any piece and land on any piece, not only from the end of one song to the start of the next, and it can go back and forth any number of times (A, B, A, B). Leaving a song is not the same as finishing it: the song left stays a candidate while the leader is in the other one. |
 | V4 | **Language-agnostic, as the lyrics are.** It works on lyrics as they are stored, with no labels for languages, verses or choruses, and no preparation of a song before it can be followed (§6). |
 | V5 | **Bilingual lyrics.** When a piece holds lines in two languages, singing either language counts as singing that piece. When the language sung changes, the app keeps following without a wrong jump, whether the two languages share pieces or have blocks of their own. |
 | V6 | **Languages covered.** The first church's workspaces sing in Mandarin and English together, in Mandarin alone, and in Cantonese (Q1, answered). All three must work, and a song in Chinese must be followed whether it is sung in Mandarin or in Cantonese. Other languages may work less well, and the app says nothing about languages it was not tested with. |
@@ -143,11 +143,11 @@ something wrong on screen more readily than a volunteer would.
 | # | Question | Proposal |
 | --- | --- | --- |
 | Q1 | Which languages, and which spoken varieties, does the first church sing and read in? | **Answered 17 November 2026:** some workspaces sing Mandarin and English, some Mandarin only, some Cantonese (V6, V22) |
-| Q2 | Are Bible passages read aloud in the first version, or songs only? | Songs first; passages once songs work, since speech is easier to recognise |
-| Q3 | Is Suggest mode worth shipping on its own, before Auto has met V13? | Yes: it is useful even at modest accuracy and carries no risk |
+| Q2 | Are Bible passages read aloud in the first version, or songs only? | **Answered 17 November 2026:** songs first; passages once songs work, since speech is easier to recognise |
+| Q3 | Is Suggest mode worth shipping on its own, before Auto has met V13? | **Answered 17 November 2026:** yes, it is useful even at modest accuracy and carries no risk |
 | Q4 | Who can change the mode? | **Answered 17 November 2026:** every operator device and every remote controller (V9) |
 | Q5 | Do remote controllers see the mode, the status and suggestions? | **Answered 17 November 2026:** yes, and they can control them (V7, V9) |
 | Q6 | Should the app ever be allowed to move to another run-sheet item? | **Answered 17 November 2026:** yes, to the song before or after, since some songs are sung together and some pieces almost always end a song (V1, V21, V23) |
 | Q7 | What does the feature call itself to volunteers? | **Answered 17 November 2026:** **Q** |
-| Q8 | Should what is learned (V21) be per workspace, or shared across the church's workspaces for the same song? | Per workspace first, falling back to the church's when a workspace has too few services of that song |
-| Q9 | When a non-song item (a Bible passage, the sermon slides) sits between two songs, should the song beyond it still be a candidate? | No: the non-song item ends the context on that side, since the band does not usually sing across it |
+| Q8 | Should what is learned (V21) be per workspace, or shared across the church's workspaces for the same song? | **Answered 17 November 2026:** per workspace first, falling back to the church's when a workspace has too few services of that song |
+| Q9 | When a non-song item (a Bible passage, the sermon slides) sits between two songs, should the song beyond it still be a candidate? | **Answered 17 November 2026:** no, the non-song item ends the set (V23); within a set, every song is a candidate, so weaving works between songs that are not adjacent on that side, since the band does not usually sing across it |
