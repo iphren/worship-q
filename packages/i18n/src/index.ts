@@ -79,11 +79,15 @@ export function setLocale(next: ActiveLocale): void {
   for (const listener of listeners) listener();
 }
 
-/** Applies a preference; `?lang=qps` in the address wins, for checking a page in development. */
+/**
+ * Applies a preference. A language in the address (`?lang=en`, or `?lang=qps` for the test
+ * language) wins, for checking a page and for the screenshots.
+ */
 export function applyPreference(preference: LanguagePreference | typeof PSEUDO): ActiveLocale {
   const forced =
-    typeof location !== 'undefined' && new URLSearchParams(location.search).get('lang');
-  const next = forced === PSEUDO ? PSEUDO : resolveLocale(preference);
+    typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lang') : null;
+  const next =
+    forced === PSEUDO ? PSEUDO : forced && isLocale(forced) ? forced : resolveLocale(preference);
   setLocale(next);
   return next;
 }

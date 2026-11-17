@@ -1,5 +1,6 @@
 // Renders screenshots of the desktop app from its code, with public-domain content.
 //   pnpm screenshots [out-dir] [scene]
+//   SCREENSHOT_LANG=qps pnpm screenshots [out-dir]   (in the test language, or another one)
 // Starts the desktop app's Vite server, opens it in headless Chromium with Tauri replaced by
 // tauri.ts and a database seeded by seed.ts, and saves each scene in scenes.ts twice: a PNG at
 // twice the window's size, and a WebP 1600 pixels wide for web pages.
@@ -39,6 +40,8 @@ const out = process.argv[2]
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2])
   : resolve(import.meta.dirname, '../out');
 const only = process.argv[3];
+/** The interface language, such as `qps` for the test language; the app's own choice if unset. */
+const language = process.env.SCREENSHOT_LANG;
 
 const server = await createServer({
   root,
@@ -70,7 +73,7 @@ async function openWindow(
     failed = true;
     console.error(`  ${label}: ${error.message}`);
   });
-  await page.goto(base);
+  await page.goto(language ? `${base}?lang=${encodeURIComponent(language)}` : base);
   return page;
 }
 
