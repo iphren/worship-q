@@ -341,6 +341,25 @@ export function SettingsPage() {
           </p>
         </Section>
 
+        <Section title={t('language.label')} hint={t('settings.languageHint')}>
+          <select
+            className="field max-w-sm"
+            aria-label={t('language.label')}
+            value={language}
+            onChange={(e) => {
+              const next = e.target.value as typeof language;
+              setLanguageChoice(next);
+              setLanguage(next);
+            }}
+          >
+            {languageChoices().map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </Section>
+
         <Section
           title={t('settings.background')}
           hint={
@@ -678,25 +697,6 @@ export function SettingsPage() {
               )}
             </p>
           )}
-        </Section>
-
-        <Section title={t('language.label')} hint={t('settings.languageHint')}>
-          <select
-            className="field max-w-sm"
-            aria-label={t('language.label')}
-            value={language}
-            onChange={(e) => {
-              const next = e.target.value as typeof language;
-              setLanguageChoice(next);
-              setLanguage(next);
-            }}
-          >
-            {languageChoices().map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
         </Section>
 
         <Section title={t('viewer.title')} hint={t('viewer.hint')}>
