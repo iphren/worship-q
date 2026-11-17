@@ -12,32 +12,28 @@ import {
   type ObsConnection,
   type ObsOutput,
 } from '@worship-q/protocol';
+import { formatDate as runSheetDate, intlLocale, t, type MessageKey } from '@worship-q/i18n/admin';
 
 // ── Church Library types ───────────────────────────────────────────────────
 
-/** What each Church Library type is called, as a plural noun in a sentence. */
-export const LIBRARY_TYPE_NOUNS: Record<LibraryType, string> = {
-  songs: 'songs',
-  backgrounds: 'backgrounds',
-  slides: 'media',
-  websites: 'websites',
-};
+/** What a Church Library type is called, as a plural noun in a sentence. */
+export function libraryTypeNoun(type: LibraryType): string {
+  return t(`libraryType.noun.${type}`);
+}
 
-/** What each Church Library type is called on its own, as on a badge. */
-export const LIBRARY_TYPE_LABELS: Record<LibraryType, string> = {
-  songs: 'Songs',
-  backgrounds: 'Backgrounds',
-  slides: 'Media',
-  websites: 'Websites',
-};
+/** What a Church Library type is called on its own, as on a badge. */
+export function libraryTypeLabel(type: LibraryType): string {
+  return t(`libraryType.label.${type}`);
+}
 
 /** Library types in a sentence, in their usual order: “songs, slides and websites”. */
 export function libraryTypeList(types: readonly LibraryType[]): string {
-  const nouns = LIBRARY_TYPES.filter((type) => types.includes(type)).map(
-    (type) => LIBRARY_TYPE_NOUNS[type],
-  );
+  const nouns = LIBRARY_TYPES.filter((type) => types.includes(type)).map(libraryTypeNoun);
   if (nouns.length <= 1) return nouns.join('');
-  return `${nouns.slice(0, -1).join(', ')} and ${nouns[nouns.length - 1]}`;
+  return t('list.last', {
+    rest: nouns.slice(0, -1).join(t('list.separator')),
+    last: nouns[nouns.length - 1]!,
+  });
 }
 
 /**
@@ -45,8 +41,8 @@ export function libraryTypeList(types: readonly LibraryType[]): string {
  * Church Library's songs and backgrounds” and the like.
  */
 export function managedLabel(types: readonly LibraryType[]): string {
-  if (LIBRARY_TYPES.every((type) => types.includes(type))) return 'the Church Library';
-  return `the Church Library's ${libraryTypeList(types)}`;
+  if (LIBRARY_TYPES.every((type) => types.includes(type))) return t('managed.all');
+  return t('managed.some', { types: libraryTypeList(types) });
 }
 
 // ── Routes ─────────────────────────────────────────────────────────────────
@@ -131,7 +127,7 @@ export function formatBytes(bytes: number): string {
     unit += 1;
   }
   const digits = unit === 0 ? 0 : value < 10 ? 1 : 0;
-  return `${value.toLocaleString('en', {
+  return `${value.toLocaleString(intlLocale(), {
     maximumFractionDigits: digits,
     minimumFractionDigits: digits,
   })} ${UNITS[unit]}`;
@@ -150,32 +146,35 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-function count(n: number, unit: string): string {
-  return `${n} ${unit}${n === 1 ? '' : 's'}`;
-}
-
 /** How long ago or until a moment, in words: "just now", "3 minutes ago", "in 2 hours". */
 export function relativeTime(iso: string, now = Date.now()): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return 'unknown';
+  if (Number.isNaN(at)) return t('time.unknown');
   const diff = now - at;
   const past = diff >= 0;
   const abs = Math.abs(diff);
-  if (abs < MINUTE) return past ? 'just now' : 'in under a minute';
-  let text: string;
-  if (abs < HOUR) text = count(Math.floor(abs / MINUTE), 'minute');
-  else if (abs < DAY) text = count(Math.floor(abs / HOUR), 'hour');
-  else if (abs < 30 * DAY) text = count(Math.floor(abs / DAY), 'day');
-  else if (abs < 365 * DAY) text = count(Math.floor(abs / (30 * DAY)), 'month');
-  else text = count(Math.floor(abs / (365 * DAY)), 'year');
-  return past ? `${text} ago` : `in ${text}`;
+  if (abs < MINUTE) return t(past ? 'time.justNow' : 'time.underAMinute');
+  const [n, unit]: [number, Intl.RelativeTimeFormatUnit] =
+    abs < HOUR
+      ? [Math.floor(abs / MINUTE), 'minute']
+      : abs < DAY
+        ? [Math.floor(abs / HOUR), 'hour']
+        : abs < 30 * DAY
+          ? [Math.floor(abs / DAY), 'day']
+          : abs < 365 * DAY
+            ? [Math.floor(abs / (30 * DAY)), 'month']
+            : [Math.floor(abs / (365 * DAY)), 'year'];
+  return new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'always' }).format(
+    past ? -n : n,
+    unit,
+  );
 }
 
 /** "Expires in 12 minutes" or, once past, "Expired 3 minutes ago". */
 export function expiryText(iso: string, now = Date.now()): string {
   const at = Date.parse(iso);
-  if (Number.isNaN(at)) return 'Expiry unknown';
-  return at <= now ? `Expired ${relativeTime(iso, now)}` : `Expires ${relativeTime(iso, now)}`;
+  if (Number.isNaN(at)) return t('time.expiryUnknown');
+  return t(at <= now ? 'time.expired' : 'time.expires', { time: relativeTime(iso, now) });
 }
 
 export function isPast(iso: string, now = Date.now()): boolean {
@@ -187,7 +186,7 @@ export function isPast(iso: string, now = Date.now()): boolean {
 export function formatDateTime(iso: string): string {
   const at = Date.parse(iso);
   if (Number.isNaN(at)) return iso;
-  return new Date(at).toLocaleString('en', {
+  return new Date(at).toLocaleString(intlLocale(), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -196,19 +195,9 @@ export function formatDateTime(iso: string): string {
   });
 }
 
-const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
-const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
-
 /** A run sheet's date (YYYY-MM-DD) as its name, such as "Sunday 1st Nov". */
 export function formatDate(date: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  if (!match) return date;
-  const [, y, m, d] = match;
-  const day = Number(d);
-  const when = new Date(Number(y), Number(m) - 1, day);
-  const weekday = when.toLocaleDateString('en', { weekday: 'long' });
-  const month = when.toLocaleDateString('en', { month: 'short' });
-  return `${weekday} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${month}`;
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? runSheetDate(date) : date;
 }
 
 // ── The live state (D38) ───────────────────────────────────────────────────
@@ -232,24 +221,19 @@ export function onScreen(snapshot: LiveSnapshot): OnScreen {
   const piece = presented.pieces.find((p) => p.id === presented.pieceId);
   return {
     blank,
-    title: presented.title || 'Untitled',
+    title: presented.title || t('common.untitled'),
     lines: piece ? piece.lines : [],
     pieceMissing: piece === undefined,
   };
 }
 
-export const ROLE_LABEL: Record<ConnectedDevice['role'], string> = {
-  coordinator: 'Presenting computer',
-  operator: 'Computer',
-  viewer: 'Computer (viewing)',
-  phone: 'Phone',
-  output: 'Output screen',
-};
+export function roleLabel(role: ConnectedDevice['role']): string {
+  return t(`role.${role}`);
+}
 
-export const CONNECTION_LABEL: Record<ConnectedDevice['connection'], string> = {
-  lan: 'on the venue network',
-  relay: 'through the church server',
-};
+export function connectionLabel(connection: ConnectedDevice['connection']): string {
+  return t(`connection.${connection}`);
+}
 
 // ── Devices ────────────────────────────────────────────────────────────────
 
@@ -291,49 +275,43 @@ export function groupDevicesByWorkspace(devices: readonly AdminDevice[]): Device
 
 // ── Errors ─────────────────────────────────────────────────────────────────
 
-const ERROR_TEXT: Record<string, string> = {
-  'not-administrator':
-    'Your account signed in, but it is not an administrator of this instance. Ask an administrator to add your e-mail address.',
-  'sign-in-failed': 'Sign-in did not complete. Try again.',
-  'no-email':
-    'Your account did not give a verified e-mail address, so it cannot be matched to an administrator.',
-  'provider-unreachable': 'The sign-in provider could not be reached. Try again in a moment.',
-  'sign-in-not-configured': 'Sign-in is not configured on this instance.',
-  unauthorized: 'You are signed out. Sign in again.',
-  'missing-header': 'The request was refused. Reload the page and try again.',
-  'name-required': 'Enter a name.',
-  'workspace-required': 'Choose a workspace.',
-  'merge-choice-required': 'Choose whether this computer may keep its own songs and run sheets.',
-  'invalid-email': 'That is not a valid e-mail address.',
-  'last-administrator':
-    'The last administrator cannot be removed. Add another administrator first.',
-  'not-pending': 'This request is no longer pending. It may have expired or been handled already.',
-  'files-removed': 'Files were removed, so this item cannot be restored.',
-  'not-deleted': 'This item is not deleted.',
-  'not-found': 'This no longer exists. It may have been removed meanwhile.',
-  'unknown-setting': 'This setting is not known to the server.',
-  'invalid-value': 'That value is not allowed.',
-  'invalid-kind': 'That kind of item is not known.',
-  network: 'The server could not be reached. Check the connection and try again.',
-};
+/** The server's error codes that have words of their own. */
+const ERROR_CODES = new Set([
+  'not-administrator',
+  'sign-in-failed',
+  'no-email',
+  'provider-unreachable',
+  'sign-in-not-configured',
+  'unauthorized',
+  'missing-header',
+  'name-required',
+  'workspace-required',
+  'merge-choice-required',
+  'invalid-email',
+  'last-administrator',
+  'not-pending',
+  'files-removed',
+  'not-deleted',
+  'not-found',
+  'unknown-setting',
+  'invalid-value',
+  'invalid-kind',
+  'network',
+]);
 
 /** Plain words for an error code from the server, or a fallback that still names it. */
 export function errorText(code: string, status?: number): string {
-  const known = ERROR_TEXT[code];
-  if (known) return known;
-  if (status !== undefined && status >= 500) return `The server had a problem (${code}).`;
-  return `Something went wrong (${code}).`;
+  if (ERROR_CODES.has(code)) return t(`error.${code}` as MessageKey);
+  if (status !== undefined && status >= 500) return t('error.server', { code });
+  return t('error.other', { code });
 }
 
 // ── OBS ────────────────────────────────────────────────────────────────────
 
 /** The OBS computer's connection to OBS, in words. */
-export const OBS_STATUS_LABEL: Record<ObsConnection, string> = {
-  connected: 'OBS connected',
-  connecting: 'Connecting to OBS…',
-  'not-running': 'OBS not running',
-  refused: 'OBS refused the password',
-};
+export function obsStatusLabel(status: ObsConnection): string {
+  return t(`obs.status.${status}`);
+}
 
 /** A running time as `m:ss`, or `h:mm:ss` from an hour. */
 export function formatDuration(ms: number): string {
@@ -347,19 +325,19 @@ export function formatDuration(ms: number): string {
 /** A short age: “5 s”, “2 min”, “1 h”. */
 export function formatAge(ms: number): string {
   const seconds = Math.max(0, Math.round(ms / 1000));
-  if (seconds < 60) return `${seconds} s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
-  return `${Math.floor(seconds / 3600)} h`;
+  if (seconds < 60) return t('time.ageSeconds', { n: seconds });
+  if (seconds < 3600) return t('time.ageMinutes', { n: Math.floor(seconds / 60) });
+  return t('time.ageHours', { n: Math.floor(seconds / 3600) });
 }
 
 /** What a stream, recording or virtual camera is doing, as the phone says it. */
 export function obsOutputText(output: ObsOutput, elapsedMs: number | null): string {
-  if (output.phase === 'starting') return 'Starting…';
-  if (output.phase === 'stopping') return 'Stopping…';
-  if (output.phase === 'reconnecting') return 'Reconnecting…';
-  if (!output.active) return 'Off';
-  const time = elapsedMs !== null ? formatDuration(elapsedMs) : 'On';
-  return output.paused ? `${time} · Paused` : time;
+  if (output.phase === 'starting') return t('obs.starting');
+  if (output.phase === 'stopping') return t('obs.stopping');
+  if (output.phase === 'reconnecting') return t('obs.reconnecting');
+  if (!output.active) return t('obs.off');
+  const time = elapsedMs !== null ? formatDuration(elapsedMs) : t('obs.on');
+  return output.paused ? t('obs.paused', { time }) : time;
 }
 
 // ── Service records (R11, R19) ─────────────────────────────────────────────

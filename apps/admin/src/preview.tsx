@@ -12,6 +12,7 @@ import {
 } from '@worship-q/renderer';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api';
+import { t } from '@worship-q/i18n/admin';
 
 type LiveOn = Extract<AdminLiveView, { live: true }>;
 
@@ -74,11 +75,11 @@ export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
           type="button"
           onClick={() => setSound((on) => !on)}
           aria-pressed={sound}
-          title={sound ? 'Mute this preview' : 'Hear the video on this computer'}
+          title={t(sound ? 'preview.muteHint' : 'preview.unmuteHint')}
           className="absolute right-2 bottom-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-900/80 px-2.5 py-1 text-xs font-semibold text-slate-100 transition hover:bg-slate-800"
         >
           <SpeakerIcon muted={!sound} />
-          {sound ? 'Mute' : 'Unmute'}
+          {t(sound ? 'preview.mute' : 'preview.unmute')}
         </button>
       )}
       {/* A website is shown by the screen itself (many refuse to be embedded); here it is
@@ -92,7 +93,7 @@ export function SlideshowPreview(props: { view: LiveOn; workspaceId: string }) {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-100 transition hover:bg-slate-700"
             >
-              Open website ↗
+              {t('preview.openWebsite')} ↗
             </a>
           ) : null}
           <span className="max-w-full truncate text-xs text-slate-400">{frame.website.url}</span>

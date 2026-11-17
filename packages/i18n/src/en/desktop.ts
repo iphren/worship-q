@@ -9,6 +9,7 @@ export const desktop = {
   'app.newerData':
     'This data was saved by a newer version of Worship Q. Please update the app to open it.',
   'app.websiteHint': 'Opens the website, where the latest version is.',
+  'app.thisComputer': 'This computer',
 
   'nav.songs': 'Library',
   'nav.calendar': 'Calendar',

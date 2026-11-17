@@ -15,18 +15,18 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react
 import { api } from '../api';
 import { AdminListen } from '../audio';
 import {
-  CONNECTION_LABEL,
-  ROLE_LABEL,
+  connectionLabel,
+  roleLabel,
   expiryText,
   formatDate,
   formatAge,
   formatDateTime,
   isPast,
-  LIBRARY_TYPE_LABELS,
-  LIBRARY_TYPE_NOUNS,
+  libraryTypeLabel,
+  libraryTypeNoun,
   libraryTypeList,
   managedLabel,
-  OBS_STATUS_LABEL,
+  obsStatusLabel,
   obsOutputText,
   onScreen,
   orderDevices,
@@ -54,6 +54,7 @@ import { SlideshowPreview, SubtitleBar } from '../preview';
 import { useAction, useLoad } from '../useLoad';
 import { DEVICES_POLL_MS, DeviceRow } from './Devices';
 import { RunSheetsSection } from './RunSheets';
+import { formatNodes, t, tp, type MessageKey } from '@worship-q/i18n/admin';
 
 export function WorkspacePage({ id }: { id: string }) {
   // There is no route for one workspace, so the list is loaded and the one picked out.
@@ -68,7 +69,7 @@ export function WorkspacePage({ id }: { id: string }) {
         <ErrorText error={list.error} />
         {!list.error && (
           <p className="flex items-center gap-2 text-slate-400">
-            <Spinner /> Loading…
+            <Spinner /> {t('common.loading')}
           </p>
         )}
       </div>
@@ -77,10 +78,10 @@ export function WorkspacePage({ id }: { id: string }) {
   if (!workspace) {
     return (
       <div className="space-y-3">
-        <h1 className="text-2xl font-semibold text-white">Workspace not found</h1>
-        <p className="text-slate-400">There is no workspace with this address.</p>
+        <h1 className="text-2xl font-semibold text-white">{t('workspace.notFound')}</h1>
+        <p className="text-slate-400">{t('workspace.notFoundText')}</p>
         <Link to={routePath({ page: 'workspaces' })} className="text-sky-400 hover:underline">
-          Back to Workspaces
+          {t('workspace.back')}
         </Link>
       </div>
     );
@@ -91,7 +92,7 @@ export function WorkspacePage({ id }: { id: string }) {
         to={routePath({ page: 'workspaces' })}
         className="text-sm text-slate-400 hover:text-white"
       >
-        ‹ Workspaces
+        ‹ {t('nav.workspaces')}
       </Link>
       <Header workspace={workspace} onChanged={replace} />
       <ErrorText error={list.error} />
@@ -121,11 +122,11 @@ function Header(props: { workspace: AdminWorkspace; onChanged(next: AdminWorkspa
     <div>
       {editing ? (
         <InlineForm
-          label="Workspace name"
+          label={t('workspace.name')}
           value={name}
           onChange={setName}
-          placeholder="Workspace name"
-          submitLabel="Save"
+          placeholder={t('workspace.name')}
+          submitLabel={t('common.save')}
           busy={rename.busy}
           error={rename.error}
           autoFocus
@@ -145,18 +146,18 @@ function Header(props: { workspace: AdminWorkspace; onChanged(next: AdminWorkspa
                 setEditing(true);
               }}
             >
-              Rename
+              {t('devices.rename')}
             </Button>
           }
         >
           {workspace.name}
-          {workspace.live && <Badge tone="live">Live</Badge>}
+          {workspace.live && <Badge tone="live">{t('common.live')}</Badge>}
         </PageTitle>
       )}
       <p className="text-sm text-slate-400">
-        {workspace.devices === 1 ? '1 device' : `${workspace.devices} devices`} · Created{' '}
-        <When iso={workspace.createdAt} />
-        {workspace.contentId === null && ' · No content uploaded yet'}
+        {tp('workspaces.devices', workspace.devices)} ·{' '}
+        {formatNodes(t('workspace.created'), { when: <When iso={workspace.createdAt} /> })}
+        {workspace.contentId === null && ` · ${t('workspace.noContent')}`}
       </p>
     </div>
   );
@@ -181,19 +182,19 @@ function DevicesSection(props: { id: string; onRevoked(): void }) {
             to={routePath({ page: 'devices', pairCode: null })}
             className="text-sm text-sky-400 hover:underline"
           >
-            All devices
+            {t('workspace.allDevices')}
           </Link>
         }
       >
-        Devices
+        {t('nav.devices')}
       </SectionTitle>
       <ErrorText error={list.error} className="mb-2" />
       {!list.data && !list.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
-          <Spinner /> Loading…
+          <Spinner /> {t('common.loading')}
         </p>
       )}
-      {list.data && devices.length === 0 && <Empty>No device has joined this workspace.</Empty>}
+      {list.data && devices.length === 0 && <Empty>{t('workspace.noDevices')}</Empty>}
       <ul className="space-y-2">
         {devices.map((device) => (
           <DeviceRow
@@ -236,39 +237,37 @@ function CodeSection(props: { workspace: AdminWorkspace; onChanged(next: AdminWo
       <SectionTitle
         aside={
           <Switch
-            label="Connection code works"
+            label={t('workspace.codeWorks')}
             checked={workspace.codesEnabled}
             disabled={toggle.busy}
             onChange={(on) => void setEnabled(on)}
           />
         }
       >
-        Connection code
+        {t('code.setting')}
       </SectionTitle>
       <div className="space-y-3 text-sm text-slate-300">
         {me.hasAdministrators ? (
           <p>
-            The code is {workspace.codesEnabled ? <strong>on</strong> : <strong>off</strong>}.
-            Because this instance has administrators, codes are off unless turned on here: a new
-            computer normally pairs instead, and an administrator approves it on the Devices page.
-            Turn the code on for a while when a computer must join with it, and off again
-            afterwards.
+            {formatNodes(t('workspace.codeState'), {
+              state: <strong>{t(workspace.codesEnabled ? 'settings.on' : 'settings.off')}</strong>,
+            })}
           </p>
         ) : (
-          <p>Computers join this workspace with its connection code.</p>
+          <p>{t('workspace.codeAlways')}</p>
         )}
         <ErrorText error={toggle.error} />
         {code && (
           <CodeReveal code={code} workspaceName={workspace.name} onClose={() => setCode(null)} />
         )}
         <Button small onClick={() => setConfirmNew(true)}>
-          New code
+          {t('workspace.newCode')}
         </Button>
       </div>
       {confirmNew && (
         <Confirm
-          title="Make a new connection code?"
-          confirmLabel="New code"
+          title={t('workspace.newCodeTitle')}
+          confirmLabel={t('workspace.newCode')}
           onCancel={() => setConfirmNew(false)}
           onConfirm={async () => {
             const result = await api.newCode(workspace.id);
@@ -276,10 +275,7 @@ function CodeSection(props: { workspace: AdminWorkspace; onChanged(next: AdminWo
             setConfirmNew(false);
           }}
         >
-          <p>
-            The current code stops working at once. Computers that already joined are not affected.
-            The new code is shown once.
-          </p>
+          <p>{t('workspace.newCodeText')}</p>
         </Confirm>
       )}
     </Card>
@@ -308,7 +304,7 @@ function LibrarySection(props: {
       api
         .libraryPlan(workspace.id, [type])
         .then(setPlan, (cause: unknown) =>
-          setPlanError(cause instanceof Error ? cause.message : 'The plan could not be loaded.'),
+          setPlanError(cause instanceof Error ? cause.message : t('workspace.planFailed')),
         );
     }
   }
@@ -321,30 +317,30 @@ function LibrarySection(props: {
     setTurning(null);
   }
 
-  const noun = turning ? LIBRARY_TYPE_NOUNS[turning.type] : '';
+  const noun = turning ? libraryTypeNoun(turning.type) : '';
   return (
     <Card>
-      <SectionTitle>Manage Church Library</SectionTitle>
+      <SectionTitle>{t('workspace.manage')}</SectionTitle>
       <div className="space-y-3 text-sm text-slate-300">
         {managed.length > 0 ? (
           <p>
-            This workspace <strong>manages {managedLabel(managed)}</strong>: its{' '}
-            {libraryTypeList(managed)} are the church's, and every workspace receives them.
-            {managed.length < LIBRARY_TYPES.length && ' Everything else it has stays its own.'}
+            {formatNodes(t('workspace.manages'), {
+              manages: (
+                <strong>{t('workspace.managesWhat', { what: managedLabel(managed) })}</strong>
+              ),
+              types: libraryTypeList(managed),
+            })}
+            {managed.length < LIBRARY_TYPES.length && ` ${t('workspace.restOwn')}`}
           </p>
         ) : (
-          <p>
-            This workspace has its own library and receives the Church Library. Turning a type on
-            makes the workspace's items of that type the church's; the changes are listed for
-            confirmation first.
-          </p>
+          <p>{t('workspace.ownLibrary')}</p>
         )}
         <ul className="divide-y divide-slate-800 rounded-lg border border-slate-800">
           {LIBRARY_TYPES.map((type) => (
             <li key={type} className="flex items-center justify-between gap-3 px-3 py-2">
-              <span className="text-slate-100">{LIBRARY_TYPE_LABELS[type]}</span>
+              <span className="text-slate-100">{libraryTypeLabel(type)}</span>
               <Switch
-                label={`Manage the Church Library's ${LIBRARY_TYPE_NOUNS[type]}`}
+                label={t('workspace.manageType', { noun: libraryTypeNoun(type) })}
                 checked={managed.includes(type)}
                 onChange={(on) => begin(type, on)}
               />
@@ -353,28 +349,29 @@ function LibrarySection(props: {
         </ul>
         {moved !== null && (
           <Notice tone="success" onClose={() => setMoved(null)}>
-            This workspace now manages the Church Library's {LIBRARY_TYPE_NOUNS[moved.type]}.{' '}
-            {moved.files === 1 ? '1 file was moved' : `${moved.files} files were moved`} to the
-            Church Library.
+            {t('workspace.nowManages', { noun: libraryTypeNoun(moved.type) })}{' '}
+            {tp('workspace.filesMoved', moved.files)}
           </Notice>
         )}
       </div>
       {turning?.on && (
         <Confirm
-          title={`Manage the Church Library's ${noun}?`}
-          confirmLabel="Turn on"
+          title={t('workspace.manageTitle', { noun })}
+          confirmLabel={t('workspace.turnOn')}
           ready={plan !== null}
           onCancel={() => setTurning(null)}
           onConfirm={() => confirm(turning.type, true)}
         >
           <p>
-            The {noun} in <strong>{workspace.name}</strong> become the church's and reach every
-            workspace. This is what will happen:
+            {formatNodes(t('workspace.manageText'), {
+              noun,
+              workspace: <strong>{workspace.name}</strong>,
+            })}
           </p>
           <ErrorText error={planError} />
           {!plan && !planError && (
             <p className="flex items-center gap-2 text-slate-400">
-              <Spinner /> Working out the changes…
+              <Spinner /> {t('workspace.working')}
             </p>
           )}
           {plan && <PlanView plan={plan} />}
@@ -382,15 +379,16 @@ function LibrarySection(props: {
       )}
       {turning && !turning.on && (
         <Confirm
-          title={`Stop managing the Church Library's ${noun}?`}
-          confirmLabel="Turn off"
+          title={t('workspace.stopTitle', { noun })}
+          confirmLabel={t('workspace.turnOff')}
           onCancel={() => setTurning(null)}
           onConfirm={() => confirm(turning.type, false)}
         >
           <p>
-            <strong>{workspace.name}</strong> stops managing the Church Library's {noun}. The {noun}{' '}
-            it put there stay the church's; from now on the workspace receives them like any other,
-            and its new {noun} stay its own.
+            {formatNodes(t('workspace.stopText'), {
+              noun,
+              workspace: <strong>{workspace.name}</strong>,
+            })}
           </p>
         </Confirm>
       )}
@@ -411,37 +409,37 @@ function PlanView({ plan }: { plan: AdminLibraryPlan }) {
       plan.hidden.length ===
     0;
   if (empty) {
-    return (
-      <p className="text-slate-400">Nothing changes: the workspace has no content of its own.</p>
-    );
+    return <p className="text-slate-400">{t('workspace.planNothing')}</p>;
   }
   return (
     <div className="space-y-3">
-      <PlanGroup title="Songs that become the church's" items={plan.songs} />
-      <PlanGroup title="Media that become the church's" items={plan.slides} />
-      <PlanGroup title="Websites that become the church's" items={plan.websites} />
-      <PlanGroup title="Backgrounds that become the church's" items={plan.backgrounds} />
+      <PlanGroup title={t('workspace.plan.songs')} items={plan.songs} />
+      <PlanGroup title={t('workspace.plan.slides')} items={plan.slides} />
+      <PlanGroup title={t('workspace.plan.websites')} items={plan.websites} />
+      <PlanGroup title={t('workspace.plan.backgrounds')} items={plan.backgrounds} />
       {promoted.length > 0 && (
         <PlanGroup
-          title="Church items this workspace's version replaces, church-wide"
+          title={t('workspace.plan.promoted')}
           items={promoted.map((o) => (
             <>
               {o.title}
-              {o.churchChangedSince && <Badge tone="warn">the church's changed since</Badge>}
+              {o.churchChangedSince && (
+                <Badge tone="warn">{t('workspace.plan.churchChanged')}</Badge>
+              )}
             </>
           ))}
         />
       )}
       {dropped.length > 0 && (
         <PlanGroup
-          title="Versions dropped, the church's stands"
-          hint="This workspace chose the church's version of these, so its own version is let go, not promoted."
+          title={t('workspace.plan.dropped')}
+          hint={t('workspace.plan.droppedHint')}
           items={dropped.map((o) => o.title)}
         />
       )}
       <PlanGroup
-        title="Hidden church items that reappear"
-        hint="The workspace had deleted these from its view; they come back for it."
+        title={t('workspace.plan.hidden')}
+        hint={t('workspace.plan.hiddenHint')}
         items={plan.hidden}
       />
     </div>
@@ -479,25 +477,21 @@ function LiveSection({ id }: { id: string }) {
       <SectionTitle
         aside={
           view?.live ? (
-            <Badge tone="live">Live now</Badge>
+            <Badge tone="live">{t('runSheets.liveNow')}</Badge>
           ) : view ? (
-            <Badge>Not presenting</Badge>
+            <Badge>{t('workspace.notPresenting')}</Badge>
           ) : null
         }
       >
-        Presentation
+        {t('workspace.presentation')}
       </SectionTitle>
       <ErrorText error={live.error} className="mb-2" />
       {!view && !live.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
-          <Spinner /> Checking…
+          <Spinner /> {t('workspace.checking')}
         </p>
       )}
-      {view && !view.live && (
-        <p className="text-sm text-slate-400">
-          No computer of this workspace is presenting right now. This page checks every few seconds.
-        </p>
-      )}
+      {view && !view.live && <p className="text-sm text-slate-400">{t('workspace.noneLive')}</p>}
       {view?.live && <LiveView view={view} workspaceId={id} />}
     </Card>
   );
@@ -511,21 +505,21 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
   return (
     <div className="divide-y divide-slate-800 text-sm *:py-6 *:first:pt-0 *:last:pb-0">
       <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-        <Fact label="Presenting computer">
-          {coordinator.name ?? 'Unnamed computer'}{' '}
+        <Fact label={t('role.coordinator')}>
+          {coordinator.name ?? t('devices.unnamedComputer')}{' '}
           {coordinator.connected ? (
-            <Badge tone="live">Connected</Badge>
+            <Badge tone="live">{t('workspace.connected')}</Badge>
           ) : (
             <span className="text-slate-400">
-              · not connected, last heard <When iso={view.updatedAt} />
+              · {formatNodes(t('workspace.lastHeard'), { when: <When iso={view.updatedAt} /> })}
             </span>
           )}
         </Fact>
-        <Fact label="Run sheet">{formatDate(snapshot.date)}</Fact>
-        <Fact label="Started">
+        <Fact label={t('workspace.runSheet')}>{formatDate(snapshot.date)}</Fact>
+        <Fact label={t('workspace.started')}>
           <When iso={snapshot.state.startedAt} />
         </Fact>
-        <Fact label={expired ? 'Expiry' : 'Without a computer connected'}>
+        <Fact label={expired ? t('workspace.expiry') : t('workspace.withoutComputer')}>
           <span title={formatDateTime(view.expiresAt)} className={expired ? 'text-amber-300' : ''}>
             {expiryText(view.expiresAt)}
           </span>
@@ -539,27 +533,27 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
           <div className="w-full shrink-0 space-y-4 @2xl:w-[45%] @2xl:max-w-xl">
             <div>
               <h3 className="mb-1 flex flex-wrap items-center gap-2 font-semibold text-slate-100">
-                On screen
+                {t('workspace.onScreen')}
                 {screen.title && (
                   <span className="min-w-0 truncate font-normal text-slate-300">
                     · {screen.title}
                   </span>
                 )}
-                {screen.blank && <Badge tone="warn">Blank</Badge>}
-                {screen.pieceMissing && <Badge tone="warn">Slide not in the snapshot</Badge>}
+                {screen.blank && <Badge tone="warn">{t('workspace.blank')}</Badge>}
+                {screen.pieceMissing && <Badge tone="warn">{t('workspace.slideMissing')}</Badge>}
               </h3>
               <SlideshowPreview view={view} workspaceId={workspaceId} />
             </div>
 
             <div>
-              <h3 className="mb-1 font-semibold text-slate-100">Subtitle overlay</h3>
+              <h3 className="mb-1 font-semibold text-slate-100">{t('workspace.subtitle')}</h3>
               <SubtitleBar view={view} workspaceId={workspaceId} />
             </div>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 font-semibold text-slate-100">Run sheet items</h3>
+            <h3 className="mb-1 font-semibold text-slate-100">{t('workspace.items')}</h3>
             {snapshot.items.length === 0 ? (
-              <p className="text-slate-400">The run sheet has no items.</p>
+              <p className="text-slate-400">{t('workspace.noItems')}</p>
             ) : (
               <ol className="space-y-1">
                 {snapshot.items.map((item, index) => {
@@ -576,11 +570,13 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
                       </span>
                       <span className="flex min-w-40 flex-1 items-center gap-2">
                         <ItemMark item={item} />
-                        <span className="min-w-0 truncate">{item.title || 'Untitled'}</span>
+                        <span className="min-w-0 truncate">
+                          {item.title || t('common.untitled')}
+                        </span>
                       </span>
                       <span className="flex flex-wrap gap-1">
-                        {item.removed && <Badge tone="warn">Removed from library</Badge>}
-                        {current && <Badge tone="live">On screen</Badge>}
+                        {item.removed && <Badge tone="warn">{t('runSheets.removed')}</Badge>}
+                        {current && <Badge tone="live">{t('workspace.onScreen')}</Badge>}
                       </span>
                     </li>
                   );
@@ -592,9 +588,9 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
       </div>
 
       <div>
-        <h3 className="mb-1 font-semibold text-slate-100">Connected devices</h3>
+        <h3 className="mb-1 font-semibold text-slate-100">{t('workspace.connectedDevices')}</h3>
         {snapshot.devices.length === 0 ? (
-          <p className="text-slate-400">No device is following the presentation.</p>
+          <p className="text-slate-400">{t('workspace.noFollowers')}</p>
         ) : (
           <ul className="space-y-1">
             {snapshot.devices.map((device) => (
@@ -603,14 +599,14 @@ function LiveView(props: { view: Extract<AdminLiveView, { live: true }>; workspa
                 className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-900 px-3 py-1.5"
               >
                 <span className="min-w-40 flex-1 truncate font-medium text-slate-100">
-                  {device.name || 'Unnamed'}
+                  {device.name || t('devices.unnamed')}
                 </span>
                 <span className="flex flex-wrap gap-x-3">
-                  <span className="text-slate-400">{ROLE_LABEL[device.role]}</span>
-                  <span className="text-slate-500">{CONNECTION_LABEL[device.connection]}</span>
+                  <span className="text-slate-400">{roleLabel(device.role)}</span>
+                  <span className="text-slate-500">{connectionLabel(device.connection)}</span>
                 </span>
                 <span className="text-xs text-slate-500">
-                  <When iso={device.lastSeenAt} prefix="seen" />
+                  <When iso={device.lastSeenAt} prefix={t('workspace.seen')} />
                 </span>
               </li>
             ))}
@@ -633,19 +629,19 @@ function ItemMark(props: { item: Pick<SnapshotItem, 'kind' | 'badge'> }) {
 const OBS_STALE_MS = OBS_REPORT_EVERY_MS * 2.5;
 
 const OBS_OUTPUTS = [
-  { kind: 'stream', label: 'Stream' },
-  { kind: 'record', label: 'Record' },
-  { kind: 'virtualCam', label: 'Camera' },
+  { kind: 'stream', label: 'obs.stream' },
+  { kind: 'record', label: 'obs.record' },
+  { kind: 'virtualCam', label: 'obs.camera' },
 ] as const;
 
 /** The workspace's OBS state, as its OBS computer last reported it. Hidden when none has. */
-const LISTEN_TEXT: Record<string, string> = {
-  off: 'Not listening',
-  connecting: 'Connecting…',
-  playing: 'Playing',
-  waiting: 'Connected; the broadcast is waiting for its input',
-  reconnecting: 'Reconnecting…',
-  full: 'The broadcast is full: ten are listening already',
+const LISTEN_TEXT: Record<string, MessageKey> = {
+  off: 'listen.off',
+  connecting: 'listen.connecting',
+  playing: 'listen.playing',
+  waiting: 'listen.waiting',
+  reconnecting: 'obs.reconnecting',
+  full: 'listen.full',
 };
 
 /**
@@ -664,14 +660,14 @@ function AudioSection({ id }: { id: string }) {
   if (!audio && !on) return null;
   const status =
     state.status.kind === 'unreachable'
-      ? state.status.relay
-        ? 'Could not connect. The church’s relay was tried; this network may block it.'
-        : 'Could not connect from this network, and the church’s server offers no relay.'
-      : LISTEN_TEXT[state.status.kind];
+      ? t(state.status.relay ? 'listen.unreachableRelay' : 'listen.unreachable')
+      : t(LISTEN_TEXT[state.status.kind] ?? 'listen.off');
   const delay =
     on && state.delay
-      ? `${state.delay.delayMs === null ? '–' : `${state.delay.delayMs} ms`}${
-          state.delay.path ? ` · ${state.delay.path === 'relayed' ? 'Relayed' : 'Direct'}` : ''
+      ? `${state.delay.delayMs === null ? '–' : t('listen.delay', { ms: state.delay.delayMs })}${
+          state.delay.path
+            ? ` · ${t(state.delay.path === 'relayed' ? 'listen.relayed' : 'listen.direct')}`
+            : ''
         }`
       : null;
   return (
@@ -681,25 +677,27 @@ function AudioSection({ id }: { id: string }) {
           audio ? (
             <Badge tone={audio.status === 'live' ? 'live' : 'warn'}>
               {audio.status === 'live'
-                ? `Live · ${audio.listeners} listening`
-                : 'Waiting for input'}
+                ? t('workspace.audioLive', { count: audio.listeners })
+                : t('workspace.audioWaiting')}
             </Badge>
           ) : null
         }
       >
-        Live audio
+        {t('workspace.audio')}
       </SectionTitle>
-      {audio && <p className="text-sm text-slate-300">From {audio.ownerName}.</p>}
-      {audio && !audio.connected && !on && (
-        <p className="text-sm text-slate-400">
-          The broadcasting computer is not connected to this server, so you cannot listen from here.
+      {audio && (
+        <p className="text-sm text-slate-300">
+          {t('workspace.audioFrom', { name: audio.ownerName })}
         </p>
+      )}
+      {audio && !audio.connected && !on && (
+        <p className="text-sm text-slate-400">{t('workspace.audioNotConnected')}</p>
       )}
       {(audio?.connected || on) && (
         <div className="mt-2 flex items-center gap-3">
           <Button
-            title={on ? 'Stop' : 'Listen'}
-            aria-label={on ? 'Stop' : 'Listen'}
+            title={t(on ? 'listen.stop' : 'listen.title')}
+            aria-label={t(on ? 'listen.stop' : 'listen.title')}
             onClick={() => (on ? listen.stop() : listen.start())}
           >
             <ControlIcon name={on ? 'stop' : 'listen'} className="h-5 w-5" />
@@ -722,10 +720,10 @@ function ObsSection({ id }: { id: string }) {
         aside={
           obs.state.active ? (
             <Badge tone={obs.state.status === 'connected' ? 'live' : 'warn'}>
-              {OBS_STATUS_LABEL[obs.state.status]}
+              {obsStatusLabel(obs.state.status)}
             </Badge>
           ) : (
-            <Badge>Off</Badge>
+            <Badge>{t('obs.off')}</Badge>
           )
         }
       >
@@ -745,12 +743,12 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
   const now = useNow(1000);
   const stale = now - arrived > OBS_STALE_MS;
   const computer = (
-    <Fact label="OBS computer">
-      {owner.name ?? state.ownerName ?? 'Unnamed computer'}{' '}
+    <Fact label={t('workspace.obsComputer')}>
+      {owner.name ?? state.ownerName ?? t('devices.unnamedComputer')}{' '}
       {owner.connected ? (
-        <Badge tone="live">Connected</Badge>
+        <Badge tone="live">{t('workspace.connected')}</Badge>
       ) : (
-        <span className="text-slate-400">· not connected</span>
+        <span className="text-slate-400">{t('workspace.notConnected')}</span>
       )}
     </Fact>
   );
@@ -759,7 +757,7 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
       <div className="text-sm">
         <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">{computer}</dl>
         <p className="mt-3 text-slate-400">
-          OBS control is turned off on this computer. Last heard <When iso={obs.receivedAt} />.
+          {formatNodes(t('workspace.obsOff'), { when: <When iso={obs.receivedAt} /> })}
         </p>
       </div>
     );
@@ -768,11 +766,11 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
     <div className="divide-y divide-slate-800 text-sm *:py-6 *:first:pt-0 *:last:pb-0">
       <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         {computer}
-        <Fact label="On program">{state.currentScene ?? '—'}</Fact>
-        <Fact label="Last report">
+        <Fact label={t('workspace.onProgram')}>{state.currentScene ?? '—'}</Fact>
+        <Fact label={t('workspace.lastReport')}>
           <span className={stale ? 'text-amber-300' : ''}>
             <When iso={obs.receivedAt} />
-            {stale && ' · the OBS computer has stopped reporting'}
+            {stale && ` · ${t('workspace.obsStale')}`}
           </span>
         </Fact>
       </dl>
@@ -787,18 +785,21 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
               <figure>
                 <img
                   src={obs.snapshot.image}
-                  alt={`OBS program: ${state.currentScene ?? 'scene'}`}
+                  alt={t('workspace.obsProgram', {
+                    scene: state.currentScene ?? t('workspace.scene'),
+                  })}
                   className={`aspect-video w-full rounded-lg bg-black object-contain ${stale ? 'opacity-60' : ''}`}
                 />
                 <figcaption className="pt-1 text-xs text-slate-400">
-                  Program, taken {formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs))} ago.
-                  A new image comes every {OBS_REPORT_EVERY_MS / 1000} seconds and soon after the
-                  scene changes.
+                  {t('workspace.obsTaken', {
+                    age: formatAge(obs.snapshot.ageMs + (now - arrived - obs.ageMs)),
+                    seconds: OBS_REPORT_EVERY_MS / 1000,
+                  })}
                 </figcaption>
               </figure>
             )}
             <div>
-              <h3 className="mb-1 font-semibold text-slate-100">Outputs</h3>
+              <h3 className="mb-1 font-semibold text-slate-100">{t('workspace.outputs')}</h3>
               <ul className={`space-y-1 ${stale ? 'opacity-60' : ''}`}>
                 {OBS_OUTPUTS.map(({ kind, label }) => {
                   const output = state[kind];
@@ -811,7 +812,7 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${output.active ? 'bg-rose-500' : 'bg-slate-600'}`}
                       />
-                      <span className="flex-1 font-medium text-slate-100">{label}</span>
+                      <span className="flex-1 font-medium text-slate-100">{t(label)}</span>
                       <span className="text-slate-300 tabular-nums">
                         {obsOutputText(output, elapsed)}
                       </span>
@@ -822,9 +823,9 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
             </div>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="mb-1 font-semibold text-slate-100">Scenes</h3>
+            <h3 className="mb-1 font-semibold text-slate-100">{t('workspace.scenes')}</h3>
             {state.scenes.length === 0 ? (
-              <p className="text-slate-400">The scenes show while OBS is connected.</p>
+              <p className="text-slate-400">{t('workspace.scenesLater')}</p>
             ) : (
               <ol className="space-y-1">
                 {state.scenes.map((scene) => {
@@ -837,7 +838,7 @@ function ObsView({ obs }: { obs: NonNullable<AdminObsView['obs']> }) {
                       }`}
                     >
                       <span className="min-w-0 flex-1 truncate">{scene}</span>
-                      {live && <Badge tone="live">Live</Badge>}
+                      {live && <Badge tone="live">{t('common.live')}</Badge>}
                     </li>
                   );
                 })}

@@ -3,6 +3,7 @@ import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'reac
 import { formatDateTime, relativeTime } from './format';
 import { linkClick } from './router';
 import { useAction } from './useLoad';
+import { formatNodes, t } from '@worship-q/i18n/admin';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
@@ -89,7 +90,7 @@ export function Notice(props: {
       {props.onClose && (
         <button
           type="button"
-          aria-label="Dismiss"
+          aria-label={t('common.dismiss')}
           onClick={props.onClose}
           className="shrink-0 self-start text-lg leading-none opacity-70 hover:opacity-100"
         >
@@ -139,7 +140,7 @@ export function PageTitle(props: { children: ReactNode; aside?: ReactNode; loadi
       <h1 className="flex items-center gap-3 text-2xl font-semibold text-white">
         {props.children}
         {props.loading && (
-          <span className="text-slate-500" aria-label="Refreshing">
+          <span className="text-slate-500" aria-label={t('common.refreshing')}>
             <Spinner />
           </span>
         )}
@@ -240,7 +241,7 @@ export function Confirm(props: {
         <ErrorText error={action.error} className="mt-3" />
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button variant="ghost" onClick={props.onCancel} disabled={action.busy}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             variant={props.danger ? 'danger' : 'primary'}
@@ -298,7 +299,7 @@ export function InlineForm(props: {
           </Button>
           {props.onCancel && (
             <Button variant="ghost" onClick={props.onCancel} disabled={props.busy}>
-              Cancel
+              {t('common.cancel')}
             </Button>
           )}
         </div>
@@ -312,15 +313,9 @@ export function InlineForm(props: {
 export function CodeReveal(props: { code: string; workspaceName: string; onClose(): void }) {
   return (
     <Notice tone="success" onClose={props.onClose}>
-      <p>
-        Connection code for <strong>{props.workspaceName}</strong>. It is shown only once; write it
-        down now.
-      </p>
+      <p>{formatNodes(t('code.reveal'), { workspace: <strong>{props.workspaceName}</strong> })}</p>
       <p className="my-2 font-mono text-3xl tracking-[0.2em] text-white select-all">{props.code}</p>
-      <p>
-        Codes only work while <strong>Connection code</strong> is turned on for the workspace. New
-        computers normally pair instead, and an administrator approves them on the Devices page.
-      </p>
+      <p>{formatNodes(t('code.revealHint'), { setting: <strong>{t('code.setting')}</strong> })}</p>
     </Notice>
   );
 }

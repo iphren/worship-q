@@ -17,6 +17,7 @@ import {
 } from '@worship-q/protocol';
 import { Slide, buildFrame, fontAvailable, missingFonts } from '@worship-q/renderer';
 import { useEffect, useMemo, useState } from 'react';
+import { t } from '@worship-q/i18n/output';
 
 const RETRY_MS = [1000, 2000, 5000, 10000];
 const PING_MS = 15_000;
@@ -170,11 +171,13 @@ export function OutputPage() {
           padding: 32,
         }}
       >
-        {state.reason === 'no-token'
-          ? 'This link has no key. Make a new output link in Worship Q under Settings → Browser outputs.'
-          : state.reason === 'update-needed'
-            ? 'The church server runs a different version of Worship Q. Reload this page.'
-            : 'This output link was revoked. Make a new one in Worship Q under Settings → Browser outputs.'}
+        {t(
+          state.reason === 'no-token'
+            ? 'output.noToken'
+            : state.reason === 'update-needed'
+              ? 'output.updateNeeded'
+              : 'output.revoked',
+        )}
       </div>
     );
   }
@@ -196,7 +199,7 @@ export function OutputPage() {
       />
       {frame.website && (
         <iframe
-          title="Website"
+          title={t('output.website')}
           // A YouTube link shows its video alone: YouTube's page refuses to be framed.
           src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
           allow="autoplay; encrypted-media; fullscreen"

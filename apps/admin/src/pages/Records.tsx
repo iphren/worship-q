@@ -10,6 +10,7 @@ import { api } from '../api';
 import { dayRange, formatBytes, formatDuration, formatTimeOfDay, runTime } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, Spinner } from '../ui';
 import { type Loaded, useLoad } from '../useLoad';
+import { t } from '@worship-q/i18n/admin';
 
 const POLL_MS = 15_000;
 
@@ -25,21 +26,19 @@ export function DayRecordings({ records }: { records: Loaded<AdminRecords> }) {
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-slate-200">Live audio recordings</h3>
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">{t('records.recordings')}</h3>
       <ErrorText error={records.error} className="mb-2" />
       {!records.data && !records.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
-          <Spinner /> Loading…
+          <Spinner /> {t('common.loading')}
         </p>
       )}
       {records.data && !records.data.recordingOn && (
-        <p className="mb-2 text-xs text-amber-300">
-          Recording is turned off in Settings: new broadcasts are not recorded.
-        </p>
+        <p className="mb-2 text-xs text-amber-300">{t('records.recordingOff')}</p>
       )}
       {records.data &&
         (records.data.recordings.length === 0 ? (
-          <p className="text-sm text-slate-400">No recording this day.</p>
+          <p className="text-sm text-slate-400">{t('records.noRecording')}</p>
         ) : (
           <ul className="space-y-3">
             {records.data.recordings.map((recording) => (
@@ -54,8 +53,8 @@ export function DayRecordings({ records }: { records: Loaded<AdminRecords> }) {
         ))}
       {removing && (
         <Confirm
-          title="Delete this recording?"
-          confirmLabel="Delete"
+          title={t('records.deleteTitle')}
+          confirmLabel={t('common.delete')}
           danger
           onCancel={() => setRemoving(null)}
           onConfirm={async () => {
@@ -67,10 +66,7 @@ export function DayRecordings({ records }: { records: Loaded<AdminRecords> }) {
             setRemoving(null);
           }}
         >
-          <p>
-            The recording from {formatTimeOfDay(removing.startedAt)} is removed from the server. It
-            cannot be brought back.
-          </p>
+          <p>{t('records.deleteText', { time: formatTimeOfDay(removing.startedAt) })}</p>
         </Confirm>
       )}
     </div>
@@ -81,15 +77,15 @@ export function PresentationLog({ records }: { records: Loaded<AdminRecords> }) 
   const now = Date.now();
   return (
     <div>
-      <h3 className="mb-2 text-sm font-semibold text-slate-200">Presentation log</h3>
+      <h3 className="mb-2 text-sm font-semibold text-slate-200">{t('records.log')}</h3>
       {!records.data && !records.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
-          <Spinner /> Loading…
+          <Spinner /> {t('common.loading')}
         </p>
       )}
       {records.data &&
         (records.data.log.length === 0 ? (
-          <Empty>Nothing was presented this day.</Empty>
+          <Empty>{t('records.nothing')}</Empty>
         ) : (
           // A long service's log scrolls inside its own box rather than the page.
           <div className="max-h-[48rem] overflow-y-auto rounded-lg border border-slate-800 px-3">
@@ -120,11 +116,13 @@ function RecordingRow(props: { recording: RecordingView; now: number; onRemove()
           {formatDuration(runTime(recording.startedAt, ended, props.now))} ·{' '}
           {formatBytes(recording.bytes)}
         </span>
-        {recording.status === 'receiving' && <Badge tone="live">Recording</Badge>}
-        {recording.status === 'interrupted' && <Badge tone="warn">Interrupted</Badge>}
-        {recording.cutShort && <Badge tone="warn">Incomplete</Badge>}
+        {recording.status === 'receiving' && <Badge tone="live">{t('records.recording')}</Badge>}
+        {recording.status === 'interrupted' && (
+          <Badge tone="warn">{t('records.interrupted')}</Badge>
+        )}
+        {recording.cutShort && <Badge tone="warn">{t('records.incomplete')}</Badge>}
         <span className="text-xs text-slate-500">
-          {recording.inputName || 'Unknown input'} · {recording.deviceName}
+          {recording.inputName || t('records.unknownInput')} · {recording.deviceName}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -133,10 +131,10 @@ function RecordingRow(props: { recording: RecordingView; now: number; onRemove()
           href={`${file}?download`}
           className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold text-slate-100 hover:bg-slate-700"
         >
-          Download
+          {t('records.download')}
         </a>
         <Button small variant="ghost" onClick={props.onRemove}>
-          Delete
+          {t('common.delete')}
         </Button>
       </div>
     </li>
@@ -167,13 +165,15 @@ function LogRow({ entry, now }: { entry: LocalLogEntry; now: number }) {
         {formatTimeOfDay(entry.startedAt)}
       </span>
       <span className="w-14 shrink-0 tabular-nums text-slate-500">
-        {entry.endedAt ? formatDuration(runTime(entry.startedAt, entry.endedAt, now)) : 'Now'}
+        {entry.endedAt
+          ? formatDuration(runTime(entry.startedAt, entry.endedAt, now))
+          : t('records.now')}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold text-slate-100">
-          {content?.title ?? 'Not on the server yet'}
+          {content?.title ?? t('records.notOnServer')}
           {entry.previous && (
-            <span className="ml-2 text-xs text-slate-500">previous run sheet</span>
+            <span className="ml-2 text-xs text-slate-500">{t('records.previousRunSheet')}</span>
           )}
         </span>
         {lines.length > 0 && (

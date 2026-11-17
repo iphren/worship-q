@@ -16,6 +16,7 @@ import {
   When,
 } from '../ui';
 import { useAction, useLoad } from '../useLoad';
+import { formatNodes, t } from '@worship-q/i18n/admin';
 
 /** Pending requests are short-lived (fifteen minutes), so the page keeps itself fresh. */
 export const DEVICES_POLL_MS = 15_000;
@@ -47,15 +48,15 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
     ? handled.some((h) => normalizePairingCode(h.code) === wanted)
     : false;
   const workspaceName = (id: string) =>
-    workspaces.data?.workspaces.find((w) => w.id === id)?.name || 'its workspace';
+    workspaces.data?.workspaces.find((w) => w.id === id)?.name || t('devices.itsWorkspace');
 
   return (
     <div className="space-y-6">
-      <PageTitle loading={list.loading && list.data !== null}>Devices</PageTitle>
+      <PageTitle loading={list.loading && list.data !== null}>{t('nav.devices')}</PageTitle>
       <ErrorText error={list.error} />
 
       <section>
-        <SectionTitle>Pending requests</SectionTitle>
+        <SectionTitle>{t('devices.pending')}</SectionTitle>
         {handled.length > 0 && (
           <div className="mb-3 space-y-2">
             {handled.map((h) => (
@@ -66,14 +67,17 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
               >
                 {h.outcome === 'approved' ? (
                   <p>
-                    <strong>{h.deviceName}</strong> is paired and has joined{' '}
-                    <strong>{workspaceName(h.workspaceId)}</strong>. The computer finishes setting
-                    itself up; nothing more is needed here.
+                    {formatNodes(t('devices.approved'), {
+                      device: <strong>{h.deviceName}</strong>,
+                      workspace: <strong>{workspaceName(h.workspaceId)}</strong>,
+                    })}
                   </p>
                 ) : (
                   <p>
-                    The request <strong>{h.code}</strong> from <strong>{h.deviceName}</strong> was
-                    refused.
+                    {formatNodes(t('devices.refused'), {
+                      code: <strong>{h.code}</strong>,
+                      device: <strong>{h.deviceName}</strong>,
+                    })}
                   </p>
                 )}
               </Notice>
@@ -83,17 +87,12 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
         {wanted && list.data && !wantedPending && !wantedHandled && (
           <div className="mb-3">
             <Notice tone="warning">
-              The request <strong>{pairCode}</strong> is no longer pending. Requests last fifteen
-              minutes; it may have expired, or another administrator handled it. Ask the computer to
-              start pairing again if it still needs to join.
+              {formatNodes(t('devices.notPending'), { code: <strong>{pairCode}</strong> })}
             </Notice>
           </div>
         )}
         {list.data && pending.length === 0 && (
-          <p className="text-sm text-slate-400">
-            No computer is waiting for approval. A new computer that starts pairing shows a code and
-            appears here.
-          </p>
+          <p className="text-sm text-slate-400">{t('devices.noneWaiting')}</p>
         )}
         <ul className="space-y-2">
           {pending.map((request) => (
@@ -114,13 +113,13 @@ export function DevicesPage({ pairCode }: { pairCode: string | null }) {
       </section>
 
       <section>
-        <SectionTitle>Computers and phones</SectionTitle>
-        {list.data && devices.length === 0 && <Empty>No device has access to a workspace.</Empty>}
+        <SectionTitle>{t('devices.all')}</SectionTitle>
+        {list.data && devices.length === 0 && <Empty>{t('devices.none')}</Empty>}
         <div className="space-y-5">
           {groups.map((group) => (
             <div key={group.workspaceId}>
               <h3 className="mb-2 text-sm font-semibold text-slate-300">
-                {group.workspaceName || 'Unnamed workspace'}
+                {group.workspaceName || t('devices.unnamedWorkspace')}
               </h3>
               <ul className="space-y-2">
                 {group.devices.map((device) => (
@@ -177,7 +176,7 @@ function PendingRequest(props: {
       props.onDone({
         code: request.code,
         outcome: 'approved',
-        deviceName: result.device.name || request.deviceName || 'The computer',
+        deviceName: result.device.name || request.deviceName || t('devices.theComputer'),
         workspaceId: result.device.workspaceId,
       });
   }
@@ -192,10 +191,11 @@ function PendingRequest(props: {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-mono text-xl tracking-[0.15em] text-white">{request.code}</span>
         <span className="min-w-40 flex-1 truncate text-[15px] text-slate-100">
-          {request.deviceName || 'Unnamed computer'}
+          {request.deviceName || t('devices.unnamedComputer')}
         </span>
         <span className="text-xs text-slate-400">
-          Asked <When iso={request.createdAt} /> · {expiryText(request.expiresAt)}
+          {formatNodes(t('devices.asked'), { when: <When iso={request.createdAt} /> })} ·{' '}
+          {expiryText(request.expiresAt)}
         </span>
       </div>
       {open ? (
@@ -208,14 +208,14 @@ function PendingRequest(props: {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm text-slate-300">
-              Workspace
+              {t('devices.workspace')}
               <select
                 className={`${INPUT} mt-1`}
                 value={chosen}
                 onChange={(event) => setWorkspaceId(event.target.value)}
                 required
               >
-                <option value="">Choose a workspace…</option>
+                <option value="">{t('devices.chooseWorkspace')}</option>
                 {workspaces.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -224,20 +224,18 @@ function PendingRequest(props: {
               </select>
             </label>
             <label className="block text-sm text-slate-300">
-              Name (optional)
+              {t('devices.nameOptional')}
               <input
                 className={`${INPUT} mt-1`}
                 value={name}
                 maxLength={80}
-                placeholder={request.deviceName || 'As the computer proposed'}
+                placeholder={request.deviceName || t('devices.asProposed')}
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
           </div>
           <fieldset className="space-y-2 text-sm text-slate-300">
-            <legend className="mb-1">
-              If this computer already has songs and run sheets of its own
-            </legend>
+            <legend className="mb-1">{t('devices.mergeLegend')}</legend>
             <label className="flex items-start gap-2">
               <input
                 type="radio"
@@ -247,10 +245,8 @@ function PendingRequest(props: {
                 onChange={() => setAllowMerge(true)}
               />
               <span>
-                <span className="text-slate-100">Allow merging</span>
-                <span className="block text-xs text-slate-400">
-                  It may keep them and add them to the workspace, alongside the workspace’s own.
-                </span>
+                <span className="text-slate-100">{t('devices.allowMerge')}</span>
+                <span className="block text-xs text-slate-400">{t('devices.allowMergeHint')}</span>
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -262,21 +258,17 @@ function PendingRequest(props: {
                 onChange={() => setAllowMerge(false)}
               />
               <span>
-                <span className="text-slate-100">Don’t allow merging</span>
-                <span className="block text-xs text-slate-400">
-                  They are replaced by the workspace’s copy, so the workspace receives nothing from
-                  it, even when the workspace has no content yet. A backup stays on the computer.
-                </span>
+                <span className="text-slate-100">{t('devices.noMerge')}</span>
+                <span className="block text-xs text-slate-400">{t('devices.noMergeHint')}</span>
               </span>
             </label>
           </fieldset>
           {allowMerge === false && props.churchLibraryEmpty && (
             <Notice tone="warning">
-              This computer’s own songs and run sheets will be removed from it; only a backup in its
-              data folder keeps them.{' '}
+              {t('devices.noMergeWarning')}{' '}
               {chosen && !workspaceHasContent
-                ? 'The Church Library is empty and this workspace has no content yet, so this computer will start with no songs at all.'
-                : 'The Church Library is empty, so this computer will have only the songs of the workspace it joins.'}
+                ? t('devices.emptyLibraryNoContent')
+                : t('devices.emptyLibrary')}
             </Notice>
           )}
           <ErrorText error={approve.error} />
@@ -287,27 +279,29 @@ function PendingRequest(props: {
               busy={approve.busy}
               disabled={!chosen || allowMerge === null}
             >
-              Approve
+              {t('devices.approve')}
             </Button>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={approve.busy}>
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         </form>
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="primary" small onClick={() => setOpen(true)}>
-            Approve…
+            {t('devices.approveMore')}
           </Button>
           <Button variant="danger" small onClick={() => setRefusing(true)}>
-            Refuse
+            {t('devices.refuse')}
           </Button>
         </div>
       )}
       {refusing && (
         <Confirm
-          title={`Refuse ${request.deviceName || 'this computer'}?`}
-          confirmLabel="Refuse"
+          title={t('devices.refuseTitle', {
+            device: request.deviceName || t('devices.thisComputer'),
+          })}
+          confirmLabel={t('devices.refuse')}
           danger
           onCancel={() => setRefusing(false)}
           onConfirm={async () => {
@@ -316,14 +310,11 @@ function PendingRequest(props: {
             props.onDone({
               code: request.code,
               outcome: 'refused',
-              deviceName: request.deviceName || 'Unnamed computer',
+              deviceName: request.deviceName || t('devices.unnamedComputer'),
             });
           }}
         >
-          <p>
-            The computer showing code <strong>{request.code}</strong> is told it was refused and
-            does not join. It can start pairing again later.
-          </p>
+          <p>{formatNodes(t('devices.refuseText'), { code: <strong>{request.code}</strong> })}</p>
         </Confirm>
       )}
     </li>
@@ -358,11 +349,11 @@ export function DeviceRow(props: {
     >
       {renaming ? (
         <InlineForm
-          label="Device name"
+          label={t('devices.name')}
           value={name}
           onChange={setName}
-          placeholder="Device name"
-          submitLabel="Save"
+          placeholder={t('devices.name')}
+          submitLabel={t('common.save')}
           busy={rename.busy}
           error={rename.error}
           autoFocus
@@ -375,11 +366,11 @@ export function DeviceRow(props: {
       ) : (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="min-w-40 flex-1 truncate text-[15px] font-semibold text-white">
-            {device.name || 'Unnamed'}
+            {device.name || t('devices.unnamed')}
           </span>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            {device.connected && !revoked && <Badge tone="live">Connected now</Badge>}
-            {revoked && <Badge tone="warn">Revoked</Badge>}
+            {device.connected && !revoked && <Badge tone="live">{t('devices.connectedNow')}</Badge>}
+            {revoked && <Badge tone="warn">{t('devices.revoked')}</Badge>}
             {!revoked && (
               <div className="flex gap-1">
                 <Button
@@ -390,10 +381,10 @@ export function DeviceRow(props: {
                     setRenaming(true);
                   }}
                 >
-                  Rename
+                  {t('devices.rename')}
                 </Button>
                 <Button small variant="ghost" onClick={() => setRevoking(true)}>
-                  Revoke
+                  {t('devices.revoke')}
                 </Button>
               </div>
             )}
@@ -403,31 +394,33 @@ export function DeviceRow(props: {
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
         {showWorkspace && (
           <span>
-            Workspace <span className="text-slate-200">{device.workspaceName || '—'}</span>
+            {formatNodes(t('devices.inWorkspace'), {
+              workspace: <span className="text-slate-200">{device.workspaceName || '—'}</span>,
+            })}
           </span>
         )}
         <span>
           {device.enrolledBy === 'code'
-            ? 'Joined with a connection code'
+            ? t('devices.joinedWithCode')
             : device.approvedBy
-              ? `Paired, approved by ${device.approvedBy}`
-              : 'Paired'}{' '}
+              ? t('devices.pairedBy', { name: device.approvedBy })
+              : t('devices.paired')}{' '}
           <When iso={device.createdAt} />
         </span>
         {revoked ? (
           <span>
-            Revoked <When iso={device.revokedAt!} />
+            {formatNodes(t('devices.revokedWhen'), { when: <When iso={device.revokedAt!} /> })}
           </span>
         ) : (
           <span>
-            Last seen <When iso={device.lastSeenAt} />
+            {formatNodes(t('devices.lastSeen'), { when: <When iso={device.lastSeenAt} /> })}
           </span>
         )}
       </p>
       {revoking && (
         <Confirm
-          title={`Revoke ${device.name || 'this device'}?`}
-          confirmLabel="Revoke"
+          title={t('devices.revokeTitle', { device: device.name || t('devices.thisDevice') })}
+          confirmLabel={t('devices.revoke')}
           danger
           onCancel={() => setRevoking(false)}
           onConfirm={async () => {
@@ -441,9 +434,9 @@ export function DeviceRow(props: {
           }}
         >
           <p>
-            The device is disconnected and can no longer reach{' '}
-            <strong>{device.workspaceName}</strong>. Its copy of the content stays on it. To join
-            again it must pair or use a connection code, like a new device.
+            {formatNodes(t('devices.revokeText'), {
+              workspace: <strong>{device.workspaceName}</strong>,
+            })}
           </p>
         </Confirm>
       )}

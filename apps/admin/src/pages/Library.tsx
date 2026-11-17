@@ -7,18 +7,20 @@ import type {
 } from '@worship-q/protocol';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { formatDate } from '../format';
+import { formatDate, libraryTypeLabel, libraryTypeNoun } from '../format';
 import { Badge, Button, Confirm, Empty, ErrorText, INPUT, PageTitle, Spinner, When } from '../ui';
 import { useAction, useLoad } from '../useLoad';
+import { formatNodes, t, type MessageKey } from '@worship-q/i18n/admin';
 
 /** The `slides` library type is called Media: slide decks, PDFs, images and videos (U12). */
 type Tab = 'songs' | 'slides' | 'websites' | 'backgrounds';
 
-const TABS: { tab: Tab; label: string; kind: LibraryKind; types: AdminLibraryType[] }[] = [
-  { tab: 'songs', label: 'Songs', kind: 'song', types: ['lyrics'] },
-  { tab: 'slides', label: 'Media', kind: 'song', types: ['deck', 'imageItem', 'videoItem'] },
-  { tab: 'websites', label: 'Websites', kind: 'song', types: ['website'] },
-  { tab: 'backgrounds', label: 'Backgrounds', kind: 'background', types: ['image', 'video'] },
+/** Each tab is named as the Church Library type it lists (`libraryTypeLabel`). */
+const TABS: { tab: Tab; kind: LibraryKind; types: AdminLibraryType[] }[] = [
+  { tab: 'songs', kind: 'song', types: ['lyrics'] },
+  { tab: 'slides', kind: 'song', types: ['deck', 'imageItem', 'videoItem'] },
+  { tab: 'websites', kind: 'song', types: ['website'] },
+  { tab: 'backgrounds', kind: 'background', types: ['image', 'video'] },
 ];
 
 /** How long typing pauses before the search is sent. */
@@ -29,7 +31,7 @@ type Scope = { workspaceId: string | null };
 
 export function LibraryPage() {
   const [tab, setTab] = useState<Tab>('songs');
-  const { kind, types, label } = TABS.find((t) => t.tab === tab)!;
+  const { kind, types } = TABS.find((entry) => entry.tab === tab)!;
   const workspaces = useLoad(() => api.workspaces(), []);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const workspace = workspaces.data?.workspaces.find((w) => w.id === workspaceId) ?? null;
@@ -96,21 +98,21 @@ export function LibraryPage() {
     }
   }, [openId]);
 
-  const noun = label.toLowerCase();
+  const noun = libraryTypeNoun(tab);
   return (
     <div className="space-y-4">
-      <PageTitle loading={list.loading && list.data !== null}>Church Library</PageTitle>
+      <PageTitle loading={list.loading && list.data !== null}>{t('nav.library')}</PageTitle>
       <div className="flex flex-wrap items-center gap-2">
         <select
           className={`${INPUT} w-auto`}
-          aria-label="Whose content"
+          aria-label={t('library.whose')}
           value={workspaceId ?? ''}
           onChange={(event) => {
             setWorkspaceId(event.target.value || null);
             setOpenId(null);
           }}
         >
-          <option value="">Church Library</option>
+          <option value="">{t('nav.library')}</option>
           {workspaces.data?.workspaces.map((w) => (
             <option key={w.id} value={w.id}>
               {w.name}
@@ -118,20 +120,20 @@ export function LibraryPage() {
           ))}
         </select>
         <div role="tablist" className="flex flex-wrap rounded-lg bg-slate-900 p-1">
-          {TABS.map((t) => (
+          {TABS.map((entry) => (
             <button
-              key={t.tab}
+              key={entry.tab}
               role="tab"
-              aria-selected={tab === t.tab}
+              aria-selected={tab === entry.tab}
               onClick={() => {
-                setTab(t.tab);
+                setTab(entry.tab);
                 setOpenId(null);
               }}
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                tab === t.tab ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
+                tab === entry.tab ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
-              {t.label}
+              {libraryTypeLabel(entry.tab)}
             </button>
           ))}
         </div>
@@ -142,19 +144,15 @@ export function LibraryPage() {
             onChange={(event) => setShowDeleted(event.target.checked)}
             className="h-4 w-4 accent-sky-500"
           />
-          Deleted
+          {t('library.deleted')}
         </label>
       </div>
       <input
         type="search"
         className={INPUT}
         value={search}
-        placeholder={
-          kind === 'song'
-            ? 'Search by title or words, in characters, pinyin or initials'
-            : 'Search by name'
-        }
-        aria-label={`Search ${noun}`}
+        placeholder={kind === 'song' ? t('library.searchSongs') : t('library.searchName')}
+        aria-label={t('library.search', { noun })}
         onChange={(event) => setSearch(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') setSearch('');
@@ -163,37 +161,38 @@ export function LibraryPage() {
       <ErrorText error={list.error ?? workspaces.error} />
       {workspace && !managesTab && !showDeleted && (
         <p className="text-xs text-slate-400">
-          What {workspace.name} has that differs from the Church Library: its own {noun}, its own
-          versions of the church's, and the church's it has hidden.
+          {t('library.differs', { workspace: workspace.name, noun })}
         </p>
       )}
       {showDeleted && (
         <p className="text-xs text-slate-400">
-          Deleted items can be restored until their files are removed, 90 days after deletion by
-          default. Workspaces keep any version of their own they had made.
-          {workspace && ` These are ${workspace.name}'s own, deleted there.`}
+          {t('library.deletedHint')}
+          {workspace && ` ${t('library.deletedHintWorkspace', { workspace: workspace.name })}`}
         </p>
       )}
       <div className={open ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-4' : ''}>
         <div>
           {!loaded && !list.error && (
             <p className="flex items-center gap-2 text-sm text-slate-400">
-              <Spinner /> Loading…
+              <Spinner /> {t('common.loading')}
             </p>
           )}
           {loaded && items.length === 0 && (
             <Empty>
               {workspace && managesTab
-                ? `${workspace.name} manages the Church Library's ${noun}, so its ${noun} are the Church Library's.`
+                ? t('library.emptyManaged', { workspace: workspace.name, noun })
                 : workspace && !query.trim()
                   ? showDeleted
-                    ? `${workspace.name} has no deleted ${noun} of its own.`
-                    : `${workspace.name}'s ${noun} are the Church Library's, unchanged.`
+                    ? t('library.emptyWorkspaceDeleted', { workspace: workspace.name, noun })
+                    : t('library.emptyWorkspace', { workspace: workspace.name, noun })
                   : query.trim()
-                    ? `No ${showDeleted ? 'deleted ' : ''}${noun} match “${query.trim()}”.`
+                    ? t(showDeleted ? 'library.noDeletedMatch' : 'library.noMatch', {
+                        noun,
+                        query: query.trim(),
+                      })
                     : showDeleted
-                      ? `No deleted ${noun}.`
-                      : `The Church Library has no ${noun}. A workspace that manages the Church Library fills it.`}
+                      ? t('library.noDeleted', { noun })
+                      : t('library.empty', { noun })}
             </Empty>
           )}
           <ul className="space-y-2">
@@ -250,7 +249,7 @@ function ItemRow(props: {
     api
       .libraryUsage(item.kind, item.id)
       .then(setUsage, (cause: unknown) =>
-        setUsageError(cause instanceof Error ? cause.message : 'Usage could not be loaded.'),
+        setUsageError(cause instanceof Error ? cause.message : t('library.usageFailed')),
       );
   }
 
@@ -275,30 +274,30 @@ function ItemRow(props: {
           type="button"
           onClick={props.onOpen}
           aria-expanded={props.selected}
-          title="Show what it contains"
+          title={t('library.showContents')}
           className="min-w-40 flex-1 cursor-pointer text-left"
         >
           <p
             className={`truncate text-[15px] font-semibold hover:underline ${deleted ? 'text-slate-300' : 'text-white'}`}
           >
-            {item.title || 'Untitled'}
+            {item.title || t('common.untitled')}
           </p>
           {item.fileName && <p className="truncate text-xs text-slate-500">{item.fileName}</p>}
         </button>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {change && (
             <div className="flex flex-wrap justify-end gap-1">
-              <Badge tone={CHANGE_TONE[change.type]}>{CHANGE_LABEL[change.type]}</Badge>
+              <Badge tone={CHANGE_TONE[change.type]}>{t(CHANGE_LABEL[change.type])}</Badge>
               {change.type === 'override' && change.usesChurchVersion && (
-                <Badge tone="muted">Uses the church's for now</Badge>
+                <Badge tone="muted">{t('library.usesChurch')}</Badge>
               )}
               {change.type === 'override' && change.churchChangedSince && (
-                <Badge tone="warn">Church's changed since</Badge>
+                <Badge tone="warn">{t('library.churchChanged')}</Badge>
               )}
             </div>
           )}
           {readOnly ? (
-            filesGone && <span className="text-xs text-amber-300">Files were removed</span>
+            filesGone && <span className="text-xs text-amber-300">{t('library.filesRemoved')}</span>
           ) : deleted ? (
             <div className="flex flex-col items-end gap-1">
               <Button
@@ -306,16 +305,18 @@ function ItemRow(props: {
                 variant="primary"
                 busy={restore.busy}
                 disabled={filesGone}
-                title={filesGone ? 'Files were removed' : undefined}
+                title={filesGone ? t('library.filesRemoved') : undefined}
                 onClick={() => void doRestore()}
               >
-                Restore
+                {t('library.restore')}
               </Button>
-              {filesGone && <span className="text-xs text-amber-300">Files were removed</span>}
+              {filesGone && (
+                <span className="text-xs text-amber-300">{t('library.filesRemoved')}</span>
+              )}
             </div>
           ) : (
             <Button small variant="ghost" onClick={beginDelete}>
-              Delete
+              {t('common.delete')}
             </Button>
           )}
         </div>
@@ -324,40 +325,51 @@ function ItemRow(props: {
       <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400">
         {!readOnly && (
           <span>
-            From{' '}
-            <span className="text-slate-200">
-              {item.fromWorkspace ? item.fromWorkspace.name : 'the church'}
-            </span>
+            {formatNodes(t('library.from'), {
+              source: (
+                <span className="text-slate-200">
+                  {item.fromWorkspace ? item.fromWorkspace.name : t('library.theChurch')}
+                </span>
+              ),
+            })}
           </span>
         )}
         <span>
-          {change?.type === 'hidden' ? 'Hidden' : 'Last changed'} <When iso={item.updatedAt} />
+          {formatNodes(
+            t(change?.type === 'hidden' ? 'library.hiddenWhen' : 'library.changedWhen'),
+            {
+              when: <When iso={item.updatedAt} />,
+            },
+          )}
         </span>
         {item.removedAt && (
           <span>
-            Deleted <When iso={item.removedAt} />
-            {item.deletedBy && (
-              <>
-                {' by '}
-                <span className="text-slate-200">
-                  {'administrator' in item.deletedBy
-                    ? item.deletedBy.administrator
-                    : item.deletedBy.workspace.name}
-                </span>
-              </>
-            )}
+            {item.deletedBy
+              ? formatNodes(t('library.deletedWhenBy'), {
+                  when: <When iso={item.removedAt} />,
+                  who: (
+                    <span className="text-slate-200">
+                      {'administrator' in item.deletedBy
+                        ? item.deletedBy.administrator
+                        : item.deletedBy.workspace.name}
+                    </span>
+                  ),
+                })
+              : formatNodes(t('library.deletedWhen'), { when: <When iso={item.removedAt} /> })}
           </span>
         )}
         {item.filesRemovedAt && (
           <span>
-            Files removed <When iso={item.filesRemovedAt} />
+            {formatNodes(t('library.filesRemovedWhen'), {
+              when: <When iso={item.filesRemovedAt} />,
+            })}
           </span>
         )}
       </p>
       {deleting && (
         <Confirm
-          title={`Delete “${item.title || 'Untitled'}” from the Church Library?`}
-          confirmLabel="Delete"
+          title={t('library.deleteTitle', { title: item.title || t('common.untitled') })}
+          confirmLabel={t('common.delete')}
           danger
           ready={usage !== null || usageError !== null}
           onCancel={() => setDeleting(false)}
@@ -367,23 +379,19 @@ function ItemRow(props: {
             setDeleting(false);
           }}
         >
-          <p>
-            Every workspace loses it from the Church Library. It can be restored from the Deleted
-            list until its files are removed. A workspace that made its own version keeps that
-            version.
-          </p>
+          <p>{t('library.deleteText')}</p>
           {!usage && !usageError && (
             <p className="flex items-center gap-2 text-slate-400">
-              <Spinner /> Checking which run sheets use it…
+              <Spinner /> {t('library.checkingUsage')}
             </p>
           )}
           <ErrorText error={usageError} />
           {usage && usage.workspaces.length === 0 && (
-            <p className="text-slate-400">No workspace's run sheet uses it.</p>
+            <p className="text-slate-400">{t('library.unused')}</p>
           )}
           {usage && usage.workspaces.length > 0 && (
             <div>
-              <p className="font-semibold text-slate-100">Used in these run sheets:</p>
+              <p className="font-semibold text-slate-100">{t('library.usedIn')}</p>
               <ul className="mt-1 space-y-1">
                 {usage.workspaces.map((w) => (
                   <li key={w.id} className="flex flex-wrap items-baseline gap-x-2">
@@ -395,7 +403,7 @@ function ItemRow(props: {
                 ))}
               </ul>
               <p className="mt-2">
-                <Badge tone="warn">Those run sheets keep showing it until it is replaced.</Badge>
+                <Badge tone="warn">{t('library.keepShowing')}</Badge>
               </p>
             </div>
           )}
@@ -414,10 +422,10 @@ const CHANGE_TONE: Record<
   hidden: 'muted',
 };
 
-const CHANGE_LABEL: Record<NonNullable<AdminLibraryItem['change']>['type'], string> = {
-  own: 'Its own',
-  override: 'Own version',
-  hidden: 'Hidden here',
+const CHANGE_LABEL: Record<NonNullable<AdminLibraryItem['change']>['type'], MessageKey> = {
+  own: 'library.change.own',
+  override: 'library.change.override',
+  hidden: 'library.change.hidden',
 };
 
 /**
@@ -463,21 +471,23 @@ function Preview(props: {
     workspaceId === null ? api.fileUrl(name) : api.workspaceFileUrl(workspaceId, name);
   return (
     <aside
-      aria-label={`Contents of ${item.title || 'Untitled'}`}
+      aria-label={t('library.contentsOf', { title: item.title || t('common.untitled') })}
       className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-slate-700 bg-slate-900 shadow-2xl lg:sticky lg:top-8 lg:z-auto lg:max-h-[calc(100vh-4rem)] lg:max-w-none lg:rounded-xl lg:border lg:border-slate-800 lg:shadow-none"
     >
       <div className="flex items-start gap-2 border-b border-slate-800 p-4">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold text-white">{item.title || 'Untitled'}</h2>
+          <h2 className="truncate text-lg font-semibold text-white">
+            {item.title || t('common.untitled')}
+          </h2>
           <p className="text-xs text-slate-400">
-            {TYPE_LABEL[item.type]} · {props.position}
+            {t(TYPE_LABEL[item.type])} · {props.position}
           </p>
         </div>
         <Button
           small
           variant="ghost"
-          aria-label="Previous"
-          title="Previous (↑)"
+          aria-label={t('library.previous')}
+          title={t('library.previousKey')}
           disabled={!props.onPrevious}
           onClick={props.onPrevious}
         >
@@ -486,8 +496,8 @@ function Preview(props: {
         <Button
           small
           variant="ghost"
-          aria-label="Next"
-          title="Next (↓)"
+          aria-label={t('library.next')}
+          title={t('library.nextKey')}
           disabled={!props.onNext}
           onClick={props.onNext}
         >
@@ -496,8 +506,8 @@ function Preview(props: {
         <Button
           small
           variant="ghost"
-          aria-label="Close"
-          title="Close (Esc)"
+          aria-label={t('library.close')}
+          title={t('library.closeKey')}
           onClick={props.onClose}
         >
           ×
@@ -517,21 +527,19 @@ function Preview(props: {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              {church ? "Church's version" : 'Its version'}
+              {church ? t('library.churchVersion') : t('library.itsVersion')}
             </button>
           ))}
         </div>
       )}
       {change?.type === 'hidden' && (
-        <p className="mx-4 mt-4 text-xs text-slate-400">
-          The church's, as it is; this workspace has hidden it.
-        </p>
+        <p className="mx-4 mt-4 text-xs text-slate-400">{t('library.hiddenHere')}</p>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         <ErrorText error={content.error} />
         {!shown && !content.error && (
           <p className="flex items-center gap-2 text-sm text-slate-400">
-            <Spinner /> Loading…
+            <Spinner /> {t('common.loading')}
           </p>
         )}
         {shown && <Contents content={shown} filesGone={filesGone} fileUrl={fileUrl} />}
@@ -540,14 +548,14 @@ function Preview(props: {
   );
 }
 
-const TYPE_LABEL: Record<AdminLibraryType, string> = {
-  lyrics: 'Song',
-  deck: 'Slides',
-  imageItem: 'Image',
-  videoItem: 'Video',
-  website: 'Website',
-  image: 'Background image',
-  video: 'Background video',
+const TYPE_LABEL: Record<AdminLibraryType, MessageKey> = {
+  lyrics: 'library.type.lyrics',
+  deck: 'library.type.deck',
+  imageItem: 'library.type.imageItem',
+  videoItem: 'library.type.videoItem',
+  website: 'library.type.website',
+  image: 'library.type.image',
+  video: 'library.type.video',
 };
 
 function Contents({
@@ -559,7 +567,7 @@ function Contents({
   filesGone: boolean;
   fileUrl(name: string): string;
 }) {
-  const gone = <p className="text-sm text-amber-300">Its files were removed.</p>;
+  const gone = <p className="text-sm text-amber-300">{t('library.filesGone')}</p>;
   if ('fileName' in content) {
     if (filesGone) return gone;
     const src = fileUrl(content.fileName);
@@ -581,10 +589,10 @@ function Contents({
     );
   }
   const facts = [
-    ['Writers', content.author],
-    ['Copyright', content.copyright],
+    [t('library.writers'), content.author],
+    [t('library.copyright'), content.copyright],
     ['CCLI', content.ccli ?? ''],
-    ['Year', content.year === null ? '' : String(content.year)],
+    [t('library.year'), content.year === null ? '' : String(content.year)],
   ].filter(([, value]) => value);
   return (
     <div className="space-y-4">
@@ -618,7 +626,11 @@ function Contents({
                 <a href={fileUrl(page.image)} target="_blank" rel="noreferrer" className="block">
                   <img
                     src={fileUrl(page.thumbnail ?? page.image)}
-                    alt={`Slide ${page.slide}${page.step > 0 ? `, step ${page.step}` : ''}`}
+                    alt={
+                      page.step > 0
+                        ? t('library.slideStep', { slide: page.slide, step: page.step })
+                        : t('library.slide', { slide: page.slide })
+                    }
                     loading="lazy"
                     style={{ aspectRatio: `${content.deck!.width} / ${content.deck!.height}` }}
                     className="w-full rounded bg-black object-contain"
@@ -638,7 +650,7 @@ function Contents({
             {content.lyrics.trim()}
           </p>
         ) : (
-          <p className="text-sm text-slate-400">No lyrics.</p>
+          <p className="text-sm text-slate-400">{t('library.noLyrics')}</p>
         ))}
     </div>
   );

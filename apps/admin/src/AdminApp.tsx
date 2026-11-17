@@ -17,6 +17,13 @@ import { navigate, useRoute } from './router';
 import { SessionContext } from './session';
 import { Button, ErrorText, Link, Spinner } from './ui';
 import { useAction } from './useLoad';
+import {
+  languageChoices,
+  loadBrowserPreference,
+  saveBrowserPreference,
+  t,
+  type MessageKey,
+} from '@worship-q/i18n/admin';
 
 export function AdminApp() {
   const route = useRoute();
@@ -45,12 +52,12 @@ export function AdminApp() {
           <>
             <ErrorText error={error} />
             <Button variant="primary" onClick={() => void load()}>
-              Try again
+              {t('common.tryAgain')}
             </Button>
           </>
         ) : (
           <p className="flex items-center gap-2 text-slate-400">
-            <Spinner /> Loading…
+            <Spinner /> {t('common.loading')}
           </p>
         )}
       </Centered>
@@ -89,7 +96,7 @@ function SignIn({ me, route }: { me: AdminMe; route: Route }) {
     <Centered>
       <img src={logoUrl} alt="" className="h-14 w-14" />
       <h1 className="text-2xl font-semibold text-white">{me.name}</h1>
-      <p className="text-sm text-slate-400">Worship Q administration</p>
+      <p className="text-sm text-slate-400">{t('signIn.subtitle')}</p>
       {code && (
         <p
           role="alert"
@@ -105,21 +112,18 @@ function SignIn({ me, route }: { me: AdminMe; route: Route }) {
             window.location.assign(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`)
           }
         >
-          Sign in
+          {t('signIn.button')}
         </Button>
       ) : (
         <div className="max-w-md space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-left text-sm text-slate-300">
-          <h2 className="font-semibold text-white">Sign-in is not set up</h2>
-          <p>
-            This instance has no sign-in provider yet, so the admin pages cannot be used. The
-            server's administrator sets these variables and restarts the server:
-          </p>
+          <h2 className="font-semibold text-white">{t('signIn.notSetUpTitle')}</h2>
+          <p>{t('signIn.notSetUp')}</p>
           <ul className="list-disc space-y-1 pl-5 font-mono text-xs text-slate-200">
             <li>WORSHIP_Q_OIDC_ISSUER</li>
             <li>WORSHIP_Q_OIDC_CLIENT_ID</li>
             <li>WORSHIP_Q_PUBLIC_URL</li>
           </ul>
-          <p>Until then, administration is done on the server's command line.</p>
+          <p>{t('signIn.untilThen')}</p>
         </div>
       )}
     </Centered>
@@ -130,13 +134,13 @@ const logoUrl = new URL('./assets/logo.svg', import.meta.url).href;
 
 // ── The pages ───────────────────────────────────────────────────────────────
 
-const NAV: { route: Route; label: string }[] = [
-  { route: { page: 'workspaces' }, label: 'Workspaces' },
-  { route: { page: 'devices', pairCode: null }, label: 'Devices' },
-  { route: { page: 'library' }, label: 'Church Library' },
-  { route: { page: 'administrators' }, label: 'Administrators' },
-  { route: { page: 'settings' }, label: 'Church defaults' },
-  { route: { page: 'storage' }, label: 'Storage' },
+const NAV: { route: Route; label: MessageKey }[] = [
+  { route: { page: 'workspaces' }, label: 'nav.workspaces' },
+  { route: { page: 'devices', pairCode: null }, label: 'nav.devices' },
+  { route: { page: 'library' }, label: 'nav.library' },
+  { route: { page: 'administrators' }, label: 'nav.administrators' },
+  { route: { page: 'settings' }, label: 'nav.settings' },
+  { route: { page: 'storage' }, label: 'nav.storage' },
 ];
 
 const section = (route: Route): Route['page'] =>
@@ -157,7 +161,7 @@ function Shell(props: { me: AdminMe; route: Route; onSignedOut(): void; children
           : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
       }`}
     >
-      {label}
+      {t(label)}
     </Link>
   ));
   const account = (
@@ -166,9 +170,25 @@ function Shell(props: { me: AdminMe; route: Route; onSignedOut(): void; children
         {who}
       </span>
       <Button small variant="ghost" busy={signOut.busy} onClick={() => void doSignOut()}>
-        Sign out
+        {t('signOut')}
       </Button>
     </div>
+  );
+  const languageSelect = (
+    <select
+      className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+      aria-label={t('language.label')}
+      value={loadBrowserPreference()}
+      onChange={(event) =>
+        saveBrowserPreference(event.target.value as ReturnType<typeof loadBrowserPreference>)
+      }
+    >
+      {languageChoices().map((choice) => (
+        <option key={choice.value} value={choice.value}>
+          {choice.label}
+        </option>
+      ))}
+    </select>
   );
 
   async function doSignOut() {
@@ -191,11 +211,15 @@ function Shell(props: { me: AdminMe; route: Route; onSignedOut(): void; children
           <img src={logoUrl} alt="" className="h-9 w-9" />
           <div className="min-w-0">
             <p className="truncate font-semibold text-white">{me.name}</p>
-            <p className="text-xs text-slate-500">Administration</p>
+            <p className="text-xs text-slate-500">{t('nav.subtitle')}</p>
           </div>
         </div>
         <nav className="flex flex-col gap-1">{nav}</nav>
         <div className="mt-auto space-y-2 border-t border-slate-800 pt-4">
+          <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+            {t('language.label')}
+            {languageSelect}
+          </div>
           {account}
           <ErrorText error={signOut.error} />
         </div>
@@ -205,6 +229,7 @@ function Shell(props: { me: AdminMe; route: Route; onSignedOut(): void; children
         <div className="flex items-center gap-3 px-4 pt-3">
           <img src={logoUrl} alt="" className="h-8 w-8" />
           <p className="min-w-0 flex-1 truncate font-semibold text-white">{me.name}</p>
+          <div className="shrink-0">{languageSelect}</div>
           <div className="shrink-0">{account}</div>
         </div>
         <ErrorText error={signOut.error} className="px-4 pt-1" />
@@ -242,10 +267,10 @@ function Page({ route }: { route: Route }) {
     case 'not-found':
       return (
         <div className="space-y-3">
-          <h1 className="text-2xl font-semibold text-white">Page not found</h1>
-          <p className="text-slate-400">There is no page at this address.</p>
+          <h1 className="text-2xl font-semibold text-white">{t('notFound.title')}</h1>
+          <p className="text-slate-400">{t('notFound.text')}</p>
           <Link to={routePath({ page: 'workspaces' })} className="text-sky-400 hover:underline">
-            Go to Workspaces
+            {t('notFound.link')}
           </Link>
         </div>
       );

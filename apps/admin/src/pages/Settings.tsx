@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { Button, Card, ErrorText, INPUT, PageTitle } from '../ui';
 import { useAction, useLoad } from '../useLoad';
+import { t } from '@worship-q/i18n/admin';
 
 /**
  * The church's defaults: a workspace's own setting wins over these, and these win over the
@@ -15,11 +16,8 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <PageTitle loading={load.loading && load.data !== null}>Church defaults</PageTitle>
-      <p className="text-sm text-slate-400">
-        Defaults for every workspace. A setting a workspace chose for itself still wins; where a
-        default is not set, the built-in one applies.
-      </p>
+      <PageTitle loading={load.loading && load.data !== null}>{t('nav.settings')}</PageTitle>
+      <p className="text-sm text-slate-400">{t('settings.intro')}</p>
       <ErrorText error={load.error} />
       {settings && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -27,15 +25,15 @@ export function SettingsPage() {
           <WrapLongLines value={settings.wrapLongLines} onSaved={apply} />
           <FontFamily
             settingKey="slideshowFontFamily"
-            title="Slideshow font"
-            hint="The font of lyrics on the main screen."
+            title={t('settings.slideshowFont')}
+            hint={t('settings.slideshowFontHint')}
             value={settings.slideshowFontFamily}
             onSaved={apply}
           />
           <FontFamily
             settingKey="subtitleFontFamily"
-            title="Subtitle font"
-            hint="The font of lyrics shown as subtitles over video."
+            title={t('settings.subtitleFont')}
+            hint={t('settings.subtitleFontHint')}
             value={settings.subtitleFontFamily}
             onSaved={apply}
           />
@@ -107,31 +105,36 @@ function BibleVersions(props: {
 
   return (
     <Setting
-      title="Bible versions"
-      hint="The versions workspaces may show. Each workspace picks up to two of these. A version needs one of its providers to answer with the keys set on the server."
+      title={t('settings.bible')}
+      hint={t('settings.bibleHint')}
       isSet={props.offered !== undefined}
     >
       <ErrorText error={load.error} />
       {bible && (
         <>
           <p className="mb-3 text-xs text-slate-400">
-            Keys on the server: YouVersion {bible.keys.youversion ? 'set' : 'not set'} · API.Bible{' '}
-            {bible.keys.apibible ? 'set' : 'not set'} · ESV {bible.keys.esv ? 'set' : 'not set'}
-            {bible.checked ? '' : ' · checking versions…'}
+            {t('settings.keys', {
+              youversion: t(bible.keys.youversion ? 'settings.keySet' : 'settings.keyNotSet'),
+              apibible: t(bible.keys.apibible ? 'settings.keySet' : 'settings.keyNotSet'),
+              esv: t(bible.keys.esv ? 'settings.keySet' : 'settings.keyNotSet'),
+            })}
+            {bible.checked ? '' : ` · ${t('settings.checking')}`}
           </p>
           <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-slate-300">Default for workspaces:</span>
+            <span className="text-slate-300">{t('settings.defaultFor')}</span>
             {([0, 1] as const).map((index) => (
               <select
                 key={index}
                 className={`${INPUT} w-auto`}
-                aria-label={index === 0 ? 'Default version' : 'Second default version'}
+                aria-label={
+                  index === 0 ? t('settings.defaultVersion') : t('settings.secondDefault')
+                }
                 value={defaults[index] ?? UNSET}
                 disabled={action.busy || (index === 1 && !defaults[0])}
                 onChange={(event) => void setDefault(index, event.target.value)}
               >
                 <option value={UNSET}>
-                  {index === 0 ? 'None (the first offered)' : 'No second version'}
+                  {index === 0 ? t('settings.noneFirstOffered') : t('settings.noSecond')}
                 </option>
                 {choosable
                   .filter((v) => v.id !== defaults[index === 0 ? 1 : 0])
@@ -143,9 +146,7 @@ function BibleVersions(props: {
               </select>
             ))}
           </div>
-          <p className="-mt-2 mb-3 text-xs text-slate-500">
-            Shown side by side on every desktop and phone until a workspace chooses its own.
-          </p>
+          <p className="-mt-2 mb-3 text-xs text-slate-500">{t('settings.sideBySide')}</p>
           <ul className="grid gap-1 sm:grid-cols-2">
             {bible.versions.map((version) => (
               <li key={version.id}>
@@ -164,8 +165,12 @@ function BibleVersions(props: {
                       className={`block text-xs ${version.available ? 'text-slate-500' : 'text-amber-300'}`}
                     >
                       {version.available
-                        ? `Through ${version.providers.map((p) => PROVIDER_NAMES[p] ?? p).join(', then ')}`
-                        : 'Not available with the keys set'}
+                        ? t('settings.through', {
+                            providers: version.providers
+                              .map((p) => PROVIDER_NAMES[p] ?? p)
+                              .join(t('settings.then')),
+                          })
+                        : t('settings.notAvailable')}
                     </span>
                   </span>
                 </label>
@@ -199,8 +204,8 @@ function RecordLiveAudio(props: {
     props.days === undefined
       ? null
       : props.days === 0
-        ? 'Recordings are kept until deleted.'
-        : `Recordings are kept ${props.days} days, then removed (WORSHIP_Q_RECORDING_DAYS on the server).`;
+        ? t('settings.keptForever')
+        : t('settings.keptDays', { days: props.days });
   return (
     <Card>
       <label className="flex items-start gap-3">
@@ -212,12 +217,8 @@ function RecordLiveAudio(props: {
           onChange={(event) => void change(event.target.checked)}
         />
         <span>
-          <span className="block font-semibold text-white">Record live audio</span>
-          <span className="block text-sm text-slate-400">
-            Every workspace’s live audio broadcast is recorded on this server while it is on. The
-            broadcasting computer says so in its Settings. Recordings are listed on each workspace’s
-            page.
-          </span>
+          <span className="block font-semibold text-white">{t('settings.record')}</span>
+          <span className="block text-sm text-slate-400">{t('settings.recordHint')}</span>
           {kept && <span className="mt-1 block text-xs text-slate-500">{kept}</span>}
         </span>
       </label>
@@ -232,7 +233,7 @@ function Setting(props: { title: string; hint: string; isSet: boolean; children:
       <div className="mb-1 flex items-center justify-between gap-2">
         <h2 className="font-semibold text-white">{props.title}</h2>
         <span className={`text-xs ${props.isSet ? 'text-sky-300' : 'text-slate-500'}`}>
-          {props.isSet ? 'Set for the church' : 'Not set'}
+          {t(props.isSet ? 'settings.setForChurch' : 'settings.notSet')}
         </span>
       </div>
       <p className="mb-3 text-sm text-slate-400">{props.hint}</p>
@@ -255,18 +256,18 @@ function LinesPerPiece(props: {
   }
   return (
     <Setting
-      title="Lines per piece"
-      hint="How many lines of a song go on one slide when it is split."
+      title={t('settings.linesPerPiece')}
+      hint={t('settings.linesPerPieceHint')}
       isSet={props.value !== undefined}
     >
       <select
         className={INPUT}
-        aria-label="Lines per piece"
+        aria-label={t('settings.linesPerPiece')}
         value={props.value === undefined ? UNSET : String(props.value)}
         disabled={action.busy}
         onChange={(event) => void change(event.target.value)}
       >
-        <option value={UNSET}>Not set (built-in default)</option>
+        <option value={UNSET}>{t('settings.notSetDefault')}</option>
         {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
           <option key={n} value={n}>
             {n === 1 ? '1 line' : `${n} lines`}
@@ -290,20 +291,20 @@ function WrapLongLines(props: {
   }
   return (
     <Setting
-      title="Wrap long lines"
-      hint="Whether a line too long for the screen continues on the next line instead of shrinking."
+      title={t('settings.wrap')}
+      hint={t('settings.wrapHint')}
       isSet={props.value !== undefined}
     >
       <select
         className={INPUT}
-        aria-label="Wrap long lines"
+        aria-label={t('settings.wrap')}
         value={props.value === undefined ? UNSET : props.value ? 'on' : 'off'}
         disabled={action.busy}
         onChange={(event) => void change(event.target.value)}
       >
-        <option value={UNSET}>Not set (built-in default)</option>
-        <option value="on">On</option>
-        <option value="off">Off</option>
+        <option value={UNSET}>{t('settings.notSetDefault')}</option>
+        <option value="on">{t('settings.on')}</option>
+        <option value="off">{t('settings.off')}</option>
       </select>
       <ErrorText error={action.error} className="mt-2" />
     </Setting>
@@ -343,7 +344,7 @@ function FontFamily(props: {
           aria-label={props.title}
           value={text}
           maxLength={100}
-          placeholder="Built-in default"
+          placeholder={t('settings.builtIn')}
           disabled={action.busy}
           onChange={(event) => setText(event.target.value)}
         />
@@ -354,14 +355,14 @@ function FontFamily(props: {
             busy={action.busy}
             disabled={!dirty || !text.trim()}
           >
-            Save
+            {t('common.save')}
           </Button>
           <Button
             variant="ghost"
             disabled={props.value == null || action.busy}
             onClick={() => void save(null)}
           >
-            Use the default
+            {t('settings.useDefault')}
           </Button>
         </div>
       </form>

@@ -127,7 +127,7 @@ export function subscribeLocale(listener: () => void): () => void {
 }
 
 /** The language `Intl` formats with: the test language formats as English. */
-function intlLocale(active: ActiveLocale = locale): string {
+export function intlLocale(active: ActiveLocale = locale): string {
   return active === PSEUDO ? 'en' : active;
 }
 
@@ -159,6 +159,14 @@ export function translator<M extends Record<string, string>>(catalogues: Catalog
     return format(own ?? english, params);
   };
 }
+
+/** Whether a count takes a message's singular (`.one`) or its plural (`.other`). */
+export function pluralCategory(count: number): 'one' | 'other' {
+  return new Intl.PluralRules(intlLocale()).select(count) === 'one' ? 'one' : 'other';
+}
+
+/** The keys that have `.one` and `.other` forms, without the ending. */
+export type PluralBase<K extends string> = K extends `${infer B}.other` ? B : never;
 
 const commonText = translator<Record<CommonKey, string>>({ en: common });
 

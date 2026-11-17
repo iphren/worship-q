@@ -4,18 +4,19 @@ import { api } from '../api';
 import { formatBytes, usedPercent } from '../format';
 import { Card, ErrorText, PageTitle, SectionTitle } from '../ui';
 import { useLoad } from '../useLoad';
+import { formatNodes, formatNumber, t, tp, type MessageKey } from '@worship-q/i18n/admin';
 
-const TYPES: { type: StorageType; label: string }[] = [
-  { type: 'deckImages', label: 'Slide images' },
-  { type: 'deckOriginals', label: 'Original slide files' },
-  { type: 'images', label: 'Images' },
-  { type: 'videos', label: 'Videos' },
-  { type: 'backgroundImages', label: 'Background images' },
-  { type: 'backgroundVideos', label: 'Background videos' },
-  { type: 'backups', label: 'Backups' },
-  { type: 'recordings', label: 'Live audio recordings' },
-  { type: 'database', label: 'Database' },
-  { type: 'other', label: 'Other' },
+const TYPES: { type: StorageType; label: MessageKey }[] = [
+  { type: 'deckImages', label: 'storage.type.deckImages' },
+  { type: 'deckOriginals', label: 'storage.type.deckOriginals' },
+  { type: 'images', label: 'storage.type.images' },
+  { type: 'videos', label: 'storage.type.videos' },
+  { type: 'backgroundImages', label: 'storage.type.backgroundImages' },
+  { type: 'backgroundVideos', label: 'storage.type.backgroundVideos' },
+  { type: 'backups', label: 'storage.type.backups' },
+  { type: 'recordings', label: 'storage.type.recordings' },
+  { type: 'database', label: 'storage.type.database' },
+  { type: 'other', label: 'storage.type.other' },
 ];
 
 const sum = (totals: Record<StorageType, StorageTotal>): StorageTotal =>
@@ -30,7 +31,7 @@ const sum = (totals: Record<StorageType, StorageTotal>): StorageTotal =>
 /** A part of a whole, from 0 to 1. */
 const share = (part: number, whole: number) => (whole > 0 ? part / whole : 0);
 
-const files = (n: number) => (n === 1 ? '1 file' : `${n.toLocaleString('en')} files`);
+const files = (n: number) => tp('storage.files', n, { count: formatNumber(n) });
 
 /** The storage monitor (media plan U11): a view only, nothing is removed from here. */
 export function StoragePage() {
@@ -38,17 +39,17 @@ export function StoragePage() {
   const report: AdminStorage | null = load.data;
   return (
     <div className="space-y-4">
-      <PageTitle loading={load.loading && load.data !== null}>Storage</PageTitle>
+      <PageTitle loading={load.loading && load.data !== null}>{t('nav.storage')}</PageTitle>
       <ErrorText error={load.error} />
       {report && (
         <>
           <Volume volume={report.volume} />
           <Card>
-            <SectionTitle>By type</SectionTitle>
+            <SectionTitle>{t('storage.byType')}</SectionTitle>
             <Table
-              head={['Type', 'Size', 'Files']}
+              head={[t('storage.type'), t('storage.size'), t('storage.filesHead')]}
               rows={TYPES.map(({ type, label }) => [
-                label,
+                t(label),
                 formatBytes(report.totals[type].bytes),
                 files(report.totals[type].files),
               ])}
@@ -56,29 +57,31 @@ export function StoragePage() {
                 share(report.totals[type].bytes, sum(report.totals).bytes),
               )}
               foot={[
-                'Total',
+                t('storage.total'),
                 formatBytes(sum(report.totals).bytes),
                 files(sum(report.totals).files),
               ]}
             />
           </Card>
           <Card>
-            <SectionTitle>By workspace</SectionTitle>
+            <SectionTitle>{t('storage.byWorkspace')}</SectionTitle>
             {report.workspaces.length === 0 ? (
-              <p className="text-sm text-slate-400">No workspace has files yet.</p>
+              <p className="text-sm text-slate-400">{t('storage.noFiles')}</p>
             ) : (
               <WorkspaceTable workspaces={report.workspaces} />
             )}
           </Card>
           <Card>
-            <SectionTitle>Could be freed</SectionTitle>
+            <SectionTitle>{t('storage.couldBeFreed')}</SectionTitle>
             <p className="text-sm text-slate-300">
-              Original slide files of songs that were removed, or not used for six months:{' '}
-              <strong className="text-white">
-                {formatBytes(report.prunableDeckOriginals.bytes)}
-              </strong>{' '}
-              in {files(report.prunableDeckOriginals.files)}. The slides themselves stay; only the
-              uploaded originals would go. Removing them is done on the server's command line.
+              {formatNodes(t('storage.prunable'), {
+                size: (
+                  <strong className="text-white">
+                    {formatBytes(report.prunableDeckOriginals.bytes)}
+                  </strong>
+                ),
+                files: files(report.prunableDeckOriginals.files),
+              })}
             </p>
           </Card>
         </>
@@ -96,29 +99,33 @@ function Volume({ volume }: { volume: AdminStorage['volume'] }) {
       <SectionTitle
         aside={
           <span className="text-sm text-slate-300">
-            <strong className="text-white">{formatBytes(volume.freeBytes)}</strong> free of{' '}
-            {formatBytes(volume.totalBytes)}
+            {formatNodes(t('storage.freeOf'), {
+              free: <strong className="text-white">{formatBytes(volume.freeBytes)}</strong>,
+              total: formatBytes(volume.totalBytes),
+            })}
           </span>
         }
       >
-        Data volume
+        {t('storage.volume')}
       </SectionTitle>
       <div
         role="meter"
-        aria-label="Space used on the data volume"
+        aria-label={t('storage.volumeMeter')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        aria-valuetext={`${percent}% used, ${formatBytes(used)} of ${formatBytes(volume.totalBytes)}`}
+        aria-valuetext={t('storage.meterText', {
+          percent,
+          used: formatBytes(used),
+          total: formatBytes(volume.totalBytes),
+        })}
         className="h-3 w-full overflow-hidden rounded-full bg-slate-800"
       >
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${percent}%` }} />
       </div>
       <p className="mt-2 text-xs text-slate-400">
-        {percent}% used ({formatBytes(used)}).{' '}
-        {percent >= 90 && (
-          <span className="text-red-300">The volume is nearly full, free space soon.</span>
-        )}
+        {t('storage.used', { percent, used: formatBytes(used) })}{' '}
+        {percent >= 90 && <span className="text-red-300">{t('storage.nearlyFull')}</span>}
       </p>
     </Card>
   );
@@ -129,11 +136,11 @@ function WorkspaceTable({ workspaces }: { workspaces: AdminStorage['workspaces']
   const shown = TYPES.filter(({ type }) => workspaces.some((w) => w.totals[type].bytes > 0));
   return (
     <Table
-      head={['Workspace', ...shown.map((t) => t.label), 'Total']}
+      head={[t('storage.workspace'), ...shown.map((row) => t(row.label)), t('storage.total')]}
       rows={[...workspaces]
         .sort((a, b) => sum(b.totals).bytes - sum(a.totals).bytes)
         .map((w) => [
-          w.id === 'church' ? 'Church Library' : w.name,
+          w.id === 'church' ? t('nav.library') : w.name,
           ...shown.map(({ type }) =>
             w.totals[type].bytes > 0 ? formatBytes(w.totals[type].bytes) : '—',
           ),
@@ -163,7 +170,7 @@ function Table(props: { head: string[]; rows: string[][]; foot?: string[]; share
                 <th className={`pb-2 font-medium ${cell(i)}`}>{h}</th>
                 {shares && i === 0 && (
                   <th className="relative px-4 pb-2 text-left font-medium">
-                    <span className="sr-only">Share of the total</span>
+                    <span className="sr-only">{t('storage.shareHead')}</span>
                   </th>
                 )}
               </Fragment>
@@ -208,10 +215,10 @@ function ShareBar({ share }: { share: number }) {
   const percent = share * 100;
   const text =
     share === 0
-      ? 'None'
+      ? t('storage.none')
       : percent < 1
-        ? 'Under 1% of the total'
-        : `${Math.round(percent)}% of the total`;
+        ? t('storage.underOne')
+        : t('storage.share', { percent: Math.round(percent) });
   return (
     <td className="relative w-full min-w-24 px-4 py-2" title={text}>
       <div className="h-2 w-full rounded-full bg-slate-800">

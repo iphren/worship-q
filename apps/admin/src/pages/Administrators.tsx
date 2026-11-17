@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useSession } from '../session';
 import { Badge, Button, Card, Confirm, Empty, ErrorText, InlineForm, PageTitle, When } from '../ui';
 import { useAction, useLoad } from '../useLoad';
+import { formatNodes, t } from '@worship-q/i18n/admin';
 
 export function AdministratorsPage() {
   const me = useSession();
@@ -22,21 +23,18 @@ export function AdministratorsPage() {
   const administrators = list.data?.administrators ?? [];
   return (
     <div className="space-y-4">
-      <PageTitle loading={list.loading && list.data !== null}>Administrators</PageTitle>
+      <PageTitle loading={list.loading && list.data !== null}>{t('admins.title')}</PageTitle>
       <ErrorText error={list.error} />
       <Card>
-        <h2 className="mb-2 font-semibold text-white">Add an administrator</h2>
-        <p className="mb-3 text-sm text-slate-400">
-          Enter the e-mail address of their account with the church's sign-in provider. Having an
-          account there grants nothing by itself; only addresses on this list can sign in.
-        </p>
+        <h2 className="mb-2 font-semibold text-white">{t('admins.addTitle')}</h2>
+        <p className="mb-3 text-sm text-slate-400">{t('admins.addHint')}</p>
         <InlineForm
-          label="E-mail address"
+          label={t('admins.email')}
           type="email"
           value={email}
           onChange={setEmail}
-          placeholder="name@church.example"
-          submitLabel="Add"
+          placeholder={t('admins.emailPlaceholder')}
+          submitLabel={t('common.add')}
           busy={add.busy}
           error={add.error}
           maxLength={200}
@@ -44,7 +42,7 @@ export function AdministratorsPage() {
         />
       </Card>
 
-      {list.data && administrators.length === 0 && <Empty>No administrators.</Empty>}
+      {list.data && administrators.length === 0 && <Empty>{t('admins.none')}</Empty>}
       <ul className="space-y-2">
         {administrators.map((a) => (
           <li
@@ -53,22 +51,21 @@ export function AdministratorsPage() {
           >
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-semibold text-white">
-                {a.name ?? a.email} {a.id === me.admin?.id && <Badge tone="accent">You</Badge>}
+                {a.name ?? a.email}{' '}
+                {a.id === me.admin?.id && <Badge tone="accent">{t('admins.you')}</Badge>}
               </p>
               {a.name && <p className="truncate text-xs text-slate-400">{a.email}</p>}
               <p className="flex flex-wrap gap-x-3 text-xs text-slate-400">
                 <span>
-                  {a.addedBy ? `Added by ${a.addedBy}` : 'Added at deployment'}{' '}
+                  {a.addedBy
+                    ? t('admins.addedBy', { name: a.addedBy })
+                    : t('admins.addedAtDeployment')}{' '}
                   <When iso={a.createdAt} />
                 </span>
                 <span>
-                  {a.lastSignInAt ? (
-                    <>
-                      Last signed in <When iso={a.lastSignInAt} />
-                    </>
-                  ) : (
-                    'Never signed in'
-                  )}
+                  {a.lastSignInAt
+                    ? formatNodes(t('admins.lastSignIn'), { when: <When iso={a.lastSignInAt} /> })
+                    : t('admins.neverSignedIn')}
                 </span>
               </p>
             </div>
@@ -76,26 +73,22 @@ export function AdministratorsPage() {
               small
               variant="ghost"
               disabled={administrators.length <= 1}
-              title={
-                administrators.length <= 1 ? 'The last administrator cannot be removed' : undefined
-              }
+              title={administrators.length <= 1 ? t('admins.lastCannotRemoveShort') : undefined}
               onClick={() => setRemoving(a)}
             >
-              Remove
+              {t('common.remove')}
             </Button>
           </li>
         ))}
       </ul>
       {administrators.length <= 1 && list.data && (
-        <p className="text-xs text-slate-500">
-          The last administrator cannot be removed. Add another one first.
-        </p>
+        <p className="text-xs text-slate-500">{t('admins.lastCannotRemove')}</p>
       )}
 
       {removing && (
         <Confirm
-          title={`Remove ${removing.name ?? removing.email}?`}
-          confirmLabel="Remove"
+          title={t('admins.removeTitle', { name: removing.name ?? removing.email })}
+          confirmLabel={t('common.remove')}
           danger
           onCancel={() => setRemoving(null)}
           onConfirm={async () => {
@@ -106,12 +99,9 @@ export function AdministratorsPage() {
             setRemoving(null);
           }}
         >
-          <p>
-            <strong>{removing.email}</strong> can no longer sign in to these pages. Their devices
-            and workspaces are not affected.
-          </p>
+          <p>{formatNodes(t('admins.removeText'), { email: <strong>{removing.email}</strong> })}</p>
           {removing.id === me.admin?.id && (
-            <p className="text-amber-200">This is your own account: you will be signed out.</p>
+            <p className="text-amber-200">{t('admins.removeSelf')}</p>
           )}
         </Confirm>
       )}

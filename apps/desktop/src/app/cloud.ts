@@ -78,6 +78,7 @@ import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
 import { websiteTitle } from './websiteTitle';
+import { t } from '@worship-q/i18n/desktop';
 
 const SYNC_EVERY_MS = 60_000;
 /** Local edits are sent this long after the last one. */
@@ -246,7 +247,7 @@ export class CloudController {
     });
     this.obs = new ObsShare({
       deviceId: () => this.state?.deviceId ?? '',
-      deviceName: () => this.state?.deviceName ?? 'This computer',
+      deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
     });
     shareObsWithPhones(this.obs, this.host);
     this.ice = new IceServers(() =>
@@ -287,7 +288,7 @@ export class CloudController {
       recordsOffered: () =>
         (this.status_ as CloudStatus | undefined)?.server?.records?.audio ?? null,
       deviceId: () => this.state?.deviceId ?? '',
-      deviceName: () => this.state?.deviceName ?? 'This computer',
+      deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
       chosenInput: () => deviceSettings.get().audioInput,
       inputMoved: (device) => deviceSettings.set({ audioInput: device }),
       media: media ?? {
@@ -1256,7 +1257,7 @@ export class CloudController {
       session: this.session,
       host: this.host,
       deviceId: () => this.state?.deviceId ?? '',
-      deviceName: () => this.state?.deviceName ?? 'This computer',
+      deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
       capabilities: () => this.capabilities(),
       // The coordinator's messages reach followers both ways; a follower's go the active way.
       send: (message) => {
@@ -1323,7 +1324,7 @@ export class CloudController {
     this.lanHost = new LanHost({
       workspaceId: () => this.state?.workspaceServerId ?? '',
       deviceId: () => this.state?.deviceId ?? '',
-      deviceName: () => this.state?.deviceName ?? 'This computer',
+      deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
       hello,
       onMessage: (message) => {
         switch (message.type) {

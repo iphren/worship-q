@@ -18,6 +18,7 @@ import { formatDate } from '../format';
 import { Badge, Card, ErrorText, SectionTitle, Spinner } from '../ui';
 import { useLoad } from '../useLoad';
 import { DayRecordings, PresentationLog, useDayRecords } from './Records';
+import { formatMonth, t, weekdayName } from '@worship-q/i18n/admin';
 
 const POLL_MS = 20_000;
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
@@ -29,10 +30,8 @@ function todayHere(): IsoDate {
   return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
 }
 
-const weekday = (day: number) =>
-  new Date(2024, 0, 7 + day).toLocaleDateString('en', { weekday: 'short' });
-const monthTitle = (year: number, month: number) =>
-  new Date(year, month - 1, 1).toLocaleDateString('en', { month: 'long', year: 'numeric' });
+const weekday = (day: number) => weekdayName(day, 'short');
+const monthTitle = formatMonth;
 
 export function RunSheetsSection({ id }: { id: string }) {
   const days = useLoad(() => api.runSheetDays(id), [id], POLL_MS);
@@ -52,11 +51,11 @@ export function RunSheetsSection({ id }: { id: string }) {
 
   return (
     <Card>
-      <SectionTitle>Run sheets and records</SectionTitle>
+      <SectionTitle>{t('runSheets.title')}</SectionTitle>
       <ErrorText error={days.error ?? sheet.error} className="mb-2" />
       {!days.data && !days.error && (
         <p className="flex items-center gap-2 text-sm text-slate-400">
-          <Spinner /> Loading…
+          <Spinner /> {t('common.loading')}
         </p>
       )}
       {days.data && (
@@ -74,12 +73,12 @@ export function RunSheetsSection({ id }: { id: string }) {
                   setBrowsing(null);
                 }}
               >
-                Today
+                {t('runSheets.today')}
               </button>
               <button
                 type="button"
                 className="rounded-md px-2 py-1 text-slate-300 hover:bg-slate-800"
-                aria-label="Previous month"
+                aria-label={t('runSheets.previousMonth')}
                 onClick={() => shift(-1)}
               >
                 ‹
@@ -87,7 +86,7 @@ export function RunSheetsSection({ id }: { id: string }) {
               <button
                 type="button"
                 className="rounded-md px-2 py-1 text-slate-300 hover:bg-slate-800"
-                aria-label="Next month"
+                aria-label={t('runSheets.nextMonth')}
                 onClick={() => shift(1)}
               >
                 ›
@@ -128,7 +127,7 @@ export function RunSheetsSection({ id }: { id: string }) {
                       {date === liveDate && (
                         <span
                           className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-                          title="Live now"
+                          title={t('runSheets.liveNow')}
                         />
                       )}
                     </span>
@@ -140,15 +139,15 @@ export function RunSheetsSection({ id }: { id: string }) {
             <div className="mt-5">
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold text-slate-100">{formatDate(selected)}</h3>
-                {selected === liveDate && <Badge tone="live">Live now</Badge>}
+                {selected === liveDate && <Badge tone="live">{t('runSheets.liveNow')}</Badge>}
               </div>
               {!sheet.data && !sheet.error && (
                 <p className="flex items-center gap-2 text-sm text-slate-400">
-                  <Spinner /> Loading…
+                  <Spinner /> {t('common.loading')}
                 </p>
               )}
               {sheet.data && sheet.data.date === selected && sheet.data.items.length === 0 && (
-                <p className="text-sm text-slate-400">Nothing is planned for this date.</p>
+                <p className="text-sm text-slate-400">{t('runSheets.nothing')}</p>
               )}
               {sheet.data && sheet.data.date === selected && sheet.data.items.length > 0 && (
                 <ol className="space-y-1">
@@ -164,9 +163,11 @@ export function RunSheetsSection({ id }: { id: string }) {
                         </span>
                         <span className="flex min-w-40 flex-1 items-center gap-2">
                           {badge && <ItemBadgeMark badge={badge} />}
-                          <span className="min-w-0 truncate">{item.title || 'Untitled'}</span>
+                          <span className="min-w-0 truncate">
+                            {item.title || t('common.untitled')}
+                          </span>
                         </span>
-                        {item.removed && <Badge tone="warn">Removed from library</Badge>}
+                        {item.removed && <Badge tone="warn">{t('runSheets.removed')}</Badge>}
                       </li>
                     );
                   })}

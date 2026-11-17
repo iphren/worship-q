@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { LIBRARY_TYPE_LABELS, routePath } from '../format';
+import { libraryTypeLabel, routePath } from '../format';
 import { Badge, Button, Card, CodeReveal, Empty, ErrorText, INPUT, Link, PageTitle } from '../ui';
 import { useAction, useLoad } from '../useLoad';
+import { t, tp } from '@worship-q/i18n/admin';
 
 export function WorkspacesPage() {
   const list = useLoad(() => api.workspaces(), []);
@@ -28,12 +29,12 @@ export function WorkspacesPage() {
         aside={
           !creating && (
             <Button variant="primary" onClick={() => setCreating(true)}>
-              New workspace
+              {t('workspaces.new')}
             </Button>
           )
         }
       >
-        Workspaces
+        {t('nav.workspaces')}
       </PageTitle>
       <ErrorText error={list.error} />
 
@@ -47,24 +48,21 @@ export function WorkspacesPage() {
             }}
           >
             <label className="block text-sm text-slate-300">
-              Name of the new workspace
+              {t('workspaces.nameLabel')}
               <input
                 autoFocus
                 className={`${INPUT} mt-1`}
                 value={name}
                 maxLength={80}
-                placeholder="Main hall"
+                placeholder={t('workspaces.namePlaceholder')}
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
-            <p className="text-xs text-slate-400">
-              A workspace is one congregation's library and run sheets. Its computers join it by
-              pairing, or with the connection code shown once after it is created.
-            </p>
+            <p className="text-xs text-slate-400">{t('workspaces.hint')}</p>
             <ErrorText error={create.error} />
             <div className="flex gap-2">
               <Button type="submit" variant="primary" busy={create.busy} disabled={!name.trim()}>
-                Create
+                {t('common.create')}
               </Button>
               <Button
                 variant="ghost"
@@ -73,7 +71,7 @@ export function WorkspacesPage() {
                   create.clear();
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
             </div>
           </form>
@@ -88,9 +86,7 @@ export function WorkspacesPage() {
         />
       )}
 
-      {list.data && workspaces.length === 0 && (
-        <Empty>No workspaces yet. Create the first one to let computers join.</Empty>
-      )}
+      {list.data && workspaces.length === 0 && <Empty>{t('workspaces.none')}</Empty>}
       <ul className="space-y-2">
         {workspaces.map((w) => (
           <li key={w.id}>
@@ -103,15 +99,15 @@ export function WorkspacesPage() {
               </span>
               <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="text-sm text-slate-400">
-                  {w.devices === 1 ? '1 device' : `${w.devices} devices`}
+                  {tp('workspaces.devices', w.devices)}
                 </span>
                 {w.libraryTypes.map((type) => (
                   <Badge key={type} tone="accent">
-                    {LIBRARY_TYPE_LABELS[type]}
+                    {libraryTypeLabel(type)}
                   </Badge>
                 ))}
-                {w.codesEnabled && <Badge tone="warn">Connection code on</Badge>}
-                {w.live && <Badge tone="live">Live</Badge>}
+                {w.codesEnabled && <Badge tone="warn">{t('workspaces.codeOn')}</Badge>}
+                {w.live && <Badge tone="live">{t('common.live')}</Badge>}
               </span>
             </Link>
           </li>
