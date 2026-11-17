@@ -22,6 +22,7 @@ import { ConfirmDialog } from './Dialog';
 import { Icon } from './Icon';
 import { remPx } from '../lib/presentLayout';
 import { Menu, type MenuItem } from './Menu';
+import { useOutputStatus } from './OutputPanel';
 
 export function obsErrorText(result: ObsResult): string {
   const known = Object.values(OBS_ERRORS) as string[];
@@ -431,27 +432,31 @@ function ObsOutputToggle(props: {
   );
 }
 
-/** Wide enough for the monitor, the outputs and the slideshow side by side at full size. */
-const MONITOR_SIDE_BY_SIDE_REM = 18 + 0.75 + 9 + 0.75 + 18 + 1.5;
+/** The live monitor's height at its full 18rem width, which the slideshow preview matches. */
+const MONITOR_HEIGHT_REM = (18 * 9) / 16;
 
-/** Which of the monitor and the slideshow was last shown, while they take turns. */
-let lastMonitorTab: 'obs' | 'slideshow' = 'obs';
+/** The width beside the slideshow preview: the monitor, the outputs, the gaps and padding. */
+const MONITOR_BESIDE_SLIDESHOW_REM = 18 + 0.75 + 9 + 0.75 + 1.5;
 
 /**
  * The live monitor above the slide column on the Present page, shown while OBS is connected,
  * on the OBS computer too, with the switch button and the outputs' lights beside it, then
- * the slideshow preview after them. Where the three do not fit at full size, the monitor and the
- * slideshow take turns in one place, under tabs.
+ * the slideshow preview after them where all three fit at full size, as tall as the monitor
+ * and as wide as the slideshow's shape makes it, titled with the item presented.
  */
-export function ObsLiveMonitor(props: { slideshow: ReactNode }) {
+export function ObsLiveMonitor(props: { slideshow: ReactNode; slideshowTitle: string | null }) {
   const { cloud } = useApp();
   const shared = useObs();
   const action = useObsAction();
   const connected = shared.state?.status === 'connected';
   const now = useNow(1000, connected);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [wide, setWide] = useState(true);
-  const [tab, setTab] = useState(lastMonitorTab);
+  const [panelWidth, setPanelWidth] = useState(0);
+  // The slideshow's shape is the output screen's, as the preview draws it.
+  const status = useOutputStatus();
+  const screen = status.decision.kind === 'open' ? status.decision.monitor : null;
+  const slideshowRem = MONITOR_HEIGHT_REM * (screen ? screen.width / screen.height : 16 / 9);
+  const wide = panelWidth >= (MONITOR_BESIDE_SLIDESHOW_REM + slideshowRem) * remPx();
   useEffect(() => {
     if (!connected) return;
     return cloud.obs.watchHere();
@@ -459,8 +464,8 @@ export function ObsLiveMonitor(props: { slideshow: ReactNode }) {
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    // The panel spans the slide column whatever it holds, so its width never depends on the tabs.
-    const measure = () => setWide(panel.clientWidth >= MONITOR_SIDE_BY_SIDE_REM * remPx());
+    // The panel spans the slide column whatever it holds, so its width never depends on the preview.
+    const measure = () => setPanelWidth(panel.clientWidth);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(panel);
@@ -468,48 +473,14 @@ export function ObsLiveMonitor(props: { slideshow: ReactNode }) {
   }, [connected]);
   if (!connected || !shared.state) return null;
   const state = shared.state;
-  const obsMonitor = (
-    <ObsMonitor now={now} usable={shared.reachable} caption={<ObsSwitchButton small />} />
-  );
-  const slideshow = (
-    <figure className="space-y-1">
-      {props.slideshow}
-      {wide && <figcaption className="text-xs text-slate-500">{t('present.preview')}</figcaption>}
-    </figure>
-  );
   return (
     // Drawn as a panel, like the side panel, to set it apart from the slides below.
     <div ref={panelRef} className="panel flex items-start gap-3 overflow-hidden p-3">
       {/* Both sides give way in a narrow window, the switch button's label truncating. */}
       <div className="w-72 min-w-28 shrink">
-        {/* 2rem tall with its margin: a 1rem line, its padding and the 2px underline, less the
-            pixel it shares with the border, plus that border; the outputs move down as much. */}
-        {!wide && (
-          <div role="tablist" className="mb-1.5 flex gap-1 border-b border-slate-700">
-            {(['obs', 'slideshow'] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={tab === key}
-                className={`-mb-px min-w-0 truncate border-b-2 px-2 py-1 text-xs leading-4 font-medium tracking-wide uppercase ${
-                  tab === key
-                    ? 'border-sky-500 text-slate-100'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-                onClick={() => {
-                  lastMonitorTab = key;
-                  setTab(key);
-                }}
-              >
-                {key === 'obs' ? t('obs.panel') : t('present.preview')}
-              </button>
-            ))}
-          </div>
-        )}
-        {wide || tab === 'obs' ? obsMonitor : slideshow}
+        <ObsMonitor now={now} usable={shared.reachable} caption={<ObsSwitchButton small />} />
       </div>
-      <div className={`w-36 min-w-0 shrink ${wide ? '' : 'pt-8'}`}>
+      <div className="w-36 min-w-0 shrink">
         <ul className="space-y-2.5 text-xs">
           {OUTPUTS.map(({ kind, label, start, stop }) => {
             const output = state[kind];
@@ -544,7 +515,17 @@ export function ObsLiveMonitor(props: { slideshow: ReactNode }) {
         )}
         {action.error && <p className="mt-2 text-xs text-rose-300">{action.error}</p>}
       </div>
-      {wide && <div className="w-72 min-w-28 shrink">{slideshow}</div>}
+      {wide && (
+        <figure className="shrink-0 space-y-1" style={{ width: `${slideshowRem}rem` }}>
+          {props.slideshow}
+          {/* Shaped like the switch button under the monitor, but only a label: what is shown. */}
+          <figcaption
+            className={`btn btn-sm w-full cursor-default hover:bg-slate-700 ${props.slideshowTitle ? '' : 'text-slate-400'}`}
+          >
+            <span className="min-w-0 truncate">{props.slideshowTitle ?? t('present.preview')}</span>
+          </figcaption>
+        </figure>
+      )}
     </div>
   );
 }
