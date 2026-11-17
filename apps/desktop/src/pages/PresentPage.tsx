@@ -3,10 +3,10 @@ import type { Presented, Song } from '@worship-q/protocol';
 import { SUBTITLE_BAR_FRACTION } from '@worship-q/renderer';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { deviceSettings } from '../app/deviceSettings';
-import { useCloud, useObs, useQuery, useSession, useUpdates } from '../app/context';
+import { useCloud, useQuery, useSession, useUpdates } from '../app/context';
 import { Icon } from '../components/Icon';
-import { ObsLiveMonitor, ObsPanel, ObsSection } from '../components/Obs';
-import { OutputPanel, outputNeedsAttention, useOutputStatus } from '../components/OutputPanel';
+import { ObsLiveMonitor, ObsSection } from '../components/Obs';
+import { OutputPanel, useOutputStatus } from '../components/OutputPanel';
 import { RunSheetEditor } from '../components/RunSheetEditor';
 import { UpdateBanner } from '../components/UpdateBanner';
 import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
@@ -27,23 +27,14 @@ import {
   span,
 } from '../lib/presentLayout';
 import { useScrollMemory } from '../lib/scrollMemory';
-import { arrowLabels, presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
+import { presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
 
 /** Live dates whose "kept too long" notice was dismissed since the app opened. */
 const dismissedNotices = new Set<string>();
 
-type PanelTab = 'runSheet' | 'slideshow' | 'obs';
-
-/** The tab of the side panel last shown, kept while the app is open. */
-let lastPanelTab: PanelTab = 'runSheet';
-
-/** The key that does what a button does, shown on the button. */
-function KeyHint(props: { children: string }) {
-  return (
-    <kbd className="ml-1 rounded bg-black/25 px-1.5 font-sans text-[11px] leading-4 font-semibold opacity-80">
-      {props.children}
-    </kbd>
-  );
+/** A button's name with the key that does the same, for its tooltip. */
+function withKey(label: string, key: string): string {
+  return `${label} (${key})`;
 }
 
 function isTyping(target: EventTarget | null): boolean {
@@ -52,20 +43,12 @@ function isTyping(target: EventTarget | null): boolean {
 
 export function PresentPage() {
   const session = useSession();
-  const status = useOutputStatus();
-  const outputPanel = (
-    <section className="panel p-3">
-      <h2 className="label">{t('output.title')}</h2>
-      <OutputPanel />
-    </section>
-  );
-
-  if (session.isViewer) return <Live outputPanel={outputPanel} attention={false} viewOnly />;
-  if (!session.isLive) return <NotLive outputPanel={outputPanel} />;
-  return <Live outputPanel={outputPanel} attention={outputNeedsAttention(status)} />;
+  if (session.isViewer) return <Live viewOnly />;
+  if (!session.isLive) return <NotLive />;
+  return <Live />;
 }
 
-function NotLive(props: { outputPanel: React.ReactNode }) {
+function NotLive() {
   const session = useSession();
   const today = session.today();
   const dates = [...new Set([session.openDate, today])];
@@ -88,7 +71,10 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
             ))}
           </div>
         </div>
-        {props.outputPanel}
+        <section className="panel p-3">
+          <h2 className="label">{t('output.title')}</h2>
+          <OutputPanel />
+        </section>
         <ObsSection watch />
       </div>
     </div>
@@ -100,7 +86,7 @@ function NotLive(props: { outputPanel: React.ReactNode }) {
  * is presented, read-only: no search, no controls, no editing, and the column follows the
  * presented slide. Before anything is live, a viewer waits here too.
  */
-function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnly?: boolean }) {
+function Live(props: { viewOnly?: boolean }) {
   const { viewOnly = false } = props;
   const session = useSession();
   const { live: link } = useCloud();
@@ -109,17 +95,9 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
   const live = session.isLive ? session.live : null;
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [chosenTab, setChosenTab] = useState(lastPanelTab);
-  const obsShared = useObs();
-  // The OBS tab comes and goes with OBS; while it is gone, the run sheet shows in its place.
-  const panelTab = chosenTab === 'obs' && !obsShared.state ? 'runSheet' : chosenTab;
-  const panelTabs: PanelTab[] = obsShared.state
-    ? ['runSheet', 'slideshow', 'obs']
-    : ['runSheet', 'slideshow'];
   const [, setDismissed] = useState(0);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
-  const slideshowRef = useRef<HTMLDivElement>(null);
   const shownItemRef = useRef<string | null>(null);
   // Set when a click on a slide moves to another item, so the column stays where it was.
   const clickedItemRef = useRef(false);
@@ -134,7 +112,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
   const [simpleView, setSimpleView] = useState(() => deviceSettings.get().simpleView);
   // Set in Settings, which this page is reopened from.
   const [swapArrows] = useState(() => deviceSettings.get().swapArrows);
-  const arrows = arrowLabels(swapArrows);
   // Items side by side as columns, unless chosen otherwise or too few columns fit (H4).
   const [layoutSetting] = useState(() => deviceSettings.get().presentLayout);
   const areaRef = useRef<HTMLDivElement>(null);
@@ -177,7 +154,6 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
   const blankStyle = live?.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
   const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
   useScrollMemory(slidesRef, `present.slides:${liveDate}:${axis}`, axis);
-  useScrollMemory(slideshowRef, 'present.slideshow');
 
   useEffect(() => {
     if (viewOnly) return;
@@ -354,36 +330,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-80 shrink-0 flex-col p-3">
           <AudioPanel />
-          <div role="tablist" className="mb-3 flex gap-1 border-b border-slate-700">
-            {panelTabs.map((key) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={panelTab === key}
-                className={`-mb-px min-w-0 truncate border-b-2 px-3 py-1.5 text-xs font-medium tracking-wide uppercase ${
-                  panelTab === key
-                    ? 'border-sky-500 text-slate-100'
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
-                }`}
-                onClick={() => {
-                  lastPanelTab = key;
-                  setChosenTab(key);
-                }}
-              >
-                {key === 'runSheet'
-                  ? t('runSheet.tab')
-                  : key === 'slideshow'
-                    ? t('present.preview')
-                    : t('obs.panel')}
-              </button>
-            ))}
-          </div>
-          {/* Both panes stay mounted so the song search survives a tab switch. */}
-          <div
-            role="tabpanel"
-            className={`min-h-0 flex-1 flex-col ${panelTab === 'runSheet' ? 'flex' : 'hidden'}`}
-          >
+          <div className="flex min-h-0 flex-1 flex-col">
             {!liveDate ? (
               <p className="px-1 py-2 text-sm text-slate-500">{t('viewer.waiting')}</p>
             ) : viewOnly ? (
@@ -393,6 +340,12 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                 onSelectItem={showItem}
                 live
                 readOnly
+                footer={
+                  // A viewer moves no slides, but opens and places its own output.
+                  <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
+                    <OutputPanel compact />
+                  </div>
+                }
               />
             ) : (
               <RunSheetEditor
@@ -401,15 +354,11 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                 keyedItemId={browsedItemId !== presented?.itemId ? browsedItemId : null}
                 onSelectItem={showItem}
                 live
-                onRevealSearch={() => {
-                  lastPanelTab = 'runSheet';
-                  setChosenTab('runSheet');
-                }}
                 footer={
                   <div className="grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-700 pt-2">
                     <button
                       className="btn px-0 py-2"
-                      title={t('present.previous')}
+                      title={withKey(t('present.previous'), swapArrows ? '←' : '↑')}
                       aria-label={t('present.previous')}
                       onClick={() => {
                         follow();
@@ -420,7 +369,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                     </button>
                     <button
                       className="btn btn-primary px-0 py-2"
-                      title={t('present.next')}
+                      title={withKey(t('present.next'), swapArrows ? '→' : '↓')}
                       aria-label={t('present.next')}
                       onClick={() => {
                         follow();
@@ -431,7 +380,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                     </button>
                     <button
                       className={`btn px-0 py-2 ${blankStyle}`}
-                      title={live?.blank ? t('present.unblank') : t('present.blank')}
+                      title={withKey(live?.blank ? t('present.unblank') : t('present.blank'), '.')}
                       aria-label={live?.blank ? t('present.unblank') : t('present.blank')}
                       onClick={() => void session.setBlank(!live?.blank)}
                     >
@@ -439,7 +388,7 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
                     </button>
                     <button
                       className="btn px-0 py-2"
-                      title={t('present.clear')}
+                      title={withKey(t('present.clear'), 'Del')}
                       aria-label={t('present.clear')}
                       disabled={!live?.presented}
                       onClick={() => void session.clear()}
@@ -452,88 +401,10 @@ function Live(props: { outputPanel: React.ReactNode; attention: boolean; viewOnl
               />
             )}
           </div>
-          {/* Always scrollable: a scroll bar that comes and goes narrows the preview, which
-              changes its height, which can bring the scroll bar back, and so on. */}
-          <div
-            ref={slideshowRef}
-            role="tabpanel"
-            className={`min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll ${panelTab === 'slideshow' ? 'flex' : 'hidden'}`}
-          >
-            <div className="flex min-h-full flex-col gap-3">
-              <section className="space-y-2">
-                <SlidePreview />
-                {!viewOnly && (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          follow();
-                          void session.previous();
-                        }}
-                      >
-                        {t('present.previous')} <KeyHint>{swapArrows ? '←' : '↑'}</KeyHint>
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => {
-                          follow();
-                          void session.next();
-                        }}
-                      >
-                        {t('present.next')} <KeyHint>{swapArrows ? '→' : '↓'}</KeyHint>
-                      </button>
-                      <button
-                        className={`btn col-span-2 ${blankStyle}`}
-                        onClick={() => void session.setBlank(!live?.blank)}
-                      >
-                        {live?.blank ? t('present.unblank') : t('present.blank')}{' '}
-                        <KeyHint>.</KeyHint>
-                      </button>
-                      <button
-                        className="btn col-span-2"
-                        disabled={!live?.presented}
-                        onClick={() => void session.clear()}
-                      >
-                        {t('present.clear')} <KeyHint>Del</KeyHint>
-                      </button>
-                    </div>
-                    <p className="text-center text-xs text-slate-500">
-                      {t(
-                        {
-                          keyed: 'present.videoShortcuts' as const,
-                          live: 'present.videoLiveShortcuts' as const,
-                          none: 'present.shortcuts' as const,
-                        }[videoKeys(session) ?? 'none'],
-                        arrows,
-                      )}
-                    </p>
-                  </>
-                )}
-              </section>
-              <div className={props.attention ? 'rounded-lg ring-2 ring-amber-400' : ''}>
-                {props.outputPanel}
-              </div>
-            </div>
-          </div>
-          {obsShared.state && (
-            <div
-              role="tabpanel"
-              className={`min-h-0 flex-1 flex-col gap-2 ${panelTab === 'obs' ? 'flex' : 'hidden'}`}
-            >
-              {!obsShared.local && (
-                <h2 className="label">
-                  {t('obs.panelTitle', { name: obsShared.state.ownerName })}
-                </h2>
-              )}
-              {/* The monitor is above the slide column instead. */}
-              <ObsPanel watch={false} fill switchButton />
-            </div>
-          )}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <ObsLiveMonitor />
+          <ObsLiveMonitor slideshow={<SlidePreview />} />
           <div ref={areaRef} className="relative min-h-0 flex-1">
             <main
               ref={slidesRef}

@@ -185,10 +185,6 @@ export const en = {
   'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
-  'present.shortcuts': '{items} song · 1 2 3… jump · Space hide/show lyrics · Enter next',
-  'present.videoShortcuts':
-    'Video: Space play/pause · {slides} 10 s · {items} item · Enter next item',
-  'present.videoLiveShortcuts': '{items} song · 1 2 3… jump · Space play/pause video · Enter next',
   'present.noLyrics': 'This song has no lyrics.',
   'present.lastShown': 'Last shown',
 
