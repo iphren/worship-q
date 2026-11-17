@@ -19,6 +19,7 @@ share one presentation.
 | Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                         |
 | OBS control             | [Plan](docs/obs-control-plan.md), [task breakdown](docs/obs-control-task-breakdown.md), [acceptance record](docs/acceptance/obs-control.md), [spike](docs/spikes/obs.md) |
 | Search and AI discovery | [Plan](docs/seo-plan.md)                                                                                                                                                 |
+| Public server           | [Plan](docs/public-server-plan.md)                                                                                                                                       |
 
 ## Develop
 

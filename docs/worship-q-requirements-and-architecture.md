@@ -1,7 +1,7 @@
 # Worship Q — Requirements and Architecture
 
 **Consolidated:** 6 October 2026  
-**Updated:** 5 November 2026  
+**Updated:** 17 November 2026  
 **Status:** Open-source project requirements and proposed architecture; implementation design pending.
 
 ## 1. Purpose and decision status
@@ -61,7 +61,9 @@ The exact website content and deployment packaging are proposed; neither the web
 
 **Proposed deployment unit:** one instance per church or church organization, with multiple workspaces inside that instance. A single-workspace church should have a simple default setup rather than needing to configure a complex organization hierarchy. Hosting may be on church equipment, a rented server, or infrastructure managed by someone on the church's behalf; self-hosted does not mean the server must physically sit in the venue.
 
-Each instance owns its accounts, database, song libraries, assets, and remote relay/synchronization services. The public project website is not the shared authentication service, global song library, or required relay for church instances. Cross-instance song sharing, federation, and a project-operated hosted backend have not been requested. app.worship-q.com is a link router only, described below.
+Each instance owns its accounts, database, song libraries, assets, and remote relay/synchronization services. The public project website is not the shared authentication service, global song library, or required relay for church instances. Cross-instance song sharing and federation have not been requested. app.worship-q.com is a link router only, described below.
+
+**Agreed requirement (17 November 2026):** a project-operated **public server** serves computers in local-only mode, and only them: it relays remote control, live audio and shared OBS controls, looks up open Bible versions, and converts slide decks and checks videos. It keeps nothing: each result is deleted once the app confirms it has it, or after 24 hours, and the app's cached copy stays on the computer. It is not a church instance: it has no accounts, Church Library, synchronization or backups, and a workspace connected to a church instance never uses it. See the [Public Server Plan](public-server-plan.md).
 
 **Terminology:** “Church Library” means the library shared across workspaces within one church's instance. “Cloud” or “remote server” in the architecture means that instance's backend, wherever the church deploys it. Self-hosting the instance and coordinating a live service locally are separate concerns: a venue coordinator and cache still support local operation when the instance backend is unreachable.
 
@@ -126,7 +128,7 @@ Other supported scenarios include one computer running the operator UI, projecto
 
 **Agreed direction:** the desktop app and a phone are usable without a church instance. A fresh desktop installation can create a local workspace, enter songs, build run sheets, and present on a second screen with no backend, database, domain, sign-in provider configuration, or pairing. Connecting to a church instance is an optional later step, not a prerequisite for the Simple scenario. A phone can likewise create a local workspace, enter songs, and present in the Solo scenario without an instance.
 
-**Proposed scope:** local-only mode stores its workspace in the device's local database and covers workspace songs, run sheets, slideshow output, and typography/background settings. The Church Library, sharing, administration, remote control, and cross-device synchronization require an instance. Local-only desktop presentation is the proposed first implementation phase.
+**Proposed scope:** local-only mode stores its workspace in the device's local database and covers workspace songs, run sheets, slideshow output, and typography/background settings. The Church Library, sharing, administration, and cross-device synchronization require an instance. Remote control, Bible passages, slide decks, videos, live audio and shared OBS controls are planned for local-only mode through the project's public server, on one computer only (see the [Public Server Plan](public-server-plan.md)). Local-only desktop presentation is the proposed first implementation phase.
 
 **Open decisions:** how local songs, run sheets, and settings move into a Workspace Library when the device later connects to a church; whether local-only mode includes LAN outputs and controllers; and how a phone obtains the client without an instance. No church-hosted web client exists for such a phone and app.worship-q.com is only a link router, so this needs either a native app or a project-hosted local-only web app that keeps data on the device and connects to no backend. Browser storage belongs to one web address, so local data held by a project-hosted web app could not move to a church-hosted client without an export/import step.
 
