@@ -7,7 +7,13 @@ import {
   type CSSProperties,
   type Ref,
 } from 'react';
-import { EMPTY_FRAME, type OutputFrame, type OutputVideo } from '@worship-q/protocol';
+import {
+  EMPTY_FRAME,
+  type BuiltinBackground as BuiltinName,
+  type OutputFrame,
+  type OutputVideo,
+} from '@worship-q/protocol';
+import { BuiltinBackgroundCanvas } from './BuiltinBackground';
 import {
   contrastTextColor,
   fitPassage,
@@ -97,6 +103,7 @@ interface Picture extends Layer {
 interface Background extends Layer {
   color: string;
   media: OutputFrame['background']['media'];
+  builtin: BuiltinName | null;
 }
 
 const CAN_ANIMATE = typeof Element !== 'undefined' && 'animate' in Element.prototype;
@@ -219,7 +226,9 @@ export function Slide({
   // A subtitle overlay is drawn over transparency, for compositing in OBS.
   const media = subtitle ? null : frame.background.media;
   const shownMedia = media && mediaFailed !== media.url ? media : null;
-  const onMedia = shownMedia !== null;
+  // Drawn by the renderer, so it is there whenever chosen: an image or video wins over it.
+  const builtin = subtitle || shownMedia ? null : (frame.background.builtin ?? null);
+  const onMedia = shownMedia !== null || builtin !== null;
   const backgroundColor = subtitle ? 'transparent' : frame.background.color;
   const color = onMedia || subtitle ? '#ffffff' : contrastTextColor(backgroundColor);
   const songId = frame.song?.id;
@@ -228,11 +237,12 @@ export function Slide({
 
   const background = useMemo<Background>(
     () => ({
-      key: `${backgroundColor}|${shownMedia?.url ?? ''}`,
+      key: `${backgroundColor}|${shownMedia?.url ?? ''}|${builtin ?? ''}`,
       color: backgroundColor,
       media: shownMedia,
+      builtin,
     }),
-    [backgroundColor, shownMedia],
+    [backgroundColor, shownMedia, builtin],
   );
 
   const lyrics = useMemo<Lyrics | null>(
@@ -531,7 +541,7 @@ function BackgroundBlock(props: {
   ref: Ref<HTMLDivElement>;
   onMediaError: (url: string) => void;
 }) {
-  const { color, media } = props.background;
+  const { color, media, builtin } = props.background;
   const fill: CSSProperties = {
     position: 'absolute',
     inset: 0,
@@ -541,6 +551,7 @@ function BackgroundBlock(props: {
   };
   return (
     <div ref={props.ref} style={{ position: 'absolute', inset: 0, background: color }}>
+      {builtin && <BuiltinBackgroundCanvas name={builtin} />}
       {media?.kind === 'image' && (
         <img
           src={media.url}

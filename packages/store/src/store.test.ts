@@ -12,6 +12,7 @@ import {
   SongRevisionSchema,
   SongSchema,
   WorkspaceSchema,
+  DEFAULT_BACKGROUND_ID,
 } from '@worship-q/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -1177,11 +1178,25 @@ describe('backgrounds and output profile', () => {
       fontFamily: null,
       scale: 1,
       backgroundColor: '#000000',
-      backgroundAssetId: null,
+      backgroundAssetId: DEFAULT_BACKGROUND_ID,
       hideCursor: false,
       target: null,
     });
     expect((await store.getOutputProfile(workspaceId)).id).toBe(profile.id);
+    // The subtitle overlay is drawn over transparency, so it has no background to default.
+    expect((await store.getOutputProfile(workspaceId, 'subtitle')).backgroundAssetId).toBeNull();
+  });
+
+  it('keeps Color only once chosen, in place of the built-in background', async () => {
+    await store.updateOutputProfile(workspaceId, { backgroundAssetId: null });
+    expect((await store.getOutputProfile(workspaceId)).backgroundAssetId).toBeNull();
+  });
+
+  it('keeps the built-in background while only this computer’s screen settings change', async () => {
+    await store.updateOutputProfile(workspaceId, { hideCursor: true });
+    expect((await store.getOutputProfile(workspaceId)).backgroundAssetId).toBe(
+      DEFAULT_BACKGROUND_ID,
+    );
   });
 
   it('saves font, scale, color and the output monitor', async () => {

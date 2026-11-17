@@ -1,5 +1,5 @@
 import { createLiveState } from '@worship-q/live-state';
-import type { LiveSnapshot, OutputView } from '@worship-q/protocol';
+import { DEFAULT_BACKGROUND_ID, type LiveSnapshot, type OutputView } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import { buildFrame, missingFonts } from './frame';
 import { drifted, videoCorrection, videoJumped, videoTarget } from './Slide';
@@ -82,6 +82,7 @@ describe('browser output frames (M7.2)', () => {
     expect(buildFrame({ ...input, snapshot: snapshot(presented) }).background).toEqual({
       color: '#445566',
       media: null,
+      builtin: null,
     });
     expect(
       buildFrame({
@@ -89,7 +90,40 @@ describe('browser output frames (M7.2)', () => {
         snapshot: snapshot(presented),
         songBackground: { kind: 'video', fileName: 'waves.mp4' },
       }).background,
-    ).toEqual({ color: '#445566', media: { kind: 'video', url: '/files/waves.mp4' } });
+    ).toEqual({
+      color: '#445566',
+      media: { kind: 'video', url: '/files/waves.mp4' },
+      builtin: null,
+    });
+  });
+
+  it('draws the built-in background when the look or the song chooses it', () => {
+    const builtinLook = { ...look!, backgroundFile: null, backgroundBuiltin: 'aurora' as const };
+    const input = { kind: 'slideshow' as const, fileUrl, fontAvailable: true };
+    expect(buildFrame({ ...input, look: builtinLook, snapshot: null }).background).toEqual({
+      color: '#112233',
+      media: null,
+      builtin: 'aurora',
+    });
+    const presented: LiveSnapshot['presented'] = {
+      itemId: 'i1',
+      pieceId: 'p1',
+      songId: 's1',
+      title: 'Song',
+      kind: 'lyrics',
+      pieces: [{ id: 'p1', lines: ['one'] }],
+      background: { color: '#000000', assetId: DEFAULT_BACKGROUND_ID },
+      websiteUrl: null,
+      previous: false,
+    };
+    expect(
+      buildFrame({
+        ...input,
+        look,
+        snapshot: snapshot(presented),
+        songBackground: { kind: 'image', fileName: 'stale.png' },
+      }).background,
+    ).toEqual({ color: '#000000', media: null, builtin: 'aurora' });
   });
 
   it('falls back to the default font when the browser lacks the workspace’s, and says which (M7.4)', () => {
@@ -229,7 +263,7 @@ describe('video items (media uploads M5.4, M5.5, M6.3)', () => {
       snapshot: withClock(true),
     });
     expect(frame.blank).toBe(true);
-    expect(frame.background).toEqual({ color: '#000000', media: null });
+    expect(frame.background).toEqual({ color: '#000000', media: null, builtin: null });
   });
 });
 

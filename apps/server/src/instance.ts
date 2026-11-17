@@ -39,6 +39,8 @@ import {
   type PairingPollResponse,
   type SyncRecord,
   type WorkspaceGrant,
+  builtinBackground,
+  DEFAULT_BACKGROUND_ID,
 } from '@worship-q/protocol';
 import { z } from 'zod';
 import { transaction, type Database, type SqlValue } from './db';
@@ -1710,13 +1712,22 @@ export class Instance {
       kind === 'slideshow' ? church.slideshowFontFamily : church.subtitleFontFamily;
     const number = (value: unknown, fallback: number) =>
       typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-    const assetId = typeof look.backgroundAssetId === 'string' ? look.backgroundAssetId : null;
-    const backgroundFile = assetId ? this.backgroundFile(workspaceId, assetId) : null;
+    // A slideshow whose look was never chosen shows the built-in background, as on desktops.
+    const assetId =
+      typeof look.backgroundAssetId === 'string'
+        ? look.backgroundAssetId
+        : kind === 'slideshow' && !settings.has(`outputLook.${kind}`)
+          ? DEFAULT_BACKGROUND_ID
+          : null;
+    const backgroundBuiltin = builtinBackground(assetId);
+    const backgroundFile =
+      assetId && !backgroundBuiltin ? this.backgroundFile(workspaceId, assetId) : null;
     return {
       fontFamily: typeof look.fontFamily === 'string' ? look.fontFamily : (churchFont ?? null),
       scale: number(look.scale, 1),
       backgroundColor: typeof look.backgroundColor === 'string' ? look.backgroundColor : '#000000',
       backgroundFile,
+      backgroundBuiltin,
       linesPerPiece: number(settings.get('linesPerPiece'), church.linesPerPiece ?? 2),
       wrapLongLines:
         typeof settings.get('wrapLongLines') === 'boolean'

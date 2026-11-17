@@ -230,6 +230,7 @@ export const en = {
   'settings.background': 'Background',
   'settings.backgroundColor': 'Solid color',
   'settings.backgroundNone': 'Color only',
+  'settings.backgroundDefault': 'Default',
   'settings.backgroundImport': 'Add image or video…',
   'settings.backgroundSelected': 'Selected',
   'settings.backgroundMissing': 'File missing',

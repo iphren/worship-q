@@ -1,12 +1,18 @@
-import type { BackgroundAsset, SongBackground } from '@worship-q/protocol';
+import {
+  DEFAULT_BACKGROUND_ID,
+  type BackgroundAsset,
+  type SongBackground,
+} from '@worship-q/protocol';
+import { BuiltinBackgroundCanvas } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '../i18n';
 import { native } from '../platform/native';
 
 /**
- * A solid color and the imported images and videos to choose a background from. The color
- * is shown behind lyrics when no image or video is chosen, or when its file is missing.
+ * A solid color, the built-in **Default** background, and the imported images and videos to
+ * choose a background from. The color is shown behind lyrics when **Color only** is chosen,
+ * or when a chosen file is missing.
  */
 export function BackgroundPicker(props: {
   color: string;
@@ -70,6 +76,22 @@ export function BackgroundPicker(props: {
           >
             <span className="rounded bg-black/60 px-1.5 py-0.5">
               {t('settings.backgroundNone')}
+            </span>
+          </button>
+          <button
+            type="button"
+            data-selected={props.assetId === DEFAULT_BACKGROUND_ID || undefined}
+            className={`relative flex aspect-video items-center justify-center overflow-hidden rounded-md border-2 text-xs ${
+              props.assetId === DEFAULT_BACKGROUND_ID ? 'border-sky-400' : 'border-slate-600'
+            }`}
+            onClick={() => props.onAsset(DEFAULT_BACKGROUND_ID)}
+          >
+            <BuiltinBackgroundCanvas name="aurora" />
+            <span className="relative rounded bg-black/60 px-1.5 py-0.5">
+              {props.assetId === DEFAULT_BACKGROUND_ID
+                ? `✓ ${t('settings.backgroundSelected')} · `
+                : ''}
+              {t('settings.backgroundDefault')}
             </span>
           </button>
           {backgrounds.map((asset) => {

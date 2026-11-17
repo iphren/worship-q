@@ -269,6 +269,7 @@ describe('browser output links (D22)', () => {
       scale: 1.2,
       backgroundColor: '#123456',
       backgroundFile: { kind: 'video', fileName: 'bg1.mp4' },
+      backgroundBuiltin: null,
       linesPerPiece: 3,
       wrapLongLines: true,
     });
@@ -276,6 +277,30 @@ describe('browser output links (D22)', () => {
       fontFamily: 'Noto Sans SC',
       scale: 1,
       backgroundFile: null,
+      backgroundBuiltin: null,
+    });
+  });
+
+  it('shows the built-in background on a slideshow whose look was never chosen', async () => {
+    const { instance, workspace, device } = await setup();
+    expect(instance.outputLook(workspace.id, 'slideshow')).toMatchObject({
+      backgroundFile: null,
+      backgroundBuiltin: 'aurora',
+    });
+    // Color only, once chosen, is kept.
+    instance.push(workspace.id, device.id, [
+      {
+        kind: 'setting',
+        id: 'outputLook.slideshow',
+        key: 'outputLook.slideshow',
+        revision: 1,
+        updatedAt: '2026-10-11T09:00:00.000Z',
+        data: { value: { backgroundColor: '#000000', backgroundAssetId: null } },
+      },
+    ]);
+    expect(instance.outputLook(workspace.id, 'slideshow')).toMatchObject({
+      backgroundFile: null,
+      backgroundBuiltin: null,
     });
   });
 });

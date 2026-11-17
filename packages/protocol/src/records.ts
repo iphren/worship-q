@@ -367,6 +367,20 @@ export const DEFAULT_PRESENTATION_SETTINGS: PresentationSettings = {
 export const BackgroundKindSchema = z.enum(['image', 'video']);
 export type BackgroundKind = z.infer<typeof BackgroundKindSchema>;
 
+/** A background the app draws itself, needing no file: shown as **Default** in the picker. */
+export type BuiltinBackground = 'aurora';
+
+/**
+ * The asset id that chooses the built-in background, kept wherever an imported background's
+ * id is. Versions before it find no such file and show the solid color instead.
+ */
+export const DEFAULT_BACKGROUND_ID = 'builtin:aurora';
+
+/** The built-in background an asset id chooses, or null for an imported one or none. */
+export function builtinBackground(assetId: string | null | undefined): BuiltinBackground | null {
+  return assetId === DEFAULT_BACKGROUND_ID ? 'aurora' : null;
+}
+
 export const BackgroundAssetSchema = z.object({
   id: IdSchema,
   workspaceId: IdSchema,
@@ -544,6 +558,8 @@ export interface OutputFrame {
   background: {
     color: string;
     media: { kind: BackgroundKind; url: string } | null;
+    /** Drawn by the renderer itself, in place of the color; absent from older senders. */
+    builtin?: BuiltinBackground | null;
   };
   /** The presented song as pieces of source lines; the whole song is needed for fitting. */
   song: { id: string; pieces: { id: string; lines: string[] }[] } | null;

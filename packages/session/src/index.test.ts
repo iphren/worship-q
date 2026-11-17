@@ -1,5 +1,5 @@
 import { DEFAULT_EXPIRY_MS } from '@worship-q/live-state';
-import type { OutputFrame, Passage } from '@worship-q/protocol';
+import { DEFAULT_BACKGROUND_ID, type OutputFrame, type Passage } from '@worship-q/protocol';
 import { Store } from '@worship-q/store';
 import {
   createTestEnv,
@@ -1114,11 +1114,27 @@ describe('output frame', () => {
     expect(frame.background).toEqual({
       color: '#222222',
       media: { kind: 'video', url: 'media://bg.mp4' },
+      builtin: null,
     });
 
     await session.removeBackground('bg');
     frame = await session.frame(mediaUrl);
-    expect(frame.background).toEqual({ color: '#222222', media: null });
+    expect(frame.background).toEqual({ color: '#222222', media: null, builtin: null });
+  });
+
+  it('shows the built-in background until another is chosen', async () => {
+    expect((await session.frame(mediaUrl)).background).toEqual({
+      color: '#000000',
+      media: null,
+      builtin: 'aurora',
+    });
+    await session.updateOutputProfile({ backgroundAssetId: null });
+    expect((await session.frame(mediaUrl)).background.builtin).toBeNull();
+    // Chosen for a song of its own, too.
+    await session.saveSong(session.live!.presented!.songId, {
+      background: { color: '#000000', assetId: DEFAULT_BACKGROUND_ID },
+    });
+    expect((await session.frame(mediaUrl)).background.builtin).toBe('aurora');
   });
 
   it('falls back to the color when the selected background no longer exists', async () => {
@@ -1137,7 +1153,7 @@ describe('output frame', () => {
     const songId = session.live!.presented!.songId;
     await session.saveSong(songId, { background: { color: '#336699', assetId: null } });
     frame = await session.frame(mediaUrl);
-    expect(frame.background).toEqual({ color: '#336699', media: null });
+    expect(frame.background).toEqual({ color: '#336699', media: null, builtin: null });
 
     // Blanking keeps the song's background on screen.
     await session.setBlank(true);
@@ -1148,6 +1164,7 @@ describe('output frame', () => {
     expect(frame.background).toEqual({
       color: '#222222',
       media: { kind: 'image', url: 'media://bg.png' },
+      builtin: null,
     });
   });
 
@@ -1205,7 +1222,7 @@ describe('imported slide decks', () => {
     let frame = await session.frame(mediaUrl);
     expect(frame.picture).toEqual({ url: 'media://deck-a-001.jpg' });
     expect(frame.song).toBeNull();
-    expect(frame.background).toEqual({ color: '#000000', media: null });
+    expect(frame.background).toEqual({ color: '#000000', media: null, builtin: null });
 
     await session.next();
     await session.next();

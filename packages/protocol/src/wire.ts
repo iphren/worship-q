@@ -37,6 +37,7 @@ import {
   LiveStateSchema,
   RecordOriginSchema,
   type BackgroundKind,
+  type BuiltinBackground,
   type LibraryType,
   type OutputKind,
 } from './records';
@@ -898,6 +899,8 @@ export interface OutputView {
     backgroundColor: string;
     /** File name of the background image or video, fetched from the instance. */
     backgroundFile: { kind: BackgroundKind; fileName: string } | null;
+    /** The built-in background, when that is the one chosen; absent from older servers. */
+    backgroundBuiltin?: BuiltinBackground | null;
     linesPerPiece: number;
     wrapLongLines: boolean;
   } | null;

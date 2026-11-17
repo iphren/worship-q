@@ -34,6 +34,7 @@ import {
   LogEntrySchema,
   type LogEntry,
   type Passage,
+  DEFAULT_BACKGROUND_ID,
 } from '@worship-q/protocol';
 import { parseQuery, rankSong, SEARCH_VERSION, songKeys, type SongKeys } from '@worship-q/search';
 import type { SqlDriver, SqlValue, Statement } from './driver';
@@ -1396,7 +1397,13 @@ export class Store {
       [workspaceId, outputLookKey(kind)],
     );
     const shared = OutputLookSchema.partial().safeParse(json<unknown>(look[0]?.value, {}));
-    return { ...toOutputProfile(rows[0]!), ...(shared.success ? shared.data : {}) };
+    const profile = toOutputProfile(rows[0]!);
+    // A slideshow whose look was never chosen shows the built-in background: choosing any
+    // look saves it, **Color only** included, on every computer of the workspace.
+    if (kind === 'slideshow' && !look[0] && profile.backgroundAssetId === null) {
+      profile.backgroundAssetId = DEFAULT_BACKGROUND_ID;
+    }
+    return { ...profile, ...(shared.success ? shared.data : {}) };
   }
 
   async updateOutputProfile(

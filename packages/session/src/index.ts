@@ -27,6 +27,7 @@ import {
 import { buildPieces, type Piece } from '@worship-q/lyrics';
 import {
   align,
+  builtinBackground,
   catalogueVersion,
   formatReference,
   passagePieces,
@@ -1802,9 +1803,11 @@ export class Session {
             color: profile.backgroundColor,
             assetId: profile.backgroundAssetId,
           });
-    const asset = background.assetId
-      ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
-      : undefined;
+    const builtin = builtinBackground(background.assetId);
+    const asset =
+      background.assetId && !builtin
+        ? (await this.store.listBackgrounds(workspaceId)).find((b) => b.id === background.assetId)
+        : undefined;
 
     const frame: OutputFrame = {
       layout: kind,
@@ -1817,6 +1820,7 @@ export class Session {
       background: {
         color: background.color,
         media: asset ? { kind: asset.kind, url: mediaUrl(asset.fileName) } : null,
+        builtin,
       },
       song: null,
       pieceId: null,

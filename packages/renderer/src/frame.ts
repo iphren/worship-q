@@ -6,6 +6,7 @@
  */
 import {
   EMPTY_FRAME,
+  builtinBackground,
   type BackgroundKind,
   type LiveSnapshot,
   type OutputFrame,
@@ -42,6 +43,7 @@ export function buildFrame(input: FrameInput): OutputFrame {
       media: look?.backgroundFile
         ? { kind: look.backgroundFile.kind, url: input.fileUrl(look.backgroundFile.fileName) }
         : null,
+      builtin: look?.backgroundBuiltin ?? null,
     },
   };
   if (!snapshot || snapshot.state.status !== 'live') return frame;
@@ -49,12 +51,14 @@ export function buildFrame(input: FrameInput): OutputFrame {
   const presented = snapshot.presented;
   if (!presented) return frame;
   if (presented.kind === 'deck' || presented.kind === 'website' || presented.kind === 'video') {
-    frame.background = { color: '#000000', media: null };
+    frame.background = { color: '#000000', media: null, builtin: null };
   } else if (presented.background) {
-    const file = presented.background.assetId ? input.songBackground : null;
+    const builtin = builtinBackground(presented.background.assetId);
+    const file = presented.background.assetId && !builtin ? input.songBackground : null;
     frame.background = {
       color: presented.background.color,
       media: file ? { kind: file.kind, url: input.fileUrl(file.fileName) } : null,
+      builtin,
     };
   }
   if (presented.kind === 'website') {
