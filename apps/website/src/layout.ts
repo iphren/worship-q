@@ -38,7 +38,7 @@ export function header(current = '/'): string {
 /** The feature pages, for the footer. */
 export const FEATURE_PAGES = [
   { href: '/bible/', label: 'Bible passages' },
-  { href: '/bilingual-lyrics/', label: 'Two-language lyrics' },
+  { href: '/multilingual-lyrics/', label: 'Lyrics in several languages' },
   { href: '/obs/', label: 'OBS and live streams' },
   { href: '/phone-remote/', label: 'Phone remote' },
   { href: '/several-computers/', label: 'Several computers' },

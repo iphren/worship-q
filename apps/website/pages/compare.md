@@ -20,9 +20,9 @@ features change; check with each vendor before you choose.
 - **Free, with nothing held back.** No subscription, no paid tier, no account. The church
   server that adds sharing, phones and Bible passages is free too, and it runs on your own
   machine, so your songs stay with your church.
-- **Two languages on one slide.** Each line of a song and its translation share a slide, and
-  Chinese songs can be found by pinyin or initials, in either script.
-  [More](/bilingual-lyrics/)
+- **Two or more languages on one slide.** Each line of a song and its translations share a
+  slide, and Chinese songs can be found by pinyin or initials, in either script.
+  [More](/multilingual-lyrics/)
 - **Bible passages in two versions side by side,** kept in step verse by verse, found by
   typing the reference. [More](/bible/)
 - **Made for the live stream too:** a subtitle overlay for OBS, and OBS's scenes, streaming

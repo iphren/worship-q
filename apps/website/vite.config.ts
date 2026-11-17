@@ -99,10 +99,10 @@ function structuredData(release: Release | null, installers: string[]): HtmlTagD
     ...(release && {
       softwareVersion: release.tag_name.replace(/^v/, ''),
       datePublished: release.published_at.slice(0, 10),
-      releaseNotes: release.html_url,
+      releaseNotes: `${SITE}/releases/`,
     }),
     featureList: [
-      'Song lyrics in any language, two languages on one slide',
+      'Song lyrics in any language, two or more languages on one slide',
       'Search songs by title, lyrics, pinyin or initials',
       'Bible passages in up to two versions side by side',
       'Run sheets planned on a calendar',
@@ -178,7 +178,7 @@ async function releaseFacts(): Promise<Facts> {
             new Date(release.published_at),
           )
         : null,
-      notesUrl: release?.html_url ?? RELEASES,
+      notesUrl: `${SITE}/releases/`,
       macUrl: mac ?? RELEASES,
       windowsUrl: windows ?? RELEASES,
     },
@@ -204,7 +204,6 @@ function releaseInfo(): Plugin {
         .replaceAll('%WINDOWS_URL%', page.windowsUrl)
         .replaceAll('%RELEASE_VERSION%', page.version ?? '—')
         .replaceAll('%RELEASE_DATE%', page.date ?? '—')
-        .replaceAll('%RELEASE_URL%', page.notesUrl)
         .replace('%SUMMARY%', escapeHtml(SUMMARY))
         .replace('<!-- %HEADER% -->', header('/'))
         .replace('<!-- %FOOTER% -->', footer())

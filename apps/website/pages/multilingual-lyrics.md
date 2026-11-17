@@ -1,16 +1,18 @@
-# Lyrics in two languages on one slide
+# Lyrics in two or more languages on one slide
 
-Churches that worship in two languages can show both on the same slide: each line of the
-song, followed by the same line in the other language.
+Churches that worship in more than one language can show them all on the same slide: each
+line of the song, followed by the same line in the other language, or in two others, such as
+Chinese, its pinyin and English.
 
 ![A slide on the projector with each line of O Come, All Ye Faithful in Latin, followed by the same line in English](/screenshots/slideshow-bilingual.webp)
 
 ## How it works
 
-Type or paste the lyrics one line per line, each line followed by its translation, with a
+Type or paste the lyrics one line per line, each line followed by its translations, with a
 blank line between verses and choruses. By default every two lines make one slide, so each
 slide shows a line and its translation together. **Lines per slide** in Settings changes
-that, from 1 to 8, for songs written another way.
+that, from 1 to 8: set it to 3 for a line in Chinese, its pinyin and its English, or to 1 or 4
+for songs in a single language.
 
 The text size fits each song automatically. **Wrap long lines** shows a line too long for the
 screen on two lines instead of shrinking the text.

@@ -24,9 +24,9 @@ export const FAQ: Question[] = [
       'macOS 11 or later (Apple Silicon and Intel) and 64-bit Windows 10 or later. Installed copies update themselves, never while the slideshow is open.',
   },
   {
-    question: 'Can it show lyrics in two languages, such as Chinese and English?',
+    question: 'Can it show lyrics in two or more languages, such as Chinese and English?',
     answer:
-      'Yes. Lyrics in any language work, and a line in one language followed by the same line in another share a slide. Songs can be found by title or lyrics, and Chinese songs also by pinyin or initials.',
+      'Yes. Lyrics in any language work, and a line followed by its translations share a slide: two lines by default, or more, such as Chinese, pinyin and English, by changing Lines per slide in Settings. Songs can be found by title or lyrics, and Chinese songs also by pinyin or initials.',
   },
   {
     question: 'How do I show a Bible passage?',

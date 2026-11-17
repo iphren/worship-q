@@ -16,8 +16,8 @@ export interface Feature {
 export const FEATURES: Feature[] = [
   {
     title: 'Songs in any language',
-    page: '/bilingual-lyrics/',
-    text: 'Search by title or lyrics, and Chinese songs by pinyin or initials. A line in one language and the same line in another share a slide.',
+    page: '/multilingual-lyrics/',
+    text: 'Search by title or lyrics, and Chinese songs by pinyin or initials. A line and its translations share a slide, in two languages or more.',
   },
   {
     title: 'Bible passages',

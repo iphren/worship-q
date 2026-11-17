@@ -111,7 +111,7 @@ One page is not enough to rank for many searches. Turn `apps/website` into a sma
 static site (Vite multi-page input; no framework needed).
 
 **Status (17 November 2026):** items 1, 2, 3 and 5 done, in English: `/guide/`, `/server/`,
-`/bible/`, `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`,
+`/bible/`, `/multilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`,
 `/compare/` and `/releases/`, each with its Markdown copy (`index.md`) and in the sitemap and
 `llms.txt`. The pages are Markdown: the guides from `docs/`, the others in
 `apps/website/pages/`, the release notes from GitHub; `apps/website/src/pages.ts` lists them.
@@ -132,7 +132,7 @@ desktop app, the admin app and the phone remote.
    links to `docs/local-api.md`, which stays on GitHub. Plans, the spec, task breakdowns,
    acceptance records and spikes stay on GitHub.
 2. **Feature pages**, each aimed at one of the searches listed above: `/bible/`,
-   `/bilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`. Short, with a
+   `/multilingual-lyrics/`, `/obs/`, `/phone-remote/`, `/several-computers/`. Short, with a
    screenshot, and linking to the guide section.
 3. **Comparison pages**: `/compare/` with honest tables against ProPresenter, EasyWorship,
    OpenLP, FreeShow and Proclaim (price, platforms, open source, offline, bilingual, Bible,
