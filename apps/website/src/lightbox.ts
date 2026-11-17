@@ -13,7 +13,9 @@ interface PictureState {
 }
 
 const isPictureState = (state: unknown): state is PictureState =>
-  typeof state === 'object' && state !== null && typeof (state as PictureState).picture === 'string';
+  typeof state === 'object' &&
+  state !== null &&
+  typeof (state as PictureState).picture === 'string';
 
 const dialog = document.createElement('dialog');
 dialog.className = 'lightbox';
