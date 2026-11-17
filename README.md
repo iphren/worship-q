@@ -62,8 +62,8 @@ after you point "latest" at another release.
 The page's screenshots are not kept in git. `apps/screenshots` renders them from the desktop
 app's own code: it runs the app's front end in headless Chromium with Tauri's native side
 replaced by a stand-in, and a database filled with public-domain hymns and Psalm 23 (BSB and
-KJV). The workflow renders them on macOS before each build, so they always show the current
-interface. Scenes are in `apps/screenshots/src/scenes.ts`, the content in `content.ts`.
+KJV). The workflow renders them on Linux before each build, with Inter standing in for the system
+font (`apps/screenshots/linux`), so they always show the current interface. Scenes are in `apps/screenshots/src/scenes.ts`, the content in `content.ts`.
 
 ```sh
 pnpm screenshots apps/website/public/screenshots   # once, and after changing the UI

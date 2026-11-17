@@ -5,8 +5,8 @@ name: Website
 # pointing "latest" at another release by hand, run it from the Actions tab.
 #
 # The screenshots on the page are rendered from the app's code first (apps/screenshots), on
-# macOS so the text is drawn in the Mac app's system font. Their run sheet is dated the next
-# Sunday, so the site is also rebuilt every Monday.
+# Linux with Inter standing in for the system font (apps/screenshots/linux). Their run sheet is
+# dated the next Sunday, so the site is also rebuilt every Monday.
 
 on:
   release:
@@ -29,26 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  screenshots:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @worship-q/screenshots exec playwright install chromium
-      - run: pnpm screenshots screenshots
-      - uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: screenshots
-          if-no-files-found: error
-
   build:
-    needs: screenshots
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,10 +39,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: screenshots
-          path: apps/website/public/screenshots
+      - run: apps/screenshots/linux/setup.sh
+      - run: pnpm screenshots apps/website/public/screenshots
       - run: pnpm --filter @worship-q/website build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
