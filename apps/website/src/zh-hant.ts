@@ -167,7 +167,7 @@ export const faq: Question[] = [
   },
   {
     question: "多台電腦能同步顯示同一套投影嗎？",
-    answer: "可以。連線到同一工作區的電腦會同步顯示目前的投影片；如果主控電腦發生故障，其他電腦可以接管，從原來的位置繼續。即使網際網路中斷，位於同一區域網路的電腦也能保持同步。",
+    answer: "可以。連線到同一工作區的電腦會同步顯示目前的投影片；如果主控電腦發生故障，其他電腦可以接管，從原來的位置繼續。系統設計支援網際網路中斷時透過同一區域網路保持同步；正式使用前建議先以實際裝置測試。",
   },
   {
     question: "能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？",
@@ -220,7 +220,7 @@ export const home: Home = {
     '在投影和直播中顯示詩歌歌詞、經文、投影片和影片。免費開源，適用於 Mac 和 Windows。',
   ogImageAlt: 'Worship Q：免費的教會投影軟體，顯示歌詞、經文、投影片，並支援直播',
   markdownTitle: 'Worship Q 首頁（Markdown）',
-  body: `<p class="text-sm font-medium tracking-wide text-amber-300">多螢幕協同，呈現更默契。</p>
+  body: `<p class="text-sm font-medium tracking-wide text-amber-300">多螢幕協作，默契呈現。</p>
 <h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
   免費開源的教會投影軟體
 </h1>
