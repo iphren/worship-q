@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.10.0](https://github.com/iphren/worship-q/compare/v2.9.0...v2.10.0) (2026-11-18)
+
+
+### Features
+
+* a gently moving Default background for songs ([0154d0b](https://github.com/iphren/worship-q/commit/0154d0be57434fe79fb18c0834532e852cdd151a))
+* a shared translation package and a Language setting on the desktop ([073de2f](https://github.com/iphren/worship-q/commit/073de2f3c3e7fa8f78f04c474f4bcc2ef5d8a321))
+* Cloudflare Web Analytics, and website screenshots rendered on Linux ([56149ac](https://github.com/iphren/worship-q/commit/56149acc8df55224c8b4b962e918042d6014e0e4))
+* guides, feature pages, comparison and release notes on worship-q.com ([7ebdbfb](https://github.com/iphren/worship-q/commit/7ebdbfb354a7baef4731e10a907a95ab20654e84))
+* Language comes right after About in Settings ([7b35027](https://github.com/iphren/worship-q/commit/7b3502776310b3ff57f008ab0c3bd6b2a4e29e7e))
+* screenshots in another interface language ([bad13bc](https://github.com/iphren/worship-q/commit/bad13bcabf522c3121be02fcfbd8cb53f918edce))
+* screenshots in Chinese, with Chinese Union Version songs and Psalm 23 ([b550909](https://github.com/iphren/worship-q/commit/b5509097ff71e064193bf27b0346061a7fe05ee0))
+* search engine and AI discovery basics for worship-q.com ([96e3d76](https://github.com/iphren/worship-q/commit/96e3d7666bb0b3b643af5179fa9e66e96519fd9c))
+* sermon deck and video in the website screenshots, dated the next Sunday ([e0cc300](https://github.com/iphren/worship-q/commit/e0cc300dc4860079c1978d35e15390abc3b38075))
+* the admin app and output pages read their words from the catalogue ([b52aa18](https://github.com/iphren/worship-q/commit/b52aa1896e050164b4955c78f504ad89e515fca5))
+* the apps in Simplified and Traditional Chinese ([b00b346](https://github.com/iphren/worship-q/commit/b00b346691d841090316a1a77818320714567b1e))
+* the phone remote reads its words from the shared catalogue ([726f144](https://github.com/iphren/worship-q/commit/726f144aeb380d524b95e3a3b5ce40ed3cafd52d))
+* the Present tab's run sheet keeps the current item in view ([ab62bcd](https://github.com/iphren/worship-q/commit/ab62bcd6ced248c83814116fc09253ce84685fb4))
+* website screenshots rendered from the app's code ([b86e775](https://github.com/iphren/worship-q/commit/b86e775cbd5311afd62992898fbf80cdf467cbe0))
+* worship-q.com in Simplified and Traditional Chinese ([75deaf2](https://github.com/iphren/worship-q/commit/75deaf26fd8aef0a7a15398d049f47590d29ddb7))
+
+
+### Bug Fixes
+
+* Chinese glossary consistency, formatting and tests ([5ae5eab](https://github.com/iphren/worship-q/commit/5ae5eab90a662b98bd491a355d35d58ee45ae26c))
+* Chinese wording from the glossary review ([4165e6e](https://github.com/iphren/worship-q/commit/4165e6e507ad4d9dff9fc2158f250313f375de84))
+* Go live reads 打开 in Chinese ([177a0d0](https://github.com/iphren/worship-q/commit/177a0d02fd02f51e83a77af3aa571046f9ba3bc7))
+* the church server connection reads 通过教会服务器连接 ([38b5866](https://github.com/iphren/worship-q/commit/38b5866bf7f31792920e3aa4c55613501f19815c))
+
 ## [2.9.0](https://github.com/iphren/worship-q/compare/v2.8.0...v2.9.0) (2026-11-17)
 
 
