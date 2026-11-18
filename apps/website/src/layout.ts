@@ -41,11 +41,10 @@ export function header(page = '/', locale: SiteLocale = 'en'): string {
         `<a href="${href}" class="${current === href ? 'text-slate-100' : 'text-slate-400 hover:text-slate-200'}"${current === href ? ' aria-current="page"' : ''}>${label}</a>`,
     )
     .join('');
-  return `<header class="flex flex-wrap items-center gap-x-5 gap-y-2 py-6">
-  <a href="${localePath(locale, '/')}" class="flex items-center gap-3"><img src="/logo.svg" alt="" class="size-9" /><span class="text-lg font-semibold text-slate-100">Worship Q</span></a>
-  <span class="flex-1"></span>
-  <nav class="flex gap-5 text-sm" aria-label="${words.navLabel}">${links}</nav>
+  return `<header class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-6 sm:flex sm:gap-x-5">
+  <a href="${localePath(locale, '/')}" class="flex items-center gap-3 whitespace-nowrap sm:mr-auto"><img src="/logo.svg" alt="" class="size-9" /><span class="text-lg font-semibold text-slate-100">Worship Q</span></a>
   ${languageMenu(page, locale)}
+  <nav class="col-span-2 flex gap-5 text-sm" aria-label="${words.navLabel}">${links}</nav>
 </header>`;
 }
 
@@ -62,7 +61,7 @@ function languageMenu(page: string, locale: SiteLocale): string {
       ? `<a href="${localePath(other, page)}" lang="${lang}" aria-current="true" class="block rounded-md px-3 py-1.5 whitespace-nowrap text-slate-100">${name}</a>`
       : `<a href="${localePath(other, page)}" hreflang="${lang}" lang="${lang}" class="block rounded-md px-3 py-1.5 whitespace-nowrap text-slate-400 hover:bg-slate-800 hover:text-slate-100">${name}</a>`;
   }).join('');
-  return `<details class="language-menu relative text-sm">
+  return `<details class="language-menu relative justify-self-end text-sm sm:order-last">
     <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1 text-slate-300 hover:border-slate-500 hover:text-slate-100" aria-label="${WORDS[locale].language}: ${LOCALE_INFO[locale].name}"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.75 5.6 3.75 9S14.5 18.4 12 21c-2.5-2.6-3.75-5.6-3.75-9S9.5 5.6 12 3Z" /></svg>${LOCALE_INFO[locale].name}<svg class="language-menu-arrow size-3 text-slate-500" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg></summary>
     <nav class="absolute right-0 z-10 mt-2 rounded-lg border border-slate-700 bg-slate-900 p-1 shadow-lg" aria-label="${WORDS[locale].language}">${links}</nav>
   </details>`;
