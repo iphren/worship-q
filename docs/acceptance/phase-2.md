@@ -5,13 +5,13 @@
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`,
 `cargo test`), the hardware spike (M0), and the walkthrough with real equipment (M9.1, M9.2).
-The spike and the walkthrough were completed and phase 2 accepted on 3 November 2026.
+Phase 2 was accepted on 3 November 2026 based on the implementation and walkthrough. An additional two-computer offline-LAN test passed on 18 November 2026; the remaining LAN edge-case checklist items are still open.
 
 ## Tasks
 
 | Task | Status | Evidence |
 | --- | --- | --- |
-| M0.1–M0.4 spike | Done | `docs/spikes/lan.md`; accepted 3 November 2026 |
+| M0.1–M0.4 spike | Implemented; partial hardware validation | Phase 2 accepted 3 November 2026; two-computer offline test passed 18 November 2026 (`docs/spikes/lan.md`); remaining edge cases unchecked |
 | M1.1 protocol v2 | Done | `relay.test.ts` “tells a version 1 desktop to update” |
 | M1.2 snapshot and message schemas | Done | `packages/protocol/src/wire.ts`; parsed on every relay message |
 | M1.3 Coordinator | Done | `coordination.test.ts` “Coordinator” |
@@ -88,7 +88,7 @@ browser output, on macOS and Windows, with and without internet.
 | 9 Relay switching | `TransportSwitch`, `Follower.connect()`; LAN tried on hardware (`docs/spikes/lan.md`) | Passed |
 | 18 Calendar safety | `shared.test.ts`, `liveLink.test.ts` “a follower’s Go live…” | Passed |
 | 31 Live-state continuity | `shared.test.ts`, `liveLink.test.ts` recovery and viewer | Passed |
-| 32 LAN security | `relay.test.ts` outputs may send nothing; `lan.rs` auth; `lan.test.ts` fingerprint check; hardware not exercised | Passed |
+| 32 LAN security | `relay.test.ts` outputs may send nothing; `lan.rs` auth; `lan.test.ts` fingerprint check; certificate-mismatch/security cases not tested on hardware | Passed |
 
 ## Known exceptions
 
