@@ -147,8 +147,10 @@ function siteLink(href: string, fromDocs: boolean, absolute: boolean, locale: Si
       ? `${page}${anchor ? `#${anchor}` : ''}`
       : `${REPO_URL}/blob/main/docs/${file}${anchor ? `#${anchor}` : ''}`;
   }
-  // A page links to the site's other pages in its own language; llms.txt is in English only.
-  if (target.startsWith('/') && !target.startsWith('/llms')) target = localePath(locale, target);
+  // A page links to the site's other pages in its own language. llms.txt is in English only,
+  // and the screenshots are files at one address, with their language already in it.
+  if (target.startsWith('/') && !/^\/(llms|screenshots\/)/.test(target))
+    target = localePath(locale, target);
   return absolute && target.startsWith('/') ? `${SITE}${target}` : target;
 }
 
@@ -189,7 +191,7 @@ function render(markdown: string): string {
     gfm: true,
     renderer: {
       image({ href, text }: Tokens.Image) {
-        const full = /^(\/screenshots\/[^/]+)\.webp$/.exec(href);
+        const full = /^(\/screenshots\/(?:[^/]+\/)?[^/]+)\.webp$/.exec(href);
         if (!full) return false;
         return `<a href="${full[1]}.png"><img src="${escapeHtml(href)}" alt="${escapeHtml(text)}" /></a>`;
       },
