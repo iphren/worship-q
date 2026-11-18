@@ -196,6 +196,7 @@ export function OutputPage() {
         height={size.height}
         transition
         sound={kind === 'slideshow'}
+        soundLabel={t('video.clickForSound')}
       />
       {frame.website && (
         <iframe

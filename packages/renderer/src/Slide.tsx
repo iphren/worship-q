@@ -73,6 +73,8 @@ export interface SlideProps {
   sound?: boolean;
   /** The audio output a video item's sound plays on; empty for the system default (U24). */
   sinkId?: string;
+  /** The words on the **Click for sound** button, in the interface language. */
+  soundLabel?: string;
 }
 
 interface Layer {
@@ -181,6 +183,7 @@ export function Slide({
   transition = false,
   sound = false,
   sinkId = '',
+  soundLabel = 'Click for sound',
 }: SlideProps) {
   const [mediaFailed, setMediaFailed] = useState<string | null>(null);
   const [fontsReady, setFontsReady] = useState(0);
@@ -351,7 +354,13 @@ export function Slide({
         <PassageBlock key={layer.key} ref={passageLayers.ref(layer.key)} passage={layer} />
       ))}
       {frame.video && frame.video.url && (
-        <VideoLayer video={frame.video} hidden={frame.blank} sound={sound} sinkId={sinkId} />
+        <VideoLayer
+          video={frame.video}
+          hidden={frame.blank}
+          sound={sound}
+          sinkId={sinkId}
+          soundLabel={soundLabel}
+        />
       )}
       {pictureLayers.layers.map((layer) => (
         <img
@@ -431,6 +440,7 @@ function VideoLayer(props: {
   hidden: boolean;
   sound: boolean;
   sinkId: string;
+  soundLabel: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const { video, sinkId, sound } = props;
@@ -529,7 +539,7 @@ function VideoLayer(props: {
             cursor: 'pointer',
           }}
         >
-          🔇 Click for sound
+          🔇 {props.soundLabel}
         </button>
       )}
     </div>

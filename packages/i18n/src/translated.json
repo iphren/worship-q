@@ -647,6 +647,7 @@
     "update.readyShort": "Version {version} is ready to install.",
     "update.restart": "Restart now",
     "video.back": "Back 10 seconds",
+    "video.clickForSound": "Click for sound",
     "video.controls": "Video controls",
     "video.downloading": "Downloading to this computer… {percent}%",
     "video.fetchFailed": "Could not download: {message}",
@@ -818,6 +819,7 @@
     "obs.unreachable": "OBS cannot be reached from here",
     "obs.waitingImage": "Waiting for an image…",
     "video.back": "Back 10 seconds",
+    "video.clickForSound": "Click for sound",
     "video.forward": "Forward 10 seconds",
     "video.pause": "Pause",
     "video.play": "Play",
@@ -1155,6 +1157,7 @@
     "time.justNow": "just now",
     "time.underAMinute": "in under a minute",
     "time.unknown": "unknown",
+    "video.clickForSound": "Click for sound",
     "workspace.allDevices": "All devices",
     "workspace.audio": "Live audio",
     "workspace.audioFrom": "From {name}.",
@@ -1254,6 +1257,7 @@
     "output.noToken": "This link has no key. Make a new output link in Worship Q under Settings → Browser outputs.",
     "output.revoked": "This output link was revoked. Make a new one in Worship Q under Settings → Browser outputs.",
     "output.updateNeeded": "The church server runs a different version of Worship Q. Reload this page.",
-    "output.website": "Website"
+    "output.website": "Website",
+    "video.clickForSound": "Click for sound"
   }
 }

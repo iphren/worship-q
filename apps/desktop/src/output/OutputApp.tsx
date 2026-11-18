@@ -114,6 +114,7 @@ export function OutputApp() {
         transition
         sound
         sinkId={sinkId}
+        soundLabel={t('video.clickForSound')}
       />
       {frame.message && (
         <div

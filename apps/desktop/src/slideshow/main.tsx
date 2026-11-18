@@ -62,6 +62,7 @@ function SlideshowApp() {
         height={size.height}
         transition
         sound
+        soundLabel={t('video.clickForSound')}
       />
       {frame.website && (
         <iframe

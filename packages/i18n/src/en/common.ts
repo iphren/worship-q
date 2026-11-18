@@ -9,6 +9,8 @@ export const common = {
   'language.label': 'Language',
   'language.auto': 'Automatic',
   'language.autoHint': 'Follows the language of this computer or browser.',
+
+  'video.clickForSound': 'Click for sound',
 } as const;
 
 export type CommonKey = keyof typeof common;

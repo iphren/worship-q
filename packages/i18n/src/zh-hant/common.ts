@@ -9,4 +9,5 @@ export const common: Record<CommonKey, string> = {
   'language.label': '語言',
   'language.auto': '自動',
   'language.autoHint': '依照電腦或瀏覽器的語言設定。',
+  'video.clickForSound': '點擊播放聲音',
 };

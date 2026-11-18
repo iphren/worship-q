@@ -15,8 +15,8 @@ any of them, and the others see each edit in a banner.
 If the presenting computer stops, the others say so. Choose **Carry on here** on one of them:
 it continues from the same slide. When the first computer comes back, it follows.
 
-**Use this computer** hands the presentation to another computer without changing anything on
-any screen.
+**Take over presenting**, chosen on another computer, moves the presentation to it without
+changing anything on any screen.
 
 ## A projector computer that only follows
 

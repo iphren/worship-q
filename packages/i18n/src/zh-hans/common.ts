@@ -11,4 +11,6 @@ export const common: Record<CommonKey, string> = {
   'language.label': '语言',
   'language.auto': '自动',
   'language.autoHint': '跟随电脑或浏览器的语言设置。',
+
+  'video.clickForSound': '点击播放声音',
 };

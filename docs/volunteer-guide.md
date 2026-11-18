@@ -21,7 +21,7 @@ computers** below.
    ones you use every week in one click.
 3. To reuse an earlier week, click that date and choose **Copy to …**.
 
-Other dates are read-only until you choose **Edit run sheet** on them.
+Other dates are read-only until you choose **Edit** on them.
 
 ## 3. Present
 
@@ -54,11 +54,11 @@ Other dates are read-only until you choose **Edit run sheet** on them.
 
 ## 4. Fix a lyric during the service
 
-Choose **Edit lyrics** above the song, correct the text or title and **Save**. The screen updates
+Choose **Edit** above the song, correct the text or title and **Save**. The screen updates
 straight away and stays on the same slide.
 
-Slide decks, PDFs, photos and websites show **Edit title** instead, which renames the item;
-a video's also has **Autoplay**.
+For slide decks, PDFs, photos and websites, **Edit** only renames the item; a video's also
+has **Autoplay**.
 
 ## 5. When you finish
 
@@ -97,7 +97,7 @@ paused, unless **Autoplay** is on in its Edit window. While a video is live, a c
 above the slides plays, pauses and moves through it, and phones get the same bar. The keys
 change too: Space plays or pauses and ↑ and ↓ jump 10 seconds back and forward. ← and →
 move to another item as usual, and Enter presents the next item. Leave a video for a reading and come back: it carries on where it was. Blanking
-pauses it; showing the screen again carries on. **End** forgets where videos were.
+pauses it; showing the screen again carries on. Going live with another run sheet forgets where videos were.
 
 Video sound plays from the slideshow window. Choose where under **Settings → Audio on
 this computer**; the app asks once to use the microphone, which it only uses to list your
@@ -153,7 +153,7 @@ they share one presentation. The first to open holds it; the others follow and s
 slide on their own screens. Anyone can click a slide, go live with another date or edit the
 live run sheet from any of them; other operators see edits in a banner.
 
-- **Use this computer** (Settings → Church connection) makes this computer hold the
+- **Take over presenting** (Settings → Church connection) makes this computer hold the
   presentation. Nothing changes on any screen.
 - If the presenting computer fails, the others show **The presenting computer is not
   responding**. Choose **Carry on here** on one of them: it continues from the same slide.
