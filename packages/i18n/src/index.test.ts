@@ -9,7 +9,6 @@ import {
   matchLanguage,
   meetingDaysLabel,
   parsePreference,
-  PSEUDO,
   resolveLocale,
   setLocale,
   t,
@@ -77,16 +76,6 @@ describe('choosing the language (T2)', () => {
     expect(parsePreference('en')).toBe('en');
     expect(parsePreference('xx')).toBe('auto');
     expect(parsePreference(undefined)).toBe('auto');
-  });
-
-  it('wraps every message in the test language, keeping placeholders', () => {
-    setLocale(PSEUDO);
-    try {
-      expect(t('calendar.copyTo', { date: 'Sun' })).toBe('⟦Copy to Sun⟧');
-      expect(formatDate('2026-11-01')).toBe('Sunday 1st Nov');
-    } finally {
-      setLocale('en');
-    }
   });
 });
 

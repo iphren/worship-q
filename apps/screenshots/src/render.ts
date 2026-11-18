@@ -1,6 +1,6 @@
 // Renders screenshots of the desktop app from its code, with public-domain content.
 //   pnpm screenshots [out-dir] [scene]
-//   SCREENSHOT_LANG=zh-Hans pnpm screenshots [out-dir]   (in another language, or qps to test)
+//   SCREENSHOT_LANG=zh-Hans pnpm screenshots [out-dir]   (in another language)
 // Starts the desktop app's Vite server, opens it in headless Chromium with Tauri replaced by
 // tauri.ts and a database seeded by seed.ts, and saves each scene in scenes.ts twice: a PNG at
 // twice the window's size, and a WebP 1600 pixels wide for web pages.
@@ -43,7 +43,7 @@ const out = process.argv[2]
   : resolve(import.meta.dirname, '../out');
 const only = process.argv[3];
 /**
- * The interface language, such as `zh-Hans`, or `qps` for the test language; English if
+ * The interface language, such as `zh-Hans`; English if
  * unset. The content follows it: Chinese songs and Bible for Chinese.
  */
 const language = process.env.SCREENSHOT_LANG;

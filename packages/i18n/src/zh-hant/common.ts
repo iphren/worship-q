@@ -9,5 +9,4 @@ export const common: Record<CommonKey, string> = {
   'language.label': '語言',
   'language.auto': '自動',
   'language.autoHint': '使用系統語言',
-  'language.pseudo': '測試語言',
 };

@@ -3,7 +3,7 @@
  * with the other settings of this computer, applied in every window of the app. A change in
  * one window reaches the others through the storage they share.
  */
-import { applyPreference, type LanguagePreference, type PSEUDO } from '@worship-q/i18n/desktop';
+import { applyPreference, type LanguagePreference } from '@worship-q/i18n/desktop';
 import { DEVICE_SETTINGS_KEY, deviceSettings } from './deviceSettings';
 
 /** Applies the saved choice now, and again whenever another window changes it. */
@@ -15,7 +15,7 @@ export function startLanguage(): void {
   });
 }
 
-export function setLanguage(preference: LanguagePreference | typeof PSEUDO): void {
+export function setLanguage(preference: LanguagePreference): void {
   deviceSettings.set({ language: preference });
   applyPreference(preference);
 }

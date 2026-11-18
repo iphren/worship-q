@@ -84,9 +84,6 @@ place; English is the only language in the catalogue at the end of it.
    - a lint rule that refuses plain English text in components (JSX text and user-facing
      attributes such as `title`, `aria-label` and `placeholder`), with a short allow list for
      brand names;
-   - a development-only test language that wraps every message (for example `⟦Settings⟧`), so a
-     look through each app shows any text that missed the catalogue; it never appears in the
-     Language setting of a release;
    - the existing type check that every language has every key (T4).
 
 **Done when:** the apps, pages and website look and read as they do today; the lint rule passes
@@ -192,7 +189,7 @@ None left. Answered (17 November 2026):
 - Desktop: **Settings → Language** (Automatic or English), kept per computer with the other device settings; the slideshow window follows. Changing it draws the window again without losing the page.
 - Phone remote: the globe in its header. Admin app: the Language select beside **Sign out**. Both are kept in the browser (`wq.language`).
 - Output pages and the localhost slideshow and subtitle pages follow the browser.
-- `?lang=qps` in the address shows the **test language**, which wraps every message in `⟦…⟧` so text that missed the catalogue stands out; it is also offered in the Language lists in development only. `SCREENSHOT_LANG=qps pnpm screenshots <dir>` renders the app in it (the scenes after the first find buttons by their English names, so they stop there).
+- `?lang=zh-Hans` (or `en`, `zh-Hant`) in the address shows a page in that language, whatever the setting. A test language that wrapped every message in `⟦…⟧` was used while taking the English out of the code and removed after phase 2.
 
 **Messages from the server and the native core (T7)**: upload refusals reach the desktop as `refused:<code>:<message>`; the server sends an image's `reason` (`image-too-large`, `image-unreadable`) beside its message, and the desktop shows its own words for the codes it knows and the message otherwise, so older servers still read. The slideshow window's title is set from the interface. Left in English on purpose: the OBS connection's technical details shown after the translated sentence, and the power-assertion reasons on macOS and Windows, which only diagnostic tools show.
 

@@ -1,8 +1,8 @@
 import { createElement, Fragment, useSyncExternalStore, type ReactNode } from 'react';
-import { getLocale, subscribeLocale, type ActiveLocale } from './index';
+import { getLocale, subscribeLocale, type Locale } from './index';
 
 /** The current interface language; a component using it renders again when it changes. */
-export function useLocale(): ActiveLocale {
+export function useLocale(): Locale {
   return useSyncExternalStore(subscribeLocale, getLocale, getLocale);
 }
 

@@ -11,5 +11,4 @@ export const common: Record<CommonKey, string> = {
   'language.label': '语言',
   'language.auto': '自动',
   'language.autoHint': '使用系统语言',
-  'language.pseudo': '测试语言',
 };
