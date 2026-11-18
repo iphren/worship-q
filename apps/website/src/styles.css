@@ -49,6 +49,15 @@ body {
   @apply pb-4 text-sm text-slate-400;
 }
 
+/* The header's language button (src/layout.ts). */
+.language-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.language-menu[open] .language-menu-arrow {
+  rotate: 180deg;
+}
+
 .shot {
   @apply h-auto w-full rounded-lg border border-slate-800;
 }
