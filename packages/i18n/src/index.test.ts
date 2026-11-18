@@ -101,7 +101,7 @@ describe('Chinese', () => {
 
 /** What reads the same in every language: names, codes and examples, and placeholders. */
 const SAME_IN_EVERY_LANGUAGE =
-  /Worship Q|OBS|PDF|CCLI|MB|API\.Bible|YouVersion|ESV|WebSocket|localhost:\d+|https?:\S+|[\w.-]+@[\w.-]+|[\w-]+\.example\.org|[A-Z]{4}-[A-Z]{4}-[A-Z]{4}|\{\w+\}/g;
+  /Worship Q|OBS|PDF|CCLI|MB|GB|API\.Bible|YouVersion|ESV|WebSocket|localhost:\d+|https?:\S+|[\w.-]+@[\w.-]+|[\w-]+\.example\.org|[A-Z]{4}-[A-Z]{4}-[A-Z]{4}|\{\w+\}/g;
 
 describe('every app catalogue (T4)', () => {
   const catalogues = { desktop, remote, admin, output };

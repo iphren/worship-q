@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp, useCloud, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
 import { native, type WorkspaceEntry } from '../platform/native';
-import { ChurchConnection, useChurchProblem } from './ChurchConnection';
+import { ChurchConnection, useChurchProblem, usePublicProblem } from './ChurchConnection';
 import { ConfirmDialog, Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { useOutputStatus } from './OutputPanel';
@@ -224,13 +224,26 @@ export function WorkspaceList() {
  */
 export function WorkspaceButton() {
   const name = useWorkspaceName();
-  const problem = useChurchProblem();
+  const churchProblem = useChurchProblem();
+  const publicProblem = usePublicProblem();
   const { workspaces } = useWorkspaces();
-  const joined = Boolean(useCloud().state?.joinedAt);
+  const state = useCloud().state;
+  const joined = Boolean(state?.joinedAt);
+  // A workspace using the public server shows it, as one connected to a church does (§2).
+  const onPublic = !joined && Boolean(state?.publicServer);
+  const problem = joined ? churchProblem : publicProblem;
   const [open, setOpen] = useState(false);
-  // Shown once there is a choice to make, or a church connection to keep an eye on.
-  if (!workspaces || (workspaces.length < 2 && !joined)) return null;
-  const label = [name, joined ? problem?.summary : t('workspaces.local'), t('workspaces.choose')]
+  // Shown once there is a choice to make, or a connection to keep an eye on.
+  if (!workspaces || (workspaces.length < 2 && !joined && !onPublic)) return null;
+  const label = [
+    name,
+    joined
+      ? problem?.summary
+      : onPublic
+        ? (problem?.summary ?? t('workspaces.public'))
+        : t('workspaces.local'),
+    t('workspaces.choose'),
+  ]
     .filter(Boolean)
     .join(' · ');
   const initials = name
@@ -258,6 +271,18 @@ export function WorkspaceButton() {
             }`}
           >
             {initials}
+            {problem && (
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-amber-400" />
+            )}
+          </span>
+        ) : onPublic ? (
+          // On the public server: no church to show initials for, but a connection to watch.
+          <span
+            className={`relative flex h-7 w-7 items-center justify-center rounded-full border ${
+              problem ? 'border-amber-400' : 'border-slate-500'
+            }`}
+          >
+            <Icon name="offline" className="h-4 w-4 text-slate-400" />
             {problem && (
               <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-amber-400" />
             )}

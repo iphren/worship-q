@@ -19,6 +19,10 @@ export interface MediaActionState {
   replace: string | null;
   /** Whether Upload new version is offered at all. */
   replaceOffered: boolean;
+  /** **Use new version** for a video kept here only, else **Upload new version**. */
+  replaceLabel: string;
+  /** Why Reconvert cannot be used now, or null. */
+  reconvert: string | null;
 }
 
 /** The items whose original the server said it does not have, this run. */
@@ -88,14 +92,23 @@ export function useMediaActionState(song: Song, dirty: boolean): MediaActionStat
     };
   }, [song.video]);
   void cloud;
-  const download = notKept.has(song.id)
-    ? t('media.notKept')
-    : connected || localVideo
-      ? null
-      : t('media.needsServer');
+  // No church server: videos are kept here, decks go to the public server, which keeps no
+  // original (public server plan §5).
+  const churchless = !connected && !session.isViewer;
+  const download =
+    notKept.has(song.id) || (churchless && !song.video)
+      ? t('media.notKept')
+      : connected || localVideo
+        ? null
+        : t('media.needsServer');
   const replaceOffered = canReplace(session, song);
-  const replace = !connected ? t('media.needsServer') : dirty ? t('media.saveFirst') : null;
-  return { download, replace, replaceOffered };
+  const replace =
+    !connected && !churchless ? t('media.needsServer') : dirty ? t('media.saveFirst') : null;
+  const replaceLabel = t(
+    song.video && !connected ? 'media.useNewVersion' : 'media.uploadNewVersion',
+  );
+  const reconvert = churchless ? t('media.notKept') : replace;
+  return { download, replace, replaceOffered, replaceLabel, reconvert };
 }
 
 /**
@@ -184,15 +197,15 @@ export function MediaActions(props: {
             title={state.replace ?? undefined}
             onClick={() => void startReplace()}
           >
-            {t('media.uploadNewVersion')}…
+            {state.replaceLabel}…
           </button>
         )}
         {(kind === 'slides' || kind === 'pdf') && state.replaceOffered && (
           <button
             type="button"
             className={button}
-            disabled={!!state.replace || reconverting}
-            title={state.replace ?? t('media.reconvertHint')}
+            disabled={!!state.reconvert || reconverting}
+            title={state.reconvert ?? t('media.reconvertHint')}
             onClick={() => void reconvert()}
           >
             {t('media.reconvert')}

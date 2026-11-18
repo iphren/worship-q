@@ -61,7 +61,7 @@ import { registerAdminRoutes } from './admin';
 import { BibleError, versionInfo, type Bible } from './bible';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
-import { convertImage, ImageError } from './images';
+import { convertImage, ImageError, makeThumbnail } from './images';
 import {
   attachment,
   DEFAULT_MEDIA_LIMITS,
@@ -973,13 +973,30 @@ export async function buildServer(config: ServerConfig) {
 
     api.put<{ Params: { name: string } }>('/api/v1/files/:name', async (request, reply) => {
       const { name } = request.params;
-      if (!BACKGROUND_NAME.test(name)) return reply.code(400).send({ error: 'invalid-name' });
-      const dir = uploadDir(request.device!.workspaceId, 'backgrounds');
+      // A slide image, its small copy, or a video, from a computer joining with media it made
+      // without a church server (public server M8): kept with the workspace's slides.
+      const deckImage = DECK_IMAGE.test(name);
+      const video = VIDEO_FILE.test(name);
+      if (!deckImage && !video && !BACKGROUND_NAME.test(name)) {
+        return reply.code(400).send({ error: 'invalid-name' });
+      }
+      const { workspaceId } = request.device!;
+      const dir = uploadDir(workspaceId, deckImage || video ? 'slides' : 'backgrounds');
       mkdirSync(dir, { recursive: true });
+      const limit = video ? limits.video : deckImage ? limits.image : MAX_FILE_BYTES;
       try {
-        await receive(request, join(dir, name), MAX_FILE_BYTES);
+        await receive(request, join(dir, name), limit);
       } catch (error) {
         return uploadRefused(reply, error);
+      }
+      // A slide arriving without its small copy gets one, so phones can show it (M8.3).
+      if (deckImage && !name.endsWith('-t.jpg')) {
+        const thumbnail = name.replace(/\.jpg$/, '-t.jpg');
+        if (!findFile(config.dataDir, workspaceId, thumbnail)) {
+          await makeThumbnail(join(dir, name), join(dir, thumbnail)).catch((error: unknown) =>
+            request.log.warn({ name, error: String(error) }, 'No small copy made'),
+          );
+        }
       }
       return { stored: true };
     });

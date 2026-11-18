@@ -3,8 +3,10 @@
  * time, in the order added; each then shows its own progress until its item is ready.
  * Nothing is created before the media is ready: a deck, PDF or image becomes a song once the
  * server has converted it and its images are on this computer, a video once it is sent and
- * copied into this computer's storage. Uploads live as long as the app runs; quitting drops
- * them, and leaves nothing half-created.
+ * copied into this computer's storage. Without a church server a video is not sent at all:
+ * it is copied into this computer's storage and named here (public server discovery §5.1).
+ * Uploads live as long as the app runs; quitting drops them, and leaves nothing
+ * half-created.
  */
 import {
   DeckSchema,
@@ -69,6 +71,16 @@ export interface UploadDeps {
   offer(): MediaOffer | null;
   /** The server and this device's token, or null when not connected. */
   credentials(): { server: string; token: string } | null;
+  /**
+   * Videos stay on this computer: there is no church server, so a video is copied into this
+   * computer's storage and never sent (public server discovery §5.1).
+   */
+  localVideos(): boolean;
+  /**
+   * Tells the server the deck's images are here, so it can delete them; a church server
+   * keeps them and is not told. Never fails: the public server deletes them within a day.
+   */
+  confirmDeck(credentials: { server: string; token: string }, deck: Deck): Promise<void>;
   fileSize(path: string): Promise<number>;
   /** A JPEG made from a HEIC photo; fails with `unreadable` or `unsupported`. */
   convertHeic(path: string): Promise<string>;
@@ -134,6 +146,12 @@ export function uploadMessage(
   }
   if (code.startsWith('refused:')) return refusalMessage(code.slice('refused:'.length));
   if (code.startsWith('file:')) return t('media.fileGone', { path });
+  // The public server's limits, with the wait it asked for (public server M5.5).
+  if (code.startsWith('rate-limited:') || code.startsWith('busy:')) {
+    const seconds = Number(code.slice(code.indexOf(':') + 1)) || 0;
+    const hours = Math.max(1, Math.ceil(seconds / 3600));
+    return code.startsWith('busy:') ? t('media.publicBusy') : t('media.publicLimit', { hours });
+  }
   switch (code) {
     case 'proxy-too-large':
       return t('media.proxyTooBig');
@@ -153,6 +171,8 @@ export function uploadMessage(
       return t('media.cannotPlay');
     case 'not-connected':
       return t('media.needsServer');
+    case 'public-unreachable':
+      return t('media.publicUnreachable');
     default:
       return t('media.failed', { message: code });
   }
@@ -298,8 +318,16 @@ export class MediaUploads {
     let bytes: number | null = null;
     try {
       this.set(id, { kind: 'uploading', sent: 0, total: 0 });
+      if (upload.kind === 'video' && this.deps.localVideos()) {
+        await this.addLocalVideo(id, upload);
+        return;
+      }
       const credentials = this.deps.credentials();
-      if (!credentials) throw new Error('not-connected');
+      // Without a church server, decks and images need the public server, which could not
+      // be joined.
+      if (!credentials) {
+        throw new Error(this.deps.localVideos() ? 'public-unreachable' : 'not-connected');
+      }
       const offerProblemText = offerProblem(upload.kind, this.deps.offer());
       if (offerProblemText) throw new Refusal(offerProblemText);
       if (upload.target.kind === 'newVersion') await this.checkReplacement(upload);
@@ -376,6 +404,19 @@ export class MediaUploads {
     }
   }
 
+  /** A video kept on this computer only: checked, copied and named here, never sent. */
+  private async addLocalVideo(id: string, upload: Upload): Promise<void> {
+    if (upload.target.kind === 'newVersion') await this.checkReplacement(upload);
+    const bytes = await this.deps.fileSize(upload.path);
+    if (bytes === 0) throw new Refusal(t('media.empty'));
+    const probe = await this.probe(upload.path);
+    if (this.cancelled.has(id)) throw new Cancelled();
+    const file = localVideoName(this.deps.newId(), upload.path);
+    this.set(id, { kind: 'processing' });
+    const fields = await this.videoFields(upload, JSON.stringify({ file, bytes }), probe);
+    await this.finish(this.find(id)!, fields);
+  }
+
   private async probe(path: string) {
     try {
       const probe = await this.deps.probeVideo(path);
@@ -402,6 +443,8 @@ export class MediaUploads {
   ): Promise<Partial<SongFields>> {
     const deck = DeckSchema.parse(JSON.parse(answer));
     await this.deps.fetchDeckImages(credentials, deck);
+    // Only once every image is here; a failure is left to the server's sweep.
+    await this.deps.confirmDeck(credentials, deck).catch(() => undefined);
     return { lyrics: deckLyrics(deck), deck, video: null };
   }
 
@@ -481,6 +524,16 @@ export class MediaUploads {
       }
     }
   }
+}
+
+/**
+ * The name a video kept on this computer gets, as a server would name it, so playback and
+ * the video cache find it the same way: `video-<uuid>.<ext>`, lower case.
+ */
+export function localVideoName(id: string, path: string): string {
+  const name = baseName(path);
+  const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+  return `video-${id.toLowerCase()}.${extension}`;
 }
 
 /** A failure with the message to show as it is. */

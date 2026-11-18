@@ -73,9 +73,62 @@ export function RemoteApp() {
       return <Message title={t('connect.notFoundTitle')}>{t('connect.notFound')}</Message>;
     case 'update-needed':
       return <Message title={t('connect.updateTitle')}>{t('connect.update')}</Message>;
+    case 'full':
+      return (
+        <Message title={t('connect.fullTitle')}>
+          <p>{t('connect.full', { limit: state.limit })}</p>
+        </Message>
+      );
     case 'live':
       return <Live view={state.view} />;
   }
+}
+
+/**
+ * A slide's small image sent by the desktop (public server S7): asked for only once it is
+ * on screen, holding its space meanwhile; the slide's text when the desktop has none.
+ */
+function HostThumbnail(props: { name: string; alt: string; fallback: string[] }) {
+  const holder = useRef<HTMLDivElement>(null);
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    const element = holder.current;
+    if (!element) return;
+    let cancelled = false;
+    const ask = () =>
+      void connection.thumbnail(props.name).then((answer) => {
+        if (!cancelled) setUrl(answer);
+      });
+    if (typeof IntersectionObserver === 'undefined') {
+      ask();
+      return () => void (cancelled = true);
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        ask();
+      }
+    });
+    observer.observe(element);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [props.name]);
+  if (url === null) {
+    return (
+      <div className="px-2 py-1">
+        {props.fallback.map((line, index) => (
+          <div key={index}>{line}</div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div ref={holder} className="block aspect-video w-full rounded">
+      {url && <img src={url} alt={props.alt} className="h-full w-full rounded object-contain" />}
+    </div>
+  );
 }
 
 function Message(props: { title: string; children?: ReactNode }) {
@@ -288,7 +341,13 @@ function Live({ view }: { view: RemoteView | null }) {
                                   {t('live.lastShown')}
                                 </span>
                               )}
-                              {piece.thumbnail ? (
+                              {piece.thumbnail && view?.thumbnailVia === 'host' ? (
+                                <HostThumbnail
+                                  name={piece.thumbnail}
+                                  alt={piece.lines.join(' ')}
+                                  fallback={piece.lines}
+                                />
+                              ) : piece.thumbnail ? (
                                 <img
                                   src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
                                   alt={piece.lines.join(' ')}

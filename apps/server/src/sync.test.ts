@@ -104,7 +104,13 @@ const noFiles: FileTransfer = {
   missing: async () => [],
 };
 
-async function device(name: string, clock: Clock, instance: Instance, protocol = 3) {
+async function device(
+  name: string,
+  clock: Clock,
+  instance: Instance,
+  protocol = 3,
+  files: FileTransfer = noFiles,
+) {
   const driver = openNodeDriver();
   await migrate(driver);
   let counter = 0;
@@ -114,7 +120,7 @@ async function device(name: string, clock: Clock, instance: Instance, protocol =
   const syncStore = new SyncStore(store);
   let token: string | null = null;
   const api = directApi(instance, () => token, protocol);
-  const client = new SyncClient(session, syncStore, api, noFiles, clock.now);
+  const client = new SyncClient(session, syncStore, api, files, clock.now);
   return {
     session,
     store,
@@ -1258,5 +1264,57 @@ describe('Church Library files', () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('joining with media made without a church server (public server M8)', () => {
+  it('sends the slides, small copies and videos songs name on the first push only', async () => {
+    const { clock, instance, code } = await setup();
+    const sent: string[][] = [];
+    const branch = await device('branch', clock, instance, 3, {
+      ...noFiles,
+      uploadMedia: async (names) => void sent.push(names),
+    });
+    const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    await branch.session.createSong({
+      title: 'Talk',
+      lyrics: 'Hi',
+      deck: {
+        source: 'Talk.pptx',
+        width: 1440,
+        height: 1080,
+        pages: [
+          {
+            image: `deck-${id}-001.jpg`,
+            thumbnail: `deck-${id}-001-t.jpg`,
+            slide: 1,
+            step: 0,
+            text: ['Hi'],
+          },
+        ],
+      },
+    });
+    await branch.session.createSong({
+      title: 'Welcome',
+      lyrics: '',
+      video: {
+        file: `video-${id}.mov`,
+        source: 'Welcome.mov',
+        width: 1920,
+        height: 1080,
+        durationSeconds: 10,
+        bytes: 100,
+        autoplay: false,
+      },
+    });
+    await branch.connect(code, 'upload');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.sort()).toEqual(
+      [`deck-${id}-001-t.jpg`, `deck-${id}-001.jpg`, `video-${id}.mov`].sort(),
+    );
+    clock.advance();
+    await branch.session.createSong({ title: 'Later', lyrics: 'x' });
+    await branch.client.run();
+    expect(sent).toHaveLength(1);
   });
 });

@@ -378,6 +378,9 @@ function AddMedia(props: { onRefused(message: string | null): void }) {
       {(blocked || older) && (
         <p className="text-xs text-slate-500">{blocked ?? t('media.needsServerUpdate')}</p>
       )}
+      {!blocked && !cloud.connected && (
+        <p className="text-xs text-slate-500">{t('media.oneComputer')}</p>
+      )}
     </div>
   );
 }

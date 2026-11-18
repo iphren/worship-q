@@ -101,7 +101,7 @@ export const remote: Record<keyof typeof en, string> = {
   'listen.connecting': '正在連線…',
   'listen.playing': '正在播放',
   'listen.waiting': '已連線，正在等待音訊輸入',
-  'listen.full': '收聽人數已達上限（10 人）',
+  'listen.full': '收聽人數已滿：暫時無法再加入',
   'listen.unreachableRelay': '無法連線。已嘗試教會的中繼；區域網路可能阻止了它。',
   'listen.unreachable': '目前的網路無法直接連線，且教會伺服器未提供轉接服務。',
   'listen.delay': '{ms} 毫秒',
@@ -132,4 +132,9 @@ export const remote: Record<keyof typeof en, string> = {
   'bible.loadingPassage': '正在載入經文…',
   'bible.add': '加入流程表',
   'bible.present': '投影',
+
+  // The public server and old videos (public server plan, U30).
+  'connect.fullTitle': '手機數量已滿',
+  'connect.full':
+    '這個投影使用 Worship Q 公共伺服器，同時最多只能連線 {limit} 支手機。有手機離開後，此頁面會自動連線。',
 };

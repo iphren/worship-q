@@ -106,6 +106,8 @@ export interface AudioPhones {
 }
 
 export interface AudioShareDeps {
+  /** The most listeners at once the server allows, when it sets one (public server S3). */
+  listenerLimit?: () => number | null;
   deviceId: () => string;
   deviceName: () => string;
   /** The input chosen in Settings; null for the system default. */
@@ -264,6 +266,7 @@ export class AudioShare {
         iceServers: this.deps.iceServers,
         send: (route, signal) => this.fromBroadcaster(route, signal),
         onCount: (count) => this.countChanged(count),
+        limit: () => this.deps.listenerLimit?.() ?? Number.POSITIVE_INFINITY,
         clock: { now: this.now, setTimeout: this.later, clearTimeout: this.cancel },
       });
       void this.broadcaster.setTrack(this.input.track);

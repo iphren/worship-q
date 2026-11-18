@@ -123,7 +123,8 @@ export function useMediaBlocked(): string | null {
   const { cloud } = useApp();
   const status = useCloud();
   const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
-  if (!connected) return t('media.needsServer');
+  // Without a church server, videos stay here and decks go to the public server (P3, P4).
+  if (!connected && !cloud.usesPublicServer) return t('media.needsServer');
   const offer = cloud.mediaOffer();
   if (!offer) return t('media.needsServer');
   if (!offer.decks && !offer.images && !offer.videos) return t('media.decksUnavailable');

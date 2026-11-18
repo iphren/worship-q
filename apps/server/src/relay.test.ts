@@ -1421,3 +1421,31 @@ describe('the public server’s caps (public server S3)', () => {
     expect(phones[0]!.socket.last()).not.toMatchObject({ signal: { kind: 'full' } });
   });
 });
+
+describe('slide thumbnails through the relay (public server S7)', () => {
+  it('carries a phone’s ask to the desktop and its answer back', async () => {
+    const { host, desktop, phone } = await setup();
+    desktop('Laptop');
+    host.setThumbnails({ read: async () => null });
+    const remote = phone({ invite: host.invite() });
+    await settle();
+    await host.approve(host.pending[0]!.connection);
+    await settle();
+    const name = 'deck-0f8fad5b-d9cb-469f-a165-70867728950e-001-t.jpg';
+    remote.say({ type: 'thumbnail', name });
+    await settle();
+    expect(remote.socket.last()).toEqual({ type: 'thumbnail', name, missing: true });
+  });
+
+  it('drops an ask for anything but a thumbnail’s name', async () => {
+    const { host, desktop, phone } = await setup();
+    const laptop = desktop('Laptop');
+    host.setThumbnails({ read: async () => 'x' });
+    const remote = phone({ invite: host.invite() });
+    await settle();
+    const before = laptop.socket.received.length;
+    remote.say({ type: 'thumbnail', name: '../../instance.db' });
+    await settle();
+    expect(laptop.socket.received).toHaveLength(before);
+  });
+});

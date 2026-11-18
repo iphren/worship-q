@@ -57,6 +57,11 @@ export interface BroadcasterDeps<R, T> {
   iceServers(): Promise<IceServer[]>;
   /** The number of listeners changed. */
   onCount?(count: number): void;
+  /**
+   * The most listeners at once, when the server allows fewer than ten: two on the public
+   * server (S3). Asked at each new listener, so a changed limit applies to the next.
+   */
+  limit?(): number;
   clock?: Clock;
 }
 
@@ -186,7 +191,7 @@ export class Broadcaster<R, T> {
     const others = new Set(
       [...this.sessions.values()].map((each) => each.key).filter((each) => each !== key),
     );
-    if (others.size >= AUDIO_LISTENER_LIMIT) {
+    if (others.size >= this.limit()) {
       this.deps.send(route, { kind: 'full', session: id });
       return;
     }
@@ -305,9 +310,14 @@ export class Broadcaster<R, T> {
     newest.oldTimer = null;
   }
 
+  /** Ten, or the server's limit when lower. */
+  private limit(): number {
+    return Math.min(AUDIO_LISTENER_LIMIT, this.deps.limit?.() ?? AUDIO_LISTENER_LIMIT);
+  }
+
   private recount(): void {
     const count = Math.min(
-      AUDIO_LISTENER_LIMIT,
+      this.limit(),
       new Set([...this.sessions.values()].map((each) => each.key)).size,
     );
     if (count === this.count_) return;

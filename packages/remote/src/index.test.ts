@@ -764,3 +764,81 @@ describe('live audio for phones (M4.1, M4.2)', () => {
     }
   });
 });
+
+describe('slide thumbnails from this desktop (public server S7)', () => {
+  const ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const thumb = `deck-${ID}-001-t.jpg`;
+
+  async function deckLive() {
+    const deck = await session.createSong({
+      title: 'Talk',
+      lyrics: 'Hello',
+      deck: {
+        source: 'Talk.pptx',
+        width: 1440,
+        height: 1080,
+        pages: [
+          { image: `deck-${ID}-001.jpg`, thumbnail: thumb, slide: 1, step: 0, text: ['Hello'] },
+        ],
+      },
+    });
+    await session.addSong(session.today(), deck.id);
+    await session.goLive(session.today());
+  }
+
+  it('marks the view, and answers a thumbnail of the live run sheet with its bytes', async () => {
+    const read: string[] = [];
+    host.setThumbnails({ read: async (name) => (read.push(name), 'aGVsbG8=') });
+    await deckLive();
+    await approved('p1');
+    const view = sent.filter((e) => e.message.type === 'view').at(-1)?.message;
+    expect(view).toMatchObject({ view: { thumbnailVia: 'host' } });
+    await host.message('p1', { type: 'thumbnail', name: thumb });
+    expect(lastTo('p1')).toEqual({ type: 'thumbnail', name: thumb, data: 'aGVsbG8=' });
+    expect(read).toEqual([thumb]);
+  });
+
+  it('answers missing for a slide not in the live run sheet, never reading it', async () => {
+    const read: string[] = [];
+    host.setThumbnails({ read: async (name) => (read.push(name), 'x') });
+    await deckLive();
+    await approved('p1');
+    const other = `deck-${ID.replace('0f', '1f')}-001-t.jpg`;
+    await host.message('p1', { type: 'thumbnail', name: other });
+    expect(lastTo('p1')).toEqual({ type: 'thumbnail', name: other, missing: true });
+    expect(read).toEqual([]);
+  });
+
+  it('ignores a name that is not a thumbnail’s, as the phone’s messages are checked', async () => {
+    host.setThumbnails({ read: async () => 'x' });
+    await deckLive();
+    await approved('p1');
+    const before = sent.length;
+    await host.message('p1', { type: 'thumbnail', name: '../instance.db' });
+    expect(sent).toHaveLength(before);
+  });
+
+  it('answers missing when this computer lacks the file', async () => {
+    host.setThumbnails({ read: async () => null });
+    await deckLive();
+    await approved('p1');
+    await host.message('p1', { type: 'thumbnail', name: thumb });
+    expect(lastTo('p1')).toEqual({ type: 'thumbnail', name: thumb, missing: true });
+  });
+
+  it('answers a phone without approval nothing', async () => {
+    host.setThumbnails({ read: async () => 'x' });
+    await deckLive();
+    await host.message('p9', { type: 'thumbnail', name: thumb });
+    expect(sent.filter((e) => e.to === 'p9')).toEqual([]);
+  });
+
+  it('leaves the view unmarked on a church server, whose phones fetch over HTTP', async () => {
+    await deckLive();
+    await approved('p1');
+    const view = sent.filter((e) => e.message.type === 'view').at(-1)?.message as {
+      view: { thumbnailVia?: string };
+    };
+    expect(view.view.thumbnailVia).toBeUndefined();
+  });
+});

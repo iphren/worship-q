@@ -22,6 +22,7 @@ import {
   RemoteRequestsBanner,
 } from './components/RemoteControl';
 import { UpdateBanner } from './components/UpdateBanner';
+import { VideoCleanupBanner } from './components/VideoCleanup';
 import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
 import { formatDateWithYear, t, type MessageKey } from '@worship-q/i18n/desktop';
 import { CalendarPage } from './pages/CalendarPage';
@@ -110,6 +111,7 @@ function Shell({ booted }: { booted: Booted }) {
           <RemoteRequestsBanner />
           <RemoteEditsBanner />
           <UpdateBanner />
+          <VideoCleanupBanner />
           <div className="min-h-0 flex-1">
             {page === 'songs' && <SongsPage />}
             {page === 'calendar' && <CalendarPage />}

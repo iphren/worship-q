@@ -560,3 +560,58 @@ describe('the Bible on a public server (M2.9, M5.2)', () => {
     expect(refused.headers['retry-after']).toBeTruthy();
   });
 });
+
+describe('joining a church with media made on the public server (M8)', () => {
+  const ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
+
+  async function church(limits?: { image?: number; video?: number }) {
+    const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-join-'));
+    const instance = new Instance(openDatabase(':memory:'));
+    const { workspace, code } = instance.createWorkspace('North Branch');
+    const { token } = instance.enroll(code, 'Desktop')!;
+    const { app } = await buildServer({
+      instance,
+      dataDir,
+      name: 'Church',
+      sweep: false,
+      mediaLimits: limits,
+    });
+    closers.push(() => app.close());
+    const put = (name: string, payload: Buffer) =>
+      app.inject({
+        method: 'PUT',
+        url: `/api/v1/files/${name}`,
+        headers: {
+          authorization: `Bearer ${token}`,
+          [PROTOCOL_HEADER]: String(PROTOCOL_VERSION),
+          'content-type': 'application/octet-stream',
+        },
+        payload,
+      });
+    return { app, put, dir: join_(dataDir, workspace.id) };
+  }
+
+  it('keeps a slide image, and makes its small copy when it came without', async () => {
+    const { default: sharp } = await import('sharp');
+    const jpeg = await sharp({
+      create: { width: 1920, height: 1080, channels: 3, background: '#336699' },
+    })
+      .jpeg()
+      .toBuffer();
+    const { put, dir } = await church();
+    expect((await put(`deck-${ID}-001.jpg`, jpeg)).statusCode).toBe(200);
+    expect(readdirSync(dir).sort()).toEqual([`deck-${ID}-001-t.jpg`, `deck-${ID}-001.jpg`]);
+  });
+
+  it('keeps a video copy of any accepted kind, within the video limit', async () => {
+    const { put, dir } = await church({ video: 10 });
+    expect((await put(`video-${ID}.mov`, Buffer.from('tiny'))).statusCode).toBe(200);
+    expect(readdirSync(dir)).toEqual([`video-${ID}.mov`]);
+    expect((await put(`video-${ID}.mp4`, Buffer.alloc(11))).statusCode).toBe(413);
+  });
+
+  it('refuses a name that is no file of a workspace', async () => {
+    const { put } = await church();
+    expect((await put('deck-original.exe', Buffer.from('x'))).statusCode).toBe(400);
+  });
+});

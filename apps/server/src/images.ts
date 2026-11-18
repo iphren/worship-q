@@ -64,3 +64,14 @@ export async function convertImage(source: string, outDir: string): Promise<Conv
     pages: [{ image: '001.jpg', thumbnail: 't-001.jpg', slide: 1, step: 0, text: [] }],
   };
 }
+
+/**
+ * Makes a slide image's small copy for phones, as conversion does, beside it (public server
+ * M8.3): a deck sent by a computer that made it on the public server may arrive without.
+ */
+export async function makeThumbnail(image: string, thumbnail: string): Promise<void> {
+  await sharp(image)
+    .resize({ width: 320, height: 240, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toFile(thumbnail);
+}

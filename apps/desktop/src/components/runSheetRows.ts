@@ -54,7 +54,13 @@ export interface ItemAction {
 export interface ItemActionState {
   /** The run sheet can be edited here: not a past date, not read-only. */
   editable: boolean;
+  /** Joined to a church server. */
   connected: boolean;
+  /**
+   * No church server: videos stay on this computer and decks go to the public server, which
+   * keeps no originals (public server plan §5). False in viewer mode, which uses neither.
+   */
+  churchless?: boolean;
   /** This computer has the video's own copy. */
   localVideo: boolean;
   /** The workspace may change the item's file (not a church item it only uses). */
@@ -81,11 +87,12 @@ export function itemActions(
   const actions: ItemAction[] = [];
   const download: ItemAction = {
     action: 'download',
-    disabled: state.notKept
-      ? state.messages.notKept
-      : state.connected || (song.video && state.localVideo)
-        ? null
-        : state.messages.needsServer,
+    disabled:
+      state.notKept || (state.churchless && !song.video)
+        ? state.messages.notKept
+        : state.connected || (song.video && state.localVideo)
+          ? null
+          : state.messages.needsServer,
   };
   if (!state.editable) return media ? [download] : [];
   if (!song.removedAt) actions.push({ action: 'edit', disabled: null });
@@ -96,12 +103,17 @@ export function itemActions(
   if (media) {
     actions.push(download);
     if (!song.removedAt && state.canReplace) {
-      const offline = state.connected ? null : state.messages.needsServer;
+      const offline = state.connected || state.churchless ? null : state.messages.needsServer;
       actions.push({ action: 'replace', disabled: offline });
       if (kind === 'slides' || kind === 'pdf') {
         actions.push({
           action: 'reconvert',
-          disabled: state.reconverting ? state.messages.reconverting : offline,
+          // Reconverting needs the original, which only a church server keeps.
+          disabled: state.reconverting
+            ? state.messages.reconverting
+            : state.churchless
+              ? state.messages.notKept
+              : offline,
         });
       }
     }

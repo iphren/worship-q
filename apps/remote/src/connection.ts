@@ -34,7 +34,9 @@ export type RemoteState =
   | { kind: 'offline' }
   | { kind: 'denied'; reason: 'denied' | 'invalid-invite' | 'revoked' | 'no-invite' }
   | { kind: 'no-workspace' }
-  | { kind: 'update-needed' };
+  | { kind: 'update-needed' }
+  /** The public server's workspace has as many phones as it allows (S3); tried again. */
+  | { kind: 'full'; limit: number };
 
 type BibleAnswer = Extract<
   HostToRemote,
@@ -42,6 +44,8 @@ type BibleAnswer = Extract<
 >;
 
 const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
+/** Thumbnails asked of the desktop at once (S8). */
+const THUMBNAILS_IN_FLIGHT = 4;
 /** The relay is pinged this often; a ping left unanswered means the connection is gone. */
 const PING_MS = 15_000;
 
@@ -92,6 +96,12 @@ export class RemoteConnection {
   private readonly rejoinListeners = new Set<() => void>();
   /** A desktop has let this phone in at least once since the page loaded. */
   private joined = false;
+  /** Thumbnails the desktop sent, as object URLs, kept for the page's life (S8). */
+  private readonly thumbnails = new Map<string, string>();
+  /** Thumbnails asked for, waiting their turn or their answer. */
+  private readonly thumbnailWaits = new Map<string, ((url: string | null) => void)[]>();
+  private readonly thumbnailQueue: string[] = [];
+  private readonly thumbnailsInFlight = new Set<string>();
 
   constructor(location: Location) {
     const query = new URLSearchParams(location.search);
@@ -249,6 +259,7 @@ export class RemoteConnection {
           this.attempt = 0;
           return;
         }
+        if (message.reason === 'full') return this.set({ kind: 'full', limit: message.limit });
         return this.set(
           message.reason === 'no-workspace' ? { kind: 'no-workspace' } : { kind: 'offline' },
         );
@@ -268,6 +279,7 @@ export class RemoteConnection {
         });
         if (this.joined) for (const listener of [...this.rejoinListeners]) listener();
         this.joined = true;
+        this.resumeThumbnails();
         return;
       case 'denied':
         if (message.reason === 'revoked') storage(this.grantKey, null);
@@ -304,10 +316,58 @@ export class RemoteConnection {
       case 'audioSignal':
         for (const listener of [...this.audioListeners]) listener(message.signal);
         return;
+      case 'thumbnail':
+        return this.thumbnailArrived(message.name, message.data ?? null);
       case 'ack':
       case 'pong':
         return;
     }
+  }
+
+  /**
+   * A slide's small image from the desktop (public server S7, S8), as an object URL; null
+   * when the desktop has none. Asked once per page load, a few at a time; asked again only
+   * when the connection was lost before the answer came.
+   */
+  thumbnail(name: string): Promise<string | null> {
+    const kept = this.thumbnails.get(name);
+    if (kept) return Promise.resolve(kept);
+    return new Promise((resolve) => {
+      const waits = this.thumbnailWaits.get(name);
+      if (waits) return void waits.push(resolve);
+      this.thumbnailWaits.set(name, [resolve]);
+      this.thumbnailQueue.push(name);
+      this.askThumbnails();
+    });
+  }
+
+  private askThumbnails(): void {
+    if (this.socket?.readyState !== WebSocket.OPEN || this.state_.kind !== 'live') return;
+    while (this.thumbnailsInFlight.size < THUMBNAILS_IN_FLIGHT && this.thumbnailQueue.length) {
+      const name = this.thumbnailQueue.shift()!;
+      this.thumbnailsInFlight.add(name);
+      this.socket.send(JSON.stringify({ type: 'thumbnail', name }));
+    }
+  }
+
+  private thumbnailArrived(name: string, data: string | null): void {
+    this.thumbnailsInFlight.delete(name);
+    let url: string | null = null;
+    if (data) {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+      this.thumbnails.set(name, url);
+    }
+    for (const resolve of this.thumbnailWaits.get(name) ?? []) resolve(url);
+    this.thumbnailWaits.delete(name);
+    this.askThumbnails();
+  }
+
+  /** Asks again for thumbnails whose answer the lost connection took with it. */
+  private resumeThumbnails(): void {
+    this.thumbnailQueue.unshift(...this.thumbnailsInFlight);
+    this.thumbnailsInFlight.clear();
+    this.askThumbnails();
   }
 
   /** Live audio signals from the broadcaster, through the desktop this phone uses. */

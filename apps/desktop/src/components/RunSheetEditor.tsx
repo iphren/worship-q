@@ -227,12 +227,18 @@ export function RunSheetEditor(props: {
   const { cloud } = useApp();
   const status = useCloud();
   const connected = !!status.state?.deviceToken && !!status.state.joinedAt;
-  // The Bible needs the church server, which offers it (B17); the button says why not.
-  const bibleUnavailable = !connected
-    ? t('bible.needsChurch')
-    : status.server?.bible
-      ? null
-      : t('bible.notOfferedAny');
+  // The Bible needs a server that offers it (B17): the church's, or without one the public
+  // server, joined when the window first asks (public server P2). The button says why not.
+  const bibleUnavailable =
+    !connected && cloud.usesPublicServer
+      ? status.server && !status.server.bible
+        ? t('bible.notOfferedAny')
+        : null
+      : !connected
+        ? t('bible.needsChurch')
+        : status.server?.bible
+          ? null
+          : t('bible.notOfferedAny');
   const [bible, setBible] = useState<{ initial: Reference | null } | null>(null);
   // A reference typed into the song search, found on this computer alone (B9).
   const searchReference = useMemo(() => songSearchReference(search), [search]);
@@ -367,13 +373,15 @@ export function RunSheetEditor(props: {
       edit: `${t('runSheet.edit')}…`,
       autoplay: t('media.autoplay'),
       download: t('media.downloadOriginal'),
-      replace: `${t('media.uploadNewVersion')}…`,
+      // A video without a church server is replaced from a file here, never uploaded.
+      replace: `${t(song.video && !connected ? 'media.useNewVersion' : 'media.uploadNewVersion')}…`,
       reconvert: t('media.reconvert'),
       remove: t('common.remove'),
     };
     return itemActions(song, {
       editable,
       connected,
+      churchless: !connected && !session.isViewer,
       localVideo: !!song.video && !!localVideos?.has(song.video.file),
       canReplace: canReplace(session, song),
       notKept: originalNotKept(song.id),

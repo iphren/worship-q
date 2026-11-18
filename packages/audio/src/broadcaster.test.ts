@@ -19,7 +19,7 @@ interface FakePeer extends BroadcastPeer<string> {
   closed: boolean;
 }
 
-function setup(options: { iceServers?: IceServer[] } = {}) {
+function setup(options: { iceServers?: IceServer[]; limit?: () => number } = {}) {
   const clock = new FakeClock();
   const peers: FakePeer[] = [];
   const sent: { route: string; signal: AudioSignal }[] = [];
@@ -30,6 +30,7 @@ function setup(options: { iceServers?: IceServer[] } = {}) {
     iceServers: async () => servers,
     send: (route, signal) => sent.push({ route, signal }),
     onCount: (count) => counts.push(count),
+    ...(options.limit ? { limit: options.limit } : {}),
     createPeer: ({ track, iceServers, events }) => {
       const peer: FakePeer = {
         events,
@@ -409,5 +410,37 @@ describe('ICE servers (M4.3, M5.2)', () => {
     broadcaster.signal('B', desktop('B'), { kind: 'answer', session: 's1', sdp: 'second' });
     await settle();
     expect(peers[0]!.answers).toEqual(['first', 'second']);
+  });
+});
+
+describe('the public server’s limit of listeners (S3, M5.4)', () => {
+  it('refuses a third listener when the server allows two', async () => {
+    const { broadcaster, sent } = setup({ limit: () => 2 });
+    broadcaster.signal('P1', phone('p1'), listen('s1'));
+    broadcaster.signal('P2', phone('p2'), listen('s2'));
+    broadcaster.signal('P3', phone('p3'), listen('s3'));
+    await settle();
+    expect(sent.filter((each) => each.route === 'P3')).toEqual([
+      { route: 'P3', signal: { kind: 'full', session: 's3' } },
+    ]);
+    expect(broadcaster.count).toBe(2);
+  });
+
+  it('never allows more than ten, whatever the server says', async () => {
+    const { broadcaster, sent } = setup({ limit: () => 50 });
+    for (let i = 0; i < 11; i++) broadcaster.signal(`D${i}`, desktop(`d${i}`), listen(`s${i}`));
+    await settle();
+    expect(sent.filter((each) => each.route === 'D10')).toEqual([
+      { route: 'D10', signal: { kind: 'full', session: 's10' } },
+    ]);
+  });
+
+  it('lets a listener connect afresh without counting it twice (A20)', async () => {
+    const { broadcaster, sent } = setup({ limit: () => 2 });
+    broadcaster.signal('P1', phone('p1'), listen('s1'));
+    broadcaster.signal('P2', phone('p2'), listen('s2'));
+    broadcaster.signal('P1', phone('p1'), listen('s1b'));
+    await settle();
+    expect(kinds(sent.filter((each) => each.route === 'P1'))).not.toContain('full');
   });
 });

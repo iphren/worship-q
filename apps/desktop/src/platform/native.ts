@@ -45,6 +45,9 @@ export const native = {
     return path ? convertFileSrc(path) : null;
   },
   exportBackup: (destination: string) => invoke<void>('export_backup', { destination }),
+  /** Sends this computer's copy of a video to the church server (public server M8). */
+  uploadVideoCopy: (server: string, token: string, fileName: string) =>
+    invoke<void>('upload_video_copy', { server, token, fileName }),
   uploadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
@@ -74,10 +77,20 @@ export const native = {
     source: string,
     name: string,
     onProgress: (sent: number, total: number) => void,
+    /** This copy of the app, for the public server's limits; never sent to a church's. */
+    install: string | null = null,
   ): Promise<string> => {
     const stop = await onTransfer(uploadId, onProgress);
     try {
-      return await invoke<string>('upload_media', { server, token, uploadId, route, source, name });
+      return await invoke<string>('upload_media', {
+        server,
+        token,
+        uploadId,
+        route,
+        source,
+        name,
+        install,
+      });
     } catch (error) {
       throw new Error(String(error), { cause: error });
     } finally {
@@ -117,6 +130,8 @@ export const native = {
   },
   listVideos: () => invoke<string[]>('list_videos'),
   removeVideo: (file: string) => invoke<void>('remove_video', { file }),
+  /** Plays this computer's copy of a video in the system's player (U30). */
+  openVideo: (file: string) => invoke<void>('open_video', { file }),
   copyFile: (source: string, destination: string) =>
     invoke<void>('copy_file', { source, destination }),
   /** A JPEG made from a HEIC photo, on macOS; fails with `unreadable` or `unsupported`. */

@@ -761,6 +761,29 @@ describe('media items (media uploads plan)', () => {
     ]);
   });
 
+  it('lists every video file songs name, with its run sheet dates and whether removed (U29)', async () => {
+    const other = { ...video, file: 'video-1f8fad5b-d9cb-469f-a165-70867728950e.mp4' };
+    const third = { ...video, file: 'video-2f8fad5b-d9cb-469f-a165-70867728950e.mp4' };
+    const song = await store.createSong(workspaceId, { title: 'Welcome', video });
+    const outro = await store.createSong(workspaceId, { title: 'Outro', video: other });
+    await store.createSong(workspaceId, { title: 'Library only', video: third });
+    await store.createSong(workspaceId, { title: 'Hymn' });
+    for (const [date, ids] of [
+      ['2026-11-15', [song.id, outro.id]],
+      ['2026-11-01', [song.id]],
+    ] as const) {
+      const sheet = await store.ensureRunSheet(workspaceId, date);
+      for (const id of ids) await store.addItem(sheet.id, id);
+    }
+    await store.removeSong(outro.id);
+    const uses = await store.videoUses(workspaceId);
+    expect(uses.sort((a, b) => a.title.localeCompare(b.title))).toEqual([
+      { file: third.file, title: 'Library only', removed: false, dates: [] },
+      { file: other.file, title: 'Outro', removed: true, dates: ['2026-11-15'] },
+      { file: video.file, title: 'Welcome', removed: false, dates: ['2026-11-01', '2026-11-15'] },
+    ]);
+  });
+
   it('applies a remote image deck and asks for its image', async () => {
     const deck = {
       source: 'Photo.jpg',

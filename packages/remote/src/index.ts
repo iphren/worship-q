@@ -264,6 +264,14 @@ export interface RemoteWebsites {
   title(url: string): Promise<string | null>;
 }
 
+/**
+ * Slide thumbnails sent from this desktop (public server S7), for a server that keeps no
+ * files. `read` gives a thumbnail's bytes as base64, or null when this computer lacks it.
+ */
+export interface RemoteThumbnails {
+  read(name: string): Promise<string | null>;
+}
+
 /** How long a phone's website waits for its page's title before it is named by its host. */
 const WEBSITE_TITLE_MS = 3000;
 
@@ -287,6 +295,7 @@ export class RemoteHost {
   private readonly audioGrace = new Map<string, ReturnType<typeof setTimeout>>();
   private bible: RemoteBible | null = null;
   private websites: RemoteWebsites | null = null;
+  private thumbnails: RemoteThumbnails | null = null;
   /** Phones showing the live monitor, by connection. */
   private readonly obsWatchers = new Set<string>();
 
@@ -307,6 +316,32 @@ export class RemoteHost {
   setWebsites(websites: RemoteWebsites | null): void {
     this.websites = websites;
     this.scheduleView();
+  }
+
+  /**
+   * Sends phones slide thumbnails from this desktop rather than the server (S7); null when the
+   * server serves them, as a church server does.
+   */
+  setThumbnails(thumbnails: RemoteThumbnails | null): void {
+    if (this.thumbnails === thumbnails) return;
+    this.thumbnails = thumbnails;
+    this.scheduleView();
+  }
+
+  /**
+   * Answers a phone's thumbnail: only one of a slide in the live run sheet, so a phone can
+   * read nothing else on this computer; `missing` otherwise.
+   */
+  private async answerThumbnail(from: string, name: string): Promise<void> {
+    const link = this.link!;
+    const missing = () => link.send(from, { type: 'thumbnail', name, missing: true });
+    if (!this.thumbnails || !this.session.isLive) return missing();
+    const items = await this.session.snapshotItems();
+    const shown = items.some((item) => item.pieces.some((piece) => piece.thumbnail === name));
+    if (!shown) return missing();
+    const data = await this.thumbnails.read(name).catch(() => null);
+    if (!data) return missing();
+    link.send(from, { type: 'thumbnail', name, data });
   }
 
   /** A phone's website with its page's title, read here as the phone cannot. */
@@ -671,6 +706,7 @@ export class RemoteHost {
       return link.send(from, { type: 'obsAck', id: message.id, ...result });
     }
     if (message.type === 'obsWatch') return this.setObsWatching(from, message.watching);
+    if (message.type === 'thumbnail') return this.answerThumbnail(from, message.name);
     if (message.type === 'audioSignal') {
       return this.audio?.signal(
         { grantId: controller.grantId, name: controller.name },
@@ -848,6 +884,7 @@ export class RemoteHost {
       obs: this.obs?.view() ?? null,
       ...(this.audio ? { audio: this.audio.view() } : {}),
       websites: this.websites?.available() ?? false,
+      ...(this.thumbnails ? { thumbnailVia: 'host' as const } : {}),
     };
   }
 
