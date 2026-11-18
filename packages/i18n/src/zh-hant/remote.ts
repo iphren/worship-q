@@ -40,7 +40,7 @@ export const remote: Record<keyof typeof en, string> = {
   'live.nothing': '螢幕上沒有內容',
   'controls.previous': '上一張',
   'controls.next': '下一張',
-  'controls.show': '顯示',
+  'controls.show': '顯示內容',
   'controls.blank': '隱藏內容',
   'controls.blankBadge': '已隱藏',
   'controls.clear': '清除畫面',

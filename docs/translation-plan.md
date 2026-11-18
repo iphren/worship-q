@@ -129,7 +129,7 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Present (the page and the verb) | 投影控制 / 投影 | 投影控制 / 投影 | 页面名称 / 显示内容的按钮 |
 | Live (a run sheet) / Go live | 进行中 / 启用 | 進行中 / 啟用 | “Go live with {date}”: 启用{date}的流程表 / 啟用{date}的流程表；不会立即切换投影内容 |
 | Live (OBS, audio) | 直播中 | 直播中 | |
-| Blank / Show lyrics | 隐藏文字 / 显示文字 | 隱藏文字 / 顯示文字 | Blank keeps the background, so not 黑屏; the phone remote's button says 隐藏内容 / 隱藏內容 |
+| Blank / Unblank | 隐藏内容 / 显示内容 | 隱藏內容 / 顯示內容 | 适用于歌词、经文等内容；隐藏后保留背景，不等于黑屏 |
 | Clear screen | 清屏 | 清除畫面 | |
 | Workspace | 工作区 | 工作區 | |
 | Church server | 教会服务器 | 教會伺服器 | |

@@ -44,7 +44,7 @@ export const remote: Record<keyof typeof en, string> = {
 
   'controls.previous': '上一张',
   'controls.next': '下一张',
-  'controls.show': '显示',
+  'controls.show': '显示内容',
   'controls.blank': '隐藏内容',
   'controls.blankBadge': '已隐藏',
   'controls.clear': '清屏',
