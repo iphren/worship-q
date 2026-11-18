@@ -811,6 +811,28 @@ export const desktop = {
   'bible.reference': 'Open {reference} in the Bible',
   'bible.itemVersions':
     'This passage keeps its own versions; changing them here changes only this item.',
+
+  'menu.about': 'About {app}',
+  'menu.services': 'Services',
+  'menu.hide': 'Hide {app}',
+  'menu.hideOthers': 'Hide Others',
+  'menu.showAll': 'Show All',
+  'menu.quit': 'Quit {app}',
+  'menu.file': 'File',
+  'menu.closeWindow': 'Close Window',
+  'menu.edit': 'Edit',
+  'menu.undo': 'Undo',
+  'menu.redo': 'Redo',
+  'menu.cut': 'Cut',
+  'menu.copy': 'Copy',
+  'menu.paste': 'Paste',
+  'menu.selectAll': 'Select All',
+  'menu.view': 'View',
+  'menu.fullScreen': 'Enter Full Screen',
+  'menu.window': 'Window',
+  'menu.minimize': 'Minimize',
+  'menu.zoom': 'Zoom',
+  'menu.help': 'Help',
 } as const;
 
 export type DesktopKey = keyof typeof desktop;

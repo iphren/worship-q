@@ -3,6 +3,7 @@ import { useLocale } from '@worship-q/i18n/desktop';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { startAppMenu } from './app/appMenu';
 import { startLanguage } from './app/language';
 import { OUTPUT_WINDOW } from './app/output';
 import { unlockAudioDeviceNames } from './components/AudioSettings';
@@ -13,7 +14,10 @@ startLanguage();
 
 // The same bundle serves both windows; the slideshow window only draws frames.
 const isOutput = getCurrentWebviewWindow().label === OUTPUT_WINDOW;
-if (!isOutput) void unlockAudioDeviceNames();
+if (!isOutput) {
+  void unlockAudioDeviceNames();
+  startAppMenu();
+}
 
 /**
  * Draws the window again in a newly chosen language. Rendering the root again renders every

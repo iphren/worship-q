@@ -1,0 +1,3 @@
+/* Shown when macOS asks for the microphone. Worship Q also declares each language here so
+   the system's own windows, such as the file chooser, use it. */
+"NSMicrophoneUsageDescription" = "Worship Q lists your audio devices so you can choose where video sound plays.";

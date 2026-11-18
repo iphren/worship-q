@@ -1,0 +1,2 @@
+/* Shown when macOS asks for the microphone. */
+"NSMicrophoneUsageDescription" = "Worship Q 会列出你的音频设备，让你选择视频声音从哪里播放。";

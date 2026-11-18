@@ -6,5 +6,13 @@
        the webview hides navigator.mediaDevices (media uploads spike, M0.3). -->
   <key>NSMicrophoneUsageDescription</key>
   <string>Worship Q lists your audio devices so you can choose where video sound plays.</string>
+  <!-- The languages of the interface, with a folder each in Resources (locales/), so macOS
+       shows its own windows, such as the file chooser, in the person's language. -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>zh-Hans</string>
+    <string>zh-Hant</string>
+  </array>
 </dict>
 </plist>
