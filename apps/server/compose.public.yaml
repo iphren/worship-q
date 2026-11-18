@@ -1,0 +1,83 @@
+# The Worship Q public server (public server plan): the church server in public mode.
+# docker compose -f apps/server/compose.public.yaml up -d --build   (run from the repository root)
+#
+# It needs a data folder of its own: it refuses to start on a church server's, and a church
+# server refuses to start on its (S11). It keeps nothing: files are deleted once fetched, or
+# after a day; idle workspaces after 90 days.
+services:
+  worship-q-public:
+    build:
+      context: ../..
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    environment:
+      WORSHIP_Q_PUBLIC: '1'
+      WORSHIP_Q_NAME: ${WORSHIP_Q_NAME:-Worship Q public server}
+      WORSHIP_Q_PUBLIC_URL: ${WORSHIP_Q_PUBLIC_URL:-https://public.worship-q.com}
+      # Limits (S3): phones and live audio listeners at once per workspace, slide decks and
+      # images per day per copy of the app, and the rest. Each a whole number of at least 1.
+      WORSHIP_Q_PUBLIC_PHONES: ${WORSHIP_Q_PUBLIC_PHONES:-2}
+      WORSHIP_Q_PUBLIC_LISTENERS: ${WORSHIP_Q_PUBLIC_LISTENERS:-2}
+      WORSHIP_Q_PUBLIC_MEDIA_PER_DAY: ${WORSHIP_Q_PUBLIC_MEDIA_PER_DAY:-100}
+      WORSHIP_Q_PUBLIC_JOINS_PER_HOUR: ${WORSHIP_Q_PUBLIC_JOINS_PER_HOUR:-5}
+      WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR: ${WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR:-600}
+      WORSHIP_Q_PUBLIC_IP_FACTOR: ${WORSHIP_Q_PUBLIC_IP_FACTOR:-5}
+      WORSHIP_Q_PUBLIC_IDLE_DAYS: ${WORSHIP_Q_PUBLIC_IDLE_DAYS:-90}
+      # Upload limits in MB; without them, 25 for an image and 100 for a deck. Videos are
+      # never taken. The reverse proxy's body limit must be at least the larger.
+      WORSHIP_Q_MAX_IMAGE_MB: ${WORSHIP_Q_MAX_IMAGE_MB:-}
+      WORSHIP_Q_MAX_DECK_MB: ${WORSHIP_Q_MAX_DECK_MB:-}
+      # Live audio: STUN, and the relay below with its shared secret.
+      WORSHIP_Q_STUN: ${WORSHIP_Q_STUN-stun:stun.l.google.com:19302}
+      WORSHIP_Q_TURN_URL: ${WORSHIP_Q_TURN_URL:-}
+      WORSHIP_Q_TURN_SECRET: ${WORSHIP_Q_TURN_SECRET:-}
+      # No local API: a public server has no run sheets or records to read.
+      WORSHIP_Q_LOCAL_PORT: ''
+    ports:
+      - '127.0.0.1:${WORSHIP_Q_PORT:-8090}:8080'
+    volumes:
+      - worship-q-public-data:/data
+
+  # The live audio relay for every public workspace (decided: from the start). A wide range
+  # of relay ports, since every relayed listener of every workspace uses one; the server
+  # lets two listen per workspace. The credentials' user names are expiry times, shared by
+  # all devices, so coturn's per-user quota would limit everyone together: the total quota
+  # and the bandwidth cap bound it instead.
+  coturn:
+    image: coturn/coturn:4.6.3
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - --listening-port=3478
+      - --listening-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
+      - --relay-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
+      - --external-ip=${WORSHIP_Q_TURN_EXTERNAL_IP:-}
+      - --min-port=${WORSHIP_Q_TURN_MIN_PORT:-49152}
+      - --max-port=${WORSHIP_Q_TURN_MAX_PORT:-65535}
+      - --total-quota=${WORSHIP_Q_TURN_TOTAL:-2000}
+      # 64 kbit/s Opus with room to spare, per allocation.
+      - --max-bps=${WORSHIP_Q_TURN_MAX_BPS:-200000}
+      - --use-auth-secret
+      - --static-auth-secret=${WORSHIP_Q_TURN_SECRET:-}
+      - --realm=${WORSHIP_Q_TURN_REALM:-worship-q-public}
+      - --fingerprint
+      - --no-tcp
+      - --no-tls
+      - --no-tcp-relay
+      - --no-cli
+      - --no-multicast-peers
+      - --denied-peer-ip=0.0.0.0-0.255.255.255
+      - --denied-peer-ip=10.0.0.0-10.255.255.255
+      - --denied-peer-ip=100.64.0.0-100.127.255.255
+      - --denied-peer-ip=127.0.0.0-127.255.255.255
+      - --denied-peer-ip=169.254.0.0-169.254.255.255
+      - --denied-peer-ip=172.16.0.0-172.31.255.255
+      - --denied-peer-ip=192.168.0.0-192.168.255.255
+      - --denied-peer-ip=::1
+      - --denied-peer-ip=fc00::-fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+      - --log-file=stdout
+      - --simple-log
+
+volumes:
+  worship-q-public-data:

@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Updates the church server to the latest commit and restarts it.
 # Run on the server from anywhere inside the repository:  scripts/update-server.sh
+# The public server:  scripts/update-server.sh public
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
-compose=(docker compose -f apps/server/compose.yaml)
+if [[ "${1:-}" == public ]]; then
+  compose=(docker compose -f apps/server/compose.public.yaml)
+  service=worship-q-public
+else
+  compose=(docker compose -f apps/server/compose.yaml)
+  service=worship-q
+fi
 
 git pull --ff-only
 "${compose[@]}" up -d --build
@@ -82,7 +89,7 @@ for _ in $(seq 30); do
   if info=$(curl -fsS "http://127.0.0.1:${port:-8080}/api/v1/info" 2>/dev/null); then
     # The host may have neither jq nor Python, so the server's own Node lays the answer out.
     # If that fails for any reason, the raw answer is still shown.
-    summary=$(printf '%s' "$info" | "${compose[@]}" exec -T worship-q node -e "$format" \
+    summary=$(printf '%s' "$info" | "${compose[@]}" exec -T "$service" node -e "$format" \
       "${port:-8080}" "$(git log -1 --format='%h %s')" "$color" 2>/dev/null) || summary="Server is up: $info"
     echo "$summary"
     exit 0
@@ -90,5 +97,5 @@ for _ in $(seq 30); do
   sleep 1
 done
 echo "Server did not answer within 30 seconds. Recent logs:" >&2
-"${compose[@]}" logs --tail 50 worship-q >&2
+"${compose[@]}" logs --tail 50 "$service" >&2
 exit 1

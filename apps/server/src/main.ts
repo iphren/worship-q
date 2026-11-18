@@ -97,9 +97,11 @@ const { app, recordings, presentationLog } = await buildServer({
 const repaired = recordings.repair();
 if (repaired > 0) console.log(`Recordings: cut back ${repaired} files to their last whole chunk`);
 console.log(
-  `Live audio recordings: ${recordings.enabled() ? 'on' : 'off'}, kept ${
-    recordingDays === 0 ? 'for ever' : `${recordingDays} days`
-  }`,
+  publicMode
+    ? 'Live audio recordings: never on a public server'
+    : `Live audio recordings: ${recordings.enabled() ? 'on' : 'off'}, kept ${
+        recordingDays === 0 ? 'for ever' : `${recordingDays} days`
+      }`,
 );
 
 const port = Number(process.env.PORT ?? 8080);
