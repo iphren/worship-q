@@ -2,13 +2,13 @@
 import type { CommonKey } from '../en/common';
 
 export const common: Record<CommonKey, string> = {
-  'calendar.anyDay': '随时',
+  'calendar.anyDay': '不限日期',
   'calendar.everyDay': '每天',
 
-  'bible.warningJoined': '{credit}合并了第{chapter}章{span}节',
-  'bible.warningMissing': '{credit}没有{book}{chapter}章{span}节',
+  'bible.warningJoined': '{credit}将第{chapter}章的{span}节合并显示',
+  'bible.warningMissing': '{credit}未收录{book}第{chapter}章{span}节',
 
   'language.label': '语言',
   'language.auto': '自动',
-  'language.autoHint': '使用系统语言',
+  'language.autoHint': '跟随电脑或浏览器的语言设置。',
 };
