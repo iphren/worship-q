@@ -52,7 +52,7 @@ export const words: Words = {
     windowsDownload: '下载 Windows 版',
     version: '版本 {version}，发布于 {date}。',
     notes: '更新说明（英文）',
-    updates: '已安装的应用会自动更新，但从不在投影打开时更新。',
+    updates: '应用会自动更新；投影运行期间不会安装更新。',
     windowsWarning:
       'Mac 应用已经过签名和公证。Windows 应用还没有经过 Microsoft 签名，所以第一次打开时 Windows 可能会显示“Windows 已保护你的电脑”：请选择“更多信息”，然后选择“仍要运行”。',
     compare: '与其他教会投影软件比较',
@@ -76,7 +76,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '每次聚会一份流程表',
-    text: '在日历上编排，沿用之前某一周的安排，打开时就是今天的聚会，并且已经开始。',
+    text: '在日历上编排，沿用之前某一周的安排，打开应用时，就能接着使用当天的流程表。',
   },
   {
     title: '幻灯片、PDF、照片和视频',
@@ -93,9 +93,9 @@ const FEATURES: Feature[] = [
     text: '扫描二维码，批准一次手机，就能在房间里的任何地方切换幻灯片或添加经文。',
   },
   {
-    title: '多台电脑，一个演示',
+    title: '多台电脑，同步投影',
     page: '/several-computers/',
-    text: '每台连接的电脑都显示同一张幻灯片。如果主控演示的电脑出了故障，另一台会从同一张幻灯片继续。',
+    text: '每台连接的电脑都显示同一张幻灯片。如果主控电脑出了故障，另一台会从同一张幻灯片继续。',
   },
   {
     title: '现场音频',
@@ -107,7 +107,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '免费开源',
-    text: 'MIT 许可证，没有广告，没有订阅。已安装的应用会自动更新，但从不在投影打开时更新。',
+    text: 'MIT 许可证，没有广告，没有订阅。应用会自动更新；投影运行期间不会安装更新。',
   },
 ];
 
@@ -147,7 +147,7 @@ export const faq: Question[] = [
   {
     question: '它在哪些电脑上运行？',
     answer:
-      'macOS 11 或更高版本（Apple 芯片和 Intel），以及 64 位 Windows 10 或更高版本。已安装的应用会自动更新，但从不在投影打开时更新。',
+      'macOS 11 或更高版本（Apple 芯片和 Intel），以及 64 位 Windows 10 或更高版本。应用会自动更新；投影运行期间不会安装更新。',
   },
   {
     question: '能显示双语歌词，例如中文和英文，或更多语言吗？',
@@ -177,7 +177,7 @@ export const faq: Question[] = [
   {
     question: '多台电脑能共享一个演示吗？',
     answer:
-      '能。连接到教会服务器的电脑会显示同一张幻灯片，任何一台都可以接管；如果主控演示的电脑出了故障，另一台会从同一张幻灯片继续。在同一个 Wi-Fi 上，即使没有互联网，它们也能继续一起工作。',
+      '能。连接到教会服务器的电脑会显示同一张幻灯片，任何一台都可以接管；如果主控电脑出了故障，另一台会从同一张幻灯片继续。在同一个 Wi-Fi 上，即使没有互联网，它们也能继续一起工作。',
   },
   {
     question: '能从 ProPresenter、EasyWorship 或 OpenLP 导入诗歌吗？',
@@ -210,16 +210,16 @@ export const pages: Record<string, PageText> = {
   },
   '/obs/': {
     title: '为 OBS 提供歌词字幕和场景控制 — Worship Q',
-    description: '用 OBS 的字幕把诗歌歌词放进直播，并在 Worship Q 或手机上切换场景、推流和录制。',
+    description: '用 OBS 浏览器来源将诗歌歌词叠加到直播画面，并在 Worship Q 或手机上切换场景、推流和录制。',
   },
   '/phone-remote/': {
     title: '用手机控制幻灯片 — Worship Q',
     description: '扫描二维码，就能在房间里的任何地方用手机切换幻灯片、修改流程表或添加经文。',
   },
   '/several-computers/': {
-    title: '多台电脑，一个演示 — Worship Q',
+    title: '多台电脑，同步投影 — Worship Q',
     description:
-      '场地里的每台电脑都显示同一张幻灯片；如果主控演示的电脑出了故障，另一台会从同一张幻灯片继续。',
+      '场地里的每台电脑都显示同一张幻灯片；如果主控电脑出了故障，另一台会从同一张幻灯片继续。',
   },
   '/compare/': {
     title: 'Worship Q 与 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 比较',
@@ -237,12 +237,12 @@ export const home: Home = {
     '在投影和直播中显示诗歌歌词、经文、幻灯片和视频。免费开源，适用于 Mac 和 Windows。',
   ogImageAlt: 'Worship Q：免费的教会投影软件，显示歌词、经文、幻灯片，并支持直播',
   markdownTitle: 'Worship Q 的 Markdown 版本',
-  body: `<p class="text-sm font-medium tracking-wide text-amber-300">每个屏幕，和谐一致。</p>
+  body: `<p class="text-sm font-medium tracking-wide text-amber-300">每一块屏幕，默契同步。</p>
 <h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
   免费的教会投影软件，显示歌词、经文和幻灯片
 </h1>
 <p class="mt-4 max-w-xl text-lg text-slate-300">
-  %SUMMARY%编排每周的流程表并演示，不需要账号，也不需要互联网。
+  %SUMMARY%编排每周的流程表，轻松控制投影。不需要账号，也不需要互联网。
 </p>
 
 <section class="mt-10" aria-labelledby="download">
@@ -286,7 +286,7 @@ export const home: Home = {
     <a href="/releases/" class="text-sky-400 hover:text-sky-300">更新内容（英文）</a>
   </p>
   <p class="mt-1 text-sm text-slate-400">
-    已安装的应用会自动更新，但从不在投影打开时更新。
+    应用会自动更新；投影运行期间不会安装更新。
   </p>
 </section>
 
@@ -326,7 +326,7 @@ export const home: Home = {
       />
     </a>
     <figcaption>
-      演示中：流程表、屏幕上现在的内容，每张幻灯片一点就到。
+      投影控制：查看流程表和当前画面，点击即可切换幻灯片。
     </figcaption>
   </figure>
   <div class="mt-8 grid gap-8 sm:grid-cols-2">
@@ -380,7 +380,7 @@ export const home: Home = {
           alt="诗歌资源库，正在编辑主祷文的歌词"
         />
       </a>
-      <figcaption>输入或粘贴诗歌，自动拆分成幻灯片。</figcaption>
+      <figcaption>输入或粘贴歌词，自动拆分成幻灯片。</figcaption>
     </figure>
   </div>
 </section>

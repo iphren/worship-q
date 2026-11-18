@@ -51,7 +51,7 @@ export const words: Words = {
     windowsDownload: '下載 Windows 版',
     version: '版本 {version}，釋出於 {date}。',
     notes: '更新說明（英文）',
-    updates: '已安裝的應用程式會自動更新，但從不在投影開啟時更新。',
+    updates: '應用程式會自動更新；投影執行期間不會安裝更新。',
     windowsWarning:
       'Mac 應用程式已經過簽名和公證。Windows 應用程式還沒有經過 Microsoft 簽名，所以第一次開啟時 Windows 可能會顯示「Windows 已保護你的電腦」：請選擇「更多資訊」，然後選擇「仍要執行」。',
     compare: '與其他教會投影軟體比較',
@@ -75,7 +75,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '每次聚會一份流程表',
-    text: '在日曆上編排，沿用之前某一週的安排，開啟時就是今天的聚會，並且已經開始。',
+    text: '在日曆上編排，沿用之前某一週的安排，開啟應用程式時，就能接著使用當天的流程表。',
   },
   {
     title: '投影片、PDF、照片和影片',
@@ -92,9 +92,9 @@ const FEATURES: Feature[] = [
     text: '掃描 QR 碼，批准一次手機，就能在房間裡的任何地方切換投影片或新增經文。',
   },
   {
-    title: '多台電腦，一個演示',
+    title: '多台電腦，同步投影',
     page: '/several-computers/',
-    text: '每台連線的電腦都顯示同一張投影片。如果主控演示的電腦出了故障，另一台會從同一張投影片繼續。',
+    text: '每台連線的電腦都顯示同一張投影片。如果主控電腦出了故障，另一台會從同一張投影片繼續。',
   },
   {
     title: '現場音訊',
@@ -106,7 +106,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '免費開源',
-    text: 'MIT 許可證，沒有廣告，沒有訂閱。已安裝的應用程式會自動更新，但從不在投影開啟時更新。',
+    text: 'MIT 許可證，沒有廣告，沒有訂閱。應用程式會自動更新；投影執行期間不會安裝更新。',
   },
 ];
 
@@ -146,7 +146,7 @@ export const faq: Question[] = [
   {
     question: '它在哪些電腦上執行？',
     answer:
-      'macOS 11 或更高版本（Apple 晶片和 Intel），以及 64 位 Windows 10 或更高版本。已安裝的應用程式會自動更新，但從不在投影開啟時更新。',
+      'macOS 11 或更高版本（Apple 晶片和 Intel），以及 64 位 Windows 10 或更高版本。應用程式會自動更新；投影執行期間不會安裝更新。',
   },
   {
     question: '能顯示雙語歌詞，例如中文和英文，或更多語言嗎？',
@@ -176,7 +176,7 @@ export const faq: Question[] = [
   {
     question: '多台電腦能共享一個演示嗎？',
     answer:
-      '能。連線到教會伺服器的電腦會顯示同一張投影片，任何一台都可以接管；如果主控演示的電腦出了故障，另一台會從同一張投影片繼續。在同一個 Wi-Fi 上，即使沒有網際網路，它們也能繼續一起工作。',
+      '能。連線到教會伺服器的電腦會顯示同一張投影片，任何一台都可以接管；如果主控電腦出了故障，另一台會從同一張投影片繼續。在同一個 Wi-Fi 上，即使沒有網際網路，它們也能繼續一起工作。',
   },
   {
     question: '能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？',
@@ -209,16 +209,16 @@ export const pages: Record<string, PageText> = {
   },
   '/obs/': {
     title: '為 OBS 提供歌詞字幕和場景控制 — Worship Q',
-    description: '用 OBS 的字幕把詩歌歌詞放進直播，並在 Worship Q 或手機上切換場景、串流和錄製。',
+    description: '用 OBS 瀏覽器來源將詩歌歌詞疊加到直播畫面，並在 Worship Q 或手機上切換場景、串流和錄製。',
   },
   '/phone-remote/': {
     title: '用手機控制投影片 — Worship Q',
     description: '掃描 QR 碼，就能在房間裡的任何地方用手機切換投影片、修改流程表或新增經文。',
   },
   '/several-computers/': {
-    title: '多台電腦，一個演示 — Worship Q',
+    title: '多台電腦，同步投影 — Worship Q',
     description:
-      '場地裡的每台電腦都顯示同一張投影片；如果主控演示的電腦出了故障，另一台會從同一張投影片繼續。',
+      '場地裡的每台電腦都顯示同一張投影片；如果主控電腦出了故障，另一台會從同一張投影片繼續。',
   },
   '/compare/': {
     title: 'Worship Q 與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 比較',
@@ -236,12 +236,12 @@ export const home: Home = {
     '在投影和直播中顯示詩歌歌詞、經文、投影片和影片。免費開源，適用於 Mac 和 Windows。',
   ogImageAlt: 'Worship Q：免費的教會投影軟體，顯示歌詞、經文、投影片，並支援直播',
   markdownTitle: 'Worship Q 的 Markdown 版本',
-  body: `<p class="text-sm font-medium tracking-wide text-amber-300">每個螢幕，和諧一致。</p>
+  body: `<p class="text-sm font-medium tracking-wide text-amber-300">每一個螢幕，默契同步。</p>
 <h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
   免費的教會投影軟體，顯示歌詞、經文和投影片
 </h1>
 <p class="mt-4 max-w-xl text-lg text-slate-300">
-  %SUMMARY%編排每週的流程表並演示，不需要帳號，也不需要網際網路。
+  %SUMMARY%編排每週的流程表，輕鬆控制投影。不需要帳號，也不需要網際網路。
 </p>
 
 <section class="mt-10" aria-labelledby="download">
@@ -285,7 +285,7 @@ export const home: Home = {
     <a href="/releases/" class="text-sky-400 hover:text-sky-300">更新內容（英文）</a>
   </p>
   <p class="mt-1 text-sm text-slate-400">
-    已安裝的應用程式會自動更新，但從不在投影開啟時更新。
+    應用程式會自動更新；投影執行期間不會安裝更新。
   </p>
 </section>
 
@@ -325,7 +325,7 @@ export const home: Home = {
       />
     </a>
     <figcaption>
-      演示中：流程表、螢幕上現在的內容，每張投影片一點就到。
+      投影控制：查看流程表和目前畫面，點選即可切換投影片。
     </figcaption>
   </figure>
   <div class="mt-8 grid gap-8 sm:grid-cols-2">
@@ -379,7 +379,7 @@ export const home: Home = {
           alt="詩歌資源庫，正在編輯主禱文的歌詞"
         />
       </a>
-      <figcaption>輸入或貼上詩歌，自動拆分成投影片。</figcaption>
+      <figcaption>輸入或貼上歌詞，自動拆分成投影片。</figcaption>
     </figure>
   </div>
 </section>

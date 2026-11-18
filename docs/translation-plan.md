@@ -126,10 +126,10 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Run sheet | 流程表 | 流程表 | The order of service |
 | Slideshow (the screen) | 投影 | 投影 | Slideshow screen 投影屏幕 / 投影螢幕 |
 | Slide | 幻灯片 | 投影片 | |
-| Present (the page and the verb) | 演示 | 演示 | 簡報 was considered for Traditional |
-| Live (a run sheet) / Go live | 进行中 / 打开 | 進行中 / 開啟 | “Go live with {date}”: 打开{date}的流程表 / 開啟{date}的流程表; the “still live” banner’s button: 切换至{next} / 切換至{next} |
+| Present (the page and the verb) | 投影控制 / 投影 | 投影控制 / 投影 | 页面名称 / 显示内容的按钮 |
+| Live (a run sheet) / Go live | 进行中 / 启用 | 進行中 / 啟用 | “Go live with {date}”: 启用{date}的流程表 / 啟用{date}的流程表；不会立即切换投影内容 |
 | Live (OBS, audio) | 直播中 | 直播中 | |
-| Blank / Show lyrics | 隐藏文字 / 显示歌词 | 隱藏文字 / 顯示歌詞 | Blank keeps the background, so not 黑屏; the phone remote's button says 隐藏内容 / 隱藏內容 |
+| Blank / Show lyrics | 隐藏文字 / 显示文字 | 隱藏文字 / 顯示文字 | Blank keeps the background, so not 黑屏; the phone remote's button says 隐藏内容 / 隱藏內容 |
 | Clear screen | 清屏 | 清除畫面 | |
 | Workspace | 工作区 | 工作區 | |
 | Church server | 教会服务器 | 教會伺服器 | |
@@ -151,7 +151,7 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Connection code | 连接码 | 連線碼 | |
 | Synchronize | 同步 | 同步 | |
 | Live audio / broadcast / listen | 现场音频 / 广播 / 收听 | 現場音訊 / 廣播 / 收聽 | |
-| OBS: Stream, Record, Camera, Program, Scene | 推流、录制、虚拟摄像机、节目、场景 | 串流、錄製、虛擬攝影機、節目、場景 | As in OBS's own Chinese |
+| OBS: Stream, Record, Camera, Program, Scene | 直播、录制、虚拟摄像机、节目画面、场景 | 直播、錄製、虛擬攝影機、節目畫面、場景 | “直播”对教会操作员更直观 |
 | Undo / Restore | 撤销 / 恢复 | 復原 / 還原 | |
 
 ## 6. Open questions
@@ -254,7 +254,7 @@ installed on Linux.
 
 **For the review**
 
-- The glossary (§5), especially 演示 for Present, 资源库 for Library and 流程表 for run sheet.
+- The glossary (§5), especially 投影控制 for Present, 资源库 for Library and 流程表 for run sheet.
 - Sentences built from parts, such as the admin app's `{noun}` messages (`library.*`,
   `workspace.manage*`) and `workspace.codeState` (“连接码目前已{state}”).
 - Traditional vocabulary: one Traditional for all regions, leaning to Taiwan's words (伺服器,
