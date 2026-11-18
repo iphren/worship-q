@@ -13,7 +13,7 @@ The question: how to give a computer in local mode remote control, Bible passage
 - The church server already keys everything by *device token → workspace*. A public server is the same process with one new route that hands out a workspace and a token without an administrator, a switch that turns off every route that keeps content, and a sweep that deletes files after 24 hours.
 - The desktop already does everything P1–P6 need against a church server. It needs a second kind of connection ("public") that uses the same credentials for those features and skips synchronization, backups, live-state backup, records and reports.
 - The phone page, the relay, the Bible service, deck conversion, image processing and the ICE/TURN set-up are reused unchanged.
-- **Videos (P4) need no server at all.** The desktop already keeps its own copy of every video it uploads; the server adds nothing a local-mode computer needs. They can be offered in local mode without the public server (§5.4).
+- **Videos (P4) need no server at all.** The desktop already keeps its own copy of every video it uploads; the server adds nothing a local-mode computer needs. **Decided:** videos are local only, with no public server (§5.1).
 
 Rough size: server about 600–900 lines with tests, desktop about 500–800, protocol a few fields, one new deployment. No database migration on church servers; no change to the phone page beyond one small fallback.
 
@@ -152,25 +152,45 @@ A build-time constant (`https://public.worship-q.com` or similar), overridable w
 
 ## 5. Findings that change the plan
 
-### 5.1 P4 Videos do not need a server
+### 5.1 P4 Videos do not need a server (decided: local only)
 
-A video upload (`POST /api/v1/videos`) only receives the file, hashes it and stores it; the duration check is done on the desktop (`probeVideo`), and the desktop already keeps its own copy (`storeVideo`). For one computer the server adds nothing. **Recommendation:** in local mode, name the file `video-<uuid>.<ext>` on the desktop, store it, and create the song, without any network. This removes P4 from the public server, with its 200 MB uploads and their bandwidth.
+A video upload (`POST /api/v1/videos`) only receives the file, hashes it and stores it; the duration check is done on the desktop (`probeVideo`), and the desktop already keeps its own copy (`storeVideo`). For one computer the server adds nothing. **Decided:** a workspace without a church server adds a video with no network at all: no upload and no download. The public server takes no videos (`media.videos: false`).
 
-### 5.2 The video cache would delete the only copy
+### 5.2 Which file plays: the user's file, or a copy
 
-`VideoCache.once()` (`videoCache.ts:110–125`) removes every local video not on today's or an upcoming run sheet, *before* it checks whether it is connected, and expects to fetch it back from the church server when needed. In local or public mode that local copy is the only one. **Must change** before videos are offered without a church server: without one, keep every video a song in the library uses, and remove only those no song uses.
+Today every video plays from the app's own folder (`videos/` in the data folder, `media.rs:341`), by a name the server made (`video-<uuid>.<ext>`, `checked_video`). The webview and the localhost slideshow page for OBS and browsers (`overlay.rs:114`, `/videos/{name}`) both find it there by that name. Two ways for a local workspace, **to choose**:
 
-### 5.3 Phones would lose slide thumbnails
+| | A. Play the file the user chose, where it is | B. Copy it into the app's folder once, never fetch or delete it |
+| --- | --- | --- |
+| Disk | No extra space | A second copy of each video |
+| Moved, renamed, deleted, on an unplugged drive | The item is broken, found out on Sunday | Still plays |
+| macOS | Files in Desktop, Documents and Downloads need the folder permission on later launches: a system prompt, possibly during a service | None: the app's own folder |
+| Code | A video record holds a local path (only on this computer, never synchronized); `video_location`, `overlay.rs` and `checked_video` resolve a video id to that path through a local table, never from a path in a URL, so the localhost server cannot be asked for any other file; a "file not found" state on the item, with **Locate…** | Already built: `store_video` copies it; only the cache's deletion changes |
+| Joining a church later (M8) | Upload from the path, if the file is still there | Upload from the copy |
 
-Phones show deck slides as thumbnails fetched from the server (`apps/remote/src/RemoteApp.tsx:293`, `/api/v1/remote/files/...`). After the desktop confirms and the public server deletes them, those links answer 404. Choices:
+Either way, **the user's file is never touched**: today's code only reads it (`fs::copy` from the source), and nothing deletes outside the app's folder.
 
-1. **Phones show text only for decks on a public connection** (recommended). The desktop's `RemoteHost` leaves `thumbnail` out of pieces (`packages/remote/src/index.ts:208`); the phone already shows a text button then. Smallest change; slide decks already carry each slide's text.
-2. Desktop sends small thumbnails over the relay. Works, but adds traffic to the relay and a protocol message.
-3. Keep thumbnails 24 hours. Breaks "deleted as soon as confirmed" and fails the next week.
+What must change for B: `VideoCache.once()` (`videoCache.ts:110–125`) removes every copy not on today's or an upcoming run sheet, *before* it checks whether it is connected, because a church server can give it back. Without a church server the copy is the only one, so it must keep every video a song in the library uses, and remove a copy only when no song uses it (the song deleted). For A, the cache is not used at all without a church server.
 
-### 5.4 Live audio's real cost is TURN
+**Recommendation: B.** It is already built, it survives the file being moved, and it needs no folder permissions. A's only gain is disk space.
 
-The audio goes peer-to-peer; the server only signals. Phones on mobile networks often need TURN, and every relayed listener costs about 29 MB an hour of the public server's bandwidth both ways. The coturn profile and its 21 ports are sized for one church: a public relay needs a larger port range and a per-workspace listener cap. Running STUN only at first, with TURN later, is a reasonable step: listeners that cannot connect are already told whether a relay was offered.
+### 5.3 Phone thumbnails relayed from the desktop (decided)
+
+Phones show deck slides as thumbnails fetched from the server (`apps/remote/src/RemoteApp.tsx:293`, `/api/v1/remote/files/...`). After the desktop confirms and the public server deletes them, those links answer 404. **Decided:** the desktop sends them through the relay.
+
+- **The desktop keeps the thumbnails.** `fetchDeckImages` (`uploads.ts:404`) fetches each page's `image` only; it also fetches `thumbnail` (320 × 240 JPEG, `images.ts:57`, about 10–20 KB) before confirming. Same for **Upload new version**.
+- **Two new remote messages,** within the existing phone ↔ desktop channel: the phone asks `{ type: 'thumbnail', name }`, the desktop answers `{ type: 'thumbnail', name, data }` (base64 JPEG). The relay already passes these messages without reading them, and its 4 MB limit (`app.ts:331`) is far above one thumbnail.
+- **The phone** asks only for the items on its screen, a few at a time, keeps the answers as blob URLs for the session, and asks again after reconnecting. It uses the relay only when the desktop says so: the desktop's `state` message marks pieces `thumbnailVia: 'host'` on a public connection, so phones of a church server keep the HTTP route, which caches better.
+- **The desktop** answers only names in its live run sheet, from its own files folder, so a phone cannot read other files.
+- Bandwidth through the public server: a 100-slide deck is about 2 MB to a phone, once per session. Small against live audio.
+
+### 5.4 Live audio with TURN, two listeners (decided)
+
+The audio goes peer to peer; the server only signals. Phones on mobile networks often need TURN, and every relayed listener costs about 29 MB an hour of the public server's bandwidth. **Decided:** TURN from the start, and **at most two listeners per workspace** on the public server.
+
+- **Cap.** `ServerInfo` gains `limits.listeners: 2`; the desktop's `AudioShare` refuses a third **Listen** with a message saying the public server allows two and a church server has no such limit. The relay enforces it too, counting the distinct listeners in a workspace's audio signals, so a modified app gains nothing.
+- **Cost bound.** Two relayed listeners at most: about 58 MB an hour a workspace, worst case.
+- **coturn.** The Compose profile's 21 ports (`49160–49180`) serve 21 relayed listeners in all. The public relay needs a wide range (e.g. `49152–65535`), its own host or a managed TURN service, and coturn's per-user quota (`user-quota`) set to 2 as a third guard. Credentials are already per device and expire after ten minutes (`ice.ts`).
 
 ### 5.5 Phone approvals are not kept on the server
 
@@ -179,6 +199,19 @@ Today the coordinator backs up its live state and phone grants with `PUT /api/v1
 ### 5.6 Bible usage reporting is already off
 
 Keyless versions carry no FUMS token, so `bible.fums.report` never runs; turning the `/api/v1/bible/fums` route off is only tidiness.
+
+### 5.7 The public server refuses to be a church server (decided)
+
+Someone will type the public server's address into **Settings → Church connection**. Joining it would get nothing a church server gives (no synchronization, no backups, everything deleted within a day), so it must be refused, clearly, at both ends:
+
+- **Server.** In public mode `/api/v1/pair`, `/api/v1/pair/poll` and `/api/v1/enroll` stay registered but always answer `403 { error: 'public-server' }`, and `/api/v1/info` says `public: true`, `pairing: false`, `admin: false`. The sync, backup and live routes are absent, so even a token from `public/join` cannot be used as a church device. The reverse holds too: a church server has no `public/join` route.
+- **This version of the desktop.** `ChurchConnection` checks `probe()`'s `info.public` before anything else (before `aim()`, which would overwrite the workspace's public connection with the typed address) and says: *"This is the Worship Q public server. Workspaces without a church server use it already; there is nothing to connect. To share songs between computers, your church runs its own server."* A new error class beside `CodesOffError`, `InvalidCodeError` (`ChurchConnection.tsx:91`), in three languages.
+- **Older desktops** do not know `public`. With `pairing: false` they ask for a connection code (`joinMethod.ts:12`), and `enroll` refuses it. Their `codes-off` message, about an administrator turning codes on, would mislead; answering `invalid-code` is the least wrong message they know. A desktop old enough to predate public mode cannot use the public server anyway, so this matters only for a short while after release.
+- **Website.** The public server's own page at `/` (today `{ name, app }`) can say the same in a sentence for anyone who opens it in a browser.
+
+### 5.8 What "two listeners" and "full features" need in the protocol
+
+`ServerInfo` gains `public?: boolean` and `limits?: { listeners: number; ... }` beside the rate limits of §4.1. Both are optional, so older desktops and church servers are unaffected, and no protocol version bump is needed for them; the thumbnail messages of §5.3 do need one (the phone must know the desktop answers them), which the existing negotiation (D26) handles.
 
 ## 6. Hosting
 
@@ -192,21 +225,28 @@ Keyless versions carry no FUMS token, so `bible.fums.report` never runs; turning
 
 | # | Work | Size | Depends on |
 | --- | --- | --- | --- |
-| M1 | Local videos without a server; video cache keeps every used video (§5.1, §5.2) | S | — |
-| M2 | Server public mode: switch, `public/join`, routes off, no originals or stored-once memory, deck `DELETE`, 24-hour and idle-workspace sweeps, `ServerInfo.public` | M | — |
-| M3 | Desktop `service` and the public connection: lazy join, keychain, `startLive` without sync, backup or reports; Bible and media through it | M | M2 |
-| M4 | Remote control on a public connection; phones without thumbnails (§5.3); confirm grants (§5.5) | S | M3 |
-| M5 | Rate limits and install identifier; relay concurrency caps | M | M2 |
+| M1 | Videos in local mode without any server, as chosen in §5.2 | S (B) / M (A) | — |
+| M2 | Server public mode: switch, `public/join`, routes off, church joining refused (§5.7), no originals or stored-once memory, no videos, deck `DELETE`, 24-hour and idle-workspace sweeps, `ServerInfo.public` | M | — |
+| M3 | Desktop `service` and the public connection: lazy join, keychain, `startLive` without sync, backup or reports; Bible and decks through it; the public-server message in Church connection | M | M2 |
+| M4 | Remote control on a public connection; thumbnails relayed from the desktop (§5.3); confirm grants (§5.5) | M | M3 |
+| M5 | Rate limits and install identifier; two listeners (§5.4) and other relay caps | M | M2 |
 | M6 | UI: workspace button and status, one-computer notes, three languages; volunteer guide | S | M3 |
-| M7 | Deployment: public host, CloudFront, STUN (TURN later, §5.4), monitoring; privacy notice on the website | M | M2, M5 |
+| M7 | Deployment: public host, CloudFront, STUN and TURN with a wide port range and quotas (§5.4), monitoring; privacy notice on the website | M | M2, M5 |
 | M8 | Joining a church later uploads cached deck images and videos (plan §6) | M | M3 |
 
 M1 is useful on its own and can ship first. M8 is needed only once churches move from the public server to their own.
 
-## 8. Still to decide
+## 8. Decisions
 
-1. **Videos**: accept §5.1, so P4 is local only and the plan's P4 changes to "works in local mode, no server".
-2. **Thumbnails on phones**: option 1 of §5.3, or the relay option.
-3. **TURN**: public STUN only at launch, or a TURN relay from the start (§5.4).
-4. **One public workspace per local workspace** (as designed) or one per copy of the app. Per local workspace keeps workspaces apart, as the app already does for church connections.
-5. The rate-limit numbers and the privacy notice (plan §7).
+Made by the owner on 18 November 2026:
+
+1. **Videos are local only**: no public server for P4 (§5.1).
+2. **Phone thumbnails are relayed from the desktop** (§5.3).
+3. **Full live audio with TURN from the start, at most two listeners** per workspace (§5.4).
+4. **One public workspace per local workspace** (§4.2).
+5. **The public server refuses to be joined as a church server** (§5.7).
+
+Still to decide:
+
+1. **Play the chosen video file in place, or a copy** in the app's folder (§5.2; recommended: copy).
+2. The other rate-limit numbers and the privacy notice (plan §7).

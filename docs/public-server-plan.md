@@ -41,8 +41,8 @@ Each of these needs a church server, and running one is the biggest step for a s
 | P1 | Remote control | A phone scans the QR code and controls this computer through the public server's relay, as through a church server's relay today, so it needs the internet at the venue, like a church server reached over the internet. The connection, its grant and its messages last only while both are connected. |
 | P2 | Bible passages | Looked up through the public server and stored in the run sheet item, as today. Only **open versions** that need no key (the Free Use Bible API: for example BSB, KJV, the Chinese Union Version), since a key cannot be shared by every user (Bible passages discovery §4). For NIV, ESV and the like, a church runs its own server with its own key. |
 | P3 | Slide decks and photos | Uploaded and converted; the app downloads the slide images, confirms, and the public server deletes the original and the images. |
-| P4 | Videos | Uploaded and checked; the app keeps its copy, confirms, and the public server deletes the file. |
-| P5 | Live audio | The public server relays the broadcast between this computer and its phones and listeners. **No recording**, unlike a church server, which can record (live audio plan). |
+| P4 | Videos | **Not through the public server** (decided 18 November 2026): a video is added and played on this computer with no network at all (discovery §5.1). |
+| P5 | Live audio | The public server relays the broadcast between this computer and its phones and listeners, with a TURN relay for networks that need one, and **at most two listeners** at a time (decided 18 November 2026). **No recording**, unlike a church server, which can record (live audio plan). |
 | P6 | OBS controls on phones | Relayed between this computer and its phones: scenes, Stream, Record, Camera, and the small picture of the stream. **No snapshot** of the picture is saved on the server. |
 
 For P1, P5 and P6 the public server is **only a relay** between the local app and the remote controls the app has approved; nothing passing through is stored.
