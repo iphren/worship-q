@@ -12,20 +12,20 @@ import type { PageText } from './pages.ts';
 import type { Words } from './words.ts';
 
 export const words: Words = {
-  nav: { guide: '指南', compare: '比較', releases: '更新說明' },
+  nav: { guide: '使用指南', compare: '軟體比較', releases: '更新紀錄' },
   navLabel: '網站',
   language: '語言',
   footer: {
     features: '功能',
     help: '幫助',
     project: '項目',
-    guide: '同工指南',
-    server: '教會伺服器設定',
+    guide: '同工操作指南',
+    server: '伺服器部署',
     compare: '與其他軟體比較',
     releases: '更新說明（英文）',
     source: '原始碼',
     licence: 'MIT 許可證',
-    llms: '給 AI 助手（英文）',
+    llms: '供 AI 助手閱讀（英文）',
   },
   featurePages: {
     '/bible/': '經文',
@@ -37,8 +37,8 @@ export const words: Words = {
   more: '詳情',
   notFound: {
     title: '找不到頁面 — Worship Q',
-    heading: '這個頁面不在這裡',
-    text: '網址可能已經改變。Worship Q 的下載、功能和常見問題都在首頁。',
+    heading: '找不到這個頁面',
+    text: '頁面可能已經移動或更名。你可以返回首頁查看下載連結、功能介紹和常見問題。',
     link: '前往 worship-q.com',
   },
   markdown: {
@@ -49,64 +49,64 @@ export const words: Words = {
     screenshots: '截圖',
     macDownload: '下載 Mac 版',
     windowsDownload: '下載 Windows 版',
-    version: '版本 {version}，釋出於 {date}。',
+    version: '版本 {version} · 發布日期：{date}。',
     notes: '更新說明（英文）',
     updates: '應用程式會自動更新；投影執行期間不會安裝更新。',
     windowsWarning:
-      'Mac 應用程式已經過簽名和公證。Windows 應用程式還沒有經過 Microsoft 簽名，所以第一次開啟時 Windows 可能會顯示「Windows 已保護你的電腦」：請選擇「更多資訊」，然後選擇「仍要執行」。',
+      'Mac 版已完成數位簽章與公證。Windows 版尚未完成程式碼簽署，首次啟動時可能出現「Windows 已保護你的電腦」的提示。此時可選擇「更多資訊」，再選擇「仍要執行」。',
     compare: '與其他教會投影軟體比較',
     source: '原始碼',
   },
 };
 
 const SUMMARY =
-  'Worship Q 是一款免費、開源的教會投影軟體，適用於 macOS 和 Windows，可以在投影和直播中顯示詩歌歌詞、經文、投影片和影片。';
+  "Worship Q 是一款專為教會設計的免費開源投影軟體，支援 macOS 和 Windows，可在投影螢幕和直播畫面中呈現詩歌歌詞、聖經經文、投影片及影片。";
 
 const FEATURES: Feature[] = [
   {
-    title: '任何語言的詩歌',
-    page: '/multilingual-lyrics/',
-    text: '按標題或歌詞搜尋，中文詩歌還可以用拼音或首字母搜尋。一句歌詞和它的翻譯在同一張投影片上，兩種語言或更多都可以。',
+    title: "多語言詩歌",
+    page: "/multilingual-lyrics/",
+    text: "可依標題或歌詞搜尋詩歌，中文還支援拼音和首字母搜尋。每句歌詞都能與對應譯文放在同一張投影片上，輕鬆呈現雙語或多語內容。",
   },
   {
-    title: '經文',
-    page: '/bible/',
-    text: '連線教會的伺服器後：輸入經文出處，例如 馬可福音15:5-6，或按書卷和章瀏覽，最多兩個譯本並排顯示。',
+    title: "快速查找聖經經文",
+    page: "/bible/",
+    text: "連線教會伺服器後，可以輸入經文出處（例如「馬可福音15:5-6」），也可以依書卷和章節瀏覽，最多並排顯示兩個譯本。",
   },
   {
-    title: '每次聚會一份流程表',
-    text: '在日曆上編排，沿用之前某一週的安排，開啟應用程式時，就能接著使用當天的流程表。',
+    title: "為每次聚會安排流程",
+    text: "在日曆中編排流程表，也可以複製以往的安排。開啟應用程式後，即可接著使用當天或下一個聚會日的流程表。",
   },
   {
-    title: '投影片、PDF、照片和影片',
-    text: '連線教會的伺服器後，PowerPoint、Keynote 和 PDF 檔案會變成投影片，與詩歌放在一起。影片會提前下載，聚會中從不線上播放。',
+    title: "投影片、PDF 與影片",
+    text: "透過教會伺服器將 PowerPoint、Keynote 和 PDF 轉成投影片，再把照片、影片和詩歌一同加入流程表。影片會預先下載，聚會時不必線上播放。",
   },
   {
-    title: '投影和直播同時進行',
-    page: '/obs/',
-    text: '全螢幕投影，可用圖片或影片作背景，併為 OBS 提供字幕。在 Worship Q 中就能切換 OBS 場景和開始直播。',
+    title: "兼顧現場投影與直播",
+    page: "/obs/",
+    text: "投影支援全螢幕顯示，並可使用圖片或影片背景；直播則可透過 OBS 疊加歌詞字幕。也能直接在 Worship Q 中切換 OBS 場景、開始直播。",
   },
   {
-    title: '用手機控制',
-    page: '/phone-remote/',
-    text: '掃描 QR 碼，批准一次手機，就能在房間裡的任何地方切換投影片或新增經文。',
+    title: "手機也能遙控",
+    page: "/phone-remote/",
+    text: "掃描 QR 碼並經電腦端核准後，就能在會場任何位置用手機切換投影片、新增經文，不必安裝應用程式。",
   },
   {
-    title: '多台電腦，同步投影',
-    page: '/several-computers/',
-    text: '每台連線的電腦都顯示同一張投影片。如果主控電腦出了故障，另一台會從同一張投影片繼續。',
+    title: "多台電腦同步配合",
+    page: "/several-computers/",
+    text: "同一工作區的電腦會同步顯示目前的投影片。主控電腦發生故障時，另一台可以接手，從原來的位置繼續。",
   },
   {
-    title: '現場音訊',
-    text: '把調音台的聲音傳送到其他電腦和手機，讓在場外的人也能及時切換投影片。',
+    title: "遠端收聽現場音訊",
+    text: "把混音器的聲音傳送到其他電腦或手機，讓不在會場內的同工也能掌握聚會進度，及時切換投影片。",
   },
   {
-    title: '獨立執行',
-    text: '不需要帳號，也不需要網際網路。連線教會自己的伺服器，就能共享詩歌、媒體、經文和使用手機。',
+    title: "一台電腦就能使用",
+    text: "單機使用不需要帳號或網際網路。需要共享詩歌、媒體、經文或使用手機遙控時，再連線教會自己的伺服器。",
   },
   {
-    title: '免費開源',
-    text: 'MIT 許可證，沒有廣告，沒有訂閱。應用程式會自動更新；投影執行期間不會安裝更新。',
+    title: "免費開源，無須訂閱",
+    text: "採用 MIT 授權條款，沒有廣告，也沒有付費版本。應用程式會自動更新，但投影視窗開啟期間不會安裝更新。",
   },
 ];
 
@@ -114,17 +114,17 @@ export const content: SiteContent = {
   summary: SUMMARY,
   features: FEATURES,
   featureList: [
-    '任何語言的詩歌歌詞，一張投影片上顯示雙語或多語',
-    '按標題、歌詞、拼音或首字母搜尋詩歌',
-    '最多兩個譯本並排顯示的經文',
-    '在日曆上編排的流程表',
-    'PowerPoint、Keynote、PDF、照片和影片投影片',
-    '圖片或影片背景',
-    '為 OBS 提供字幕，並控制 OBS 的場景、串流和錄製',
-    '用手機控制',
-    '多台電腦共享一個演示，並能故障接替',
-    '把調音台的現場音訊傳送到其他電腦和手機',
-    '離線可用，不需要帳號',
+    "支援各種語言的詩歌歌詞，可在同一張投影片上顯示雙語或多語內容",
+    "可依標題、歌詞、拼音或拼音首字母搜尋詩歌",
+    "最多並排顯示兩個譯本的聖經經文",
+    "透過日曆安排每次聚會的流程表",
+    "支援 PowerPoint、Keynote、PDF、照片與影片",
+    "支援圖片或影片作為投影背景",
+    "為 OBS 提供歌詞字幕，並控制場景、直播與錄製",
+    "使用手機遙控投影片與流程表",
+    "多台電腦同步投影，支援故障時接管",
+    "將混音器的現場音訊傳送到其他電腦與手機",
+    "單機離線可用，不需要註冊帳號",
   ],
   platforms: {
     mac: 'macOS 11 或更高版本，Apple 晶片和 Intel',
@@ -134,114 +134,98 @@ export const content: SiteContent = {
 
 export const faq: Question[] = [
   {
-    question: 'Worship Q 免費嗎？',
-    answer:
-      '是的。Worship Q 以 MIT 許可證免費開源，沒有廣告、沒有付費版，也沒有訂閱。教會伺服器同樣免費。',
+    question: "Worship Q 是免費的嗎？",
+    answer: "是的。Worship Q 採用 MIT 開源授權條款，完全免費，沒有廣告、訂閱費或付費版本。教會伺服器也能免費使用。",
   },
   {
-    question: '需要帳號或網際網路嗎？',
-    answer:
-      '不需要。電腦版在一台電腦上就能獨立執行，不需要帳號，也不需要網際網路。連線教會伺服器是可選的，可以增加共享的詩歌、投影片和影片、經文、手機控制，以及多台電腦共享一個演示。',
+    question: "需要註冊帳號或連線網路嗎？",
+    answer: "不需要。只用一台電腦時，Worship Q 不需帳號或網際網路也能運作。連線教會伺服器後，還能在多台電腦之間共享詩歌與媒體、查找聖經經文、使用手機遙控，並同步投影。",
   },
   {
-    question: '它在哪些電腦上執行？',
-    answer:
-      'macOS 11 或更高版本（Apple 晶片和 Intel），以及 64 位 Windows 10 或更高版本。應用程式會自動更新；投影執行期間不會安裝更新。',
+    question: "支援哪些電腦？",
+    answer: "支援搭載 Apple 晶片或 Intel 處理器、執行 macOS 11 以上版本的 Mac，以及執行 64 位元 Windows 10 以上版本的電腦。應用程式會自動更新，但不會在投影視窗開啟期間安裝更新。",
   },
   {
-    question: '能顯示雙語歌詞，例如中文和英文，或更多語言嗎？',
-    answer:
-      '能。任何語言的歌詞都可以，雙語或三語詩歌會把一句歌詞和它的翻譯顯示在同一張投影片上：預設兩行，或者在「設定」中修改每張投影片行數，顯示更多行，例如中文、拼音和英文。可以按標題或歌詞找到詩歌，中文詩歌還可以用拼音或首字母找到。',
+    question: "能在同一張投影片上顯示雙語歌詞嗎？",
+    answer: "可以。無論中文、英文或其他語言，都能將一句歌詞及其譯文排在同一張投影片上。預設每張顯示兩行，也可以在設定中調整行數，例如同時顯示中文、拼音和英文。詩歌支援依標題、歌詞、拼音或首字母搜尋。",
   },
   {
-    question: '怎樣顯示經文？',
-    answer:
-      '按你平常的寫法輸入經文出處，例如 馬可福音15:5-6 或 可15:5-6，也可以按書卷和章瀏覽，或搜尋字詞。每張投影片最多並排顯示兩個譯本。經文透過教會伺服器提供，它可以使用不需要金鑰的 Free Use Bible API（例如和合本、KJV 和 BSB），或教會自己的 API.Bible 或 YouVersion 金鑰。',
+    question: "如何查找並投影聖經經文？",
+    answer: "輸入「馬可福音15:5-6」或「可15:5-6」等經文出處，也可以依書卷、章節瀏覽，或使用關鍵字搜尋。每張投影片最多能並排顯示兩個譯本。經文由教會伺服器提供，可使用不需金鑰的 Free Use Bible API（例如和合本、KJV、BSB），或設定教會自己的 API.Bible、YouVersion 金鑰。",
   },
   {
-    question: '能顯示 PowerPoint、Keynote、PDF、照片和影片嗎？',
-    answer:
-      '能，需要教會伺服器。PowerPoint、Keynote 和 OpenDocument 簡報以及 PDF 會變成投影片，照片和影片可以和詩歌一起放程序序單。影片會提前下載，所以聚會中不會線上播放任何內容。',
+    question: "支援 PowerPoint、Keynote、PDF 和影片嗎？",
+    answer: "支援，但需要連線教會伺服器。PowerPoint、Keynote、OpenDocument 和 PDF 檔案會轉換為投影片；照片和影片也可以加入流程表。影片會預先下載，避免聚會中依賴線上播放。",
   },
   {
-    question: '能配合 OBS 直播嗎？',
-    answer:
-      '能。字幕頁面可以作為 OBS 的「瀏覽器」來源顯示歌詞，Worship Q 還可以在教會的任何一台電腦或手機上切換 OBS 場景，開始或停止串流和錄製。',
+    question: "可以搭配 OBS 直播嗎？",
+    answer: "可以。透過 OBS 的「瀏覽器」來源，可以將透明背景的歌詞字幕疊加到直播畫面上。也能在 Worship Q 或已核准的手機上切換 OBS 場景，以及開始或停止直播與錄製。",
   },
   {
-    question: '能用手機控制投影片嗎？',
-    answer:
-      '能，需要教會伺服器。手機掃描 QR 碼，批准一次後，就可以切換投影片、修改流程表和新增經文。',
+    question: "可以用手機控制投影嗎？",
+    answer: "可以，需要連線教會伺服器。手機掃描 QR 碼並經電腦端核准後，就能切換投影片、調整正在使用的流程表，或臨時新增經文。",
   },
   {
-    question: '多台電腦能共享一個演示嗎？',
-    answer:
-      '能。連線到教會伺服器的電腦會顯示同一張投影片，任何一台都可以接管；如果主控電腦出了故障，另一台會從同一張投影片繼續。在同一個 Wi-Fi 上，即使沒有網際網路，它們也能繼續一起工作。',
+    question: "多台電腦能同步顯示同一套投影嗎？",
+    answer: "可以。連線到同一工作區的電腦會同步顯示目前的投影片；如果主控電腦發生故障，其他電腦可以接管，從原來的位置繼續。即使網際網路中斷，位於同一區域網路的電腦也能保持同步。",
   },
   {
-    question: '能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？',
-    answer:
-      '暫時還不能。目前請把每首詩歌的歌詞以文字貼上進來，段落之間空一行；Worship Q 會把它們拆分成投影片。如果你的教會想轉過來並需要匯入功能，請發郵件到 hello@ihs.technology 商量。也歡迎在 github.com/iphren/worship-q 提交 Pull Request。',
+    question: "能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？",
+    answer: "目前還不支援直接匯入。你可以先複製歌詞並貼到 Worship Q，以空白行分隔段落，軟體便會自動產生投影片。如果教會需要轉移工具，歡迎透過 hello@ihs.technology 聯絡我們，或在 github.com/iphren/worship-q 提交 Pull Request。",
   },
 ];
 
 /** The Markdown pages' titles and descriptions, by their English path. */
 export const pages: Record<string, PageText> = {
-  '/guide/': {
-    title: '同工指南 — Worship Q',
-    description:
-      '如何用 Worship Q 新增詩歌、編排流程表和演示：經文、投影片、影片、手機、OBS 和現場音訊。',
+  "/guide/": {
+    title: "Worship Q 同工操作指南 — Worship Q",
+    description: "從新增詩歌、編排流程表到控制投影，了解經文、投影片、影片、手機遙控、OBS 和現場音訊的使用方法。",
   },
-  '/server/': {
-    title: '教會伺服器設定 — Worship Q',
-    description:
-      '用 Docker 執行你教會自己的免費 Worship Q 伺服器：共享詩歌和媒體、經文、手機遙控、備份和管理後台。',
+  "/server/": {
+    title: "Worship Q 教會伺服器部署指南 — Worship Q",
+    description: "使用 Docker 部署免費的 Worship Q 教會伺服器，實現詩歌和媒體共享、經文查詢、手機遙控、備份及後台管理。",
   },
-  '/bible/': {
-    title: '在投影上顯示經文 — Worship Q',
-    description:
-      '幾秒鐘就能顯示經文：輸入經文出處，兩個譯本並排檢視，然後演示。免費的教會投影軟體。',
+  "/bible/": {
+    title: "投影聖經經文 — Worship Q",
+    description: "快速查找經文，最多並排顯示兩個譯本；也可以提前將經文加入聚會流程表。",
   },
-  '/multilingual-lyrics/': {
-    title: '一張投影片上顯示兩種或更多語言的歌詞 — Worship Q',
-    description:
-      '在同一張投影片上顯示雙語或多語敬拜歌詞，例如中文、拼音和英文。用拼音或首字母搜尋中文詩歌。',
+  "/multilingual-lyrics/": {
+    title: "在同一張投影片上顯示雙語或多語歌詞 — Worship Q",
+    description: "支援中文、拼音、英文等多種語言組合，也可以用拼音或首字母搜尋中文詩歌。",
   },
-  '/obs/': {
-    title: '為 OBS 提供歌詞字幕和場景控制 — Worship Q',
-    description: '用 OBS 瀏覽器來源將詩歌歌詞疊加到直播畫面，並在 Worship Q 或手機上切換場景、串流和錄製。',
+  "/obs/": {
+    title: "OBS 歌詞字幕與場景控制 — Worship Q",
+    description: "將歌詞字幕疊加到 OBS 直播畫面，並透過 Worship Q 或手機切換場景、控制直播與錄製。",
   },
-  '/phone-remote/': {
-    title: '用手機控制投影片 — Worship Q',
-    description: '掃描 QR 碼，就能在房間裡的任何地方用手機切換投影片、修改流程表或新增經文。',
+  "/phone-remote/": {
+    title: "使用手機遙控投影 — Worship Q",
+    description: "掃描 QR 碼並獲得核准後，即可透過手機切換投影片、調整流程表或新增經文。",
   },
-  '/several-computers/': {
-    title: '多台電腦，同步投影 — Worship Q',
-    description:
-      '場地裡的每台電腦都顯示同一張投影片；如果主控電腦出了故障，另一台會從同一張投影片繼續。',
+  "/several-computers/": {
+    title: "多台電腦同步投影 — Worship Q",
+    description: "多台電腦同步顯示目前的投影片。主控電腦發生故障時，其他電腦可以接手，繼續投影。",
   },
-  '/compare/': {
-    title: 'Worship Q 與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 比較',
-    description:
-      '免費開源的教會投影軟體 Worship Q，與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 的比較。',
+  "/compare/": {
+    title: "Worship Q 與其他教會投影軟體比較 — Worship Q",
+    description: "了解 Worship Q 與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 在價格、平台及功能上的差異。",
   },
 };
 
 export const home: Home = {
-  title: 'Worship Q — 免費的教會投影軟體，顯示歌詞、經文和投影片',
+  title: 'Worship Q — 免費開源的教會投影軟體',
   description:
-    '免費、開源的敬拜投影軟體，適用於 Mac 和 Windows。一張投影片上顯示雙語和多語詩歌歌詞，兩個譯本並排的經文，投影片、PDF 和影片，OBS 字幕和手機控制。不需要帳號。',
+    'Worship Q 是適用於 Mac 與 Windows 的免費開源教會投影軟體，支援雙語歌詞、雙譯本經文、投影片、影片、OBS 直播字幕和手機遙控，不需註冊帳號。',
   ogTitle: 'Worship Q — 免費的教會投影軟體',
   ogDescription:
     '在投影和直播中顯示詩歌歌詞、經文、投影片和影片。免費開源，適用於 Mac 和 Windows。',
   ogImageAlt: 'Worship Q：免費的教會投影軟體，顯示歌詞、經文、投影片，並支援直播',
-  markdownTitle: 'Worship Q 的 Markdown 版本',
-  body: `<p class="text-sm font-medium tracking-wide text-amber-300">每一個螢幕，默契同步。</p>
+  markdownTitle: 'Worship Q 首頁（Markdown）',
+  body: `<p class="text-sm font-medium tracking-wide text-amber-300">多螢幕協同，呈現更默契。</p>
 <h1 class="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-  免費的教會投影軟體，顯示歌詞、經文和投影片
+  免費開源的教會投影軟體
 </h1>
 <p class="mt-4 max-w-xl text-lg text-slate-300">
-  %SUMMARY%編排每週的流程表，輕鬆控制投影。不需要帳號，也不需要網際網路。
+  %SUMMARY%輕鬆編排聚會流程，不需註冊帳號；單機使用時也不需要網際網路。
 </p>
 
 <section class="mt-10" aria-labelledby="download">
@@ -304,7 +288,7 @@ export const home: Home = {
     <div>
       <dt class="font-medium text-slate-100">Windows</dt>
       <dd>
-        Worship Q 還沒有經過 Microsoft 簽名，所以 Windows 第一次開啟前會詢問一次。如果出現「Windows 已保護你的電腦」，請選擇「更多資訊」，然後選擇「仍要執行」。之後的更新不需要任何操作。
+        Windows 版目前尚未完成程式碼簽署。首次啟動時，如果看到「Windows 已保護你的電腦」，請選擇「更多資訊」，再選擇「仍要執行」。後續更新不需重複操作。
       </dd>
     </div>
   </dl>
@@ -313,7 +297,7 @@ export const home: Home = {
 <!-- Rendered from the app's code by apps/screenshots (\\\`pnpm screenshots\\\`), with
      public-domain hymns and Bible text, each time the site is built. -->
 <section class="mt-14" aria-labelledby="screenshots">
-  <h2 id="screenshots" class="text-2xl font-bold tracking-tight">看看它</h2>
+  <h2 id="screenshots" class="text-2xl font-bold tracking-tight">介面預覽</h2>
   <figure class="mt-6">
     <a href="/screenshots/zh-hant/present.png">
       <img
@@ -321,7 +305,7 @@ export const home: Home = {
         width="1600"
         height="1000"
         class="shot"
-        alt="Worship Q 的「演示」頁面：左側是流程表和投影預覽，正顯示兩個譯本的詩篇 23 篇；旁邊是一段影片、一首雙語詩歌、這段經文和一份講道投影片，各自一列投影片"
+        alt="Worship Q 的「投影控制」頁面：左側是流程表和投影預覽，正顯示兩個譯本的詩篇 23 篇；旁邊是一段影片、一首雙語詩歌、這段經文和一份講道投影片，各自一列投影片"
       />
     </a>
     <figcaption>
@@ -340,7 +324,7 @@ export const home: Home = {
           alt="投影上顯示主禱文的開頭"
         />
       </a>
-      <figcaption>投影上的歌詞。</figcaption>
+      <figcaption>投影螢幕上的歌詞。</figcaption>
     </figure>
     <figure>
       <a href="/screenshots/zh-hant/slideshow-bible.png">
@@ -353,7 +337,7 @@ export const home: Home = {
           alt="投影上的詩篇 23 篇，和合本與英王欽定本（KJV）並排，帶經節編號"
         />
       </a>
-      <figcaption>兩個譯本並排的經文。</figcaption>
+      <figcaption>兩個譯本的經文並排顯示。</figcaption>
     </figure>
     <figure>
       <a href="/screenshots/zh-hant/calendar.png">
@@ -366,7 +350,7 @@ export const home: Home = {
           alt="日曆：標出了聚會日的一個月，以及所選主日的流程表"
         />
       </a>
-      <figcaption>在日曆上編排流程表。</figcaption>
+      <figcaption>在日曆中安排每次聚會的流程。</figcaption>
     </figure>
     <figure>
       <a href="/screenshots/zh-hant/library.png">
@@ -379,7 +363,7 @@ export const home: Home = {
           alt="詩歌資源庫，正在編輯主禱文的歌詞"
         />
       </a>
-      <figcaption>輸入或貼上歌詞，自動拆分成投影片。</figcaption>
+      <figcaption>貼上歌詞，就能自動產生投影片。</figcaption>
     </figure>
   </div>
 </section>
