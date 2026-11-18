@@ -60,53 +60,53 @@ export const words: Words = {
 };
 
 const SUMMARY =
-  "Worship Q 是一款專為教會設計的免費開源投影軟體，支援 macOS 和 Windows，可在投影螢幕和直播畫面中呈現詩歌歌詞、聖經經文、投影片及影片。";
+  'Worship Q 是一款專為教會設計的免費開源投影軟體，支援 macOS 和 Windows，可在投影螢幕和直播畫面中呈現詩歌歌詞、聖經經文、投影片及影片。';
 
 const FEATURES: Feature[] = [
   {
-    title: "多語言詩歌",
-    page: "/multilingual-lyrics/",
-    text: "可依標題或歌詞搜尋詩歌，中文還支援拼音和首字母搜尋。每句歌詞都能與對應譯文放在同一張投影片上，輕鬆呈現雙語或多語內容。",
+    title: '多語言詩歌',
+    page: '/multilingual-lyrics/',
+    text: '可依標題或歌詞搜尋詩歌，中文還支援拼音和首字母搜尋。每句歌詞都能與對應譯文放在同一張投影片上，輕鬆呈現雙語或多語內容。',
   },
   {
-    title: "快速查找聖經經文",
-    page: "/bible/",
-    text: "連線教會伺服器後，可以輸入經文出處（例如「馬可福音15:5-6」），也可以依書卷和章節瀏覽，最多並排顯示兩個譯本。",
+    title: '快速查找聖經經文',
+    page: '/bible/',
+    text: '連線教會伺服器後，可以輸入經文出處（例如「馬可福音15:5-6」），也可以依書卷和章節瀏覽，最多並排顯示兩個譯本。',
   },
   {
-    title: "為每次聚會安排流程",
-    text: "在日曆中編排流程表，也可以複製以往的安排。開啟應用程式後，即可接著使用當天或下一個聚會日的流程表。",
+    title: '為每次聚會安排流程',
+    text: '在日曆中編排流程表，也可以複製以往的安排。開啟應用程式後，即可接著使用當天或下一個聚會日的流程表。',
   },
   {
-    title: "投影片、PDF 與影片",
-    text: "透過教會伺服器將 PowerPoint、Keynote 和 PDF 轉成投影片，再把照片、影片和詩歌一同加入流程表。影片會預先下載，聚會時不必線上播放。",
+    title: '投影片、PDF 與影片',
+    text: '透過教會伺服器將 PowerPoint、Keynote 和 PDF 轉成投影片，再把照片、影片和詩歌一同加入流程表。影片會預先下載，聚會時不必線上播放。',
   },
   {
-    title: "兼顧現場投影與直播",
-    page: "/obs/",
-    text: "投影支援全螢幕顯示，並可使用圖片或影片背景；直播則可透過 OBS 疊加歌詞字幕。也能直接在 Worship Q 中切換 OBS 場景、開始直播。",
+    title: '兼顧現場投影與直播',
+    page: '/obs/',
+    text: '投影支援全螢幕顯示，並可使用圖片或影片背景；直播則可透過 OBS 疊加歌詞字幕。也能直接在 Worship Q 中切換 OBS 場景、開始直播。',
   },
   {
-    title: "手機也能遙控",
-    page: "/phone-remote/",
-    text: "掃描 QR 碼並經電腦端核准後，就能在會場任何位置用手機切換投影片、新增經文，不必安裝應用程式。",
+    title: '手機也能遙控',
+    page: '/phone-remote/',
+    text: '掃描 QR 碼並經電腦端批准後，就能在會場任何位置用手機切換投影片、新增經文，不必安裝應用程式。',
   },
   {
-    title: "多台電腦同步配合",
-    page: "/several-computers/",
-    text: "同一工作區的電腦會同步顯示目前的投影片。主控電腦發生故障時，另一台可以接手，從原來的位置繼續。",
+    title: '多台電腦同步配合',
+    page: '/several-computers/',
+    text: '同一工作區的電腦會同步顯示目前的投影片。主控電腦發生故障時，另一台可以接手，從原來的位置繼續。',
   },
   {
-    title: "遠端收聽現場音訊",
-    text: "把混音器的聲音傳送到其他電腦或手機，讓不在會場內的同工也能掌握聚會進度，及時切換投影片。",
+    title: '遠端收聽現場音訊',
+    text: '把混音器的聲音傳送到其他電腦或手機，讓不在會場內的同工也能掌握聚會進度，及時切換投影片。',
   },
   {
-    title: "一台電腦就能使用",
-    text: "單機使用不需要帳號或網際網路。需要共享詩歌、媒體、經文或使用手機遙控時，再連線教會自己的伺服器。",
+    title: '一台電腦就能使用',
+    text: '單機使用不需要帳號或網際網路。需要共享詩歌、媒體、經文或使用手機遙控時，再連線教會自己的伺服器。',
   },
   {
-    title: "免費開源，無須訂閱",
-    text: "採用 MIT 授權條款，沒有廣告，也沒有付費版本。應用程式會自動更新，但投影視窗開啟期間不會安裝更新。",
+    title: '免費開源，無須訂閱',
+    text: '採用 MIT 授權條款，沒有廣告，也沒有付費版本。應用程式會自動更新，但投影視窗開啟期間不會安裝更新。',
   },
 ];
 
@@ -114,17 +114,17 @@ export const content: SiteContent = {
   summary: SUMMARY,
   features: FEATURES,
   featureList: [
-    "支援各種語言的詩歌歌詞，可在同一張投影片上顯示雙語或多語內容",
-    "可依標題、歌詞、拼音或拼音首字母搜尋詩歌",
-    "最多並排顯示兩個譯本的聖經經文",
-    "透過日曆安排每次聚會的流程表",
-    "支援 PowerPoint、Keynote、PDF、照片與影片",
-    "支援圖片或影片作為投影背景",
-    "為 OBS 提供歌詞字幕，並控制場景、直播與錄製",
-    "使用手機遙控投影片與流程表",
-    "多台電腦同步投影，支援故障時接管",
-    "將混音器的現場音訊傳送到其他電腦與手機",
-    "單機離線可用，不需要註冊帳號",
+    '支援各種語言的詩歌歌詞，可在同一張投影片上顯示雙語或多語內容',
+    '可依標題、歌詞、拼音或拼音首字母搜尋詩歌',
+    '最多並排顯示兩個譯本的聖經經文',
+    '透過日曆安排每次聚會的流程表',
+    '支援 PowerPoint、Keynote、PDF、照片與影片',
+    '支援圖片或影片作為投影背景',
+    '為 OBS 提供歌詞字幕，並控制場景、直播與錄製',
+    '使用手機遙控投影片與流程表',
+    '多台電腦同步投影，支援故障時接管',
+    '將混音器的現場音訊傳送到其他電腦與手機',
+    '單機離線可用，不需要註冊帳號',
   ],
   platforms: {
     mac: 'macOS 11 或更高版本，Apple 晶片和 Intel',
@@ -134,80 +134,93 @@ export const content: SiteContent = {
 
 export const faq: Question[] = [
   {
-    question: "Worship Q 是免費的嗎？",
-    answer: "是的。Worship Q 採用 MIT 開源授權條款，完全免費，沒有廣告、訂閱費或付費版本。教會伺服器也能免費使用。",
+    question: 'Worship Q 是免費的嗎？',
+    answer:
+      '是的。Worship Q 採用 MIT 開源授權條款，完全免費，沒有廣告、訂閱費或付費版本。教會伺服器也能免費使用。',
   },
   {
-    question: "需要註冊帳號或連線網路嗎？",
-    answer: "不需要。只用一台電腦時，Worship Q 不需帳號或網際網路也能運作。連線教會伺服器後，還能在多台電腦之間共享詩歌與媒體、查找聖經經文、使用手機遙控，並同步投影。",
+    question: '需要註冊帳號或連線網路嗎？',
+    answer:
+      '不需要。只用一台電腦時，Worship Q 不需帳號或網際網路也能運作。連線教會伺服器後，還能在多台電腦之間共享詩歌與媒體、查找聖經經文、使用手機遙控，並同步投影。',
   },
   {
-    question: "支援哪些電腦？",
-    answer: "支援搭載 Apple 晶片或 Intel 處理器、執行 macOS 11 以上版本的 Mac，以及執行 64 位元 Windows 10 以上版本的電腦。應用程式會自動更新，但不會在投影視窗開啟期間安裝更新。",
+    question: '支援哪些電腦？',
+    answer:
+      '支援搭載 Apple 晶片或 Intel 處理器、執行 macOS 11 以上版本的 Mac，以及執行 64 位元 Windows 10 以上版本的電腦。應用程式會自動更新，但不會在投影視窗開啟期間安裝更新。',
   },
   {
-    question: "能在同一張投影片上顯示雙語歌詞嗎？",
-    answer: "可以。無論中文、英文或其他語言，都能將一句歌詞及其譯文排在同一張投影片上。預設每張顯示兩行，也可以在設定中調整行數，例如同時顯示中文、拼音和英文。詩歌支援依標題、歌詞、拼音或首字母搜尋。",
+    question: '能在同一張投影片上顯示雙語歌詞嗎？',
+    answer:
+      '可以。無論中文、英文或其他語言，都能將一句歌詞及其譯文排在同一張投影片上。預設每張顯示兩行，也可以在設定中調整行數，例如同時顯示中文、拼音和英文。詩歌支援依標題、歌詞、拼音或首字母搜尋。',
   },
   {
-    question: "如何查找並投影聖經經文？",
-    answer: "輸入「馬可福音15:5-6」或「可15:5-6」等經文出處，也可以依書卷、章節瀏覽，或使用關鍵字搜尋。每張投影片最多能並排顯示兩個譯本。經文由教會伺服器提供，可使用不需金鑰的 Free Use Bible API（例如和合本、KJV、BSB），或設定教會自己的 API.Bible、YouVersion 金鑰。",
+    question: '如何查找並投影聖經經文？',
+    answer:
+      '輸入「馬可福音15:5-6」或「可15:5-6」等經文出處，也可以依書卷、章節瀏覽，或使用關鍵字搜尋。每張投影片最多能並排顯示兩個譯本。經文由教會伺服器提供，可使用不需金鑰的 Free Use Bible API（例如和合本、KJV、BSB），或設定教會自己的 API.Bible、YouVersion 金鑰。',
   },
   {
-    question: "支援 PowerPoint、Keynote、PDF 和影片嗎？",
-    answer: "支援，但需要連線教會伺服器。PowerPoint、Keynote、OpenDocument 和 PDF 檔案會轉換為投影片；照片和影片也可以加入流程表。影片會預先下載，避免聚會中依賴線上播放。",
+    question: '支援 PowerPoint、Keynote、PDF 和影片嗎？',
+    answer:
+      '支援，但需要連線教會伺服器。PowerPoint、Keynote、OpenDocument 和 PDF 檔案會轉換為投影片；照片和影片也可以加入流程表。影片會預先下載，避免聚會中依賴線上播放。',
   },
   {
-    question: "可以搭配 OBS 直播嗎？",
-    answer: "可以。透過 OBS 的「瀏覽器」來源，可以將透明背景的歌詞字幕疊加到直播畫面上。也能在 Worship Q 或已核准的手機上切換 OBS 場景，以及開始或停止直播與錄製。",
+    question: '可以搭配 OBS 直播嗎？',
+    answer:
+      '可以。透過 OBS 的「瀏覽器」來源，可以將透明背景的歌詞字幕疊加到直播畫面上。也能在 Worship Q 或已批准的手機上切換 OBS 場景，以及開始或停止直播與錄製。',
   },
   {
-    question: "可以用手機控制投影嗎？",
-    answer: "可以，需要連線教會伺服器。手機掃描 QR 碼並經電腦端核准後，就能切換投影片、調整正在使用的流程表，或臨時新增經文。",
+    question: '可以用手機控制投影嗎？',
+    answer:
+      '可以，需要連線教會伺服器。手機掃描 QR 碼並經電腦端批准後，就能切換投影片、調整正在使用的流程表，或臨時新增經文。',
   },
   {
-    question: "多台電腦能同步顯示同一套投影嗎？",
-    answer: "可以。連線到同一工作區的電腦會同步顯示目前的投影片；如果主控電腦發生故障，其他電腦可以接管，從原來的位置繼續。系統設計支援網際網路中斷時透過同一區域網路保持同步；正式使用前建議先以實際裝置測試。",
+    question: '多台電腦能同步顯示同一套投影嗎？',
+    answer:
+      '可以。連線到同一工作區的電腦會同步顯示目前的投影片；如果主控電腦發生故障，其他電腦可以接管，從原來的位置繼續。系統設計支援網際網路中斷時透過同一個區域網路保持同步；正式使用前建議先以實際裝置測試。',
   },
   {
-    question: "能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？",
-    answer: "目前還不支援直接匯入。你可以先複製歌詞並貼到 Worship Q，以空白行分隔段落，軟體便會自動產生投影片。如果教會需要轉移工具，歡迎透過 hello@ihs.technology 聯絡我們，或在 github.com/iphren/worship-q 提交 Pull Request。",
+    question: '能從 ProPresenter、EasyWorship 或 OpenLP 匯入詩歌嗎？',
+    answer:
+      '目前還不支援直接匯入。你可以先複製歌詞並貼到 Worship Q，以空白行分隔段落，軟體便會自動產生投影片。如果教會需要轉移工具，歡迎透過 hello@ihs.technology 聯絡我們，或在 github.com/iphren/worship-q 提交 Pull Request。',
   },
 ];
 
 /** The Markdown pages' titles and descriptions, by their English path. */
 export const pages: Record<string, PageText> = {
-  "/guide/": {
-    title: "Worship Q 同工操作指南 — Worship Q",
-    description: "從新增詩歌、編排流程表到控制投影，了解經文、投影片、影片、手機遙控、OBS 和現場音訊的使用方法。",
+  '/guide/': {
+    title: 'Worship Q 同工操作指南 — Worship Q',
+    description:
+      '從新增詩歌、編排流程表到控制投影，了解經文、投影片、影片、手機遙控、OBS 和現場音訊的使用方法。',
   },
-  "/server/": {
-    title: "Worship Q 教會伺服器部署指南 — Worship Q",
-    description: "使用 Docker 部署免費的 Worship Q 教會伺服器，實現詩歌和媒體共享、經文查詢、手機遙控、備份及後台管理。",
+  '/server/': {
+    title: 'Worship Q 教會伺服器部署指南 — Worship Q',
+    description:
+      '使用 Docker 部署免費的 Worship Q 教會伺服器，實現詩歌和媒體共享、經文查詢、手機遙控、備份及後台管理。',
   },
-  "/bible/": {
-    title: "投影聖經經文 — Worship Q",
-    description: "快速查找經文，最多並排顯示兩個譯本；也可以提前將經文加入聚會流程表。",
+  '/bible/': {
+    title: '投影聖經經文 — Worship Q',
+    description: '快速查找經文，最多並排顯示兩個譯本；也可以提前將經文加入聚會流程表。',
   },
-  "/multilingual-lyrics/": {
-    title: "在同一張投影片上顯示雙語或多語歌詞 — Worship Q",
-    description: "支援中文、拼音、英文等多種語言組合，也可以用拼音或首字母搜尋中文詩歌。",
+  '/multilingual-lyrics/': {
+    title: '在同一張投影片上顯示雙語或多語歌詞 — Worship Q',
+    description: '支援中文、拼音、英文等多種語言組合，也可以用拼音或首字母搜尋中文詩歌。',
   },
-  "/obs/": {
-    title: "OBS 歌詞字幕與場景控制 — Worship Q",
-    description: "將歌詞字幕疊加到 OBS 直播畫面，並透過 Worship Q 或手機切換場景、控制直播與錄製。",
+  '/obs/': {
+    title: 'OBS 歌詞字幕與場景控制 — Worship Q',
+    description: '將歌詞字幕疊加到 OBS 直播畫面，並透過 Worship Q 或手機切換場景、控制直播與錄製。',
   },
-  "/phone-remote/": {
-    title: "使用手機遙控投影 — Worship Q",
-    description: "掃描 QR 碼並獲得核准後，即可透過手機切換投影片、調整流程表或新增經文。",
+  '/phone-remote/': {
+    title: '使用手機遙控投影 — Worship Q',
+    description: '掃描 QR 碼並獲得批准後，即可透過手機切換投影片、調整流程表或新增經文。',
   },
-  "/several-computers/": {
-    title: "多台電腦同步投影 — Worship Q",
-    description: "多台電腦同步顯示目前的投影片。主控電腦發生故障時，其他電腦可以接手，繼續投影。",
+  '/several-computers/': {
+    title: '多台電腦同步投影 — Worship Q',
+    description: '多台電腦同步顯示目前的投影片。主控電腦發生故障時，其他電腦可以接手，繼續投影。',
   },
-  "/compare/": {
-    title: "Worship Q 與其他教會投影軟體比較 — Worship Q",
-    description: "了解 Worship Q 與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 在價格、平台及功能上的差異。",
+  '/compare/': {
+    title: 'Worship Q 與其他教會投影軟體比較 — Worship Q',
+    description:
+      '了解 Worship Q 與 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 在價格、平台及功能上的差異。',
   },
 };
 

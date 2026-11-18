@@ -61,53 +61,53 @@ export const words: Words = {
 };
 
 const SUMMARY =
-  "Worship Q 是一款面向教会的免费开源投影软件，支持 macOS 和 Windows，可在投影屏幕和直播画面中呈现诗歌歌词、圣经经文、幻灯片和视频。";
+  'Worship Q 是一款面向教会的免费开源投影软件，支持 macOS 和 Windows，可在投影屏幕和直播画面中呈现诗歌歌词、圣经经文、幻灯片和视频。';
 
 const FEATURES: Feature[] = [
   {
-    title: "多语言诗歌",
-    page: "/multilingual-lyrics/",
-    text: "按标题或歌词查找诗歌，中文还支持拼音和首字母搜索。可以把一句歌词及其译文放在同一张幻灯片上，轻松呈现双语或多语歌词。",
+    title: '多语言诗歌',
+    page: '/multilingual-lyrics/',
+    text: '按标题或歌词查找诗歌，中文还支持拼音和首字母搜索。可以把一句歌词及其译文放在同一张幻灯片上，轻松呈现双语或多语歌词。',
   },
   {
-    title: "快速查找圣经经文",
-    page: "/bible/",
-    text: "连接教会服务器后，可以输入经文出处（如“马可福音15:5-6”），或按书卷和章节浏览。最多可并排显示两个译本。",
+    title: '快速查找圣经经文',
+    page: '/bible/',
+    text: '连接教会服务器后，可以输入经文出处（如“马可福音15:5-6”），或按书卷和章节浏览。最多可并排显示两个译本。',
   },
   {
-    title: "为每次聚会安排流程",
-    text: "在日历中编排流程表，也可以复制以往的安排。打开应用时，即可接着使用当天或下一个聚会日的流程表。",
+    title: '为每次聚会安排流程',
+    text: '在日历中编排流程表，也可以复制以往的安排。打开应用时，即可接着使用当天或下一个聚会日的流程表。',
   },
   {
-    title: "幻灯片、PDF 和视频",
-    text: "通过教会服务器把 PowerPoint、Keynote 和 PDF 转成幻灯片，连同照片、视频和诗歌一起加入流程表。视频提前下载，聚会时无需在线播放。",
+    title: '幻灯片、PDF 和视频',
+    text: '通过教会服务器把 PowerPoint、Keynote 和 PDF 转成幻灯片，连同照片、视频和诗歌一起加入流程表。视频提前下载，聚会时无需在线播放。',
   },
   {
-    title: "兼顾现场投影与直播",
-    page: "/obs/",
-    text: "投影支持全屏显示，并可使用图片或视频背景；直播则可通过 OBS 叠加歌词字幕。还可以在 Worship Q 中切换 OBS 场景、开始直播。",
+    title: '兼顾现场投影与直播',
+    page: '/obs/',
+    text: '投影支持全屏显示，并可使用图片或视频背景；直播则可通过 OBS 叠加歌词字幕。还可以在 Worship Q 中切换 OBS 场景、开始直播。',
   },
   {
-    title: "手机也能遥控",
-    page: "/phone-remote/",
-    text: "扫描二维码，经电脑端批准后，就可以在会场任何位置用手机切换幻灯片、添加经文，无需安装应用。",
+    title: '手机也能遥控',
+    page: '/phone-remote/',
+    text: '扫描二维码，经电脑端批准后，就可以在会场任何位置用手机切换幻灯片、添加经文，无需安装应用。',
   },
   {
-    title: "多台电脑同步配合",
-    page: "/several-computers/",
-    text: "同一工作区的电脑会同步显示当前幻灯片。主控电脑出现故障时，另一台可以接手，从原来的位置继续。",
+    title: '多台电脑同步配合',
+    page: '/several-computers/',
+    text: '同一工作区的电脑会同步显示当前幻灯片。主控电脑出现故障时，另一台可以接手，从原来的位置继续。',
   },
   {
-    title: "远程收听现场音频",
-    text: "把调音台的声音传送到其他电脑或手机，让不在会场内的同工也能跟上聚会进度，及时切换幻灯片。",
+    title: '远程收听现场音频',
+    text: '把调音台的声音传送到其他电脑或手机，让不在会场内的同工也能跟上聚会进度，及时切换幻灯片。',
   },
   {
-    title: "一台电脑就能使用",
-    text: "单机使用无需账号或互联网。需要共享诗歌、媒体、经文或使用手机遥控时，再连接教会自己的服务器。",
+    title: '一台电脑就能使用',
+    text: '单机使用无需账号或互联网。需要共享诗歌、媒体、经文或使用手机遥控时，再连接教会自己的服务器。',
   },
   {
-    title: "免费开源，没有订阅",
-    text: "采用 MIT 许可证，无广告、无付费版本。应用会自动更新，但投影窗口打开期间不会安装更新。",
+    title: '免费开源，没有订阅',
+    text: '采用 MIT 许可证，无广告、无付费版本。应用会自动更新，但投影窗口打开期间不会安装更新。',
   },
 ];
 
@@ -115,17 +115,17 @@ export const content: SiteContent = {
   summary: SUMMARY,
   features: FEATURES,
   featureList: [
-    "支持任意语言的诗歌歌词，可在同一张幻灯片上显示双语或多语内容",
-    "按标题、歌词、拼音或拼音首字母搜索诗歌",
-    "最多并排显示两个译本的圣经经文",
-    "通过日历安排每次聚会的流程表",
-    "支持 PowerPoint、Keynote、PDF、照片和视频",
-    "支持图片或视频作为投影背景",
-    "为 OBS 提供歌词字幕，并控制场景、直播和录制",
-    "用手机遥控幻灯片和流程表",
-    "多台电脑同步投影，支持故障后接管",
-    "将调音台的现场音频传送到其他电脑和手机",
-    "单机离线可用，无需注册账号",
+    '支持任意语言的诗歌歌词，可在同一张幻灯片上显示双语或多语内容',
+    '按标题、歌词、拼音或拼音首字母搜索诗歌',
+    '最多并排显示两个译本的圣经经文',
+    '通过日历安排每次聚会的流程表',
+    '支持 PowerPoint、Keynote、PDF、照片和视频',
+    '支持图片或视频作为投影背景',
+    '为 OBS 提供歌词字幕，并控制场景、直播和录制',
+    '用手机遥控幻灯片和流程表',
+    '多台电脑同步投影，支持故障后接管',
+    '将调音台的现场音频传送到其他电脑和手机',
+    '单机离线可用，无需注册账号',
   ],
   platforms: {
     mac: 'macOS 11 或更高版本，Apple 芯片和 Intel',
@@ -135,80 +135,93 @@ export const content: SiteContent = {
 
 export const faq: Question[] = [
   {
-    question: "Worship Q 是免费的吗？",
-    answer: "是的。Worship Q 采用 MIT 开源许可证，完全免费，没有广告、订阅费用或付费版本。教会服务器也可以免费使用。",
+    question: 'Worship Q 是免费的吗？',
+    answer:
+      '是的。Worship Q 采用 MIT 开源许可证，完全免费，没有广告、订阅费用或付费版本。教会服务器也可以免费使用。',
   },
   {
-    question: "需要注册账号或连接互联网吗？",
-    answer: "不需要。只用一台电脑时，Worship Q 无需账号和互联网也能运行。连接教会服务器后，还能在多台电脑之间共享诗歌和媒体、查找圣经经文、使用手机遥控并同步投影。",
+    question: '需要注册账号或连接互联网吗？',
+    answer:
+      '不需要。只用一台电脑时，Worship Q 无需账号和互联网也能运行。连接教会服务器后，还能在多台电脑之间共享诗歌和媒体、查找圣经经文、使用手机遥控并同步投影。',
   },
   {
-    question: "支持哪些电脑？",
-    answer: "支持搭载 Apple 芯片或 Intel 处理器、运行 macOS 11 及以上版本的 Mac，以及运行 64 位 Windows 10 及以上版本的电脑。应用会自动更新，但不会在投影窗口打开期间安装更新。",
+    question: '支持哪些电脑？',
+    answer:
+      '支持搭载 Apple 芯片或 Intel 处理器、运行 macOS 11 及以上版本的 Mac，以及运行 64 位 Windows 10 及以上版本的电脑。应用会自动更新，但不会在投影窗口打开期间安装更新。',
   },
   {
-    question: "可以在同一张幻灯片上显示双语歌词吗？",
-    answer: "可以。不论中文、英文还是其他语言，都能将一句歌词及其译文排在同一张幻灯片上。默认每张显示两行，也可以在设置中调整行数，例如同时显示中文、拼音和英文。诗歌支持按标题、歌词、拼音或首字母搜索。",
+    question: '可以在同一张幻灯片上显示双语歌词吗？',
+    answer:
+      '可以。不论中文、英文还是其他语言，都能将一句歌词及其译文排在同一张幻灯片上。默认每张显示两行，也可以在设置中调整行数，例如同时显示中文、拼音和英文。诗歌支持按标题、歌词、拼音或首字母搜索。',
   },
   {
-    question: "如何查找并投影圣经经文？",
-    answer: "输入“马可福音15:5-6”或“可15:5-6”这样的经文出处，也可以浏览书卷、章节，或按关键词搜索。每张幻灯片最多可并排显示两个译本。经文由教会服务器提供，可使用无需密钥的 Free Use Bible API（如和合本、KJV、BSB），或配置教会自己的 API.Bible、YouVersion 密钥。",
+    question: '如何查找并投影圣经经文？',
+    answer:
+      '输入“马可福音15:5-6”或“可15:5-6”这样的经文出处，也可以浏览书卷、章节，或按关键词搜索。每张幻灯片最多可并排显示两个译本。经文由教会服务器提供，可使用无需密钥的 Free Use Bible API（如和合本、KJV、BSB），或配置教会自己的 API.Bible、YouVersion 密钥。',
   },
   {
-    question: "支持 PowerPoint、Keynote、PDF 和视频吗？",
-    answer: "支持，但需要连接教会服务器。PowerPoint、Keynote、OpenDocument 和 PDF 文件会转换为幻灯片；照片、视频也可以加入流程表。视频会提前下载，避免聚会中依赖在线播放。",
+    question: '支持 PowerPoint、Keynote、PDF 和视频吗？',
+    answer:
+      '支持，但需要连接教会服务器。PowerPoint、Keynote、OpenDocument 和 PDF 文件会转换为幻灯片；照片、视频也可以加入流程表。视频会提前下载，避免聚会中依赖在线播放。',
   },
   {
-    question: "可以搭配 OBS 直播吗？",
-    answer: "可以。通过 OBS 的“浏览器”来源，可将歌词以透明背景叠加到直播画面中。还可以在 Worship Q 或已获批准的手机上切换 OBS 场景，以及开始或停止直播和录制。",
+    question: '可以搭配 OBS 直播吗？',
+    answer:
+      '可以。通过 OBS 的“浏览器”来源，可将歌词以透明背景叠加到直播画面中。还可以在 Worship Q 或已获批准的手机上切换 OBS 场景，以及开始或停止直播和录制。',
   },
   {
-    question: "可以用手机控制投影吗？",
-    answer: "可以，需要连接教会服务器。手机扫描二维码并获得电脑端批准后，就能切换幻灯片、调整正在使用的流程表，或临时添加经文。",
+    question: '可以用手机控制投影吗？',
+    answer:
+      '可以，需要连接教会服务器。手机扫描二维码并获得电脑端批准后，就能切换幻灯片、调整正在使用的流程表，或临时添加经文。',
   },
   {
-    question: "多台电脑能同步显示同一套投影吗？",
-    answer: "可以。连接到同一工作区的电脑会同步显示当前幻灯片；如果主控电脑出现故障，其他电脑可以接管并从原来的位置继续。系统设计支持在互联网中断时通过同一局域网保持同步；正式使用前建议在实际设备上测试。",
+    question: '多台电脑能同步显示同一套投影吗？',
+    answer:
+      '可以。连接到同一工作区的电脑会同步显示当前幻灯片；如果主控电脑出现故障，其他电脑可以接管并从原来的位置继续。系统设计支持在互联网中断时通过同一个局域网保持同步；正式使用前建议在实际设备上测试。',
   },
   {
-    question: "能从 ProPresenter、EasyWorship 或 OpenLP 导入诗歌吗？",
-    answer: "目前还不支持直接导入。你可以先复制歌词并粘贴到 Worship Q 中，用空行分隔段落，软件会自动生成幻灯片。如果教会需要迁移工具，欢迎通过 hello@ihs.technology 联系我们，或在 github.com/iphren/worship-q 提交 Pull Request。",
+    question: '能从 ProPresenter、EasyWorship 或 OpenLP 导入诗歌吗？',
+    answer:
+      '目前还不支持直接导入。你可以先复制歌词并粘贴到 Worship Q 中，用空行分隔段落，软件会自动生成幻灯片。如果教会需要迁移工具，欢迎通过 hello@ihs.technology 联系我们，或在 github.com/iphren/worship-q 提交 Pull Request。',
   },
 ];
 
 /** The Markdown pages' titles and descriptions, by their English path. */
 export const pages: Record<string, PageText> = {
-  "/guide/": {
-    title: "Worship Q 同工操作指南 — Worship Q",
-    description: "从添加诗歌、编排流程表到控制投影，了解经文、幻灯片、视频、手机遥控、OBS 和现场音频的使用方法。",
+  '/guide/': {
+    title: 'Worship Q 同工操作指南 — Worship Q',
+    description:
+      '从添加诗歌、编排流程表到控制投影，了解经文、幻灯片、视频、手机遥控、OBS 和现场音频的使用方法。',
   },
-  "/server/": {
-    title: "Worship Q 教会服务器部署指南 — Worship Q",
-    description: "使用 Docker 部署免费的 Worship Q 教会服务器，实现诗歌和媒体共享、经文查询、手机遥控、备份及后台管理。",
+  '/server/': {
+    title: 'Worship Q 教会服务器部署指南 — Worship Q',
+    description:
+      '使用 Docker 部署免费的 Worship Q 教会服务器，实现诗歌和媒体共享、经文查询、手机遥控、备份及后台管理。',
   },
-  "/bible/": {
-    title: "投影圣经经文 — Worship Q",
-    description: "快速查找经文，最多并排显示两个译本；也可以提前将经文加入聚会流程表。",
+  '/bible/': {
+    title: '投影圣经经文 — Worship Q',
+    description: '快速查找经文，最多并排显示两个译本；也可以提前将经文加入聚会流程表。',
   },
-  "/multilingual-lyrics/": {
-    title: "在同一张幻灯片上显示双语或多语歌词 — Worship Q",
-    description: "支持中文、拼音、英文等多种语言组合，还可以用拼音或首字母搜索中文诗歌。",
+  '/multilingual-lyrics/': {
+    title: '在同一张幻灯片上显示双语或多语歌词 — Worship Q',
+    description: '支持中文、拼音、英文等多种语言组合，还可以用拼音或首字母搜索中文诗歌。',
   },
-  "/obs/": {
-    title: "OBS 歌词字幕与场景控制 — Worship Q",
-    description: "将歌词字幕叠加到 OBS 直播画面，并通过 Worship Q 或手机切换场景、控制直播与录制。",
+  '/obs/': {
+    title: 'OBS 歌词字幕与场景控制 — Worship Q',
+    description: '将歌词字幕叠加到 OBS 直播画面，并通过 Worship Q 或手机切换场景、控制直播与录制。',
   },
-  "/phone-remote/": {
-    title: "用手机遥控投影 — Worship Q",
-    description: "扫描二维码并获得批准后，即可通过手机切换幻灯片、调整流程表或添加经文。",
+  '/phone-remote/': {
+    title: '用手机遥控投影 — Worship Q',
+    description: '扫描二维码并获得批准后，即可通过手机切换幻灯片、调整流程表或添加经文。',
   },
-  "/several-computers/": {
-    title: "多台电脑同步投影 — Worship Q",
-    description: "多台电脑同步显示当前幻灯片。主控电脑出现故障时，其他电脑可以接手，继续投影。",
+  '/several-computers/': {
+    title: '多台电脑同步投影 — Worship Q',
+    description: '多台电脑同步显示当前幻灯片。主控电脑出现故障时，其他电脑可以接手，继续投影。',
   },
-  "/compare/": {
-    title: "Worship Q 与其他教会投影软件对比 — Worship Q",
-    description: "了解 Worship Q 与 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 在价格、平台及功能上的差异。",
+  '/compare/': {
+    title: 'Worship Q 与其他教会投影软件对比 — Worship Q',
+    description:
+      '了解 Worship Q 与 ProPresenter、EasyWorship、OpenLP、FreeShow 和 Proclaim 在价格、平台及功能上的差异。',
   },
 };
 

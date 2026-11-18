@@ -92,7 +92,7 @@ describe('Chinese', () => {
     setLocale('zh-Hant');
     try {
       expect(formatDate('2026-11-22')).toBe('11月22日星期日');
-      expect(meetingDaysLabel([])).toBe('隨時');
+      expect(meetingDaysLabel([])).toBe('不限日期');
     } finally {
       setLocale('en');
     }
@@ -105,7 +105,9 @@ const SAME_IN_EVERY_LANGUAGE =
 
 describe('every app catalogue (T4)', () => {
   const catalogues = { desktop, remote, admin, output };
-  const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+  // Which placeholders a message uses; how often is up to each language's sentence.
+  const placeholders = (text: string) =>
+    [...new Set([...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort();
 
   for (const [app, { messages }] of Object.entries(catalogues)) {
     it(`${app}: every language has every key, with the same placeholders`, () => {

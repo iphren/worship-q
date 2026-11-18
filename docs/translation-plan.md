@@ -138,16 +138,16 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Songs, Media, Web | 诗歌、媒体、网页 | 詩歌、媒體、網頁 | |
 | Bible passage / version | 经文 / 译本 | 經文 / 譯本 | |
 | Viewer mode / a viewer | 仅观看模式 / 观看端 | 僅觀看模式 / 觀看端 | |
-| Holds the presentation (coordinator) / Follow | 主控（演示） / 副控 | 主控（演示） / 副控 | Take over presenting: 接管演示 |
+| Holds the presentation (coordinator) / Follow | 主控（投影） / 副控 | 主控（投影） / 副控 | Take over presenting: 接管投影控制; the coordinator: 主控电脑 / 主控電腦 |
 | Subtitle overlay | 字幕 | 字幕 | |
 | Output / Browser outputs | 远程画面 / 浏览器远程画面 | 遠端畫面 / 瀏覽器遠端畫面 | |
-| On this network (connected directly) / this network | 在本地网络上 / 本地网络 | 在本地網路上 / 本地網路 | |
+| On this network (connected directly) / this network | 在局域网上 / 局域网 | 在區域網路上 / 區域網路 | |
 | New song, New website | 添加诗歌、添加网站 | 新增詩歌、新增網站 | |
 | Meeting day | 聚会日 | 聚會日 | |
 | Phone remote | 手机遥控 | 手機遙控 | |
 | Operator | 操作员 | 操作員 | |
 | Administrator / admin app | 管理员 / 管理后台 | 管理員 / 管理後台 | |
-| Approve / pairing | 批准 / 配对 | 批准 / 配對 | |
+| Approve / pairing | 批准 / 配对 | 批准 / 配對 | Not 核准 in Traditional, so both scripts read alike |
 | Connection code | 连接码 | 連線碼 | |
 | Synchronize | 同步 | 同步 | |
 | Live audio / broadcast / listen | 现场音频 / 广播 / 收听 | 現場音訊 / 廣播 / 收聽 | |

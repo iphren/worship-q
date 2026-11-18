@@ -64,7 +64,7 @@ export const admin: Record<keyof typeof en, string> = {
   'role.viewer': '电脑（观看）',
   'role.phone': '手机',
   'role.output': '远程画面',
-  'connection.lan': '在本地网络上',
+  'connection.lan': '在局域网上',
   'connection.relay': '通过教会服务器连接',
 
   'error.not-administrator':
@@ -291,7 +291,8 @@ export const admin: Record<keyof typeof en, string> = {
   'library.deletedHint':
     '已删除的项目在文件被删除前都可以恢复，默认是删除后 90 天。工作区会保留它们已做的任何自有版本。',
   'library.deletedHintWorkspace': '这些是{workspace}自己的项目，已在那里删除。',
-  'library.emptyManaged': '{workspace}负责管理教会资源库的{noun}，因此工作区的{noun}直接属于教会资源库。',
+  'library.emptyManaged':
+    '{workspace}负责管理教会资源库的{noun}，因此工作区的{noun}直接属于教会资源库。',
   'library.emptyWorkspaceDeleted': '{workspace}没有自己已删除的{noun}。',
   'library.emptyWorkspace': '{workspace}目前使用教会资源库的{noun}，没有单独修改。',
   'library.noMatch': '没有找到与“{query}”匹配的{noun}。',
@@ -361,7 +362,8 @@ export const admin: Record<keyof typeof en, string> = {
   'workspace.filesMoved.one': '{count} 个文件已移到教会资源库。',
   'workspace.filesMoved.other': '{count} 个文件已移到教会资源库。',
   'workspace.manageTitle': '管理教会资源库的{noun}？',
-  'workspace.manageText': '启用后，{workspace}现有的{noun}将纳入教会资源库，并同步给所有工作区。具体变更如下：',
+  'workspace.manageText':
+    '启用后，{workspace}现有的{noun}将纳入教会资源库，并同步给所有工作区。具体变更如下：',
   'workspace.stopTitle': '停止管理教会资源库的{noun}？',
   'workspace.stopText':
     '停止后，{workspace}不再管理教会资源库中的{noun}。此前同步到教会资源库的内容会保留；此后新增的{noun}只属于该工作区。',
@@ -375,8 +377,8 @@ export const admin: Record<keyof typeof en, string> = {
   'listen.playing': '正在播放',
   'listen.waiting': '已连接；广播正在等待输入',
   'listen.full': '广播已满：已有十人在收听',
-  'listen.unreachableRelay': '无法连接。已尝试教会的中继；本地网络可能阻止了它。',
-  'listen.unreachable': '无法从本地网络连接，而教会的服务器没有提供中继。',
+  'listen.unreachableRelay': '无法连接。已尝试教会的中继；局域网可能阻止了它。',
+  'listen.unreachable': '无法从局域网连接，而教会的服务器没有提供中继。',
   'listen.delay': '{ms} 毫秒',
   'listen.relayed': '中继',
   'listen.direct': '直连',
@@ -387,7 +389,7 @@ export const admin: Record<keyof typeof en, string> = {
   'listen.title': '收听',
   'workspace.obsOff': '这台电脑上的 OBS 控制已关闭。上次联系：{when}。',
   'workspace.obsStale': 'OBS 电脑已停止报告',
-  'workspace.obsProgram': 'OBS 节目：{scene}',
+  'workspace.obsProgram': 'OBS 节目画面：{scene}',
   'workspace.scene': '场景',
   'workspace.obsTaken': '节目画面，拍摄于{age}前。每 {seconds} 秒以及场景切换后不久会更新画面。',
   'workspace.notFound': '找不到工作区',
@@ -429,7 +431,7 @@ export const admin: Record<keyof typeof en, string> = {
   'workspace.expiry': '过期时间',
   'workspace.withoutComputer': '没有连接电脑',
   'workspace.onScreen': '屏幕上',
-  'workspace.blank': '已隐藏文字',
+  'workspace.blank': '已隐藏内容',
   'workspace.slideMissing': '快照中没有这张幻灯片',
   'workspace.subtitle': '字幕',
   'workspace.items': '流程表项目',
@@ -440,7 +442,7 @@ export const admin: Record<keyof typeof en, string> = {
   'workspace.audioNotConnected': '广播的电脑没有连接这个服务器，所以无法在这里收听。',
   'workspace.obsComputer': 'OBS 电脑',
   'workspace.notConnected': '· 未连接',
-  'workspace.onProgram': '节目中',
+  'workspace.onProgram': '节目画面中',
   'workspace.lastReport': '上次报告',
   'workspace.outputs': '远程画面',
   'workspace.scenes': '场景',
