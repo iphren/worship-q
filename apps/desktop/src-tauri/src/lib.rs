@@ -134,6 +134,7 @@ pub fn run() {
             fonts::font_missing_chars,
             instances::other_instances,
             open_website,
+            open_guide,
             output::open_output,
             output::close_output,
             output::window_output,
@@ -203,6 +204,22 @@ const WEBSITE: &str = "https://worship-q.com";
 /// here, so the interface cannot be made to open anything else.
 #[tauri::command]
 fn open_website() -> Result<(), String> {
+    open_in_browser(WEBSITE)
+}
+
+/// Opens the volunteer guide on the website in the interface language (`zh-Hans`, `zh-Hant`,
+/// or English for anything else), from the Help menu.
+#[tauri::command]
+fn open_guide(locale: String) -> Result<(), String> {
+    let path = match locale.as_str() {
+        "zh-Hans" => "/zh-hans/guide/",
+        "zh-Hant" => "/zh-hant/guide/",
+        _ => "/guide/",
+    };
+    open_in_browser(&format!("{WEBSITE}{path}"))
+}
+
+fn open_in_browser(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let mut command = std::process::Command::new("open");
     #[cfg(target_os = "windows")]
@@ -213,7 +230,7 @@ fn open_website() -> Result<(), String> {
     };
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let mut command = std::process::Command::new("xdg-open");
-    command.arg(WEBSITE).spawn().map_err(|e| e.to_string())?;
+    command.arg(url).spawn().map_err(|e| e.to_string())?;
     Ok(())
 }
 

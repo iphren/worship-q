@@ -833,6 +833,7 @@ export const desktop = {
   'menu.minimize': 'Minimize',
   'menu.zoom': 'Zoom',
   'menu.help': 'Help',
+  'menu.guide': 'Volunteer Guide',
 } as const;
 
 export type DesktopKey = keyof typeof desktop;

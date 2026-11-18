@@ -4,8 +4,9 @@
  * whenever the language changes. Windows and Linux show no menu bar.
  */
 import { getName, getVersion } from '@tauri-apps/api/app';
+import { invoke } from '@tauri-apps/api/core';
 import { Menu, Submenu, type PredefinedMenuItemOptions } from '@tauri-apps/api/menu';
-import { subscribeLocale, t } from '@worship-q/i18n/desktop';
+import { getLocale, subscribeLocale, t } from '@worship-q/i18n/desktop';
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent);
 
@@ -28,7 +29,18 @@ async function build(name: string, version: string): Promise<Menu> {
       item('CloseWindow', t('menu.closeWindow')),
     ],
   });
-  const help = await Submenu.new({ text: t('menu.help'), items: [] });
+  const help = await Submenu.new({
+    text: t('menu.help'),
+    items: [
+      {
+        text: t('menu.guide'),
+        action: () =>
+          void invoke('open_guide', { locale: getLocale() }).catch((error: unknown) =>
+            console.error(error),
+          ),
+      },
+    ],
+  });
   const menu = await Menu.new({
     items: [
       {

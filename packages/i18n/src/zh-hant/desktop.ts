@@ -750,4 +750,5 @@ export const desktop: Record<DesktopKey, string> = {
   'menu.minimize': '最小化',
   'menu.zoom': '縮放',
   'menu.help': '輔助說明',
+  'menu.guide': '同工操作指南',
 };
