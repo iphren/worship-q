@@ -156,23 +156,15 @@ A build-time constant (`https://public.worship-q.com` or similar), overridable w
 
 A video upload (`POST /api/v1/videos`) only receives the file, hashes it and stores it; the duration check is done on the desktop (`probeVideo`), and the desktop already keeps its own copy (`storeVideo`). For one computer the server adds nothing. **Decided:** a workspace without a church server adds a video with no network at all: no upload and no download. The public server takes no videos (`media.videos: false`).
 
-### 5.2 Which file plays: the user's file, or a copy
+### 5.2 Which file plays: a copy in the app's folder (decided)
 
-Today every video plays from the app's own folder (`videos/` in the data folder, `media.rs:341`), by a name the server made (`video-<uuid>.<ext>`, `checked_video`). The webview and the localhost slideshow page for OBS and browsers (`overlay.rs:114`, `/videos/{name}`) both find it there by that name. Two ways for a local workspace, **to choose**:
+Today every video plays from the app's own folder (`videos/` in the data folder, `media.rs:341`), by a name the server made (`video-<uuid>.<ext>`, `checked_video`). The webview and the localhost slideshow page for OBS and browsers (`overlay.rs:114`, `/videos/{name}`) both find it there by that name.
 
-| | A. Play the file the user chose, where it is | B. Copy it into the app's folder once, never fetch or delete it |
-| --- | --- | --- |
-| Disk | No extra space | A second copy of each video |
-| Moved, renamed, deleted, on an unplugged drive | The item is broken, found out on Sunday | Still plays |
-| macOS | Files in Desktop, Documents and Downloads need the folder permission on later launches: a system prompt, possibly during a service | None: the app's own folder |
-| Code | A video record holds a local path (only on this computer, never synchronized); `video_location`, `overlay.rs` and `checked_video` resolve a video id to that path through a local table, never from a path in a URL, so the localhost server cannot be asked for any other file; a "file not found" state on the item, with **Locate…** | Already built: `store_video` copies it; only the cache's deletion changes |
-| Joining a church later (M8) | Upload from the path, if the file is still there | Upload from the copy |
+Playing the user's file where it is was considered and set aside: the item breaks when the file is moved, renamed or on an unplugged drive; on macOS, files in Desktop, Documents and Downloads need a folder permission on later launches, which can prompt during a service; and the localhost server would have to map ids to arbitrary paths.
 
-Either way, **the user's file is never touched**: today's code only reads it (`fs::copy` from the source), and nothing deletes outside the app's folder.
+**Decided:** without a church server, adding a video names it `video-<uuid>.<ext>` on the desktop and copies it into the app's folder with the existing `store_video`, which only reads the user's file. Playback is unchanged.
 
-What must change for B: `VideoCache.once()` (`videoCache.ts:110–125`) removes every copy not on today's or an upcoming run sheet, *before* it checks whether it is connected, because a church server can give it back. Without a church server the copy is the only one, so it must keep every video a song in the library uses, and remove a copy only when no song uses it (the song deleted). For A, the cache is not used at all without a church server.
-
-**Recommendation: B.** It is already built, it survives the file being moved, and it needs no folder permissions. A's only gain is disk space.
+**Removing copies** follows the new media requirement **U29** (media uploads plan), for church-connected computers too: removal happens once per launch, 30 minutes after the app opens, for copies used only by past run sheets or by no song. Today's `VideoCache.once()` (`videoCache.ts:110–125`) deletes on every pass, even without a connection; U29 replaces that. Without a church server a removed copy cannot come back, so its item says so and offers **Upload new version…**.
 
 ### 5.3 Phone thumbnails relayed from the desktop (decided)
 
@@ -225,7 +217,7 @@ Someone will type the public server's address into **Settings → Church connect
 
 | # | Work | Size | Depends on |
 | --- | --- | --- | --- |
-| M1 | Videos in local mode without any server, as chosen in §5.2 | S (B) / M (A) | — |
+| M1 | Videos in local mode without any server (§5.1, §5.2); delayed removal of copies, U29, for every computer | S | — |
 | M2 | Server public mode: switch, `public/join`, routes off, church joining refused (§5.7), no originals or stored-once memory, no videos, deck `DELETE`, 24-hour and idle-workspace sweeps, `ServerInfo.public` | M | — |
 | M3 | Desktop `service` and the public connection: lazy join, keychain, `startLive` without sync, backup or reports; Bible and decks through it; the public-server message in Church connection | M | M2 |
 | M4 | Remote control on a public connection; thumbnails relayed from the desktop (§5.3); confirm grants (§5.5) | M | M3 |
@@ -245,8 +237,6 @@ Made by the owner on 18 November 2026:
 3. **Full live audio with TURN from the start, at most two listeners** per workspace (§5.4).
 4. **One public workspace per local workspace** (§4.2).
 5. **The public server refuses to be joined as a church server** (§5.7).
+6. **Videos play from a copy in the app's folder**, removed by the delayed rule U29 on every computer (§5.2).
 
-Still to decide:
-
-1. **Play the chosen video file in place, or a copy** in the app's folder (§5.2; recommended: copy).
-2. The other rate-limit numbers and the privacy notice (plan §7).
+Still to decide: the other rate-limit numbers and the privacy notice (plan §7).
