@@ -127,7 +127,7 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Slideshow (the screen) | 投影 | 投影 | Slideshow screen 投影屏幕 / 投影螢幕 |
 | Slide | 幻灯片 | 投影片 | |
 | Present (the page and the verb) | 演示 | 演示 | 簡報 was considered for Traditional |
-| Live (a run sheet) / Go live | 进行中 / 开始 | 進行中 / 開始 | “Go live with {date}” (button and banner): 切换到{date} |
+| Live (a run sheet) / Go live | 进行中 / 打开 | 進行中 / 開啟 | “Go live with {date}”: 打开{date}的流程表 / 開啟{date}的流程表; the “still live” banner’s button: 切换至{next} / 切換至{next} |
 | Live (OBS, audio) | 直播中 | 直播中 | |
 | Blank / Show lyrics | 隐藏文字 / 显示歌词 | 隱藏文字 / 顯示歌詞 | Blank keeps the background, so not 黑屏; the phone remote's button says 隐藏内容 / 隱藏內容 |
 | Clear screen | 清屏 | 清除畫面 | |
