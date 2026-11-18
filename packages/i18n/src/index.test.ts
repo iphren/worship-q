@@ -94,16 +94,16 @@ describe('Chinese', () => {
   it('names run sheets with the month and day, then the weekday (T6)', () => {
     setLocale('zh-Hans');
     try {
-      expect(formatDate('2026-11-22')).toBe('11月22日 星期日');
-      expect(t('calendar.copyTo', { date: formatDate('2026-11-01') })).toBe('复制到11月1日 星期日');
+      expect(formatDate('2026-11-22')).toBe('11月22日星期日');
+      expect(t('calendar.copyTo', { date: formatDate('2026-11-01') })).toBe('复制到11月1日星期日');
       expect(meetingDaysLabel([3, 0])).toBe('星期日和星期三');
     } finally {
       setLocale('en');
     }
     setLocale('zh-Hant');
     try {
-      expect(formatDate('2026-11-22')).toBe('11月22日 星期日');
-      expect(meetingDaysLabel([])).toBe('任何一天');
+      expect(formatDate('2026-11-22')).toBe('11月22日星期日');
+      expect(meetingDaysLabel([])).toBe('隨時');
     } finally {
       setLocale('en');
     }

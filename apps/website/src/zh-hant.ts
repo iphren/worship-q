@@ -74,7 +74,7 @@ const FEATURES: Feature[] = [
     text: '連線教會的伺服器後：輸入經文出處，例如 馬可福音15:5-6，或按書卷和章瀏覽，最多兩個譯本並排顯示。',
   },
   {
-    title: '每次聚會一份程序單',
+    title: '每次聚會一份流程表',
     text: '在日曆上編排，沿用之前某一週的安排，開啟時就是今天的聚會，並且已經開始。',
   },
   {
@@ -84,7 +84,7 @@ const FEATURES: Feature[] = [
   {
     title: '投影和直播同時進行',
     page: '/obs/',
-    text: '全螢幕投影，可用圖片或影片作背景，併為 OBS 提供字幕疊加層。在 Worship Q 中就能切換 OBS 場景和開始直播。',
+    text: '全螢幕投影，可用圖片或影片作背景，併為 OBS 提供字幕。在 Worship Q 中就能切換 OBS 場景和開始直播。',
   },
   {
     title: '用手機控制',
@@ -117,10 +117,10 @@ export const content: SiteContent = {
     '任何語言的詩歌歌詞，一張投影片上顯示雙語或多語',
     '按標題、歌詞、拼音或首字母搜尋詩歌',
     '最多兩個譯本並排顯示的經文',
-    '在日曆上編排的程序單',
+    '在日曆上編排的流程表',
     'PowerPoint、Keynote、PDF、照片和影片投影片',
     '圖片或影片背景',
-    '為 OBS 提供字幕疊加層，並控制 OBS 的場景、串流和錄製',
+    '為 OBS 提供字幕，並控制 OBS 的場景、串流和錄製',
     '用手機控制',
     '多台電腦共享一個演示，並能故障接替',
     '把調音台的現場音訊傳送到其他電腦和手機',
@@ -166,12 +166,12 @@ export const faq: Question[] = [
   {
     question: '能配合 OBS 直播嗎？',
     answer:
-      '能。字幕疊加層頁面可以作為 OBS 的「瀏覽器」來源顯示歌詞，Worship Q 還可以在教會的任何一台電腦或手機上切換 OBS 場景，開始或停止串流和錄製。',
+      '能。字幕頁面可以作為 OBS 的「瀏覽器」來源顯示歌詞，Worship Q 還可以在教會的任何一台電腦或手機上切換 OBS 場景，開始或停止串流和錄製。',
   },
   {
     question: '能用手機控制投影片嗎？',
     answer:
-      '能，需要教會伺服器。手機掃描 QR 碼，批准一次後，就可以切換投影片、修改程序單和新增經文。',
+      '能，需要教會伺服器。手機掃描 QR 碼，批准一次後，就可以切換投影片、修改流程表和新增經文。',
   },
   {
     question: '多台電腦能共享一個演示嗎？',
@@ -190,7 +190,7 @@ export const pages: Record<string, PageText> = {
   '/guide/': {
     title: '同工指南 — Worship Q',
     description:
-      '如何用 Worship Q 新增詩歌、編排程序單和演示：經文、投影片、影片、手機、OBS 和現場音訊。',
+      '如何用 Worship Q 新增詩歌、編排流程表和演示：經文、投影片、影片、手機、OBS 和現場音訊。',
   },
   '/server/': {
     title: '教會伺服器設定 — Worship Q',
@@ -209,12 +209,11 @@ export const pages: Record<string, PageText> = {
   },
   '/obs/': {
     title: '為 OBS 提供歌詞字幕和場景控制 — Worship Q',
-    description:
-      '用 OBS 的字幕疊加層把詩歌歌詞放進直播，並在 Worship Q 或手機上切換場景、串流和錄製。',
+    description: '用 OBS 的字幕把詩歌歌詞放進直播，並在 Worship Q 或手機上切換場景、串流和錄製。',
   },
   '/phone-remote/': {
     title: '用手機控制投影片 — Worship Q',
-    description: '掃描 QR 碼，就能在房間裡的任何地方用手機切換投影片、修改程序單或新增經文。',
+    description: '掃描 QR 碼，就能在房間裡的任何地方用手機切換投影片、修改流程表或新增經文。',
   },
   '/several-computers/': {
     title: '多台電腦，一個演示 — Worship Q',
@@ -242,7 +241,7 @@ export const home: Home = {
   免費的教會投影軟體，顯示歌詞、經文和投影片
 </h1>
 <p class="mt-4 max-w-xl text-lg text-slate-300">
-  %SUMMARY%編排每週的程序單並演示，不需要帳號，也不需要網際網路。
+  %SUMMARY%編排每週的流程表並演示，不需要帳號，也不需要網際網路。
 </p>
 
 <section class="mt-10" aria-labelledby="download">
@@ -322,11 +321,11 @@ export const home: Home = {
         width="1600"
         height="1000"
         class="shot"
-        alt="Worship Q 的「演示」頁面：左側是程序單和投影預覽，正顯示兩個譯本的詩篇 23 篇；旁邊是一段影片、一首雙語詩歌、這段經文和一份講道投影片，各自一列投影片"
+        alt="Worship Q 的「演示」頁面：左側是流程表和投影預覽，正顯示兩個譯本的詩篇 23 篇；旁邊是一段影片、一首雙語詩歌、這段經文和一份講道投影片，各自一列投影片"
       />
     </a>
     <figcaption>
-      演示中：程序單、螢幕上現在的內容，每張投影片一點就到。
+      演示中：流程表、螢幕上現在的內容，每張投影片一點就到。
     </figcaption>
   </figure>
   <div class="mt-8 grid gap-8 sm:grid-cols-2">
@@ -364,10 +363,10 @@ export const home: Home = {
           height="1000"
           class="shot"
           loading="lazy"
-          alt="日曆：標出了聚會日的一個月，以及所選主日的程序單"
+          alt="日曆：標出了聚會日的一個月，以及所選主日的流程表"
         />
       </a>
-      <figcaption>在日曆上編排程序單。</figcaption>
+      <figcaption>在日曆上編排流程表。</figcaption>
     </figure>
     <figure>
       <a href="/screenshots/zh-hant/library.png">

@@ -75,7 +75,7 @@ const FEATURES: Feature[] = [
     text: '连接教会的服务器后：输入经文出处，例如 马可福音15:5-6，或按书卷和章浏览，最多两个译本并排显示。',
   },
   {
-    title: '每次聚会一份程序单',
+    title: '每次聚会一份流程表',
     text: '在日历上编排，沿用之前某一周的安排，打开时就是今天的聚会，并且已经开始。',
   },
   {
@@ -85,7 +85,7 @@ const FEATURES: Feature[] = [
   {
     title: '投影和直播同时进行',
     page: '/obs/',
-    text: '全屏投影，可用图片或视频作背景，并为 OBS 提供字幕叠加层。在 Worship Q 中就能切换 OBS 场景和开始直播。',
+    text: '全屏投影，可用图片或视频作背景，并为 OBS 提供字幕。在 Worship Q 中就能切换 OBS 场景和开始直播。',
   },
   {
     title: '用手机控制',
@@ -118,10 +118,10 @@ export const content: SiteContent = {
     '任何语言的诗歌歌词，一张幻灯片上显示双语或多语',
     '按标题、歌词、拼音或首字母搜索诗歌',
     '最多两个译本并排显示的经文',
-    '在日历上编排的程序单',
+    '在日历上编排的流程表',
     'PowerPoint、Keynote、PDF、照片和视频幻灯片',
     '图片或视频背景',
-    '为 OBS 提供字幕叠加层，并控制 OBS 的场景、推流和录制',
+    '为 OBS 提供字幕，并控制 OBS 的场景、推流和录制',
     '用手机控制',
     '多台电脑共享一个演示，并能故障接替',
     '把调音台的现场音频发送到其他电脑和手机',
@@ -162,17 +162,17 @@ export const faq: Question[] = [
   {
     question: '能显示 PowerPoint、Keynote、PDF、照片和视频吗？',
     answer:
-      '能，需要教会服务器。PowerPoint、Keynote 和 OpenDocument 演示文稿以及 PDF 会变成幻灯片，照片和视频可以和诗歌一起放进程序单。视频会提前下载，所以聚会中不会在线播放任何内容。',
+      '能，需要教会服务器。PowerPoint、Keynote 和 OpenDocument 演示文稿以及 PDF 会变成幻灯片，照片和视频可以和诗歌一起放进流程表。视频会提前下载，所以聚会中不会在线播放任何内容。',
   },
   {
     question: '能配合 OBS 直播吗？',
     answer:
-      '能。字幕叠加层页面可以作为 OBS 的“浏览器”来源显示歌词，Worship Q 还可以在教会的任何一台电脑或手机上切换 OBS 场景，开始或停止推流和录制。',
+      '能。字幕页面可以作为 OBS 的“浏览器”来源显示歌词，Worship Q 还可以在教会的任何一台电脑或手机上切换 OBS 场景，开始或停止推流和录制。',
   },
   {
     question: '能用手机控制幻灯片吗？',
     answer:
-      '能，需要教会服务器。手机扫描二维码，批准一次后，就可以切换幻灯片、修改程序单和添加经文。',
+      '能，需要教会服务器。手机扫描二维码，批准一次后，就可以切换幻灯片、修改流程表和添加经文。',
   },
   {
     question: '多台电脑能共享一个演示吗？',
@@ -191,7 +191,7 @@ export const pages: Record<string, PageText> = {
   '/guide/': {
     title: '同工指南 — Worship Q',
     description:
-      '如何用 Worship Q 添加诗歌、编排程序单和演示：经文、幻灯片、视频、手机、OBS 和现场音频。',
+      '如何用 Worship Q 添加诗歌、编排流程表和演示：经文、幻灯片、视频、手机、OBS 和现场音频。',
   },
   '/server/': {
     title: '教会服务器设置 — Worship Q',
@@ -210,12 +210,11 @@ export const pages: Record<string, PageText> = {
   },
   '/obs/': {
     title: '为 OBS 提供歌词字幕和场景控制 — Worship Q',
-    description:
-      '用 OBS 的字幕叠加层把诗歌歌词放进直播，并在 Worship Q 或手机上切换场景、推流和录制。',
+    description: '用 OBS 的字幕把诗歌歌词放进直播，并在 Worship Q 或手机上切换场景、推流和录制。',
   },
   '/phone-remote/': {
     title: '用手机控制幻灯片 — Worship Q',
-    description: '扫描二维码，就能在房间里的任何地方用手机切换幻灯片、修改程序单或添加经文。',
+    description: '扫描二维码，就能在房间里的任何地方用手机切换幻灯片、修改流程表或添加经文。',
   },
   '/several-computers/': {
     title: '多台电脑，一个演示 — Worship Q',
@@ -243,7 +242,7 @@ export const home: Home = {
   免费的教会投影软件，显示歌词、经文和幻灯片
 </h1>
 <p class="mt-4 max-w-xl text-lg text-slate-300">
-  %SUMMARY%编排每周的程序单并演示，不需要账号，也不需要互联网。
+  %SUMMARY%编排每周的流程表并演示，不需要账号，也不需要互联网。
 </p>
 
 <section class="mt-10" aria-labelledby="download">
@@ -323,11 +322,11 @@ export const home: Home = {
         width="1600"
         height="1000"
         class="shot"
-        alt="Worship Q 的“演示”页面：左侧是程序单和投影预览，正显示两个译本的诗篇 23 篇；旁边是一段视频、一首双语诗歌、这段经文和一份讲道幻灯片，各自一列幻灯片"
+        alt="Worship Q 的“演示”页面：左侧是流程表和投影预览，正显示两个译本的诗篇 23 篇；旁边是一段视频、一首双语诗歌、这段经文和一份讲道幻灯片，各自一列幻灯片"
       />
     </a>
     <figcaption>
-      演示中：程序单、屏幕上现在的内容，每张幻灯片一点就到。
+      演示中：流程表、屏幕上现在的内容，每张幻灯片一点就到。
     </figcaption>
   </figure>
   <div class="mt-8 grid gap-8 sm:grid-cols-2">
@@ -365,10 +364,10 @@ export const home: Home = {
           height="1000"
           class="shot"
           loading="lazy"
-          alt="日历：标出了聚会日的一个月，以及所选主日的程序单"
+          alt="日历：标出了聚会日的一个月，以及所选主日的流程表"
         />
       </a>
-      <figcaption>在日历上编排程序单。</figcaption>
+      <figcaption>在日历上编排流程表。</figcaption>
     </figure>
     <figure>
       <a href="/screenshots/zh-hans/library.png">

@@ -41,7 +41,7 @@ Already in place: Chinese **content** works (lyrics in any language, search by p
 | T3 | **One catalogue:** the messages move into a shared package (for example `packages/i18n`), used by the desktop, phone remote, admin and output pages, so a term is translated once. Each app keeps only the messages it uses. |
 | T4 | **Every key in every language:** the type system already requires a `Record<MessageKey, string>` per language; a test checks no message is left in English by mistake. |
 | T5 | **Translated by Claude, reviewed by the project owner:** Claude writes Simplified, and drafts Traditional from it with OpenCC's conversion (`opencc-js`, already a dependency) before correcting the wording by hand; the project owner reviews both before release. Conversion alone gets characters right but not all vocabulary. One Traditional for all regions, not separate Taiwan and Hong Kong versions. |
-| T6 | **Dates and numbers** per language: "Sunday 1st Nov" becomes, for example, `11月22日 星期日`, through `Intl` rather than English ordinals. |
+| T6 | **Dates and numbers** per language: "Sunday 1st Nov" becomes, for example, `11月22日星期日`, through `Intl` rather than English ordinals. |
 | T7 | **Messages from the server and the native core** are codes, translated by the app that shows them, not English sentences. Existing English messages keep working for older servers. |
 | T8 | **Interface language is not content language.** Lyrics, Bible versions and song search are unaffected by the interface language; a Chinese interface can present English songs and the other way round. |
 | T9 | **Website:** every page and document on worship-q.com in both scripts (the home page, features, FAQ, screenshots' descriptions, and every guide or page the site carries: today the volunteer guide and server setup guide, plus the pages of [SEO plan](seo-plan.md) phase 3). Chinese pages live under `/zh-hans/` and `/zh-hant/`, mirroring the English paths, with `hreflang` linking all three languages and a language link on every page. `llms.txt` and `index.md` stay English; the Chinese pages get their own Markdown copies. Documents that stay on GitHub only (README, plans, release notes) stay English. |
@@ -100,7 +100,7 @@ setting and switches work and are remembered.
 2. **Simplified Chinese** (`zh-Hans`) for the whole catalogue, written by Claude (T5).
 3. **Traditional Chinese** (`zh-Hant`), drafted from Simplified with `opencc-js` and corrected
    by hand (T5).
-4. **Dates** in Chinese, for example `11月22日 星期日` (T6), and the region matching for
+4. **Dates** in Chinese, for example `11月22日星期日` (T6), and the region matching for
    Automatic (T2: Taiwan, Hong Kong and Macau to Traditional; mainland China, Singapore and
    other Chinese to Simplified).
 5. **Chinese added to the Language setting** and switches, each language named in itself
@@ -126,13 +126,13 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 
 | English | 简体中文 | 繁體中文 | Note |
 | --- | --- | --- | --- |
-| Run sheet | 程序单 | 程序單 | The order of service; OpenCC turns 程序 into 程式 (a program), corrected |
+| Run sheet | 流程表 | 流程表 | The order of service |
 | Slideshow (the screen) | 投影 | 投影 | Slideshow screen 投影屏幕 / 投影螢幕 |
 | Slide | 幻灯片 | 投影片 | |
 | Present (the page and the verb) | 演示 | 演示 | 簡報 was considered for Traditional |
-| Live (a run sheet) / Go live | 进行中 / 开始 | 進行中 / 開始 | “Go live with {date}”: 开始{date} |
+| Live (a run sheet) / Go live | 进行中 / 开始 | 進行中 / 開始 | “Go live with {date}” (button and banner): 切换到{date} |
 | Live (OBS, audio) | 直播中 | 直播中 | |
-| Blank / Show lyrics | 隐藏文字 / 显示歌词 | 隱藏文字 / 顯示歌詞 | Blank keeps the background, so not 黑屏 |
+| Blank / Show lyrics | 隐藏文字 / 显示歌词 | 隱藏文字 / 顯示歌詞 | Blank keeps the background, so not 黑屏; the phone remote's button says 隐藏内容 / 隱藏內容 |
 | Clear screen | 清屏 | 清除畫面 | |
 | Workspace | 工作区 | 工作區 | |
 | Church server | 教会服务器 | 教會伺服器 | |
@@ -141,8 +141,11 @@ Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 | Songs, Media, Web | 诗歌、媒体、网页 | 詩歌、媒體、網頁 | |
 | Bible passage / version | 经文 / 译本 | 經文 / 譯本 | |
 | Viewer mode / a viewer | 仅观看模式 / 观看端 | 僅觀看模式 / 觀看端 | |
-| Holds the presentation (coordinator) | 主控（演示） | 主控（演示） | Take over presenting: 接管演示 |
-| Subtitle overlay | 字幕叠加层 | 字幕疊加層 | |
+| Holds the presentation (coordinator) / Follow | 主控（演示） / 副控 | 主控（演示） / 副控 | Take over presenting: 接管演示 |
+| Subtitle overlay | 字幕 | 字幕 | |
+| Output / Browser outputs | 远程画面 / 浏览器远程画面 | 遠端畫面 / 瀏覽器遠端畫面 | |
+| On this network (connected directly) / this network | 在本地网络上 / 本地网络 | 在本地網路上 / 本地網路 | |
+| New song, New website | 添加诗歌、添加网站 | 新增詩歌、新增網站 | |
 | Meeting day | 聚会日 | 聚會日 | |
 | Phone remote | 手机遥控 | 手機遙控 | |
 | Operator | 操作员 | 操作員 | |
@@ -221,13 +224,13 @@ any tag with `Hant`, and Simplified for every other Chinese. The Language lists 
 language in itself: English, 简体中文, 繁體中文. `?lang=zh-Hans` in an address forces one, in any
 letter case.
 
-**Dates (T6):** a run sheet is `11月22日 星期日`, and with its year (window title, “last used”)
-`2026年11月22日 星期日`; English keeps “Sunday 22nd Nov 2026” (`formatDateWithYear`). The Bible's
+**Dates (T6):** a run sheet is `11月22日星期日`, and with its year (window title, “last used”)
+`2026年11月22日星期日`; English keeps “Sunday 22nd Nov 2026” (`formatDateWithYear`). The Bible's
 joined and missing verse notes name the book in the interface language.
 
 **Traditional from Simplified:** `pnpm --filter @worship-q/i18n draft-hant` drafts the Traditional
 catalogues with OpenCC (`cn` to `twp`) and the corrections in `packages/i18n/scripts/hant.ts`
-(`FIXES`: 程式單 to 程序單, 幻燈片 to 投影片, 專案 to 項目, quotation marks to 「」 and the like). It
+(`FIXES`: 幻燈片 to 投影片, 專案 to 項目, quotation marks to 「」 and the like). It
 drafts only new keys unless told `--keys a,b` or `--all`, so corrections made by hand in
 `src/zh-hant/` stay. `--file in out` drafts any file, as was done for the website.
 
@@ -254,7 +257,7 @@ installed on Linux.
 
 **For the review**
 
-- The glossary (§5), especially 演示 for Present, 资源库 for Library and 程序单 for run sheet.
+- The glossary (§5), especially 演示 for Present, 资源库 for Library and 流程表 for run sheet.
 - Sentences built from parts, such as the admin app's `{noun}` messages (`library.*`,
   `workspace.manage*`) and `workspace.codeState` (“连接码目前已{state}”).
 - Traditional vocabulary: one Traditional for all regions, leaning to Taiwan's words (伺服器,

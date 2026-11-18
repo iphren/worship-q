@@ -214,7 +214,7 @@ const utcDate = (date: string) => new Date(`${date}T00:00:00Z`);
 const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
 const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
 
-/** A run sheet's name, such as "Sunday 1st Nov", or `11月22日 星期日` in Chinese (T6). */
+/** A run sheet's name, such as "Sunday 1st Nov", or `11月22日星期日` in Chinese (T6). */
 export function formatDate(date: string): string {
   const name = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(intlLocale(), { timeZone: 'UTC', ...options }).format(utcDate(date));
@@ -223,11 +223,11 @@ export function formatDate(date: string): string {
   if (intlLocale() === 'en') {
     return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
   }
-  if (intlLocale().startsWith('zh')) return `${month}月${day}日 ${name({ weekday: 'long' })}`;
+  if (intlLocale().startsWith('zh')) return `${month}月${day}日${name({ weekday: 'long' })}`;
   return name({ weekday: 'long', month: 'short', day: 'numeric' });
 }
 
-/** A run sheet's name with its year, for the window's title: "Sunday 1st Nov 2026", `2026年11月1日 星期日`. */
+/** A run sheet's name with its year, for the window's title: "Sunday 1st Nov 2026", `2026年11月1日星期日`. */
 export function formatDateWithYear(date: string): string {
   const year = date.slice(0, 4);
   return intlLocale().startsWith('zh')

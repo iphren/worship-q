@@ -13,7 +13,6 @@ const convert = OpenCC.Converter({ from: 'cn', to: 'twp' });
  */
 export const FIXES: [string, string][] = [
   // Words that convert to another meaning.
-  ['程式單', '程序單'], // a run sheet, not a program
   ['程式碼', '代碼'], // a pairing code, not source code
   ['專案', '項目'], // a run sheet item, not a project
   ['查詢', '尋找'],
