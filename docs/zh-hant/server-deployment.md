@@ -94,7 +94,7 @@ curl https://worship.example.org/api/v1/info
 
 管理員用教會的 Microsoft 365 或 Google Workspace 帳號登入後，在 `https://<server>/admin/` 使用管理後台。登入只證明對方是誰：只有電子郵件地址在伺服器的管理員列表上的人才能進入。
 
-> 這些步驟依照提供方的文件編寫，還沒有在真實的租戶上執行過；需要確認的內容見 `docs/spikes/oidc.md`。
+> Microsoft Entra ID 登入已在實際使用中。Google Workspace 的步驟依照 Google 的文件編寫，還沒有在真實的 Workspace 上執行過；需要確認的內容見 `docs/spikes/oidc.md`。
 
 **Microsoft Entra ID：** 在租戶中，**App registrations → New registration**；平台選 **Web**；重定向 URI 填 `https://<server>/auth/callback`。建立一個客戶端金鑰。在 **Token configuration** 下，為 ID 令牌新增可選宣告 `email`。頒發者必須指明教會的租戶：伺服器拒絕 `common`、`organizations`和 `consumers`，因為它們會讓任何 Microsoft 租戶都能登入。然後在 `apps/server/.env` 中：
 
@@ -311,7 +311,6 @@ docker compose -f apps/server/compose.yaml exec worship-q \
 
 - 兩台電腦在同步之前編輯了同一首詩歌或同一天的流程表時，後來的編輯生效。較早的詩歌版本儲存在詩歌的歷史中。
 - 在一台電腦上刪除背景會在那個工作區中隱藏它。從教會資源庫刪除的背景或詩歌會在保留期內保留檔案，之後檔案會被刪除。
-- 管理員登入只用測試中模擬的提供方測試過，還沒有在 Microsoft Entra ID 或 Google Workspace 上測試；見 `docs/spikes/oidc.md`。
+- 管理員登入已在 nginx 後面配合 Microsoft Entra ID 實際使用，但還沒有在 Google Workspace 上或經過 CloudFront 試過；見 `docs/spikes/oidc.md`。
 - 工作區隱藏的教會詩歌不能在那個工作區中取消隱藏；教會資源庫修改這首詩歌也不會讓它重新出現。
 - 手機瀏覽器通常會拒絕主控端的自簽名證書，所以手機要透過伺服器連線，場地需要有網際網路；電腦則不需要。
-- 只靠場地網路、沒有網際網路時多台電腦同步投影的情境尚未在真實硬體上完成驗證；見 `docs/spikes/lan.md`。

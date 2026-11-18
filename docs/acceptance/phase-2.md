@@ -82,10 +82,10 @@ browser output, on macOS and Windows, with and without internet.
 | Criterion | Automated evidence | Walkthrough result |
 | --- | --- | --- |
 | 3 Reusable setup | Output links and the localhost pages keep their addresses | Passed |
-| 5 Local continuity | `liveLink.test.ts` dropped connection; LAN not exercised | Passed |
+| 5 Local continuity | `liveLink.test.ts` dropped connection; LAN tried on hardware with no internet (`docs/spikes/lan.md`, 18 November 2026) | Passed |
 | 6 Browser support | `frame.test.ts`, `relay.test.ts` outputs | Passed |
 | 8 Multiple controllers | `simulation.test.ts`, `liveLink.test.ts` | Passed |
-| 9 Relay switching | `TransportSwitch`, `Follower.connect()`; LAN not exercised | Passed |
+| 9 Relay switching | `TransportSwitch`, `Follower.connect()`; LAN tried on hardware (`docs/spikes/lan.md`) | Passed |
 | 18 Calendar safety | `shared.test.ts`, `liveLink.test.ts` “a follower’s Go live…” | Passed |
 | 31 Live-state continuity | `shared.test.ts`, `liveLink.test.ts` recovery and viewer | Passed |
 | 32 LAN security | `relay.test.ts` outputs may send nothing; `lan.rs` auth; `lan.test.ts` fingerprint check; hardware not exercised | Passed |

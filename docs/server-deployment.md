@@ -119,8 +119,9 @@ Administrators use the admin app at `https://<server>/admin/` after signing in w
 church's Microsoft 365 or Google Workspace account. Signing in only proves who someone is:
 they get in only if their e-mail address is on the server's list of administrators.
 
-> These steps follow the providers' documentation and have not yet been run against a real
-> tenant; see `docs/spikes/oidc.md` for what to confirm.
+> Microsoft Entra ID sign-in is in use. The Google Workspace steps follow Google's
+> documentation and have not yet been run against a real Workspace; see `docs/spikes/oidc.md`
+> for what to confirm.
 
 **Microsoft Entra ID:** in the tenant, **App registrations → New registration**; platform
 **Web**; redirect URI `https://<server>/auth/callback`. Make a client secret. Under **Token
@@ -525,11 +526,9 @@ needs anything set up first.
   the later edit wins. Earlier song versions are kept in the song's history.
 - Deleting a background on one computer hides it in that workspace. A background or song
   deleted from the Church Library keeps its files for the retention period, then loses them.
-- Administrator sign-in has been tested only against a provider simulated in the tests, not
-  yet against Microsoft Entra ID or Google Workspace; see `docs/spikes/oidc.md`.
+- Administrator sign-in is in use with Microsoft Entra ID behind nginx, but has not yet been
+  tried with Google Workspace or through CloudFront; see `docs/spikes/oidc.md`.
 - A church song a workspace hid cannot be unhidden from that workspace; the Church Library
   changing the song does not bring it back either.
 - A phone browser usually refuses the coordinator's self-signed certificate, so phones use
   the server and need internet at the venue; the desktops do not.
-- Computers sharing one presentation over the venue network alone, with no internet, have
-  not yet been tried on real hardware; see `docs/spikes/lan.md`.

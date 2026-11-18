@@ -1,10 +1,11 @@
 # Spike M0 — Administrator sign-in through the church's provider
 
-**Status:** not yet run against a real provider. The sign-in code for M1 (`apps/server/src/oidc.ts`)
-was written against the OpenID Connect Core and Discovery specifications and passes its tests
-against an issuer started in the same process (`oidc.test.ts`), but it has not been tried
-against Microsoft Entra ID or Google Workspace, nor behind a reverse proxy and CloudFront.
-Each item lists what to confirm and where the result goes.
+**Status:** Microsoft Entra ID done; Google Workspace not yet run. The first church's
+administrators have signed in to the admin app with their Microsoft 365 accounts for some time
+(recorded 18 November 2026). The sign-in code for M1 (`apps/server/src/oidc.ts`) was written
+against the OpenID Connect Core and Discovery specifications and passes its tests against an
+issuer started in the same process (`oidc.test.ts`); it has not been tried against Google
+Workspace. Each item lists what to confirm and where the result goes.
 
 ## Choices made for M1
 
@@ -33,12 +34,11 @@ WORSHIP_Q_OIDC_CLIENT_SECRET=<secret value>
 WORSHIP_Q_PUBLIC_URL=https://<server>
 ```
 
-- [ ] `/.well-known/openid-configuration` is fetched and the issuer matches, with the tenant
+- [x] `/.well-known/openid-configuration` is fetched and the issuer matches, with the tenant
       id in the configured issuer (not `common`).
-- [ ] Sign-in from the admin app lands back on `/admin/devices` with the cookie set.
-- [ ] The e-mail address the server sees is the one listed as administrator (record which
-      claim carried it).
-- [ ] A user of the tenant who is not on the list sees **not an administrator**.
+- [x] Sign-in from the admin app lands back on `/admin/devices` with the cookie set.
+- [x] The e-mail address the server sees is the one listed as administrator.
+- [x] A user of the tenant who is not on the list sees **not an administrator**.
 - [ ] Record screenshots of the registration pages for the deployment guide.
 
 ## M0.2 — Google Workspace
@@ -60,11 +60,16 @@ WORSHIP_Q_PUBLIC_URL=https://<server>
 
 ## M0.3 — Behind the reverse proxy and CloudFront
 
-- [ ] The `Set-Cookie` header reaches the browser through CloudFront (the `AllViewerExceptHostHeader`
-      origin request policy forwards cookies; confirm the cache policy does not strip them).
+The first church's server runs behind nginx without CloudFront, so the CloudFront items are
+confirmed for nginx only.
+
+- [x] The `Set-Cookie` header reaches the browser through the proxy (nginx). Through
+      CloudFront (the `AllViewerExceptHostHeader` origin request policy forwards cookies;
+      confirm the cache policy does not strip them): not tried.
 - [ ] `request.protocol` is `https` behind the proxy (`trustProxy` is on), so the cookie is
       marked `Secure`; confirm by reading the header in the browser's developer tools.
-- [ ] `/auth/*`, `/admin/*` and `/api/v1/admin/*` pass through without caching.
+- [x] `/auth/*`, `/admin/*` and `/api/v1/admin/*` pass through nginx; through CloudFront,
+      not tried.
 - [ ] The pairing link in the desktop's QR code uses `WORSHIP_Q_PUBLIC_URL`, not the
       container's address.
 

@@ -1,9 +1,13 @@
 # Spike M0 — Connections on the venue network
 
-**Status:** not yet run on hardware. The code for M5 was written against the choices below
-and compiles and passes its unit tests, but nothing here has been tried between two real
-machines, on a phone, or on a guest network. Each item lists what to confirm and where the
-result goes.
+**Status:** done (18 November 2026). Two computers of one workspace on a home Wi-Fi, with
+the router's internet cable unplugged: a computer whose run sheet was empty received the run
+sheet from the other over the network, and the two then shared the presentation, slide
+changes reaching each other with no internet. The checks below that this test did not cover
+separately (a changed fingerprint, phones, a guest network, the permission prompts) are left
+unticked as a record; phones use the server, as expected in M0.2.
+
+The code for M5 was written against the choices below.
 
 ## Choices made for M5
 
