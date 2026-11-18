@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.10.1](https://github.com/iphren/worship-q/compare/v2.10.0...v2.10.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* current button names in the guides; translate Click for sound ([7c9021c](https://github.com/iphren/worship-q/commit/7c9021c6ed41cf64036b46558698184d21ee06ed))
+* **desktop:** Help menu opens the volunteer guide in the interface language ([cae843c](https://github.com/iphren/worship-q/commit/cae843c94e41f3a7288bba78d8338e4cef743220))
+* **desktop:** macOS menu bar and system windows in the interface language ([a8208a8](https://github.com/iphren/worship-q/commit/a8208a889a203e5dab4ce0dafb19deaeb61b869f))
+
 ## [2.10.0](https://github.com/iphren/worship-q/compare/v2.9.0...v2.10.0) (2026-11-18)
 
 
