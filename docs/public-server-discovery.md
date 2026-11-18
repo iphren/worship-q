@@ -164,7 +164,7 @@ Playing the user's file where it is was considered and set aside: the item break
 
 **Decided:** without a church server, adding a video names it `video-<uuid>.<ext>` on the desktop and copies it into the app's folder with the existing `store_video`, which only reads the user's file. Playback is unchanged.
 
-**Removing copies** follows the new media requirement **U29** (media uploads plan), for church-connected computers too: removal happens once per launch, 30 minutes after the app opens, for copies used only by past run sheets or by no song. Today's `VideoCache.once()` (`videoCache.ts:110–125`) deletes on every pass, even without a connection; U29 replaces that. Without a church server a removed copy cannot come back, so its item says so and offers **Upload new version…**.
+**Removing copies** follows the new media requirement **U29** (media uploads plan), for church-connected computers too: removal happens once per launch, 30 minutes after the app opens, for copies used only by past run sheets or by no song. Today's `VideoCache.once()` (`videoCache.ts:110–125`) deletes on every pass, even without a connection; U29 replaces that. Copies the church server also keeps are removed silently; local-only copies, which are every copy without a church server, are offered to the operator in one banner and a checklist first (**U30**), since a removed one cannot come back.
 
 ### 5.3 Phone thumbnails relayed from the desktop (decided)
 
