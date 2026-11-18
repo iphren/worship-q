@@ -66,5 +66,5 @@ Joining a church server already moves a local workspace's content (spec §3, G21
 
 ## 7. To decide when the work is planned
 
-1. **Rate limits:** the numbers for each limit. Limiting per copy of the app without accounts needs an identity for the copy: a random identifier made on first use, kept by the server only as long as the limit's window.
+1. **Rate limits:** the numbers for each limit. Decided on 18 November 2026: 100 slide decks and images a day per copy of the app, 2 phones and 2 listeners at once per workspace; the rest are proposed in the [task breakdown](public-server-task-breakdown.md) (S3). Limiting per copy of the app without accounts needs an identity for the copy: a random identifier made on first use, kept by the server only as long as the limit's window.
 2. **Privacy notice** for worship-q.com: what passes through (files, phone connections, audio, OBS pictures), the deletion rule in §3, what logs keep, and where the server runs.

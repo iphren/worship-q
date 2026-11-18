@@ -1,7 +1,7 @@
 # Worship Q — Public Server Technical Discovery
 
 **Date:** 18 November 2026
-**Status:** Discovery. Nothing is built. Read from the code at version 2.10.1.
+**Status:** Discovery. Nothing is built. Read from the code at version 2.10.1. Tasks in the [task breakdown](public-server-task-breakdown.md).
 **Source:** the [Public server plan](public-server-plan.md) (requirements P1–P6 and the rule in §3); `apps/server`, `apps/desktop/src/app/cloud.ts`, `packages/relay`, `packages/protocol`.
 
 The question: how to give a computer in local mode remote control, Bible passages, slide decks, videos, live audio and shared OBS controls through a server the project runs, while changing the current app as little as possible.
