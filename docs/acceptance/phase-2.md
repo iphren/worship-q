@@ -5,7 +5,9 @@
 
 Three kinds of evidence are kept apart here: automated tests that run in CI (`pnpm test`,
 `cargo test`), the hardware spike (M0), and the walkthrough with real equipment (M9.1, M9.2).
-Phase 2 was accepted on 3 November 2026 based on the implementation and walkthrough. An additional two-computer offline-LAN test passed on 18 November 2026; the remaining LAN edge-case checklist items are still open.
+Phase 2 was accepted on 3 November 2026 based on the implementation and walkthrough. An
+additional two-computer offline-LAN test passed on 18 November 2026; the remaining LAN
+edge-case checklist items are still open.
 
 ## Tasks
 
