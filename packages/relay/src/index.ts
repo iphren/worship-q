@@ -70,6 +70,17 @@ export interface RelayOptions {
    * A22): the server queues it for the administrator's next poll.
    */
   adminAudio?: (workspaceId: string, deviceId: string, signal: AudioSignal) => void;
+  /**
+   * Phones connected at once per workspace; unlimited when absent. The public server sets
+   * it (S3): a phone over it is told `full` and disconnected.
+   */
+  maxPhones?: number;
+  /**
+   * Phones listening to live audio at once per workspace; unlimited here when absent, the
+   * broadcaster keeping its own limit. The public server sets it (S3), so a desktop that
+   * ignores the server's limit gains nothing: a phone's `listen` over it is answered `full`.
+   */
+  maxListeners?: number;
 }
 
 /**
@@ -131,6 +142,8 @@ interface Remote {
   hello: unknown;
   /** The desktop this phone talks to; null while none is there. */
   desktop: Desktop | null;
+  /** The live audio session this phone listens with, between its `listen` and `close`. */
+  listening: string | null;
 }
 
 interface Output {
@@ -562,7 +575,17 @@ export class Relay {
               ? [room.remotes.get(message.to)].filter((r): r is Remote => !!r)
               : [...room.remotes.values()];
             for (const remote of targets) {
-              if (remote.desktop === desktop) send(remote.socket, message.data);
+              if (remote.desktop !== desktop) continue;
+              // The broadcaster ending a phone's session frees its place among the listeners.
+              const data = message.data as { type?: string; signal?: AudioSignal };
+              if (
+                data?.type === 'audioSignal' &&
+                (data.signal?.kind === 'close' || data.signal?.kind === 'full') &&
+                remote.listening === data.signal.session
+              ) {
+                remote.listening = null;
+              }
+              send(remote.socket, message.data);
             }
             return;
           }
@@ -718,8 +741,24 @@ export class Relay {
             return socket.close(4004, 'no-workspace');
           }
           const room = this.room(workspace.id);
+          const maxPhones = this.options.maxPhones;
+          if (maxPhones !== undefined && !this.admitPhone(room, hello.grant, maxPhones)) {
+            send(socket, {
+              type: 'unavailable',
+              reason: 'full',
+              limit: maxPhones,
+            } satisfies RelayToRemote);
+            return socket.close(4029, 'full');
+          }
           const desktop = this.routeFor(room, hello);
-          remote = { id: connectionId(), socket, workspaceId: workspace.id, hello, desktop };
+          remote = {
+            id: connectionId(),
+            socket,
+            workspaceId: workspace.id,
+            hello,
+            desktop,
+            listening: null,
+          };
           room.remotes.set(remote.id, remote);
           if (desktop) send(desktop.socket, { type: 'message', from: remote.id, data: hello });
           else send(socket, { type: 'unavailable', reason: 'presentation-offline' });
@@ -751,6 +790,12 @@ export class Relay {
               applied: false,
             } satisfies HostToRemote);
           }
+          if (message.type === 'audioSignal' && !this.admitListener(remote, message.signal)) {
+            return send(socket, {
+              type: 'audioSignal',
+              signal: { kind: 'full', session: message.signal.session },
+            } satisfies HostToRemote);
+          }
           send(remote.desktop.socket, { type: 'message', from: remote.id, data: message });
         }
       },
@@ -761,6 +806,46 @@ export class Relay {
         if (remote.desktop) send(remote.desktop.socket, { type: 'left', from: remote.id });
       },
     };
+  }
+
+  /**
+   * Whether a phone may join a room holding `limit` phones. Phones are counted by grant, so
+   * a phone coming back while its old connection lingers, or open in two tabs, counts once
+   * and is never refused by itself.
+   */
+  private admitPhone(room: WorkspaceRoom, grant: string | undefined, limit: number): boolean {
+    const phones = new Set<string>();
+    for (const other of room.remotes.values()) {
+      const otherGrant = (other.hello as { grant?: string }).grant;
+      if (grant && otherGrant === grant) return true;
+      phones.add(otherGrant ?? other.id);
+    }
+    return phones.size < limit;
+  }
+
+  /**
+   * Keeps count of the phones listening to live audio, against `maxListeners`: false for a
+   * `listen` over the limit from a phone not already listening. A phone listening again
+   * with a fresh session (A17) keeps its place.
+   */
+  private admitListener(remote: Remote, signal: AudioSignal): boolean {
+    if (signal.kind === 'close') {
+      if (remote.listening === signal.session) remote.listening = null;
+      return true;
+    }
+    if (signal.kind !== 'listen') return true;
+    const limit = this.options.maxListeners;
+    if (limit !== undefined && remote.listening === null) {
+      // Counted by grant, as phones are, so the same phone in two tabs is one listener.
+      const key = (r: Remote) => (r.hello as { grant?: string }).grant ?? r.id;
+      const listening = new Set<string>();
+      for (const other of this.room(remote.workspaceId).remotes.values()) {
+        if (other.listening !== null) listening.add(key(other));
+      }
+      if (!listening.has(key(remote)) && listening.size >= limit) return false;
+    }
+    remote.listening = signal.session;
+    return true;
   }
 
   // ── Browser outputs ──────────────────────────────────────────────────────

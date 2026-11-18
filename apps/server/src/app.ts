@@ -33,6 +33,7 @@ import {
   RECORDING_ID,
   RecordingCompleteSchema,
   RecordingOpenSchema,
+  INSTALL_HEADER,
   TOO_LARGE,
   UPDATE_NEEDED,
   VIDEO_FILE,
@@ -43,6 +44,7 @@ import {
   type EnrollResponse,
   type OutputLink,
   type PairingStartResponse,
+  type PublicJoinResponse,
   type PullResponse,
   type PushResponse,
   type RecordingChunkResponse,
@@ -86,6 +88,13 @@ import {
   rememberVideo,
 } from './storedUploads';
 import { Relay } from '@worship-q/relay';
+import { RateLimiter, takeAll } from './limits';
+import {
+  PUBLIC_SWEEP_EVERY_MS,
+  restrictToPublicRoutes,
+  sweepPublic,
+  type PublicConfig,
+} from './public';
 
 export interface ServerConfig {
   instance: Instance;
@@ -127,6 +136,11 @@ export interface ServerConfig {
   ice?: IceConfig;
   /** Days recordings of live audio are kept; 0 for ever (service records R10). */
   recordingDays?: number;
+  /**
+   * Public mode (public server plan): set, the server serves only what workspaces without a
+   * church server need, refuses to be joined as a church server, and keeps nothing.
+   */
+  public?: PublicConfig | null;
 }
 
 const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
@@ -134,6 +148,10 @@ const BACKGROUND_NAME = /^[A-Za-z0-9-]{1,80}\.(jpg|jpeg|png|mp4)$/i;
 const DECK_IMAGE = /^deck-[0-9a-f-]{36}-\d{3,}(-t)?\.jpg$/;
 /** Background files and backups, which have no limit of their own. */
 const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024;
+/** Deck conversions that may wait on a public server before it answers busy (S9). */
+const PUBLIC_QUEUE = 5;
+/** A copy of the app's identifier, as the install header carries it (S2). */
+const INSTALL_ID = /^[A-Za-z0-9-]{8,64}$/;
 /** A deck's identifier, as in its images' names. */
 const DECK_ID_PARAM = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const PING_MS = 25_000;
@@ -146,9 +164,13 @@ declare module 'fastify' {
 
 export async function buildServer(config: ServerConfig) {
   const { instance } = config;
+  const publicMode = config.public ?? null;
   // `app` is made below; the relay only warns once connections arrive, by when it exists.
   const relay = new Relay(instance, undefined, (message, detail) => app.log.warn(detail, message), {
     note: (message, detail) => app.log.info(detail, message),
+    ...(publicMode
+      ? { maxPhones: publicMode.limits.phones, maxListeners: publicMode.limits.listeners }
+      : {}),
     // A broadcaster's answer to an administrator listening in the admin app (A22).
     adminAudio: (workspaceId, deviceId, signal) =>
       audioReports.fromBroadcaster(workspaceId, deviceId, signal),
@@ -172,7 +194,7 @@ export async function buildServer(config: ServerConfig) {
   const recordings = new Recordings(instance, config.dataDir);
   const presentationLog = new PresentationLog(instance);
   const retention =
-    config.sweep === false
+    config.sweep === false || publicMode
       ? null
       : setInterval(() => {
           try {
@@ -185,6 +207,23 @@ export async function buildServer(config: ServerConfig) {
           }
         }, SWEEP_EVERY_MS);
   retention?.unref();
+  // A public server keeps no file over a day, and forgets workspaces left unseen (plan §3, S4).
+  const publicSweeper =
+    config.sweep === false || !publicMode
+      ? null
+      : setInterval(() => {
+          try {
+            const swept = sweepPublic(instance, config.dataDir, publicMode.idleDays);
+            if (swept.files || swept.workspaces) {
+              app.log.info(
+                `Public sweep removed ${swept.files} files and ${swept.workspaces} idle workspaces`,
+              );
+            }
+          } catch (error) {
+            app.log.error(error);
+          }
+        }, PUBLIC_SWEEP_EVERY_MS);
+  publicSweeper?.unref();
   // Log entries left open by a coordinator that went away (service records R18).
   const logSweeper =
     config.sweep === false
@@ -198,7 +237,18 @@ export async function buildServer(config: ServerConfig) {
         }, 5 * 60_000);
   logSweeper?.unref();
   const app = Fastify({
-    logger: config.logger ?? false,
+    // A public server logs no query string: Bible searches and references are the visitor's.
+    logger:
+      config.logger && publicMode
+        ? {
+            serializers: {
+              req: (request: { method: string; url: string }) => ({
+                method: request.method,
+                url: request.url.split('?')[0],
+              }),
+            },
+          }
+        : (config.logger ?? false),
     bodyLimit: 16 * 1024 * 1024,
     // Behind CloudFront and a reverse proxy.
     trustProxy: true,
@@ -212,12 +262,61 @@ export async function buildServer(config: ServerConfig) {
     const types = instance.getWorkspace(workspaceId)?.libraryTypes ?? [];
     return { manageLibrary: types.includes('songs'), manageLibraryTypes: types };
   };
+  if (publicMode) restrictToPublicRoutes(app);
+  /**
+   * The church settings the Bible is offered by. A public server with no versions chosen
+   * offers every version a provider serves with no key, which are the only ones it has (S6).
+   */
+  const bibleChurch = () => {
+    const church = instance.churchSettings();
+    if (!publicMode || (church.bibleVersions ?? []).length > 0) return church;
+    return { ...church, bibleVersions: config.bible?.availability.catalogue.map((v) => v.id) };
+  };
   // One conversion at a time: LibreOffice is heavy, and its settings folder is shared.
   let conversions: Promise<unknown> = Promise.resolve();
+  let waiting = 0;
   const queued = <T>(task: () => Promise<T>): Promise<T> => {
-    const result = conversions.then(task, task);
+    waiting++;
+    const run = () => {
+      waiting--;
+      return task();
+    };
+    const result = conversions.then(run, run);
     conversions = result.catch(() => undefined);
     return result;
+  };
+  /** A public server answers busy rather than queue more than a few conversions (S9). */
+  const queueFull = () => !!publicMode && waiting >= PUBLIC_QUEUE;
+
+  // ── The public server's limits (S3), counted in memory ────────────────────
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  const limiters = publicMode && {
+    joins: new RateLimiter(publicMode.joinsPerHour, hour),
+    media: new RateLimiter(publicMode.limits.mediaPerDay, day),
+    mediaIp: new RateLimiter(publicMode.limits.mediaPerDay * publicMode.ipFactor, day),
+    bible: new RateLimiter(publicMode.biblePerHour, hour),
+    bibleIp: new RateLimiter(publicMode.biblePerHour * publicMode.ipFactor, hour),
+  };
+  const installOf = (request: FastifyRequest): string | null => {
+    const value = String(request.headers[INSTALL_HEADER] ?? '');
+    return INSTALL_ID.test(value) ? value : null;
+  };
+  /** Counts a use against a copy of the app and its IP address; true when it was refused. */
+  const limited = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    perInstall: RateLimiter,
+    perIp: RateLimiter,
+  ): boolean => {
+    const retryAfter = takeAll([
+      { limiter: perInstall, key: installOf(request) },
+      { limiter: perIp, key: request.ip },
+    ]);
+    if (retryAfter === null) return false;
+    reply.header('retry-after', String(retryAfter));
+    void reply.code(429).send({ error: 'rate-limited', retryAfter });
+    return true;
   };
   const backupsDir = (workspaceId: string) => join(config.dataDir, 'backups', workspaceId);
   const limits: MediaLimits = { ...DEFAULT_MEDIA_LIMITS, ...config.mediaLimits };
@@ -256,8 +355,9 @@ export async function buildServer(config: ServerConfig) {
       pages.push({ image, thumbnail, slide: page.slide, step: page.step, text: page.text });
     }
     // Kept so the deck can be converted again and downloaded later. Its name holds the same
-    // identifier as the deck's images; only the original route serves it.
-    await rename(upload, join(dir, `deck-${id}-original${extension}`));
+    // identifier as the deck's images; only the original route serves it. A public server
+    // keeps no original (plan §5).
+    if (!publicMode) await rename(upload, join(dir, `deck-${id}-original${extension}`));
     const deck: Deck = {
       source,
       ...(isImage ? { kind: 'image' as const } : {}),
@@ -265,7 +365,8 @@ export async function buildServer(config: ServerConfig) {
       height: converted.height,
       pages,
     };
-    rememberDeck(instance, hash, deck);
+    // A public server deletes what it made once fetched, so it remembers no upload (U28).
+    if (!publicMode) rememberDeck(instance, hash, deck);
     return deck;
   };
 
@@ -285,6 +386,7 @@ export async function buildServer(config: ServerConfig) {
     extension: string,
     source: string,
   ): Deck | null => {
+    if (publicMode) return null;
     const deck = findStoredDeck(
       instance,
       storedDirs(workspaceId),
@@ -358,12 +460,50 @@ export async function buildServer(config: ServerConfig) {
       admin: !!config.oidc,
       codes: !instance.hasAdministrators(),
       media: { images: true, videos: true, limits },
-      bible: config.bible ? config.bible.offered(instance.churchSettings()).length > 0 : false,
+      bible: config.bible ? config.bible.offered(bibleChurch()).length > 0 : false,
       audioRelay: ice.turn !== null,
       records: { audio: recordings.enabled(), log: true },
     };
+    if (publicMode) {
+      return {
+        ...info,
+        pairing: false,
+        admin: false,
+        codes: false,
+        outputs: false,
+        media: { images: true, videos: false, limits },
+        audioRelay: ice.turn !== null,
+        records: { audio: false, log: false },
+        public: true,
+        limits: publicMode.limits,
+      } satisfies ServerInfo;
+    }
     return info;
   });
+
+  // ── The public server's join (public server M2.5) ────────────────────────
+
+  if (publicMode) {
+    app.post<{ Body: { protocolVersion?: number } }>(
+      '/api/v1/public/join',
+      async (request, reply) => {
+        if (!isCompatibleProtocol(request.body?.protocolVersion)) {
+          return reply.code(426).send({ error: UPDATE_NEEDED, protocolVersion: PROTOCOL_VERSION });
+        }
+        const retryAfter = limiters && limiters.joins.take(request.ip);
+        if (retryAfter) {
+          reply.header('retry-after', String(retryAfter));
+          return reply.code(429).send({ error: 'rate-limited', retryAfter });
+        }
+        const { device, token, workspace } = instance.joinPublic();
+        return {
+          deviceId: device.id,
+          deviceToken: token,
+          workspace: { id: workspace.id },
+        } satisfies PublicJoinResponse;
+      },
+    );
+  }
 
   // ── Pairing (D29): a device asks, shows the code, and polls ──────────────
 
@@ -468,6 +608,30 @@ export async function buildServer(config: ServerConfig) {
 
   app.register(async (api) => {
     api.addHook('preHandler', requireDevice);
+    // The public server's limits, after the device is known (S3, S9).
+    if (limiters) {
+      api.addHook('preHandler', async (request, reply) => {
+        const url = request.routeOptions.url ?? '';
+        const refuse = () => {
+          // An upload's body has not been read: let it drain rather than hold the socket.
+          (request.body as Readable | undefined)?.resume?.();
+          return reply;
+        };
+        if (url.startsWith('/api/v1/bible/')) {
+          if (limited(request, reply, limiters.bible, limiters.bibleIp)) return refuse();
+        } else if (
+          request.method === 'POST' &&
+          (url === '/api/v1/decks' || url === '/api/v1/images')
+        ) {
+          if (url === '/api/v1/decks' && queueFull()) {
+            reply.header('retry-after', '30');
+            void reply.code(503).send({ error: 'busy', retryAfter: 30 });
+            return refuse();
+          }
+          if (limited(request, reply, limiters.media, limiters.mediaIp)) return refuse();
+        }
+      });
+    }
 
     api.get('/api/v1/workspace', async (request) => {
       const workspace = instance.getWorkspace(request.device!.workspaceId)!;
@@ -506,7 +670,7 @@ export async function buildServer(config: ServerConfig) {
       answer: (bible: Bible) => Promise<T>,
     ): Promise<T | FastifyReply> => {
       const bible = config.bible;
-      if (!bible || !bible.isOffered(version, instance.churchSettings())) {
+      if (!bible || !bible.isOffered(version, bibleChurch())) {
         return reply.code(403).send({ error: 'not-offered' });
       }
       try {
@@ -527,7 +691,7 @@ export async function buildServer(config: ServerConfig) {
       '/api/v1/bible/versions',
       async () =>
         ({
-          versions: (config.bible?.offered(instance.churchSettings()) ?? []).map((version) => {
+          versions: (config.bible?.offered(bibleChurch()) ?? []).map((version) => {
             const tocHash = config.bible!.tocs.peekHash(version.id);
             return { ...versionInfo(version), ...(tocHash ? { tocHash } : {}) };
           }),
@@ -989,6 +1153,25 @@ export async function buildServer(config: ServerConfig) {
       }
     });
 
+    /**
+     * The desktop has fetched a deck's images and small copies: a public server deletes them
+     * (plan §3). Only this workspace's files of that deck; nothing when there are none.
+     */
+    if (publicMode) {
+      api.delete<{ Params: { id: string } }>('/api/v1/decks/:id', async (request, reply) => {
+        const { id } = request.params;
+        if (!DECK_ID_PARAM.test(id)) return reply.code(400).send({ error: 'invalid-id' });
+        const dir = workspaceFilesDir(config.dataDir, request.device!.workspaceId);
+        if (existsSync(dir)) {
+          const prefix = `deck-${id}-`;
+          for (const name of readdirSync(dir)) {
+            if (name.startsWith(prefix)) rmSync(join(dir, name), { force: true });
+          }
+        }
+        return reply.code(204).send();
+      });
+    }
+
     api.put('/api/v1/backups', async (request, reply) => {
       const device = request.device!;
       const dir = backupsDir(device.workspaceId);
@@ -1157,12 +1340,23 @@ export async function buildServer(config: ServerConfig) {
     bible: config.bible,
   });
 
-  app.get('/', async () => ({ name: config.name, app: 'worship-q' }));
+  app.get('/', async () =>
+    publicMode
+      ? {
+          name: config.name,
+          app: 'worship-q',
+          public: true,
+          about:
+            'The Worship Q public server. Worship Q uses it by itself for workspaces without a church server; there is nothing to connect, and nothing is kept here.',
+        }
+      : { name: config.name, app: 'worship-q' },
+  );
   app.addHook('onClose', async () => {
     config.bible?.stop();
     clearInterval(sweeper);
     clearInterval(audioSweeper);
     if (retention) clearInterval(retention);
+    if (publicSweeper) clearInterval(publicSweeper);
     if (logSweeper) clearInterval(logSweeper);
   });
 

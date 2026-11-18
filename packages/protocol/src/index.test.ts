@@ -235,11 +235,12 @@ describe('speaking an older server’s version (D26)', () => {
   });
 
   it('speaks version 3 to a server not yet updated for OBS control', () => {
-    expect(PROTOCOL_VERSION).toBe(8);
+    expect(PROTOCOL_VERSION).toBe(9);
     expect(negotiateProtocol(3)).toBe(3);
     expect(negotiateProtocol(4)).toBe(4);
     expect(negotiateProtocol(5)).toBe(5);
     expect(negotiateProtocol(6)).toBe(6);
+    expect(negotiateProtocol(8)).toBe(8);
     expect(negotiateProtocol(3)).toBeLessThan(OBS_PROTOCOL_VERSION);
   });
 });
