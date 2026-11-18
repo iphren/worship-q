@@ -65,7 +65,7 @@ export const admin: Record<keyof typeof en, string> = {
   'role.phone': '手机',
   'role.output': '远程画面',
   'connection.lan': '在本地网络上',
-  'connection.relay': '通过教会服务器',
+  'connection.relay': '通过教会服务器连接',
 
   'error.not-administrator':
     '你的账号已登录，但不是这个实例的管理员。请其他管理员添加你的电子邮件地址。',

@@ -61,7 +61,7 @@ export const admin: Record<keyof typeof en, string> = {
   'role.phone': '手機',
   'role.output': '遠端畫面',
   'connection.lan': '在本地網路上',
-  'connection.relay': '透過教會伺服器',
+  'connection.relay': '透過教會伺服器連線',
   'error.not-administrator':
     '你的帳號已登入，但不是這個執行個體的管理員。請其他管理員新增你的電子郵件地址。',
   'error.sign-in-failed': '登入沒有完成。請重試。',

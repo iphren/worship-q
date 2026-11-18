@@ -373,7 +373,7 @@ export const desktop: Record<DesktopKey, string> = {
   'church.liveFollowing': '正在跟随“{name}”上的演示。',
   'church.liveViewer': '这台电脑是观看端：它显示演示，但从不主控。',
   'church.liveNobody': '目前没有电脑在主控演示。',
-  'church.viaRelay': '通过教会服务器',
+  'church.viaRelay': '通过教会服务器连接',
   'church.viaLan': '在本地网络上',
   'church.tokenUnprotected': '这台电脑的教会凭据尚未受到系统钥匙串的保护。',
   'church.tokenRefused':
