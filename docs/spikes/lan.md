@@ -1,9 +1,14 @@
 # Spike M0 — Connections on the venue network
 
-**Status:** not yet run on hardware. The code for M5 was written against the choices below
-and compiles and passes its unit tests, but nothing here has been tried between two real
-machines, on a phone, or on a guest network. Each item lists what to confirm and where the
-result goes.
+**Status:** basic offline sync verified on real hardware (18 November 2026); other scenarios
+below remain open. Two computers of one workspace on a home Wi-Fi, with the router's internet
+cable unplugged: a computer whose run sheet was empty received the run sheet from the other
+over the network, and the two then shared the presentation, slide changes reaching each other
+with no internet. The checks below that this test did not cover (a changed fingerprint,
+phones, a guest network, the permission prompts) are still open; phones are expected to use
+the server (M0.2).
+
+The code for M5 was written against the choices below.
 
 ## Choices made for M5
 
@@ -57,5 +62,6 @@ it will refuse a self-signed certificate it has not been told to trust.
 
 ## Exit
 
-When every box is ticked, or an exception is recorded, update the known limits in
-`docs/server-deployment.md` and the acceptance record in `docs/acceptance/phase-2.md`.
+The two-computer offline-sync smoke test has passed; the remaining unchecked scenarios above
+are not yet validated. When every box is ticked, or an exception is recorded, update the known
+limits in `docs/server-deployment.md` and the acceptance record in `docs/acceptance/phase-2.md`.

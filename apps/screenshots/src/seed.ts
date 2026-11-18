@@ -12,7 +12,7 @@ import {
 import { deckLyrics, type Deck, type SongFields } from '@worship-q/protocol';
 import { migrate, Store } from '@worship-q/store';
 import { openNodeDriver, type NodeDriver } from '@worship-q/store/testing';
-import { HYMNS, RUN_SHEET, type Sermon, type VideoItem } from './content';
+import type { Content, Sermon, VideoItem } from './content';
 import { SLIDE_HEIGHT, SLIDE_WIDTH, slideImages } from './media';
 
 export interface Seeded {
@@ -80,8 +80,13 @@ function videoSong(video: VideoItem, id: string, videos: Set<string>): Partial<S
   };
 }
 
-/** A database seeded for `date` (an ISO day, a Sunday), as of the instant `now`. */
-export async function seed(date: string, now: string, timezone: string): Promise<Seeded> {
+/** A database seeded with `content` for `date` (an ISO day, a Sunday), as of the instant `now`. */
+export async function seed(
+  content: Content,
+  date: string,
+  now: string,
+  timezone: string,
+): Promise<Seeded> {
   const driver = openNodeDriver();
   await migrate(driver);
   const newId = idMaker();
@@ -89,10 +94,10 @@ export async function seed(date: string, now: string, timezone: string): Promise
   const files = new Map<string, Buffer>();
   const videos = new Set<string>();
   const workspace = await store.ensureWorkspace(timezone);
-  await store.setWorkspaceName(workspace.id, 'Sunday Service');
+  await store.setWorkspaceName(workspace.id, content.workspaceName);
 
   const songs = new Map<string, string>();
-  for (const hymn of HYMNS) {
+  for (const hymn of content.hymns) {
     const song = await store.createSong(workspace.id, {
       title: hymn.title,
       author: hymn.author,
@@ -104,7 +109,7 @@ export async function seed(date: string, now: string, timezone: string): Promise
   }
 
   const sheet = await store.ensureRunSheet(workspace.id, date);
-  for (const entry of RUN_SHEET) {
+  for (const entry of content.runSheet) {
     let songId: string | undefined;
     if (typeof entry === 'string') songId = songs.get(entry);
     else if ('kind' in entry && entry.kind === 'sermon')
@@ -120,7 +125,7 @@ export async function seed(date: string, now: string, timezone: string): Promise
   const lastWeek = new Date(`${date}T12:00:00Z`);
   lastWeek.setUTCDate(lastWeek.getUTCDate() - 7);
   const earlier = await store.ensureRunSheet(workspace.id, lastWeek.toISOString().slice(0, 10));
-  for (const title of ['All Creatures of Our God and King', 'Be Thou My Vision', 'Amazing Grace']) {
+  for (const title of content.lastWeek) {
     await store.addItem(earlier.id, songs.get(title)!);
   }
   return { driver, files, videos };

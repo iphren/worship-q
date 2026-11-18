@@ -1,7 +1,7 @@
 # Worship Q — Translation Plan
 
 **Drafted:** 17 November 2026; owner's answers and the two phases added the same day  
-**Status:** Phase 1 built (17 November 2026): every app and the website read their words from a catalogue, with a Language setting everywhere, in English only (§7). Phase 2, Simplified and Traditional Chinese, is next.  
+**Status:** Phase 1 built (17 November 2026): every app and the website read their words from a catalogue, with a Language setting everywhere, in English only (§7). Phase 2 built the same day, on a branch for the project owner's review: Simplified and Traditional Chinese in every app and on worship-q.com (§8). The glossary (§5) is proposed, to be agreed in that review.  
 **Source:** the project owner's request of 17 November 2026 (Chinese in Simplified and Traditional, across the apps and the website, as one piece of work); the [Search and AI discovery plan](seo-plan.md), phase 3 item 4; the code at version 2.9.0.
 
 ## 1. Goal
@@ -41,7 +41,7 @@ Already in place: Chinese **content** works (lyrics in any language, search by p
 | T3 | **One catalogue:** the messages move into a shared package (for example `packages/i18n`), used by the desktop, phone remote, admin and output pages, so a term is translated once. Each app keeps only the messages it uses. |
 | T4 | **Every key in every language:** the type system already requires a `Record<MessageKey, string>` per language; a test checks no message is left in English by mistake. |
 | T5 | **Translated by Claude, reviewed by the project owner:** Claude writes Simplified, and drafts Traditional from it with OpenCC's conversion (`opencc-js`, already a dependency) before correcting the wording by hand; the project owner reviews both before release. Conversion alone gets characters right but not all vocabulary. One Traditional for all regions, not separate Taiwan and Hong Kong versions. |
-| T6 | **Dates and numbers** per language: "Sunday 1st Nov" becomes, for example, `11月22日 星期日`, through `Intl` rather than English ordinals. |
+| T6 | **Dates and numbers** per language: "Sunday 1st Nov" becomes, for example, `11月22日星期日`, through `Intl` rather than English ordinals. |
 | T7 | **Messages from the server and the native core** are codes, translated by the app that shows them, not English sentences. Existing English messages keep working for older servers. |
 | T8 | **Interface language is not content language.** Lyrics, Bible versions and song search are unaffected by the interface language; a Chinese interface can present English songs and the other way round. |
 | T9 | **Website:** every page and document on worship-q.com in both scripts (the home page, features, FAQ, screenshots' descriptions, and every guide or page the site carries: today the volunteer guide and server setup guide, plus the pages of [SEO plan](seo-plan.md) phase 3). Chinese pages live under `/zh-hans/` and `/zh-hant/`, mirroring the English paths, with `hreflang` linking all three languages and a language link on every page. `llms.txt` and `index.md` stay English; the Chinese pages get their own Markdown copies. Documents that stay on GitHub only (README, plans, release notes) stay English. |
@@ -84,9 +84,6 @@ place; English is the only language in the catalogue at the end of it.
    - a lint rule that refuses plain English text in components (JSX text and user-facing
      attributes such as `title`, `aria-label` and `placeholder`), with a short allow list for
      brand names;
-   - a development-only test language that wraps every message (for example `⟦Settings⟧`), so a
-     look through each app shows any text that missed the catalogue; it never appears in the
-     Language setting of a release;
    - the existing type check that every language has every key (T4).
 
 **Done when:** the apps, pages and website look and read as they do today; the lint rule passes
@@ -100,7 +97,7 @@ setting and switches work and are remembered.
 2. **Simplified Chinese** (`zh-Hans`) for the whole catalogue, written by Claude (T5).
 3. **Traditional Chinese** (`zh-Hant`), drafted from Simplified with `opencc-js` and corrected
    by hand (T5).
-4. **Dates** in Chinese, for example `11月22日 星期日` (T6), and the region matching for
+4. **Dates** in Chinese, for example `11月22日星期日` (T6), and the region matching for
    Automatic (T2: Taiwan, Hong Kong and Macau to Traditional; mainland China, Singapore and
    other Chinese to Simplified).
 5. **Chinese added to the Language setting** and switches, each language named in itself
@@ -119,27 +116,49 @@ setting and switches work and are remembered.
 (T4); the owner has reviewed both; Automatic picks the right script for the system language;
 worship-q.com serves all three languages with `hreflang` linking them.
 
-## 5. Glossary to agree
+## 5. Glossary (proposed, for the owner's review)
 
-Terms that appear everywhere and need one translation each, in both scripts, for example:
+The terms that appear everywhere, one translation each. Traditional follows usage common to
+Taiwan and Hong Kong; where the two differ, Taiwan's word was chosen.
 
-| English | To decide |
-| --- | --- |
-| Run sheet | |
-| Slideshow / Present / Go live | |
-| Workspace | |
-| Church server / Church Library | |
-| Library, Media, Web | |
-| Viewer mode | |
-| Blank / Clear screen | |
-| Subtitle overlay | |
-| Meeting day | |
+| English | 简体中文 | 繁體中文 | Note |
+| --- | --- | --- | --- |
+| Run sheet | 流程表 | 流程表 | The order of service |
+| Slideshow (the screen) | 投影 | 投影 | Slideshow screen 投影屏幕 / 投影螢幕 |
+| Slide | 幻灯片 | 投影片 | |
+| Present (the page and the verb) | 投影控制 / 投影 | 投影控制 / 投影 | 页面名称 / 显示内容的按钮 |
+| Live (a run sheet) / Go live | 进行中 / 启用 | 進行中 / 啟用 | “Go live with {date}”: 启用{date}的流程表 / 啟用{date}的流程表；不会立即切换投影内容 |
+| Live (OBS, audio) | 直播中 | 直播中 | |
+| Blank / Unblank | 隐藏内容 / 显示内容 | 隱藏內容 / 顯示內容 | 适用于歌词、经文等内容；隐藏后保留背景，不等于黑屏 |
+| Clear screen | 清屏 | 清除畫面 | |
+| Workspace | 工作区 | 工作區 | |
+| Church server | 教会服务器 | 教會伺服器 | |
+| Library | 资源库 | 資源庫 | Not 資料庫, which is “database” in Traditional |
+| Church Library | 教会资源库 | 教會資源庫 | |
+| Songs, Media, Web | 诗歌、媒体、网页 | 詩歌、媒體、網頁 | |
+| Bible passage / version | 经文 / 译本 | 經文 / 譯本 | |
+| Viewer mode / a viewer | 仅观看模式 / 观看端 | 僅觀看模式 / 觀看端 | |
+| Holds the presentation (coordinator) / Follow | 主控（投影） / 副控 | 主控（投影） / 副控 | Take over presenting: 接管投影控制; the coordinator: 主控电脑 / 主控電腦 |
+| Subtitle overlay | 字幕 | 字幕 | |
+| Output / Browser outputs | 远程画面 / 浏览器远程画面 | 遠端畫面 / 瀏覽器遠端畫面 | |
+| On this network (connected directly) / this network | 在局域网上 / 局域网 | 在區域網路上 / 區域網路 | |
+| New song, New website | 添加诗歌、添加网站 | 新增詩歌、新增網站 | |
+| Meeting day | 聚会日 | 聚會日 | |
+| Phone remote | 手机遥控 | 手機遙控 | |
+| Operator | 操作员 | 操作員 | |
+| Administrator / admin app | 管理员 / 管理后台 | 管理員 / 管理後台 | |
+| Approve / pairing | 批准 / 配对 | 批准 / 配對 | Not 核准 in Traditional, so both scripts read alike |
+| Connection code | 连接码 | 連線碼 | |
+| Synchronize | 同步 | 同步 | |
+| Live audio / broadcast / listen | 现场音频 / 广播 / 收听 | 現場音訊 / 廣播 / 收聽 | |
+| OBS: Stream, Record, Camera, Program, Scene | 直播、录制、虚拟摄像机、节目画面、场景 | 直播、錄製、虛擬攝影機、節目畫面、場景 | “直播”对教会操作员更直观 |
+| Undo / Restore | 撤销 / 恢复 | 復原 / 還原 | |
 
 ## 6. Open questions
 
-1. **Keeping translations current:** how later changes to English messages and pages reach the translations, for example a release check that lists messages changed since they were translated, for Claude to translate and the project owner to review.
+None left. Answered (17 November 2026):
 
-Answered (17 November 2026):
+- **Keeping translations current:** for the apps, a test fails when an English message changed or was added since it was translated (§8); for the website, the Chinese pages sit beside the English ones and change with them.
 
 - **Website addresses:** `/zh-hans/` and `/zh-hant/` (T9).
 - **Traditional variant:** one Traditional Chinese for all regions (T5).
@@ -170,7 +189,7 @@ Answered (17 November 2026):
 - Desktop: **Settings → Language** (Automatic or English), kept per computer with the other device settings; the slideshow window follows. Changing it draws the window again without losing the page.
 - Phone remote: the globe in its header. Admin app: the Language select beside **Sign out**. Both are kept in the browser (`wq.language`).
 - Output pages and the localhost slideshow and subtitle pages follow the browser.
-- `?lang=qps` in the address shows the **test language**, which wraps every message in `⟦…⟧` so text that missed the catalogue stands out; it is also offered in the Language lists in development only. `SCREENSHOT_LANG=qps pnpm screenshots <dir>` renders the app in it (the scenes after the first find buttons by their English names, so they stop there).
+- `?lang=zh-Hans` (or `en`, `zh-Hant`) in the address shows a page in that language, whatever the setting. A test language that wrapped every message in `⟦…⟧` was used while taking the English out of the code and removed after phase 2.
 
 **Messages from the server and the native core (T7)**: upload refusals reach the desktop as `refused:<code>:<message>`; the server sends an image's `reason` (`image-too-large`, `image-unreadable`) beside its message, and the desktop shows its own words for the codes it knows and the message otherwise, so older servers still read. The slideshow window's title is set from the interface. Left in English on purpose: the OBS connection's technical details shown after the translated sentence, and the power-assertion reasons on macOS and Windows, which only diagnostic tools show.
 
@@ -181,3 +200,69 @@ Answered (17 November 2026):
 - The desktop's window title adds the year after the run sheet's date in English order (`App.tsx`).
 - The Bible's joined and missing verse notes name the book in English (`warningParams` in `packages/bible`).
 - The release notes page stays English.
+
+## 8. Phase 2 as built
+
+Built 17 November 2026 on the branch `translation-phase-2`, for the project owner to read through
+before release. Claude wrote the Simplified Chinese; Traditional was drafted from it and
+corrected (T5).
+
+**Where the words are**
+
+| Part | Where |
+| --- | --- |
+| App catalogues | `packages/i18n/src/zh-hans/` and `zh-hant/`, one file per app beside `en/`, each typed to have every English key |
+| Website frame, home page, features, questions, page titles | `apps/website/src/zh-hans.ts` and `zh-hant.ts` |
+| Website pages | `apps/website/pages/zh-hans/`, `zh-hant/`; the guides in `docs/zh-hans/`, `docs/zh-hant/` |
+| Screenshots' Chinese content | `apps/screenshots/src/content-zh.ts` |
+
+**Choosing the language (T2):** Automatic picks Traditional for `zh-TW`, `zh-HK`, `zh-MO` and
+any tag with `Hant`, and Simplified for every other Chinese. The Language lists name each
+language in itself: English, 简体中文, 繁體中文. `?lang=zh-Hans` in an address forces one, in any
+letter case.
+
+**Dates (T6):** a run sheet is `11月22日星期日`, and with its year (window title, “last used”)
+`2026年11月22日星期日`; English keeps “Sunday 22nd Nov 2026” (`formatDateWithYear`). The Bible's
+joined and missing verse notes name the book in the interface language.
+
+**Traditional from Simplified:** `pnpm --filter @worship-q/i18n draft-hant` drafts the Traditional
+catalogues with OpenCC (`cn` to `twp`) and the corrections in `packages/i18n/scripts/hant.ts`
+(`FIXES`: 幻燈片 to 投影片, 專案 to 項目, quotation marks to 「」 and the like). It
+drafts only new keys unless told `--keys a,b` or `--all`, so corrections made by hand in
+`src/zh-hant/` stay. `--file in out` drafts any file, as was done for the website.
+
+**Keeping translations current (§6):** `packages/i18n/src/translated.json` records each English
+message as it was when translated. The i18n test fails for any English message changed or added
+since, listing them. Translate them (Simplified, then `draft-hant --keys`), then run
+`pnpm --filter @worship-q/i18n translated`. The test also fails when a Chinese message is the
+English left in place, beyond names such as OBS and placeholders. For the website, a change to an
+English page needs the same change in its two Chinese copies.
+
+**Website (T9):** every page except the release notes is under `/zh-hans/` and `/zh-hant/`, with
+`hreflang` links between the three and `x-default` to English, links to the other languages in
+every header, and its own `index.md`. The release notes, `llms.txt` and `llms-full.txt` stay
+English; the Chinese pages link to the English release notes, marked （英文）. The not-found page
+stays English: GitHub Pages serves only the root `404.html`. The English guide had no Chinese
+examples left to move; the Chinese guides use Chinese references (`马可福音15:5-6`).
+
+**Screenshots:** `SCREENSHOT_LANG=zh-Hans pnpm screenshots apps/website/public/screenshots/zh-hans`
+(and `zh-Hant`) renders the app in Chinese with the Lord's Prayer, Psalm 100 (Chinese and KJV line
+by line) and Psalm 121 as songs, and Psalm 23 beside the KJV, all from the 1919 Chinese Union
+Version, which is in the public domain; the English hymns stay in the library. The scenes find
+buttons by the catalogue's words. The website workflow renders all three, with Noto CJK
+installed on Linux.
+
+**For the review**
+
+- The glossary (§5), especially 投影控制 for Present, 资源库 for Library and 流程表 for run sheet.
+- Sentences built from parts, such as the admin app's `{noun}` messages (`library.*`,
+  `workspace.manage*`) and `workspace.codeState` (“连接码目前已{state}”).
+- Traditional vocabulary: one Traditional for all regions, leaning to Taiwan's words (伺服器,
+  影片, 檔案, 預設). Hong Kong readers may prefer 服務器 or 視頻 in places.
+- The screenshots' Psalm 23 is labelled 和合本 with the catalogue's CUNP versions, though its
+  text is the 1919 wording; the passage is the same in both.
+- The settings' font sample is Psalm 23:1 in Chinese (耶和华是我的牧者 / 我必不至缺乏), in place
+  of Amazing Grace, whose Chinese words may be under copyright.
+- The volunteer guide in English names a few buttons the app no longer has (**Edit lyrics**,
+  **Use this computer**, **Click for sound**, **End**); the Chinese guides use the app's current
+  words instead.

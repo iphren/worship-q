@@ -14,10 +14,16 @@
     "./admin": "./src/admin.ts",
     "./output": "./src/output.ts"
   },
+  "scripts": {
+    "draft-hant": "tsx scripts/draft-hant.ts",
+    "translated": "tsx scripts/translated.ts"
+  },
   "peerDependencies": {
     "react": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^19.3.0"
+    "@types/react": "^19.3.0",
+    "opencc-js": "1.4.2",
+    "tsx": "^4.23.15"
   }
 }

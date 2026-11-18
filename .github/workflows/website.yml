@@ -16,9 +16,13 @@ on:
     paths:
       - apps/website/**
       - apps/screenshots/**
-      # The guides are pages of the site.
+      # The guides are pages of the site, in each of its languages.
       - docs/volunteer-guide.md
       - docs/server-deployment.md
+      - docs/zh-hans/**
+      - docs/zh-hant/**
+      # The app's words appear in the Chinese screenshots.
+      - packages/i18n/src/**
       - .github/workflows/website.yml
   workflow_dispatch:
   # Every Monday morning, so the screenshots' run sheet is always the coming Sunday's.
@@ -47,6 +51,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: apps/screenshots/linux/setup.sh
       - run: pnpm screenshots apps/website/public/screenshots
+      # The Chinese pages show the app in Chinese, with Chinese songs and Bible.
+      - run: pnpm screenshots apps/website/public/screenshots/zh-hans
+        env:
+          SCREENSHOT_LANG: zh-Hans
+      - run: pnpm screenshots apps/website/public/screenshots/zh-hant
+        env:
+          SCREENSHOT_LANG: zh-Hant
       - run: pnpm --filter @worship-q/website build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

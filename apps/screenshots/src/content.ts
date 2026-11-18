@@ -301,6 +301,8 @@ export const PSALM_23: Passage = {
   ],
 };
 
+export type RunSheetEntry = string | Passage | Sermon | VideoItem;
+
 /** One slide of a sermon deck, drawn as an image by media.ts. */
 export interface SermonSlide {
   /** The large line; the title on the first slide. */
@@ -354,7 +356,7 @@ export const WELCOME_VIDEO: VideoItem = {
  * The run sheet of the Sunday the screenshots show, in order: hymns by title, a passage, the
  * sermon and a video. The first four are the columns the Present page shows.
  */
-export const RUN_SHEET: (string | Passage | Sermon | VideoItem)[] = [
+export const RUN_SHEET: RunSheetEntry[] = [
   WELCOME_VIDEO,
   'Holy, Holy, Holy',
   PSALM_23,
@@ -363,3 +365,40 @@ export const RUN_SHEET: (string | Passage | Sermon | VideoItem)[] = [
   'It Is Well with My Soul',
   'O Come, All Ye Faithful',
 ];
+
+/** Everything one language's screenshots show, and the text the scenes click to get there. */
+export interface Content {
+  hymns: Hymn[];
+  runSheet: RunSheetEntry[];
+  /** Last Sunday's songs, by title, so the calendar shows weeks of planning. */
+  lastWeek: string[];
+  workspaceName: string;
+  scenes: {
+    /** A line of the passage, clicked to show it. */
+    passage: string;
+    /** A line of a song in one language, for the slideshow. */
+    song: string;
+    /** A line of a song in two languages, for the bilingual slideshow. */
+    bilingual: string;
+    /** A song on this Sunday's run sheet, which the calendar shows. */
+    calendarSong: string;
+    /** The song opened in the library, and a line further down its lyrics. */
+    librarySong: string;
+    libraryLine: string;
+  };
+}
+
+export const ENGLISH: Content = {
+  hymns: HYMNS,
+  runSheet: RUN_SHEET,
+  lastWeek: ['All Creatures of Our God and King', 'Be Thou My Vision', 'Amazing Grace'],
+  workspaceName: 'Sunday Service',
+  scenes: {
+    passage: 'A Psalm of David.',
+    song: 'Amazing grace! How sweet the sound',
+    bilingual: 'Adeste fideles',
+    calendarSong: 'Holy, Holy, Holy',
+    librarySong: 'Amazing Grace',
+    libraryLine: 'Through many dangers',
+  },
+};

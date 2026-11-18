@@ -23,7 +23,7 @@ import {
 } from './components/RemoteControl';
 import { UpdateBanner } from './components/UpdateBanner';
 import { WorkspaceButton, useWorkspaceName } from './components/WorkspaceSwitcher';
-import { formatDate, t, type MessageKey } from '@worship-q/i18n/desktop';
+import { formatDateWithYear, t, type MessageKey } from '@worship-q/i18n/desktop';
 import { CalendarPage } from './pages/CalendarPage';
 import { PresentPage } from './pages/PresentPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -129,7 +129,7 @@ function WindowTitle() {
   const title = t('app.windowTitle', {
     workspace,
     // Only the title bar carries the year: "Sunday 1st Nov 2026".
-    date: `${formatDate(openDate)} ${openDate.slice(0, 4)}`,
+    date: formatDateWithYear(openDate),
   });
   useEffect(() => {
     getCurrentWindow()

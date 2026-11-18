@@ -1,4 +1,4 @@
-import { t } from '@worship-q/i18n/desktop';
+import { baseLocale, t } from '@worship-q/i18n/desktop';
 import {
   align,
   warningParams,
@@ -12,7 +12,7 @@ import { useMemo } from 'react';
 export function warningText(warning: AlignWarning, book: string): string {
   return t(
     warning.kind === 'joined' ? 'bible.warningJoined' : 'bible.warningMissing',
-    warningParams(warning, book),
+    warningParams(warning, book, baseLocale()),
   );
 }
 

@@ -1,6 +1,6 @@
 // Renders screenshots of the desktop app from its code, with public-domain content.
 //   pnpm screenshots [out-dir] [scene]
-//   SCREENSHOT_LANG=qps pnpm screenshots [out-dir]   (in the test language, or another one)
+//   SCREENSHOT_LANG=zh-Hans pnpm screenshots [out-dir]   (in another language)
 // Starts the desktop app's Vite server, opens it in headless Chromium with Tauri replaced by
 // tauri.ts and a database seeded by seed.ts, and saves each scene in scenes.ts twice: a PNG at
 // twice the window's size, and a WebP 1600 pixels wide for web pages.
@@ -10,6 +10,8 @@ import { resolve } from 'node:path';
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import sharp from 'sharp';
 import { createServer } from 'vite';
+import { messages, type MessageKey } from '@worship-q/i18n/desktop';
+import { contentFor } from './content-zh';
 import { SCENES, type SceneTools } from './scenes';
 import { seed } from './seed';
 import { FILES_ORIGIN, installTauriMock, nativeCommands, type Sent } from './tauri';
@@ -40,8 +42,24 @@ const out = process.argv[2]
   ? resolve(process.env.INIT_CWD ?? process.cwd(), process.argv[2])
   : resolve(import.meta.dirname, '../out');
 const only = process.argv[3];
-/** The interface language, such as `qps` for the test language; the app's own choice if unset. */
+/**
+ * The interface language, such as `zh-Hans`; English if
+ * unset. The content follows it: Chinese songs and Bible for Chinese.
+ */
 const language = process.env.SCREENSHOT_LANG;
+const content = contentFor(language);
+/** The app's words in that language, for the scenes to find buttons by. */
+const catalogue: Record<string, string> =
+  (Object.entries(messages).find(
+    ([code]) => code.toLowerCase() === language?.toLowerCase(),
+  )?.[1] as Record<string, string> | undefined) ?? messages.en;
+const t = (key: MessageKey) => catalogue[key] ?? messages.en[key];
+/** The browser's own language, which dates and the like follow. */
+const browserLocale = language?.toLowerCase().startsWith('zh')
+  ? language.toLowerCase() === 'zh-hant'
+    ? 'zh-TW'
+    : 'zh-CN'
+  : 'en-GB';
 
 const server = await createServer({
   root,
@@ -83,14 +101,14 @@ try {
   for (const scene of SCENES) {
     if (only && scene.name !== only) continue;
     console.log(scene.name);
-    const seeded = await seed(DATE, NOW, TIMEZONE);
+    const seeded = await seed(content, DATE, NOW, TIMEZONE);
     const sent: Sent = new Map();
     const viewport = scene.viewport ?? { width: 1440, height: 900 };
     const context = await browser.newContext({
       viewport,
       deviceScaleFactor: 2,
       timezoneId: TIMEZONE,
-      locale: 'en-GB',
+      locale: browserLocale,
       colorScheme: 'dark',
     });
     await context.exposeFunction(
@@ -107,6 +125,8 @@ try {
     });
     const page = await openWindow(context, 'main', viewport);
     const tools: SceneTools = {
+      content,
+      t,
       async slideshow(size = { width: 1920, height: 1080 }) {
         const output = await openWindow(context, OUTPUT_WINDOW, size);
         // Give the slideshow window the frame the main window last sent it.

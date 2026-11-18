@@ -11,7 +11,7 @@ import {
 } from '@worship-q/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { formatDate, t } from '@worship-q/i18n/desktop';
+import { formatDateWithYear, intlLocale, t } from '@worship-q/i18n/desktop';
 import { SongBackgroundFields } from './BackgroundPicker';
 import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
@@ -237,7 +237,7 @@ function TitleLabel(props: { song: Song | null }) {
         <span className={stat}>
           {' · '}
           <span className="text-emerald-300">
-            {t('songs.lastUsed', { date: `${formatDate(last)} ${last.slice(0, 4)}` })}
+            {t('songs.lastUsed', { date: formatDateWithYear(last) })}
           </span>
         </span>
       )}
@@ -254,7 +254,7 @@ function TitleLabel(props: { song: Song | null }) {
 }
 
 const changedText = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  new Date(iso).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'short' });
 
 /** The switch between a song's two versions, and the way to drop the workspace's own. */
 function VersionsBar(props: {

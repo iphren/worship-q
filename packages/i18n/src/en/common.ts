@@ -9,7 +9,6 @@ export const common = {
   'language.label': 'Language',
   'language.auto': 'Automatic',
   'language.autoHint': 'Follows the language of this computer or browser.',
-  'language.pseudo': 'Test language',
 } as const;
 
 export type CommonKey = keyof typeof common;

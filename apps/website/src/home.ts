@@ -6,6 +6,8 @@
 // full: never build them from pieces.
 
 import type { SiteLocale } from './locales.ts';
+import { home as hans } from './zh-hans.ts';
+import { home as hant } from './zh-hant.ts';
 
 export interface Home {
   title: string;
@@ -198,4 +200,6 @@ export const HOME: Record<SiteLocale, Home> = {
   </div>
 </section>`,
   },
+  'zh-hans': hans,
+  'zh-hant': hant,
 };

@@ -5,7 +5,7 @@
 // Tailwind finds the classes used here by reading this file, so write class names out in
 // full: never build them from pieces.
 
-import { LOCALE_INFO, localePath, type SiteLocale } from './locales.ts';
+import { isTranslated, LOCALE_INFO, localePath, SITE_LOCALES, type SiteLocale } from './locales.ts';
 import { WORDS } from './words.ts';
 
 export const SITE = 'https://worship-q.com';
@@ -25,9 +25,13 @@ const NAV = [
   { href: '/releases/', label: 'releases' },
 ] as const;
 
-/** The site's header; `current` is the path of the page it is on, in its language. */
-export function header(current = '/', locale: SiteLocale = 'en'): string {
+/**
+ * The site's header, on the page at `page` (its English path, such as `/guide/`) in a
+ * language, with links to the same page in the site's other languages.
+ */
+export function header(page = '/', locale: SiteLocale = 'en'): string {
   const words = WORDS[locale];
+  const current = localePath(locale, page);
   const links = NAV.map(({ href, label }) => ({
     href: localePath(locale, href),
     label: words.nav[label],
@@ -41,7 +45,35 @@ export function header(current = '/', locale: SiteLocale = 'en'): string {
   <a href="${localePath(locale, '/')}" class="flex items-center gap-3"><img src="/logo.svg" alt="" class="size-9" /><span class="text-lg font-semibold text-slate-100">Worship Q</span></a>
   <span class="flex-1"></span>
   <nav class="flex gap-5 text-sm" aria-label="${words.navLabel}">${links}</nav>
+  ${languageLinks(page, locale)}
 </header>`;
+}
+
+/** Links to the page in the site's other languages, each named in itself. */
+function languageLinks(page: string, locale: SiteLocale): string {
+  if (!isTranslated(page)) return '';
+  const links = SITE_LOCALES.map((other) => {
+    const { name, lang } = LOCALE_INFO[other];
+    return other === locale
+      ? `<span class="text-slate-200" aria-current="true">${name}</span>`
+      : `<a href="${localePath(other, page)}" hreflang="${lang}" lang="${lang}" class="text-slate-400 hover:text-slate-200">${name}</a>`;
+  }).join('<span aria-hidden="true">·</span>');
+  return `<nav class="flex gap-2 text-sm text-slate-500" aria-label="${WORDS[locale].language}">${links}</nav>`;
+}
+
+/**
+ * The page's address in every language, for search engines: `hreflang` links, with English
+ * as the default for every other language.
+ */
+export function alternates(page: string): string {
+  if (!isTranslated(page)) return '';
+  return [
+    ...SITE_LOCALES.map(
+      (locale) =>
+        `<link rel="alternate" hreflang="${LOCALE_INFO[locale].lang}" href="${SITE}${localePath(locale, page)}" />`,
+    ),
+    `<link rel="alternate" hreflang="x-default" href="${SITE}${page}" />`,
+  ].join('\n    ');
 }
 
 /** The feature pages, for the footer, in order; their names are in words.ts. */
@@ -71,8 +103,10 @@ export function footer(locale: SiteLocale = 'en'): string {
 export const ANALYTICS = `<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "299edc4c8a35464fb18cb33e77f1886f"}'></script>`;
 
 export interface PageFrame {
-  /** The page's address on the site, such as `/guide/`. */
+  /** The page's address on the site in its language, such as `/zh-hans/guide/`. */
   path: string;
+  /** The page's English address, such as `/guide/`, which names it in every language. */
+  page: string;
   /** The `<title>`. */
   title: string;
   description: string;
@@ -96,6 +130,7 @@ export function pageHtml(page: PageFrame, locale: SiteLocale = 'en'): string {
     <meta name="description" content="${description}" />
     <link rel="canonical" href="${url}" />
     <link rel="alternate" type="text/markdown" href="${page.markdown}" />
+    ${alternates(page.page)}
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>${title}</title>
@@ -111,7 +146,7 @@ export function pageHtml(page: PageFrame, locale: SiteLocale = 'en'): string {
   </head>
   <body class="min-h-screen">
     <div class="mx-auto flex min-h-screen max-w-3xl flex-col px-4 sm:px-6">
-      ${header(page.path, locale)}
+      ${header(page.page, locale)}
       <main class="prose flex-1 py-8 sm:py-12">
 ${page.body}
       </main>

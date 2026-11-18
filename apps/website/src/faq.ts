@@ -3,6 +3,8 @@
 // Plain text only: keep every answer true for the latest release.
 
 import type { SiteLocale } from './locales.ts';
+import { faq as hans } from './zh-hans.ts';
+import { faq as hant } from './zh-hant.ts';
 
 export interface Question {
   question: string;
@@ -63,4 +65,4 @@ export const FAQ: Question[] = [
 ];
 
 /** The questions in each of the site's languages. */
-export const FAQS: Record<SiteLocale, Question[]> = { en: FAQ };
+export const FAQS: Record<SiteLocale, Question[]> = { en: FAQ, 'zh-hans': hans, 'zh-hant': hant };

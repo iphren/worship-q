@@ -1,11 +1,15 @@
 // The site in Markdown, for AI assistants and agents: llms.txt (the llmstxt.org convention),
-// llms-full.txt (everything in one file) and index.md (the home page). Built from the same
-// content as the page, so the two never disagree.
+// llms-full.txt (everything in one file) and index.md (the home page, in each language).
+// Built from the same content as the page, so the two never disagree. llms.txt and
+// llms-full.txt are in English only.
 
-import { FEATURES, PLATFORMS, SUMMARY } from './content.ts';
-import { FAQ } from './faq.ts';
+import { CONTENT, FEATURES, PLATFORMS, SUMMARY } from './content.ts';
+import { FAQ, FAQS } from './faq.ts';
+import { HOME } from './home.ts';
 import { REPO_URL, SITE } from './layout.ts';
+import { localePath, type SiteLocale } from './locales.ts';
 import { PAGES } from './pages.ts';
+import { WORDS } from './words.ts';
 
 /** What the build knows about the release the download buttons serve. */
 export interface ReleaseFacts {
@@ -89,9 +93,10 @@ ${guide}
 `;
 }
 
-/** index.md: the home page in Markdown. */
-export function indexMd(release: ReleaseFacts): string {
-  return `# Worship Q: free church presentation software for lyrics, Bible and slides
+/** index.md: the home page in Markdown, in a language. */
+export function indexMd(release: ReleaseFacts, locale: SiteLocale = 'en'): string {
+  if (locale === 'en')
+    return `# Worship Q: free church presentation software for lyrics, Bible and slides
 
 ${SUMMARY} Plan each week's run sheet and present it, with no account and no internet needed.
 
@@ -114,5 +119,42 @@ ${questions()}
 - [Church server setup](${SITE}/server/)
 - [Compared with other church presentation software](${SITE}/compare/)
 - [Source code](${REPO_URL})
+`;
+  const words = WORDS[locale];
+  const md = words.markdown;
+  const { summary, features: list, platforms } = CONTENT[locale];
+  const home = HOME[locale];
+  const url = (path: string) => `${SITE}${localePath(locale, path)}`;
+  const version = release.version
+    ? `${md.version.replace('{version}', release.version).replace('{date}', release.date ?? '')} `
+    : '';
+  return `# ${home.title.replace(/^Worship Q — /, 'Worship Q：')}
+
+${summary}
+
+## ${md.download}
+
+- [${md.macDownload}](${release.macUrl})：${platforms.mac}
+- [${md.windowsDownload}](${release.windowsUrl})：${platforms.windows}
+
+${version}[${md.notes}](${release.notesUrl})。${md.updates}
+
+${md.windowsWarning}
+
+## ${md.whatItDoes}
+
+${list.map((f) => `- **${f.title}。** ${f.text}`).join('\n')}
+
+## ${md.questions}
+
+${FAQS[locale].map((q) => `### ${q.question}\n\n${q.answer}`).join('\n\n')}
+
+## ${md.more}
+
+- [${md.screenshots}](${url('/')}#screenshots)
+- [${words.footer.guide}](${url('/guide/')})
+- [${words.footer.server}](${url('/server/')})
+- [${md.compare}](${url('/compare/')})
+- [${md.source}](${REPO_URL})
 `;
 }

@@ -5,14 +5,17 @@
  * messages with its own.
  */
 import { common, type CommonKey } from './en/common';
+import { common as commonHans } from './zh-hans/common';
+import { common as commonHant } from './zh-hant/common';
 
-/** The interface languages a person can choose. */
-export const LOCALES = [{ code: 'en', nativeName: 'English' }] as const;
+/** The interface languages a person can choose, each named in itself. */
+export const LOCALES = [
+  { code: 'en', nativeName: 'English' },
+  { code: 'zh-Hans', nativeName: '简体中文' },
+  { code: 'zh-Hant', nativeName: '繁體中文' },
+] as const;
 
 export type Locale = (typeof LOCALES)[number]['code'];
-/** The development test language wraps every message, so text outside the catalogue shows. */
-export const PSEUDO = 'qps' as const;
-export type ActiveLocale = Locale | typeof PSEUDO;
 /** What a person chose: a language, or `auto` for the system's or browser's. */
 export type LanguagePreference = 'auto' | Locale;
 
@@ -20,10 +23,13 @@ export type Params = Record<string, string | number>;
 
 const isLocale = (code: string): code is Locale => LOCALES.some((locale) => locale.code === code);
 
+/** A language code written in any case, such as `zh-hans` in an address, as Worship Q's own. */
+const canonicalLocale = (code: string): Locale | null =>
+  LOCALES.find((locale) => locale.code.toLowerCase() === code.toLowerCase())?.code ?? null;
+
 /** A stored preference, read back safely: anything unknown is `auto`. */
-export function parsePreference(value: unknown): LanguagePreference | typeof PSEUDO {
-  if (value === PSEUDO && pseudoAllowed()) return PSEUDO;
-  return typeof value === 'string' && isLocale(value) ? value : 'auto';
+export function parsePreference(value: unknown): LanguagePreference {
+  return (typeof value === 'string' && canonicalLocale(value)) || 'auto';
 }
 
 /**
@@ -31,9 +37,9 @@ export function parsePreference(value: unknown): LanguagePreference | typeof PSE
  * system's languages Worship Q has (T2), else English.
  */
 export function resolveLocale(
-  preference: LanguagePreference | typeof PSEUDO,
+  preference: LanguagePreference,
   systemLanguages: readonly string[] = browserLanguages(),
-): ActiveLocale {
+): Locale {
   if (preference !== 'auto') return preference;
   for (const tag of systemLanguages) {
     const match = matchLanguage(tag);
@@ -42,10 +48,21 @@ export function resolveLocale(
   return 'en';
 }
 
-/** The language Worship Q has for a BCP 47 tag, such as `en-GB`, if any. */
+/** Regions whose Chinese is written in Traditional characters (T2). */
+const TRADITIONAL_REGIONS = new Set(['tw', 'hk', 'mo']);
+
+/**
+ * The language Worship Q has for a BCP 47 tag, such as `en-GB`, if any. Chinese follows its
+ * script when the tag names one (`zh-Hant`), else its region: Taiwan, Hong Kong and Macau
+ * read Traditional, and mainland China, Singapore and every other Chinese read Simplified.
+ */
 export function matchLanguage(tag: string): Locale | null {
-  const language = tag.toLowerCase().split(/[-_]/)[0] ?? '';
-  return isLocale(language) ? language : null;
+  const [language = '', ...rest] = tag.toLowerCase().split(/[-_]/);
+  if (language === 'en') return 'en';
+  if (language !== 'zh') return null;
+  if (rest.includes('hant')) return 'zh-Hant';
+  if (rest.includes('hans')) return 'zh-Hans';
+  return rest.some((part) => TRADITIONAL_REGIONS.has(part)) ? 'zh-Hant' : 'zh-Hans';
 }
 
 function browserLanguages(): readonly string[] {
@@ -53,26 +70,18 @@ function browserLanguages(): readonly string[] {
   return navigator.languages?.length ? navigator.languages : [navigator.language];
 }
 
-/** The test language is offered in development, or with `?lang=qps` in the address. */
-export function pseudoAllowed(): boolean {
-  if (import.meta.env?.DEV) return true;
-  return (
-    typeof location !== 'undefined' && new URLSearchParams(location.search).get('lang') === PSEUDO
-  );
-}
-
 // ── The current language ───────────────────────────────────────────────────
 
-let locale: ActiveLocale = 'en';
+let locale: Locale = 'en';
 const listeners = new Set<() => void>();
 
-export function getLocale(): ActiveLocale {
+export function getLocale(): Locale {
   return locale;
 }
 
 /** Changes the interface language and the page's `lang`, and tells whoever listens. */
-export function setLocale(next: ActiveLocale): void {
-  if (next !== PSEUDO && !isLocale(next)) return;
+export function setLocale(next: Locale): void {
+  if (!isLocale(next)) return;
   if (typeof document !== 'undefined') document.documentElement.lang = intlLocale(next);
   if (next === locale) return;
   locale = next;
@@ -80,14 +89,13 @@ export function setLocale(next: ActiveLocale): void {
 }
 
 /**
- * Applies a preference. A language in the address (`?lang=en`, or `?lang=qps` for the test
- * language) wins, for checking a page and for the screenshots.
+ * Applies a preference. A language in the address, such as `?lang=zh-Hans`, wins, for
+ * checking a page and for the screenshots.
  */
-export function applyPreference(preference: LanguagePreference | typeof PSEUDO): ActiveLocale {
+export function applyPreference(preference: LanguagePreference): Locale {
   const forced =
     typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lang') : null;
-  const next =
-    forced === PSEUDO ? PSEUDO : forced && isLocale(forced) ? forced : resolveLocale(preference);
+  const next = (forced ? canonicalLocale(forced) : null) ?? resolveLocale(preference);
   setLocale(next);
   return next;
 }
@@ -96,7 +104,7 @@ export function applyPreference(preference: LanguagePreference | typeof PSEUDO):
 const BROWSER_KEY = 'wq.language';
 
 /** The browser app's saved choice; `auto` when there is none or storage is unavailable. */
-export function loadBrowserPreference(): LanguagePreference | typeof PSEUDO {
+export function loadBrowserPreference(): LanguagePreference {
   try {
     return parsePreference(localStorage.getItem(BROWSER_KEY));
   } catch {
@@ -105,7 +113,7 @@ export function loadBrowserPreference(): LanguagePreference | typeof PSEUDO {
 }
 
 /** Saves and applies a browser app's choice. */
-export function saveBrowserPreference(preference: LanguagePreference | typeof PSEUDO): void {
+export function saveBrowserPreference(preference: LanguagePreference): void {
   try {
     if (preference === 'auto') localStorage.removeItem(BROWSER_KEY);
     else localStorage.setItem(BROWSER_KEY, preference);
@@ -130,9 +138,14 @@ export function subscribeLocale(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/** The language `Intl` formats with: the test language formats as English. */
-export function intlLocale(active: ActiveLocale = locale): string {
-  return active === PSEUDO ? 'en' : active;
+/** The current language, for names such as the Bible's books. */
+export function baseLocale(active: Locale = locale): Locale {
+  return active;
+}
+
+/** The language `Intl` formats with. */
+export function intlLocale(active: Locale = locale): string {
+  return active;
 }
 
 // ── Messages ───────────────────────────────────────────────────────────────
@@ -144,21 +157,16 @@ export function format(template: string, params: Params = {}): string {
   );
 }
 
-/** A message in the test language: wrapped, so a missed text stands out by having no marks. */
-export function pseudo(text: string): string {
-  return `⟦${text}⟧`;
-}
-
-/** Every language's messages for one app; English has every key, the others must too. */
-export type Catalogues<M extends Record<string, string>> = { en: M } & Partial<
-  Record<Exclude<Locale, 'en'>, Record<keyof M, string>>
+/** Every language's messages for one app: each language has every key English has (T4). */
+export type Catalogues<M extends Record<string, string>> = { en: M } & Record<
+  Exclude<Locale, 'en'>,
+  Record<keyof M, string>
 >;
 
 /** Looks up a key in the current language, falling back to English. */
 export function translator<M extends Record<string, string>>(catalogues: Catalogues<M>) {
   return (key: keyof M & string, params?: Params): string => {
     const english = catalogues.en[key] as string;
-    if (locale === PSEUDO) return format(pseudo(english), params);
     const own = (catalogues as Partial<Record<Locale, Record<string, string>>>)[locale]?.[key];
     return format(own ?? english, params);
   };
@@ -172,7 +180,11 @@ export function pluralCategory(count: number): 'one' | 'other' {
 /** The keys that have `.one` and `.other` forms, without the ending. */
 export type PluralBase<K extends string> = K extends `${infer B}.other` ? B : never;
 
-const commonText = translator<Record<CommonKey, string>>({ en: common });
+const commonText = translator<Record<CommonKey, string>>({
+  en: common,
+  'zh-Hans': commonHans,
+  'zh-Hant': commonHant,
+});
 
 // ── Dates ──────────────────────────────────────────────────────────────────
 
@@ -181,15 +193,25 @@ const utcDate = (date: string) => new Date(`${date}T00:00:00Z`);
 const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd', other: 'th' };
 const ordinalRules = new Intl.PluralRules('en', { type: 'ordinal' });
 
-/** A run sheet's name, such as "Sunday 1st Nov". */
+/** A run sheet's name, such as "Sunday 1st Nov", or `11月22日星期日` in Chinese (T6). */
 export function formatDate(date: string): string {
   const name = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(intlLocale(), { timeZone: 'UTC', ...options }).format(utcDate(date));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
   if (intlLocale() === 'en') {
-    const day = Number(date.slice(8, 10));
     return `${name({ weekday: 'long' })} ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]} ${name({ month: 'short' })}`;
   }
+  if (intlLocale().startsWith('zh')) return `${month}月${day}日${name({ weekday: 'long' })}`;
   return name({ weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+/** A run sheet's name with its year, for the window's title: "Sunday 1st Nov 2026", `2026年11月1日星期日`. */
+export function formatDateWithYear(date: string): string {
+  const year = date.slice(0, 4);
+  return intlLocale().startsWith('zh')
+    ? `${year}年${formatDate(date)}`
+    : `${formatDate(date)} ${year}`;
 }
 
 export function formatMonth(year: number, month: number): string {
@@ -229,14 +251,12 @@ export function formatNumber(value: number, options?: Intl.NumberFormatOptions):
   return new Intl.NumberFormat(intlLocale(), options).format(value);
 }
 
-/** The languages a Language setting offers; the test language only where it is allowed. */
-export function languageChoices(): { value: LanguagePreference | typeof PSEUDO; label: string }[] {
-  const choices: { value: LanguagePreference | typeof PSEUDO; label: string }[] = [
+/** The languages a Language setting offers. */
+export function languageChoices(): { value: LanguagePreference; label: string }[] {
+  return [
     { value: 'auto', label: commonText('language.auto') },
     ...LOCALES.map((l) => ({ value: l.code as Locale, label: l.nativeName as string })),
   ];
-  if (pseudoAllowed()) choices.push({ value: PSEUDO, label: commonText('language.pseudo') });
-  return choices;
 }
 
 export { common };
