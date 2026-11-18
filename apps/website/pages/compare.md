@@ -17,9 +17,10 @@ features change; check with each vendor before you choose.
 
 ## Where Worship Q is different
 
-- **Free, with nothing held back.** No subscription, no paid tier, no account. The church
-  server that adds sharing, phones and Bible passages is free too, and it runs on your own
-  machine, so your songs stay with your church.
+- **Free, with nothing held back.** No subscription, no paid tier, no account. Phones, Bible
+  passages and slides work through a free public server that keeps nothing. The church server
+  that adds sharing between computers is free too, and it runs on your own machine, so your
+  songs stay with your church.
 - **Two or more languages on one slide.** Each line of a song and its translations share a
   slide, and Chinese songs can be found by pinyin or initials, in either script.
   [More](/multilingual-lyrics/)

@@ -25,7 +25,10 @@ A phone cannot edit songs, go live with another date, or change settings.
 
 ## What it needs
 
-Phones connect through your church's free Worship Q server, so the phone needs the internet
-at the venue. [Setting up the server](/server/#remote-control).
+Without a church server, phones connect through the free Worship Q public server, with
+nothing to set up: two phones at a time, and the computer and the phones need the internet.
+With your church's own free Worship Q server, phones connect through it, as many as you like.
+Either way the phone needs the internet at the venue.
+[Setting up a church server](/server/#remote-control).
 
 [Phones, in the volunteer guide](/guide/#phones)

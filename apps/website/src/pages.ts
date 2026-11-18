@@ -42,7 +42,7 @@ export const PAGES: PageSpec[] = [
     path: '/server/',
     title: 'Church server setup — Worship Q',
     description:
-      "Run your church's own free Worship Q server with Docker: shared songs and media, Bible passages, phone remote control, backups and an admin app.",
+      "Run your church's own free Worship Q server with Docker: several computers presenting together, shared songs and media, backups, Bible versions with your keys and an admin app.",
     source: { doc: 'server-deployment.md' },
   },
   {

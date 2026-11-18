@@ -1,0 +1,105 @@
+# Worship Q — Running the Public Server
+
+The public server is the church server (`apps/server`) in public mode, run by the project at
+`https://public.worship-q.com` for every workspace without a church server (see the
+[plan](public-server-plan.md) and the [discovery](public-server-discovery.md)). This guide is
+for whoever runs it; churches running their own server follow the
+[Church server deployment](server-deployment.md).
+
+## What it does and keeps
+
+- **Serves** the phone relay and page, Bible passages in versions that need no key, slide
+  deck and image conversion, and live audio's STUN and TURN, to workspaces that joined it.
+- **Refuses** everything else with 404: synchronization, backups, the live-state backup,
+  browser outputs, videos, deck originals, reports, recordings, the presentation log, the
+  admin app and the local API. A desktop typing its address into Church connection is told
+  it is the public server; the pairing routes answer `403 public-server`, and enrolling
+  answers `403 invalid-code`.
+- **Keeps nothing.** A deck's images are deleted when the desktop has fetched them, and any
+  file or conversion folder over a day old is deleted by the hourly sweep. A workspace whose
+  computer has not connected for 90 days is forgotten, with its row and folder; the desktop
+  joins again by itself the next time it opens.
+- **Limits**, counted in memory and forgotten when their window ends: 2 phones and 2
+  listeners at once per workspace; 100 slide decks and images a day per copy of the app; 5
+  joins an hour per address; 600 Bible requests an hour per copy of the app; and five times
+  each per-copy limit per address. A 6th deck waiting for conversion answers `503 busy`.
+
+## Run it
+
+It needs a data folder of its own. It refuses to start on a church server's, and a church
+server refuses to start on its (the first start marks the folder public).
+
+```sh
+cat > apps/server/.env <<'END'
+WORSHIP_Q_PORT=8090
+WORSHIP_Q_TURN_URL=turn:public.worship-q.com:3478
+WORSHIP_Q_TURN_SECRET=<a long random secret>
+WORSHIP_Q_TURN_LISTEN_IP=<this host's own address>
+WORSHIP_Q_TURN_EXTERNAL_IP=<the public address, or public/private behind NAT>
+END
+docker compose -f apps/server/compose.public.yaml up -d --build
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `WORSHIP_Q_PUBLIC` | `1` in the Compose file | Public mode; off when unset |
+| `WORSHIP_Q_PUBLIC_PHONES` | `2` | Phones connected at once, per workspace |
+| `WORSHIP_Q_PUBLIC_LISTENERS` | `2` | Live audio listeners at once, per workspace |
+| `WORSHIP_Q_PUBLIC_MEDIA_PER_DAY` | `100` | Slide decks and images per day, per copy of the app |
+| `WORSHIP_Q_PUBLIC_JOINS_PER_HOUR` | `5` | New workspaces per hour, per address |
+| `WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR` | `600` | Bible requests per hour, per copy of the app |
+| `WORSHIP_Q_PUBLIC_IP_FACTOR` | `5` | An address may do this many times what one copy may |
+| `WORSHIP_Q_PUBLIC_IDLE_DAYS` | `90` | Days unseen before a workspace is forgotten |
+| `WORSHIP_Q_MAX_IMAGE_MB`, `WORSHIP_Q_MAX_DECK_MB` | 25, 100 | Upload limits; videos are never taken |
+| `WORSHIP_Q_TURN_MIN_PORT`, `WORSHIP_Q_TURN_MAX_PORT` | 49152, 65535 | The relay's UDP ports |
+| `WORSHIP_Q_TURN_TOTAL` | `2000` | Relayed connections at once, in all |
+| `WORSHIP_Q_TURN_MAX_BPS` | `200000` | Bytes a second per relayed connection |
+
+A limit that is not a whole number of at least 1 stops the server at start, naming it. Bible
+keys set in the environment are ignored, with a warning: a church's key may not be shared with
+every user. Every keyless version a provider serves is offered unless `bibleVersions` is set
+with `node dist/cli.js settings set bibleVersions '[...]'`.
+
+## In front of it
+
+As for a church server (see **Reverse proxy and CloudFront** in the church guide), with these
+differences:
+
+- A body limit of at least 100 MB: `client_max_body_size 100m;`.
+- WebSockets on `/api/v1/coordinator` and `/api/v1/remote` only.
+- The `x-worship-q-install` request header passed through, with `Authorization` and
+  `x-worship-q-protocol`.
+- **UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
+  the proxy. Each relayed listener uses one port.
+
+Check it from outside:
+
+```sh
+curl https://public.worship-q.com/api/v1/info   # "public":true, "limits":{...}
+curl https://public.worship-q.com/              # explains itself
+```
+
+## Logs and privacy
+
+The request log keeps the method, the path without its query string (so no Bible search or
+reference), the status and the address. It never logs a token or the install header. The
+privacy notice on worship-q.com must say what passes through (files while converted, phone
+connections, audio relayed through TURN, the OBS picture through the relay), the deletion
+rule above, what the log keeps and for how long, and where the server runs.
+
+## Watching it
+
+- **Up:** `GET /api/v1/info` answers with `"public":true`.
+- **Disk:** only files under a day old and the database; growth means the sweep is failing.
+- **Conversions:** `503 busy` answers in the log mean the queue is full too often.
+- **Limits:** `429` answers by address; one address with many means abuse or a large church
+  that should run its own server.
+- **Relay:** coturn's log; allocations near `WORSHIP_Q_TURN_TOTAL`.
+
+## Updating
+
+With `scripts/update-server.sh public`, before the desktops'
+release when the protocol version rises. One process holds every workspace's relay room, so a
+restart drops every phone for a few seconds; they reconnect by themselves. More than one
+process needs routing by workspace (the desktop's token and the phone's `w=` both name it)
+to sticky backends.

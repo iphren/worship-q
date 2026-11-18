@@ -15,12 +15,12 @@ export const FAQ: Question[] = [
   {
     question: 'Is Worship Q free?',
     answer:
-      'Yes. Worship Q is free and open source under the MIT licence, with no ads, no paid tier and no subscription. The church server is free too.',
+      'Yes. Worship Q is free and open source under the MIT licence, with no ads, no paid tier and no subscription. The public server it uses for phones, Bible passages and slides is free, and so is the church server.',
   },
   {
     question: 'Does it need an account or the internet?',
     answer:
-      'No. The desktop app works on its own on one computer, with no account and no internet. Connecting to a church server is optional and adds shared songs, slides and videos, Bible passages, phone control and several computers sharing one presentation.',
+      'No account, and no internet to plan and present on one computer. Phone control, Bible passages and slides from PowerPoint or PDF work through the free Worship Q public server, which needs the internet and keeps nothing. Running your church’s own server is optional and adds several computers sharing one presentation, songs and media shared between them, backups, and Bible versions that need a key.',
   },
   {
     question: 'Which computers does it run on?',
@@ -35,12 +35,12 @@ export const FAQ: Question[] = [
   {
     question: 'How do I show a Bible passage?',
     answer:
-      'Type a reference the way you would write it, such as Mark 15:5-6 or Mk 15.5-6, or browse by book and chapter, or search for words. Up to two versions are shown side by side on each slide. Passages come through the church server, which can use the keyless Free Use Bible API (for example KJV, BSB and the Chinese Union Version) or the church’s own API.Bible or YouVersion key.',
+      'Type a reference the way you would write it, such as Mark 15:5-6 or Mk 15.5-6, or browse by book and chapter, or search for words. Up to two versions are shown side by side on each slide. Without a church server, passages come through the free Worship Q public server, in the versions that need no key (for example KJV, BSB and the Chinese Union Version). A church server can also use the church’s own API.Bible, YouVersion or ESV key, for versions such as NIV, NKJV and ESV.',
   },
   {
     question: 'Can it show PowerPoint, Keynote, PDFs, photos and videos?',
     answer:
-      'Yes, with a church server. PowerPoint, Keynote and OpenDocument decks and PDFs become slides, and photos and videos go in the run sheet beside the songs. Videos are downloaded ahead of time, so nothing streams during the service.',
+      'Yes. PowerPoint, Keynote and OpenDocument decks and PDFs become slides, and photos and videos go in the run sheet beside the songs. Without a church server, slides are made by the free Worship Q public server and kept on the computer, and videos stay on the computer. With one, every computer of the church has them, and videos are downloaded ahead of time, so nothing streams during the service.',
   },
   {
     question: 'Does it work with OBS for a live stream?',
@@ -50,12 +50,22 @@ export const FAQ: Question[] = [
   {
     question: 'Can I control the slides from a phone?',
     answer:
-      'Yes, with a church server. A phone scans a QR code, is approved once, and can then move through the slides, change the run sheet and add Bible passages.',
+      'Yes. A phone scans a QR code, is approved once, and can then move through the slides, change the run sheet and add Bible passages. Without a church server, two phones at a time connect through the free Worship Q public server, so the computer and the phones need the internet.',
   },
   {
     question: 'Can several computers share one presentation?',
     answer:
       'Yes. Computers connected to the church server show the same slide, any of them can take over, and if the presenting computer fails another carries on from the same slide. On the same Wi-Fi they keep working together without internet.',
+  },
+  {
+    question: 'What is the Worship Q public server, and what does it keep?',
+    answer:
+      'A free server run by the Worship Q project, which every computer without a church server uses by itself for phone control, Bible passages, slides and live audio. There is nothing to set up or sign in to. It keeps nothing: a slide deck is deleted as soon as the computer has its slides, and anything else within a day; songs, run sheets and recordings never go there. So it is one computer’s helper, not a home for a church’s content.',
+  },
+  {
+    question: 'Why would a church still run its own server?',
+    answer:
+      'To share: several computers presenting together, songs, run sheets, slides and videos on every computer of the church, the Church Library, off-site backups, browser outputs for a streaming laptop, Bible versions that need a key such as NIV and ESV, recordings of live audio, and an admin app. A computer that joins later brings its slides and videos with it.',
   },
   {
     question: 'Can I import songs from ProPresenter, EasyWorship or OpenLP?',

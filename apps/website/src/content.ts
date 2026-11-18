@@ -27,7 +27,7 @@ export const FEATURES: Feature[] = [
   {
     title: 'Bible passages',
     page: '/bible/',
-    text: "With your church's server: type a reference such as Mark 15:5-6, or browse by book and chapter, and show up to two versions side by side.",
+    text: 'Type a reference such as Mark 15:5-6, or browse by book and chapter, and show up to two versions side by side.',
   },
   {
     title: 'A run sheet for every meeting',
@@ -35,7 +35,7 @@ export const FEATURES: Feature[] = [
   },
   {
     title: 'Slides, PDFs, photos and videos',
-    text: "With your church's server, PowerPoint, Keynote and PDF decks become slides beside the songs. Videos download ahead of time and never stream during the service.",
+    text: 'PowerPoint, Keynote and PDF decks become slides beside the songs. Videos play from the computer, so nothing streams during the service.',
   },
   {
     title: 'Projector and live stream together',
@@ -58,7 +58,7 @@ export const FEATURES: Feature[] = [
   },
   {
     title: 'Works on its own',
-    text: "No account or internet needed. Connect to your church's own server for shared songs, media, Bible passages and phones.",
+    text: "No account needed, and no internet to plan and present. Phones, Bible passages and slides work through a free public server that keeps nothing; your church's own server adds sharing between computers.",
   },
   {
     title: 'Free and open source',

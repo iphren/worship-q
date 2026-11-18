@@ -7,6 +7,16 @@ app for the church's administrators. Desktops work without it; connecting is opt
 It is one Node process with one SQLite database and a folder of background files and
 backups, all under the data directory (`/data` in the container).
 
+**Without a church server**, a desktop already gets phone remote control, Bible passages in
+the versions that need no key, slide decks, PDFs and photos, and live audio for two phones,
+through the free Worship Q public server, which keeps nothing; and it keeps its videos itself.
+There is nothing to connect: the public server cannot be joined as a church server. Running
+your own adds what it cannot give: several computers sharing one presentation and their
+songs, run sheets and media, the Church Library, off-site backups, browser outputs, Bible
+versions that need a key (NIV, NKJV, NLT, ESV), recordings of live audio, the presentation
+log and the admin app. A computer that joins later brings the slides and videos it made
+without one.
+
 > **Live audio is recorded.** Every workspace's live audio broadcast is recorded on this
 > server unless an administrator turns **Record live audio** off in the admin app's Settings.
 > Tell the church. See [Service records](#service-records).

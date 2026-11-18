@@ -1,7 +1,7 @@
 # Worship Q — Public Server Task Breakdown
 
 **Drafted:** 18 November 2026  
-**Status:** Not started. Of the decisions added here (§1), S1, S3–S6, S10 and S11 were made by the project owner on 18 November 2026; S2 and S7–S9 are proposed.  
+**Status:** M1–M6, M6b and M8 built on the `public-server` branch on 18 November 2026, with their tests; M7's files (the Compose file, the guide to running it) are written, its infrastructure (host, CloudFront, monitoring) and privacy notice are not; the M9 walkthrough waits for a deployed public server. Of the decisions added here (§1), S1, S3–S6, S10 and S11 were made by the project owner on 18 November 2026; S2 and S7–S9 were built as proposed. §7 lists where the build differs from the tasks.  
 **Source:** the [Public Server Plan](public-server-plan.md) (P1–P6, the rule in §3), referred to here as "the plan"; the [technical discovery](public-server-discovery.md), referred to as "the discovery", with the owner's decisions of 18 November 2026 (§8 there); the [Media Uploads Plan](media-uploads-plan.md) (U26, U29, U30); and the code at version 2.10.1 (protocol version 8, minimum 2).
 
 ## 1. How to read this
@@ -506,3 +506,18 @@ Five tasks can begin on day one: M1.1, M1.3, M2.1, M3.1 and M4.2.
 | A swept workspace loses phones' approvals | M3.8 | Only after 90 days unseen; the desktop rejoins by itself; phones ask again |
 | The website promises features before the release that delivers them | M6b | Kept on a branch, merged with the release |
 | Users treat the public server as backup | M6.2, M7.5 | One-computer notes where media and Bible are added; privacy notice; the plan's §5 in the guide |
+
+## 7. Where the build differs
+
+Built on 18 November 2026; each point is what the code does, and why.
+
+- **S2, the install identifier,** is kept in the webview's storage (`worship-q.install`), not in the app's data folder: the storage is shared by every local workspace and survives restarts, and no native code is needed. A cleared webview makes a new one, which only resets that copy's counts.
+- **S6:** with no `bibleVersions` set, a public server offers every version a provider serves without a key, rather than none; nothing needs setting with the CLI.
+- **M2.3** is an allowlist (`PUBLIC_ROUTES` in `apps/server/src/public.ts`), checked before any handler: a route added later is off in public mode until listed.
+- **M3.6:** sharing OBS with phones joins nothing by itself; phones reach OBS only once the phone panel has joined the public server.
+- **M5.5:** a Bible request over the public server's hourly limit shows as the Bible being unavailable, without the wait: the phone and window share one error code, unchanged.
+- **M7.2:** coturn's `user-quota` is not used: the relay's credentials are named by their expiry time, shared by every device, so it would limit everyone together. The relay's own limit of two listeners per workspace, coturn's `total-quota` and `max-bps` bound it instead.
+- **M7.5,** the privacy notice, is not written: it must say where the server runs and how long logs are kept, which are the owner's to decide (plan §7.2).
+- **M8.3:** the small copy is made when a slide image arrives without one, as the desktop sends each image before its small copy.
+- **Phones over the limit** see a page saying how many phones the public server allows, and connect by themselves when one leaves.
+

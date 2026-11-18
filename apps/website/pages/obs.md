@@ -27,7 +27,7 @@ settings. On the Present page you then have:
 - a **switch** button between two scenes you choose, for example lyrics and camera
 - every scene, and **Stream**, **Record** and **Camera** (OBS's virtual camera) on and off
 
-With your church's server, every computer of the workspace and every approved phone gets the
-same controls. Stopping the stream or a recording asks first.
+Every approved phone gets the same controls, through the free Worship Q public server or
+your church's own; with a church server, so does every computer of the workspace. Stopping the stream or a recording asks first.
 
 [Setting up OBS, in the volunteer guide](/guide/#obs)
