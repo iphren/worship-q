@@ -250,8 +250,10 @@ export async function buildServer(config: ServerConfig) {
           }
         : (config.logger ?? false),
     bodyLimit: 16 * 1024 * 1024,
-    // Behind CloudFront and a reverse proxy.
-    trustProxy: true,
+    // Behind CloudFront and a reverse proxy. A public server counts its limits by address, so
+    // it trusts only those hops: a client's own X-Forwarded-For never names who it is.
+    // `hop` counts from the connection itself, 0, back towards the visitor.
+    trustProxy: publicMode ? (_address: string, hop: number) => hop < publicMode.proxyHops : true,
   });
   // New files of a type the workspace manages in the Church Library are the church's.
   const uploadDir = (workspaceId: string, type: LibraryType) =>
@@ -427,7 +429,8 @@ export async function buildServer(config: ServerConfig) {
   await app.register(cors, {
     origin: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['authorization', 'content-type', PROTOCOL_HEADER],
+    // The install header goes to the public server only (S2); allowed everywhere, as harmless.
+    allowedHeaders: ['authorization', 'content-type', PROTOCOL_HEADER, INSTALL_HEADER],
     maxAge: 600,
   });
   await app.register(websocket, { options: { maxPayload: 4 * 1024 * 1024 } });

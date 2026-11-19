@@ -89,11 +89,15 @@ import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
 import { websiteTitle } from './websiteTitle';
 import {
+  adoptsInfo,
+  beginChurchJoin,
   installId,
   isPublicServer,
   PUBLIC_SERVER_URL,
   PublicServerError,
+  publicAtLaunch,
   serviceOf,
+  syncTarget,
   type Service,
 } from './publicServer';
 import { t } from '@worship-q/i18n/desktop';
@@ -381,6 +385,10 @@ export class CloudController {
   }
 
   private publicJoin: Promise<void> | null = null;
+  /** The church being joined, until it enrols this computer (M3.11). */
+  private joining: string | null = null;
+  /** The protocol version the church being joined speaks. */
+  private joiningProtocol = PROTOCOL_VERSION;
   /** A refused public token is replaced once per run, never in a loop (S4, M3.8). */
   private publicRejoined = false;
 
@@ -490,8 +498,9 @@ export class CloudController {
   }
 
   private makeClient(): SyncClient {
-    const server = () => this.state?.server ?? '';
-    const token = () => this.state?.deviceToken ?? '';
+    // While a church is being joined, its address, and no token until it gives one (M3.11).
+    const server = () => syncTarget(this.state, this.joining).server;
+    const token = () => syncTarget(this.state, this.joining).token ?? '';
     const files: FileTransfer = {
       upload: (fileName) => native.uploadBackground(server(), token(), fileName),
       download: async (fileName) => {
@@ -533,9 +542,9 @@ export class CloudController {
     // The address can change when connecting, so it is looked up on every call.
     const api = httpApi(
       '',
-      () => this.state?.deviceToken ?? null,
+      () => syncTarget(this.state, this.joining).token,
       (input, init) => fetch(`${server()}${String(input)}`, init),
-      () => this.protocolVersion,
+      () => (this.joining ? this.joiningProtocol : this.protocolVersion),
     );
     const client = new SyncClient(this.session, this.syncStore, api, files);
     client.subscribe(() => {
@@ -734,9 +743,10 @@ export class CloudController {
     if (!this.connected) {
       // A workspace that used the public server reconnects at launch, so its phones come
       // back; one that never did makes no request until a feature needs it (M3.6).
-      if (this.service?.kind === 'public' && !this.session.isViewer) {
+      const atLaunch = this.state ? publicAtLaunch(this.state, this.session.isViewer) : 'none';
+      if (atLaunch === 'connect') {
         await this.startPublic().catch(console.error);
-      } else if (this.state?.publicServer) {
+      } else if (atLaunch === 'forget') {
         // Its token is gone (the keychain entry was removed): joined again when needed.
         await this.forgetPublic();
       }
@@ -989,7 +999,7 @@ export class CloudController {
     // The public server is asked without touching this workspace's connection: it cannot
     // be joined as a church server, and its info must not replace the one in use (M3.10).
     const { info } = await negotiate(server);
-    if (isPublicServer(info)) return info;
+    if (!adoptsInfo(this.service, info)) return info;
     return this.negotiate(server);
   }
 
@@ -1009,7 +1019,7 @@ export class CloudController {
   ): Promise<
     { status: 'pending' | 'refused' | 'expired' } | { status: 'approved'; join: JoinPreview }
   > {
-    const server = this.state?.server;
+    const server = this.joining ?? this.state?.server;
     if (!server) throw new Error('not-connected');
     const result = await this.client.pollPairing(server, secret, deviceName);
     if (result.status !== 'approved') return { status: result.status };
@@ -1022,14 +1032,18 @@ export class CloudController {
   /** Points the connection at an instance and learns what it speaks. */
   private async aim(address: string): Promise<string> {
     const server = normalizeServer(address);
-    // Joining a church replaces the public server's connection (M3.11): its relay stops
-    // now, and the church's token takes its place once enrolled.
-    if (this.service?.kind === 'public') this.stopLive();
+    // Joining a church replaces the public server's connection (M3.11), but only once the
+    // church enrols this computer: until then the public relay, its phones and the public
+    // server's info stay in use, and a failed or abandoned join leaves them so.
     const base = this.state ?? (await this.syncStore.getState());
-    this.state = base.publicServer
-      ? { ...base, server, deviceToken: null, publicServer: false }
-      : { ...base, server };
-    await this.negotiate(server);
+    this.state = beginChurchJoin(base, server);
+    this.joining = server;
+    if (this.service?.kind === 'public') {
+      this.joiningProtocol = (await negotiate(server)).protocol;
+    } else {
+      await this.negotiate(server);
+      this.joiningProtocol = this.protocolVersion;
+    }
     return server;
   }
 
@@ -1037,8 +1051,16 @@ export class CloudController {
     workspace: { name: string; contentId: string | null },
     allowMerge: boolean,
   ): Promise<JoinPreview> {
+    this.joining = null;
+    // The church's token replaces the public server's, in the keychain too (M3.11). The state
+    // here is still the public one: enrolling wrote the church's to the store only.
+    const fromPublic = this.service?.kind === 'public';
     await this.protectCredentials();
     await this.refreshState();
+    if (fromPublic) {
+      this.stopLive();
+      if (this.state?.server) await this.negotiate(this.state.server);
+    }
     return {
       workspaceName: workspace.name,
       churchEmpty: workspace.contentId === null,

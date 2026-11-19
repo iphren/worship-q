@@ -20,6 +20,11 @@ export interface PublicConfig {
   ipFactor: number;
   /** Days a workspace may go unseen before it is forgotten (S4). */
   idleDays: number;
+  /**
+   * Proxies in front of the server that add to X-Forwarded-For (CloudFront, then the reverse
+   * proxy): the address before them is the visitor's, and anything earlier the visitor wrote.
+   */
+  proxyHops: number;
 }
 
 export const DEFAULT_PUBLIC: PublicConfig = {
@@ -28,6 +33,7 @@ export const DEFAULT_PUBLIC: PublicConfig = {
   biblePerHour: 600,
   ipFactor: 5,
   idleDays: 90,
+  proxyHops: 2,
 };
 
 /** The public server's own upload limits, smaller than a church's; videos are not taken. */
@@ -68,6 +74,7 @@ export function publicConfigFromEnv(env: Record<string, string | undefined>): Pu
     biblePerHour: read('WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR', d.biblePerHour),
     ipFactor: read('WORSHIP_Q_PUBLIC_IP_FACTOR', d.ipFactor),
     idleDays: read('WORSHIP_Q_PUBLIC_IDLE_DAYS', d.idleDays),
+    proxyHops: read('WORSHIP_Q_PUBLIC_PROXY_HOPS', d.proxyHops),
   };
 }
 

@@ -98,6 +98,12 @@ describe('public mode’s settings', () => {
     expect(DEFAULT_PUBLIC.idleDays).toBe(90);
   });
 
+  it('trusts CloudFront and the reverse proxy in front of it, unless told otherwise', () => {
+    expect(DEFAULT_PUBLIC.proxyHops).toBe(2);
+    const config = publicConfigFromEnv({ WORSHIP_Q_PUBLIC: '1', WORSHIP_Q_PUBLIC_PROXY_HOPS: '1' });
+    expect(config?.proxyHops).toBe(1);
+  });
+
   it('reads each limit, and stops on a bad one, naming it', () => {
     const config = publicConfigFromEnv({ WORSHIP_Q_PUBLIC: 'yes', WORSHIP_Q_PUBLIC_PHONES: '3' });
     expect(config?.limits.phones).toBe(3);
@@ -170,6 +176,25 @@ describe('what a public server serves (M2.3)', () => {
     expect(publicRoute('DELETE', '/api/v1/decks/:id')).toBe(true);
     expect(publicRoute('PUT', '/api/v1/files/:name')).toBe(false);
     expect(publicRoute('GET', undefined)).toBe(true);
+  });
+
+  it('lets the desktop send the install header from its own origin (S2)', async () => {
+    const { app } = await setup();
+    // The desktop's requests come from the webview, so the browser asks first.
+    const preflight = await app.inject({
+      method: 'OPTIONS',
+      url: '/api/v1/public/join',
+      headers: {
+        origin: 'tauri://localhost',
+        'access-control-request-method': 'POST',
+        'access-control-request-headers': `content-type,${INSTALL_HEADER}`,
+      },
+    });
+    expect(preflight.statusCode).toBe(204);
+    const allowed = String(preflight.headers['access-control-allow-headers'] ?? '')
+      .split(',')
+      .map((header) => header.trim().toLowerCase());
+    expect(allowed).toEqual(expect.arrayContaining(['content-type', INSTALL_HEADER]));
   });
 
   it('says what it is in its info', async () => {
@@ -246,6 +271,22 @@ describe('joining (M2.4, M2.5)', () => {
     expect(sixth.statusCode).toBe(429);
     expect(sixth.json().retryAfter).toBeGreaterThan(0);
     expect((await joinFrom('198.51.100.8')).statusCode).toBe(200);
+  });
+
+  it('counts the address CloudFront saw, not one the client wrote in X-Forwarded-For', async () => {
+    const { app } = await setup();
+    // The client writes its own X-Forwarded-For; CloudFront adds the address it saw, and the
+    // reverse proxy CloudFront's, before the request reaches the server from the proxy.
+    const joinAs = (spoofed: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/public/join',
+        payload: { protocolVersion: PROTOCOL_VERSION },
+        remoteAddress: '127.0.0.1',
+        headers: { 'x-forwarded-for': `${spoofed}, 198.51.100.7, 130.176.0.1` },
+      });
+    for (let i = 0; i < 5; i++) expect((await joinAs(`192.0.2.${i}`)).statusCode).toBe(200);
+    expect((await joinAs('192.0.2.99')).statusCode).toBe(429);
   });
 
   it('refuses to be joined as a church server (S5)', async () => {

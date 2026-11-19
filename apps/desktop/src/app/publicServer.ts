@@ -69,3 +69,53 @@ export class PublicServerError extends Error {
     super(`public-server: ${reason}`);
   }
 }
+
+/** The connection fields the helpers below read and change. */
+type ConnectionState = Parameters<typeof serviceOf>[0];
+
+/**
+ * What a workspace's public connection does at launch (M3.6, S4, S10): `connect` its relay so
+ * its phones come back, `forget` a public connection whose token is gone, or nothing. In
+ * viewer mode a working one is kept unused, so leaving viewer mode keeps the phones' link.
+ */
+export function publicAtLaunch(
+  state: ConnectionState,
+  isViewer: boolean,
+): 'connect' | 'forget' | 'none' {
+  const service = serviceOf(state);
+  if (service?.kind === 'public' && !isViewer) return 'connect';
+  if (state.publicServer && !service) return 'forget';
+  return 'none';
+}
+
+/**
+ * The workspace's connection state while joining a church at `server` (M3.11). A public
+ * connection stays as it is, phones and all, until the church enrols this computer, so a
+ * join refused, expired or abandoned leaves the same public workspace in use; the church's
+ * address is kept apart (`syncTarget`). A workspace without a server is aimed at the church.
+ */
+export function beginChurchJoin<S extends ConnectionState>(state: S, server: string): S {
+  return serviceOf(state)?.kind === 'public' ? state : { ...state, server };
+}
+
+/**
+ * Where the synchronization client's requests go: the church being joined, with no token
+ * until it gives one, while a join is under way; else the workspace's own connection. A
+ * public server's token never reaches a church.
+ */
+export function syncTarget(
+  state: Pick<ConnectionState, 'server' | 'deviceToken'> | null,
+  joining: string | null,
+): { server: string; token: string | null } {
+  if (joining) return { server: joining, token: null };
+  return { server: state?.server ?? '', token: state?.deviceToken ?? null };
+}
+
+/**
+ * Whether what another server says about itself, asked while joining a church, replaces the
+ * info this workspace's features use (M3.10): never on a public connection, whose limits and
+ * media offer come from the public server's info until the church enrols this computer.
+ */
+export function adoptsInfo(service: Service | null, info: ServerInfo | null): boolean {
+  return !isPublicServer(info) && service?.kind !== 'public';
+}

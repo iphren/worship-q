@@ -91,7 +91,8 @@ function daysBetween(from: IsoDate, to: IsoDate): number {
 /**
  * Which copies U29 removes, of those this computer has: used only by run sheets dated before
  * today and not live, or named by no song in the library. A copy no run sheet uses yet, such
- * as one just added, is kept; so is one uploaded today.
+ * as one just added, is kept; so is one uploaded today, and one a current, upcoming or live
+ * run sheet presents, even through a song since removed from the library.
  */
 export function removable(
   have: readonly string[],
@@ -104,12 +105,14 @@ export function removable(
   return have.filter((file) => {
     if (uploadedToday.has(file)) return false;
     const use = byFile.get(file);
-    // (b) No song names it, or only removed ones do.
-    if (!use || use.removed) return true;
-    // Not on any run sheet yet: kept.
-    if (use.dates.length === 0) return false;
-    // (a) Only past run sheets use it, and none of them is live.
-    return use.dates.every((date) => date < today && date !== liveDate);
+    // (b) No song names it.
+    if (!use) return true;
+    // A current, upcoming or live run sheet presents it, even a removed song's: kept.
+    if (use.dates.some((date) => date >= today || date === liveDate)) return false;
+    // (b) Only removed songs name it, and no run sheet still to come presents them.
+    if (use.removed) return true;
+    // Not on any run sheet yet: kept. (a) Only past run sheets use it: removed.
+    return use.dates.length > 0;
   });
 }
 

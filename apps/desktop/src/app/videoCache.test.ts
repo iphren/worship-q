@@ -216,11 +216,24 @@ describe('which copies are removed (U29)', () => {
   });
 
   it('removes a copy no song names, or only removed songs do', () => {
-    const uses = [use('deleted.mp4', ['2026-11-15'], true)];
-    expect(removable(['deleted.mp4', 'replaced.mp4'], uses, today, null)).toEqual([
+    const uses = [use('deleted.mp4', ['2026-11-01'], true), use('unused.mp4', [], true)];
+    expect(removable(['deleted.mp4', 'unused.mp4', 'replaced.mp4'], uses, today, null)).toEqual([
       'deleted.mp4',
+      'unused.mp4',
       'replaced.mp4',
     ]);
+  });
+
+  it('keeps a removed song’s copy while a current, upcoming or live run sheet presents it', () => {
+    // A run sheet still presents a song removed from the library, marked removed.
+    const uses = [
+      use('upcoming.mp4', ['2026-11-15'], true),
+      use('today.mp4', ['2026-11-08'], true),
+      use('live.mp4', ['2026-11-01'], true),
+    ];
+    expect(removable(['upcoming.mp4', 'today.mp4', 'live.mp4'], uses, today, '2026-11-01')).toEqual(
+      [],
+    );
   });
 
   it('keeps a copy uploaded today', () => {

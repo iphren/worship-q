@@ -50,6 +50,7 @@ docker compose -f apps/server/compose.public.yaml up -d --build
 | `WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR` | `600` | Bible requests per hour, per copy of the app |
 | `WORSHIP_Q_PUBLIC_IP_FACTOR` | `5` | An address may do this many times what one copy may |
 | `WORSHIP_Q_PUBLIC_IDLE_DAYS` | `90` | Days unseen before a workspace is forgotten |
+| `WORSHIP_Q_PUBLIC_PROXY_HOPS` | `2` | Proxies in front that add to `X-Forwarded-For` (CloudFront, the reverse proxy) |
 | `WORSHIP_Q_MAX_IMAGE_MB`, `WORSHIP_Q_MAX_DECK_MB` | 25, 100 | Upload limits; videos are never taken |
 | `WORSHIP_Q_TURN_MIN_PORT`, `WORSHIP_Q_TURN_MAX_PORT` | 49152, 65535 | The relay's UDP ports |
 | `WORSHIP_Q_TURN_TOTAL` | `2000` | Relayed connections at once, in all |
@@ -69,6 +70,10 @@ differences:
 - WebSockets on `/api/v1/coordinator` and `/api/v1/remote` only.
 - The `x-worship-q-install` request header passed through, with `Authorization` and
   `x-worship-q-protocol`.
+- `X-Forwarded-For` added to, never replaced: nginx's
+  `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. The limits count by the
+  address `WORSHIP_Q_PUBLIC_PROXY_HOPS` entries from the end, the one CloudFront saw; anything
+  earlier is the visitor's own writing. With another chain of proxies, set the number to it.
 - **UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
   the proxy. Each relayed listener uses one port.
 

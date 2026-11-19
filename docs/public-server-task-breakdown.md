@@ -223,6 +223,7 @@ Rules: once per launch, 30 minutes after it opens; only copies used by past run 
 - A video both on last week's and next week's run sheets: kept.
 - A video on no run sheet (just added to the library): kept, however old.
 - A song deleted: its copy is a candidate (b). The song restored from history before the moment: kept.
+- A song deleted but still on a current, upcoming or live run sheet, which presents it marked removed: kept.
 - **Use new version…** or **Upload new version…** replaced a file: the old file is a candidate (b); the new one is not.
 - A copy named by two songs, one deleted: kept while the other uses it as U29 allows.
 - Today's run sheet, the app open across midnight: nothing removed during that run.
