@@ -32,13 +32,18 @@ server refuses to start on its (the first start marks the folder public).
 ```sh
 cat > apps/server/.env <<'END'
 WORSHIP_Q_PORT=8090
-WORSHIP_Q_TURN_URL=turn:public.worship-q.com:3478
+WORSHIP_Q_PUBLIC_PROXY_HOPS=2
+WORSHIP_Q_TURN_URL=turn:turn.worship-q.com:3478
 WORSHIP_Q_TURN_SECRET=<a long random secret>
 WORSHIP_Q_TURN_LISTEN_IP=<this host's own address>
 WORSHIP_Q_TURN_EXTERNAL_IP=<the public address, or public/private behind NAT>
 END
 docker compose -f apps/server/compose.public.yaml up -d --build
 ```
+
+`public.worship-q.com` points at CloudFront, which carries only HTTP, so the relay needs a name
+of its own pointing straight at the host (here `turn.worship-q.com`). The proxy hops are 2 for
+CloudFront and nginx (see **In front of it**).
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -63,25 +68,55 @@ with `node dist/cli.js settings set bibleVersions '[...]'`.
 
 ## In front of it
 
-The reverse proxy as for a church server (see **Reverse proxy and CloudFront** in the church
-guide), with DNS pointing straight at it and its own TLS certificate (Let's Encrypt). No CDN is
-needed: coturn answers on the host's own address anyway, so a CDN would not hide it. The
-differences from a church server:
+CloudFront, then nginx, then the server: DNS for `public.worship-q.com` points at CloudFront,
+and CloudFront's origin is nginx on the host. coturn answers on the host's own address,
+outside both.
+
+**Set `WORSHIP_Q_PUBLIC_PROXY_HOPS=2`** in `.env`. The default, 1, is for nginx alone. With it
+behind CloudFront, every visitor counts as a CloudFront address and the limits trip almost at
+once. Never set it higher than the proxies really there, because visitors could then choose
+their own address and get past the limits.
+
+**nginx** as for a church server (see **Reverse proxy and CloudFront** in the church guide),
+with these differences:
 
 - A body limit of at least 100 MB: `client_max_body_size 100m;`.
 - WebSockets on `/api/v1/coordinator` and `/api/v1/remote` only.
-- The `x-worship-q-install` request header passed through, with `Authorization` and
-  `x-worship-q-protocol`.
-- `X-Forwarded-For` added to, never replaced: nginx's
+- `X-Forwarded-For` added to, never replaced:
   `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. The limits count by the
-  address `WORSHIP_Q_PUBLIC_PROXY_HOPS` entries from the end, the one nginx saw; anything
-  earlier is the visitor's own writing.
-- With a CDN such as CloudFront before nginx, set `WORSHIP_Q_PUBLIC_PROXY_HOPS=2`, and have
-  it pass the three headers above, allow WebSockets and cache nothing. Never set the number
-  higher than the proxies really there: visitors could then choose their address and pass
-  the limits.
-- **UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
-  the proxy. Each relayed listener uses one port.
+  address two entries from the end, the one CloudFront saw. Anything earlier is the visitor's
+  own writing.
+- **Only CloudFront let in.** A request sent straight to nginx would put the visitor's own
+  `X-Forwarded-For` entry where the server expects CloudFront's, and so get past the limits.
+  CloudFront sends a secret header to the origin, and nginx refuses requests without it:
+
+  ```nginx
+  # In the public server's `server` block; the value is a long random string, kept out of
+  # the repository.
+  if ($http_x_origin_verify != "<secret>") { return 403; }
+  ```
+
+  If the host is on AWS, also let only CloudFront reach port 443, with the managed prefix list
+  `com.amazonaws.global.cloudfront.origin-facing` in its security group.
+
+**CloudFront**, one behavior for everything:
+
+- **Allowed HTTP methods:** GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE.
+- **Cache policy:** `CachingDisabled`.
+- **Origin request policy:** `AllViewerExceptHostHeader` (or `AllViewer` if nginx routes by
+  host name). It passes `Authorization`, `x-worship-q-protocol` and `x-worship-q-install`.
+- **Viewer protocol policy:** Redirect HTTP to HTTPS.
+- **Origin custom header:** `X-Origin-Verify: <secret>`, the same value as nginx's.
+- **Origin protocol:** HTTPS only, so the secret never travels in the clear; nginx keeps a
+  certificate for its own origin name.
+- **Origin response timeout:** 60 seconds. A deck's upload answers only once it is converted,
+  and may wait behind others first; the default 30 can cut a slow one off.
+
+CloudFront passes WebSockets through without extra settings; the server's pings every 25
+seconds keep idle ones open.
+
+**UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
+CloudFront and nginx. Each relayed listener uses one port.
 
 Check it from outside:
 
@@ -103,6 +138,13 @@ done   # 200 200 200 200 200 429
 
 Six `200`s mean `WORSHIP_Q_PUBLIC_PROXY_HOPS` is higher than the proxies in front; a `429` at
 once means nginx replaces `X-Forwarded-For` or the number is too low.
+
+And that nginx refuses requests that bypass CloudFront (replace the address with the host's):
+
+```sh
+curl -s -o /dev/null -w "%{http_code}\n" --resolve public.worship-q.com:443:<host address> \
+  https://public.worship-q.com/api/v1/info   # 403
+```
 
 ## Logs and privacy
 
