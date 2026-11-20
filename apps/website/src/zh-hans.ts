@@ -27,6 +27,7 @@ export const words: Words = {
     source: '源代码',
     licence: 'MIT 许可证',
     llms: '供 AI 助手阅读（英文）',
+    privacy: '隐私说明',
   },
   featurePages: {
     '/bible/': '经文',
@@ -182,7 +183,7 @@ export const faq: Question[] = [
   {
     question: '什么是 Worship Q 公共服务器？它会保存什么？',
     answer:
-      '这是由 Worship Q 项目运行的免费服务器。没有教会服务器的电脑会自动使用它来进行手机遥控、查找经文、转换幻灯片和现场音频，无需任何设置或登录。它不保留任何内容：电脑取得幻灯片后立即删除，其他内容一天内删除；诗歌、流程表和录音从不会上传到那里。所以它只是单台电脑的帮手，而不是保存教会内容的地方。',
+      '这是由 Worship Q 项目运行的免费服务器。没有教会服务器的电脑会自动使用它来进行手机遥控、查找经文、转换幻灯片和现场音频，无需任何设置或登录。它不保留任何内容：电脑取得幻灯片后立即删除，其他内容一天内删除；诗歌、流程表和录音从不会上传到那里。所以它只是单台电脑的帮手，而不是保存教会内容的地方。经过它的内容和保留时间，详见隐私说明 worship-q.com/zh-hans/privacy/。',
   },
   {
     question: '教会为什么还要运行自己的服务器？',
@@ -198,6 +199,11 @@ export const faq: Question[] = [
 
 /** The Markdown pages' titles and descriptions, by their English path. */
 export const pages: Record<string, PageText> = {
+  '/privacy/': {
+    title: '隐私说明 — Worship Q',
+    description:
+      'Worship Q 应用、免费公共服务器和本网站会处理哪些信息、保留多久，以及还涉及哪些第三方。',
+  },
   '/guide/': {
     title: 'Worship Q 同工操作指南 — Worship Q',
     description:

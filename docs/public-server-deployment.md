@@ -149,15 +149,33 @@ curl -s -o /dev/null -w "%{http_code}\n" --resolve public.worship-q.com:443:<hos
 
 ## Logs and privacy
 
-The request log keeps the method, the path without its query string (so no Bible search or
-reference) and the status, but no address. The address is logged only with a request refused
-for a limit (`Refused for a limit`, with which limit: `join`, `bible` or `media`). It never logs
-a token or the install header. coturn's log has the address of each listener it relays.
-Docker keeps each log to five files of 10 MB (`logging` in the Compose file) and drops the
-oldest lines beyond that, so how long a line lasts depends on traffic, not on a date. The
-privacy notice on worship-q.com must say what passes through (files while converted, phone
-connections, audio relayed through TURN, the OBS picture through the relay), the deletion
-rule above, what the log keeps and for how long, and where the server runs.
+The [privacy notice](../apps/website/pages/privacy.md) (worship-q.com/privacy/) promises what
+follows; change it with any of these.
+
+- **The server's log** keeps the method, the path without its query string (so no Bible
+  search or reference) and the status, but no address. The address is logged only with a
+  request refused for a limit (`Refused for a limit`, with which limit: `join`, `bible` or
+  `media`). It never logs a token or the install header.
+- **coturn's log** has the address of each listener it relays.
+- **Both go to journald** (`logging` in the Compose file), which deletes them after 14 days
+  with this on the host:
+
+  ```sh
+  sudo mkdir -p /etc/systemd/journald.conf.d
+  sudo tee /etc/systemd/journald.conf.d/retention.conf <<'END'
+  [Journal]
+  # A new journal file each day, and none kept past 13 days: no line older than 14.
+  MaxFileSec=1day
+  MaxRetentionSec=13day
+  END
+  sudo systemctl restart systemd-journald
+  ```
+
+  This applies to the whole host's journal. Read the logs with `docker compose logs` as usual,
+  or `journalctl CONTAINER_TAG=worship-q-public`.
+- **No other access logs:** `access_log off;` in nginx's `server` block for the public server
+  (its default log would keep every query string), and CloudFront's standard logging and
+  real-time logs left off.
 
 ## Watching it
 

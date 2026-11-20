@@ -23,6 +23,7 @@ export interface Words {
     source: string;
     licence: string;
     llms: string;
+    privacy: string;
   };
   /** The feature pages' names, by path. */
   featurePages: Record<string, string>;
@@ -64,6 +65,7 @@ export const WORDS: Record<SiteLocale, Words> = {
       source: 'Source code',
       licence: 'MIT licence',
       llms: 'For AI assistants',
+      privacy: 'Privacy',
     },
     featurePages: {
       '/bible/': 'Bible passages',

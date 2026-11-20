@@ -60,7 +60,7 @@ export const FAQ: Question[] = [
   {
     question: 'What is the Worship Q public server, and what does it keep?',
     answer:
-      'A free server run by the Worship Q project, which every computer without a church server uses by itself for phone control, Bible passages, slides and live audio. There is nothing to set up or sign in to. It keeps nothing: a slide deck is deleted as soon as the computer has its slides, and anything else within a day; songs, run sheets and recordings never go there. So it is one computer’s helper, not a home for a church’s content.',
+      'A free server run by the Worship Q project, which every computer without a church server uses by itself for phone control, Bible passages, slides and live audio. There is nothing to set up or sign in to. It keeps nothing: a slide deck is deleted as soon as the computer has its slides, and anything else within a day; songs, run sheets and recordings never go there. So it is one computer’s helper, not a home for a church’s content. The privacy page, worship-q.com/privacy/, says exactly what passes through it and for how long.',
   },
   {
     question: 'Why would a church still run its own server?',

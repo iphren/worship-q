@@ -25,12 +25,16 @@ outside both.
    - `client_max_body_size 100m;`.
    - WebSockets on `/api/v1/coordinator` and `/api/v1/remote`.
    - `403` for any request without the origin secret.
+   - `access_log off;`: the privacy notice promises no other access logs.
 4. **CloudFront**, one behavior:
    - All HTTP methods; `CachingDisabled`; `AllViewerExceptHostHeader`; redirect HTTP to HTTPS.
    - HTTPS to the origin, with the custom header `X-Origin-Verify: <secret>`.
    - Origin response timeout 60 seconds (deck conversions answer when done).
    - A certificate for `public.worship-q.com` in us-east-1.
-5. **Firewall** (the host's and the provider's): UDP 3478 and the relay ports (49152–65535 by
+   - Standard logging and real-time logs off.
+5. **Host journal:** journald deletes logs after 14 days (the settings in the guide's **Logs and
+   privacy**), as the privacy notice says.
+6. **Firewall** (the host's and the provider's): UDP 3478 and the relay ports (49152–65535 by
    default) open; 443 open, or only to CloudFront's `origin-facing` prefix list on AWS.
 
 **Gate:** `https://public.worship-q.com/` reaches nginx through CloudFront (a 502 from the
@@ -89,19 +93,18 @@ server is redeployed from it.
 
 ## Stage 4 — Privacy notice (M7.5)
 
-Before anyone else uses the server. English page, and the Chinese pages under `/zh-hans/` and
-`/zh-hant/` only. It says:
+Written on 20 November 2026 at `/privacy/` (`apps/website/pages/privacy.md`, and the Chinese
+pages under `zh-hans/` and `zh-hant/`), linked from the footer and the FAQ. It goes live with
+the merge in stage 6, before any user is pointed at the server. It states:
 
-- What passes through: files while converted, phone connections, audio relayed through TURN,
-  the OBS picture through the relay.
-- The deletion rules: files once fetched or after a day; workspaces after 90 days unseen.
-- The logs: no addresses except for requests refused for a limit, and coturn's relayed
-  listeners; kept up to five files of 10 MB per log, so how long depends on traffic.
-- Where the server runs (the owner's to decide: provider and region).
+- IHS Technology as the controller; the server on AWS in London behind CloudFront.
+- What passes through and how long it stays; what the server knows about a computer.
+- Logs: no addresses except for requests refused for a limit and coturn's relayed listeners;
+  deleted after 14 days.
+- The others involved: AWS, the Free Use Bible API, Google's STUN, GitHub, Cloudflare.
 
-Linked from the FAQ, the footer and the app's one-computer notes (M6b.6).
-
-**Gate:** the notice is on the branch and reviewed.
+**Gate:** the infrastructure matches it: journald's 14 days, no nginx or CloudFront access
+logs. A change to the server's logging or retention changes the notice too.
 
 ## Stage 5 — Monitoring (M7.4)
 
@@ -138,8 +141,8 @@ Linked from the FAQ, the footer and the app's one-computer notes (M6b.6).
 - **Running out of capacity:** a church that relies on it every week is told about running its
   own server; the limits in `.env` can be raised for everyone.
 
-## Open decisions for the owner
+## Decisions
 
-- Where the server runs (provider and region), for the privacy notice.
-- Whether logs need a fixed retention ("deleted after 14 days") rather than by size; that
-  needs a job on the host, since Docker rotates only by size.
+Made on 20 November 2026: the server runs on AWS in London (eu-west-2) behind CloudFront; IHS
+Technology is the controller; logs are deleted after 14 days. Still open: linking the notice
+from the app's one-computer notes (M7.5's last part), which needs a desktop release.

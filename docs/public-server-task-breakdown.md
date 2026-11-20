@@ -518,7 +518,7 @@ Built on 18 November 2026; each point is what the code does, and why.
 - **M3.6:** sharing OBS with phones joins nothing by itself; phones reach OBS only once the phone panel has joined the public server.
 - **M5.5:** a Bible request over the public server's hourly limit shows as the Bible being unavailable, without the wait: the phone and window share one error code, unchanged.
 - **M7.2:** coturn's `user-quota` is not used: the relay's credentials are named by their expiry time, shared by every device, so it would limit everyone together. The relay's own limit of two listeners per workspace, coturn's `total-quota` and `max-bps` bound it instead.
-- **M7.5,** the privacy notice, is not written: it must say where the server runs and how long logs are kept, which are the owner's to decide (plan §7.2).
+- **M7.5,** the privacy notice, is written at `/privacy/` (20 November 2026: AWS London, IHS Technology as controller, logs deleted after 14 days through journald), linked from the footer and the FAQ; the link from the app's one-computer notes is not made yet.
 - **M8.3:** the small copy is made when a slide image arrives without one, as the desktop sends each image before its small copy.
 - **Phones over the limit** see a page saying how many phones the public server allows, and connect by themselves when one leaves.
 

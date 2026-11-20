@@ -88,6 +88,13 @@ export const PAGES: PageSpec[] = [
     source: { page: 'compare.md' },
   },
   {
+    path: '/privacy/',
+    title: 'Privacy — Worship Q',
+    description:
+      'What the Worship Q app, the free public server and this website handle, how long anything is kept, and who else is involved.',
+    source: { page: 'privacy.md' },
+  },
+  {
     path: '/releases/',
     title: 'Release notes — Worship Q',
     description: 'What changed in each version of Worship Q, the free church presentation app.',
