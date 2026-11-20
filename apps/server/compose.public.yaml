@@ -40,6 +40,12 @@ services:
       - '127.0.0.1:${WORSHIP_Q_PORT:-8090}:8080'
     volumes:
       - worship-q-public-data:/data
+    # The log keeps addresses of requests refused for a limit: about 50 MB of it, then gone.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
 
   # The live audio relay for every public workspace (decided: from the start). A wide range
   # of relay ports, since every relayed listener of every workspace uses one; the server
@@ -81,6 +87,12 @@ services:
       - --denied-peer-ip=fe80::-febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff
       - --log-file=stdout
       - --simple-log
+    # coturn logs each relayed listener's address; kept as briefly as the server's log.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
 
 volumes:
   worship-q-public-data:

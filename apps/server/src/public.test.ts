@@ -54,7 +54,11 @@ const fakeConvert = async (_source: string, outDir: string): Promise<ConvertedDe
 };
 
 async function setup(
-  options: { public?: Partial<PublicConfig> | false; convert?: typeof fakeConvert } = {},
+  options: {
+    public?: Partial<PublicConfig> | false;
+    convert?: typeof fakeConvert;
+    logs?: string[];
+  } = {},
 ) {
   const dataDir = mkdtempSync(join(tmpdir(), 'worship-q-public-'));
   const instance = new Instance(openDatabase(':memory:'));
@@ -67,6 +71,10 @@ async function setup(
     public: publicConfig,
     sweep: false,
     convertDeck: (source, outDir) => (options.convert ?? fakeConvert)(source, outDir),
+    ...(options.logs && {
+      logger: true,
+      logStream: { write: (line: string) => void options.logs!.push(line) },
+    }),
   });
   closers.push(() => app.close());
   const join_ = async (ip = '203.0.113.1') =>
@@ -287,6 +295,26 @@ describe('joining (M2.4, M2.5)', () => {
       });
     for (let i = 0; i < 5; i++) expect((await joinAs(`192.0.2.${i}`)).statusCode).toBe(200);
     expect((await joinAs('192.0.2.99')).statusCode).toBe(429);
+  });
+
+  it('logs an address only when it refuses a request for a limit', async () => {
+    const logs: string[] = [];
+    const { app } = await setup({ logs });
+    const joinFrom = () =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/public/join',
+        payload: { protocolVersion: PROTOCOL_VERSION },
+        remoteAddress: '198.51.100.7',
+      });
+    for (let i = 0; i < 5; i++) expect((await joinFrom()).statusCode).toBe(200);
+    // The requests are logged, without the address.
+    expect(logs.length).toBeGreaterThan(0);
+    expect(logs.join('')).not.toContain('198.51.100.7');
+    expect((await joinFrom()).statusCode).toBe(429);
+    const refused = logs.map((line) => JSON.parse(line)).filter((entry) => entry.ip);
+    expect(refused).toHaveLength(1);
+    expect(refused[0]).toMatchObject({ ip: '198.51.100.7', limit: 'join', level: 40 });
   });
 
   it('refuses to be joined as a church server (S5)', async () => {

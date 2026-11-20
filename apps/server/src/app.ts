@@ -113,6 +113,8 @@ export interface ServerConfig {
    */
   convertDeck?: (source: string, outDir: string, workDir: string) => Promise<ConvertedDeck>;
   logger?: boolean;
+  /** Where the log is written instead of standard output; for tests. */
+  logStream?: { write(line: string): void };
   /** Built admin pages, served at /admin/; optional in tests (phase 3). */
   adminDir?: string;
   /** Administrator sign-in; null or absent when not configured (D27). */
@@ -238,9 +240,11 @@ export async function buildServer(config: ServerConfig) {
   logSweeper?.unref();
   const app = Fastify({
     // A public server logs no query string: Bible searches and references are the visitor's.
+    // Nor the address, except on a request refused for a limit (`refuseForLimit`).
     logger:
       config.logger && publicMode
         ? {
+            ...(config.logStream && { stream: config.logStream }),
             serializers: {
               req: (request: { method: string; url: string }) => ({
                 method: request.method,
@@ -248,7 +252,9 @@ export async function buildServer(config: ServerConfig) {
               }),
             },
           }
-        : (config.logger ?? false),
+        : config.logger && config.logStream
+          ? { stream: config.logStream }
+          : (config.logger ?? false),
     bodyLimit: 16 * 1024 * 1024,
     // Behind CloudFront and a reverse proxy. A public server counts its limits by address, so
     // it trusts only those hops: a client's own X-Forwarded-For never names who it is.
@@ -304,10 +310,25 @@ export async function buildServer(config: ServerConfig) {
     const value = String(request.headers[INSTALL_HEADER] ?? '');
     return INSTALL_ID.test(value) ? value : null;
   };
+  /**
+   * Answers 429 for one of the public server's limits. The only log line with the address:
+   * many from one address mean abuse, or a church that should run its own server.
+   */
+  const refuseForLimit = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    limit: 'join' | 'bible' | 'media',
+    retryAfter: number,
+  ) => {
+    request.log.warn({ ip: request.ip, limit }, 'Refused for a limit');
+    reply.header('retry-after', String(retryAfter));
+    return reply.code(429).send({ error: 'rate-limited', retryAfter });
+  };
   /** Counts a use against a copy of the app and its IP address; true when it was refused. */
   const limited = (
     request: FastifyRequest,
     reply: FastifyReply,
+    limit: 'bible' | 'media',
     perInstall: RateLimiter,
     perIp: RateLimiter,
   ): boolean => {
@@ -316,8 +337,7 @@ export async function buildServer(config: ServerConfig) {
       { limiter: perIp, key: request.ip },
     ]);
     if (retryAfter === null) return false;
-    reply.header('retry-after', String(retryAfter));
-    void reply.code(429).send({ error: 'rate-limited', retryAfter });
+    void refuseForLimit(request, reply, limit, retryAfter);
     return true;
   };
   const backupsDir = (workspaceId: string) => join(config.dataDir, 'backups', workspaceId);
@@ -494,10 +514,7 @@ export async function buildServer(config: ServerConfig) {
           return reply.code(426).send({ error: UPDATE_NEEDED, protocolVersion: PROTOCOL_VERSION });
         }
         const retryAfter = limiters && limiters.joins.take(request.ip);
-        if (retryAfter) {
-          reply.header('retry-after', String(retryAfter));
-          return reply.code(429).send({ error: 'rate-limited', retryAfter });
-        }
+        if (retryAfter) return refuseForLimit(request, reply, 'join', retryAfter);
         const { device, token, workspace } = instance.joinPublic();
         return {
           deviceId: device.id,
@@ -621,7 +638,7 @@ export async function buildServer(config: ServerConfig) {
           return reply;
         };
         if (url.startsWith('/api/v1/bible/')) {
-          if (limited(request, reply, limiters.bible, limiters.bibleIp)) return refuse();
+          if (limited(request, reply, 'bible', limiters.bible, limiters.bibleIp)) return refuse();
         } else if (
           request.method === 'POST' &&
           (url === '/api/v1/decks' || url === '/api/v1/images')
@@ -631,7 +648,7 @@ export async function buildServer(config: ServerConfig) {
             void reply.code(503).send({ error: 'busy', retryAfter: 30 });
             return refuse();
           }
-          if (limited(request, reply, limiters.media, limiters.mediaIp)) return refuse();
+          if (limited(request, reply, 'media', limiters.media, limiters.mediaIp)) return refuse();
         }
       });
     }
@@ -1243,13 +1260,15 @@ export async function buildServer(config: ServerConfig) {
 
   /**
    * Pings the socket and ends it when a ping goes unanswered. Every closing is logged with
-   * its code, so a dropped phone or desktop can be traced to the side that dropped it.
+   * its code (and, on a church server, the address), so a dropped phone or desktop can be traced to the side that dropped it.
    */
   const keepAlive = (
     socket: import('ws').WebSocket,
     kind: string,
     request: import('fastify').FastifyRequest,
   ) => {
+    // A public server keeps no visitor's address in its log.
+    const wsIp = publicMode ? undefined : request.ip;
     const openedAt = Date.now();
     let lastMessageAt = openedAt;
     let alive = true;
@@ -1265,7 +1284,7 @@ export async function buildServer(config: ServerConfig) {
       socket.ping();
     }, PING_MS);
     socket.on('error', (error) =>
-      app.log.info({ kind, ip: request.ip, error: error.message }, 'WebSocket error'),
+      app.log.info({ kind, ip: wsIp, error: error.message }, 'WebSocket error'),
     );
     socket.on('close', (code, reason) => {
       clearInterval(timer);
@@ -1273,7 +1292,7 @@ export async function buildServer(config: ServerConfig) {
       app.log.info(
         {
           kind,
-          ip: request.ip,
+          ip: wsIp,
           code,
           reason: reason.toString(),
           unansweredPing: terminated,

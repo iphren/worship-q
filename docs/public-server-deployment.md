@@ -87,7 +87,11 @@ curl https://public.worship-q.com/              # explains itself
 ## Logs and privacy
 
 The request log keeps the method, the path without its query string (so no Bible search or
-reference), the status and the address. It never logs a token or the install header. The
+reference) and the status, but no address. The address is logged only with a request refused
+for a limit (`Refused for a limit`, with which limit: `join`, `bible` or `media`). It never logs
+a token or the install header. coturn's log has the address of each listener it relays.
+Docker keeps each log to five files of 10 MB (`logging` in the Compose file) and drops the
+oldest lines beyond that, so how long a line lasts depends on traffic, not on a date. The
 privacy notice on worship-q.com must say what passes through (files while converted, phone
 connections, audio relayed through TURN, the OBS picture through the relay), the deletion
 rule above, what the log keeps and for how long, and where the server runs.
@@ -97,8 +101,8 @@ rule above, what the log keeps and for how long, and where the server runs.
 - **Up:** `GET /api/v1/info` answers with `"public":true`.
 - **Disk:** only files under a day old and the database; growth means the sweep is failing.
 - **Conversions:** `503 busy` answers in the log mean the queue is full too often.
-- **Limits:** `429` answers by address; one address with many means abuse or a large church
-  that should run its own server.
+- **Limits:** `Refused for a limit` lines by address; one address with many means abuse or a
+  large church that should run its own server.
 - **Relay:** coturn's log; allocations near `WORSHIP_Q_TURN_TOTAL`.
 
 ## Updating
