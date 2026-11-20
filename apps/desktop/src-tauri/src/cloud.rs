@@ -22,6 +22,7 @@ fn err(e: impl ToString) -> String {
 
 fn client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
+        .user_agent(crate::USER_AGENT)
         .connect_timeout(Duration::from_secs(15))
         // Videos can be large on a slow venue connection.
         .timeout(Duration::from_secs(60 * 30))

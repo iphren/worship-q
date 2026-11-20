@@ -117,6 +117,7 @@ impl<R: Read, F: FnMut(u64, u64)> Read for Counting<R, F> {
 
 fn client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
+        .user_agent(crate::USER_AGENT)
         .connect_timeout(Duration::from_secs(15))
         // A 200 MB video on a slow venue connection.
         .timeout(Duration::from_secs(60 * 60))
@@ -605,6 +606,25 @@ mod tests {
         let path = dir.join(name);
         fs::write(&path, bytes).unwrap();
         path
+    }
+
+    #[test]
+    fn upload_names_the_app_in_its_user_agent() {
+        // Firewalls in front of a server (AWS WAF's managed rules) block requests without one.
+        let source = temp_file("slides.pdf", b"%PDF-1.4");
+        let (address, server) = serve_once(200, "{}");
+        upload_file(
+            &format!("{address}/api/v1/decks?name=slides.pdf"),
+            "token",
+            None,
+            &source,
+            Arc::new(AtomicBool::new(false)),
+            |_, _| {},
+        )
+        .unwrap();
+        let (head, _) = server.join().unwrap();
+        let expected = format!("user-agent: worshipq/{}\r\n", env!("CARGO_PKG_VERSION"));
+        assert!(head.to_ascii_lowercase().contains(&expected), "{head}");
     }
 
     #[test]

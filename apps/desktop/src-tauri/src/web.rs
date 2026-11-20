@@ -40,7 +40,10 @@ fn fetch(url: &str) -> Result<PageStart, String> {
         .map_err(|e| e.to_string())?;
     let mut response = client
         .get(url)
-        .header("accept", "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5")
+        .header(
+            "accept",
+            "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5",
+        )
         .send()
         .map_err(|e| e.to_string())?;
     if !response.status().is_success() {
@@ -72,5 +75,7 @@ fn fetch(url: &str) -> Result<PageStart, String> {
 }
 
 fn ends_head(bytes: &[u8]) -> bool {
-    bytes.windows(7).any(|window| window.eq_ignore_ascii_case(b"</head>"))
+    bytes
+        .windows(7)
+        .any(|window| window.eq_ignore_ascii_case(b"</head>"))
 }

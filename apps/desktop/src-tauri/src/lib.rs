@@ -24,6 +24,10 @@ use tauri::webview::PageLoadEvent;
 use tauri::{Emitter, LogicalSize, Manager, WindowEvent};
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
+/// Names the app on its own requests to a server (uploads, downloads, backups). Firewalls in
+/// front of a server, such as AWS WAF's managed rules, block requests without a user agent.
+pub(crate) const USER_AGENT: &str = concat!("WorshipQ/", env!("CARGO_PKG_VERSION"));
+
 const WINDOW_STATE_FLAGS: StateFlags = StateFlags::SIZE
     .union(StateFlags::POSITION)
     .union(StateFlags::MAXIMIZED)

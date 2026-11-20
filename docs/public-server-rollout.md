@@ -32,6 +32,13 @@ outside both.
    - Origin response timeout 60 seconds (deck conversions answer when done).
    - A certificate for `public.worship-q.com` in us-east-1.
    - Standard logging and real-time logs off.
+   - No response headers policy (the server sends its own CORS headers); response completion
+     timeout off (it would cut long WebSocket connections).
+   - **WAF** in monitor mode, with rate limiting at about 1,000 requests per address per 5
+     minutes: well above the server's own limits, since a church's computers and phones share
+     one address. In stage 3, see in the sampled requests which managed rules would block an
+     upload (`SizeRestrictions_BODY` blocks bodies over 8 KB), set those to Count, then leave
+     monitor mode. Desktops from 2.11.0 send a `User-Agent` on uploads; older ones sent none.
 5. **Host journal:** journald deletes logs after 14 days (the settings in the guide's **Logs and
    privacy**), as the privacy notice says.
 6. **Firewall** (the host's and the provider's): UDP 3478 and the relay ports (49152–65535 by
