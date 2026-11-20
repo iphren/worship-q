@@ -4,7 +4,8 @@ The public server is the church server (`apps/server`) in public mode, run by th
 `https://public.worship-q.com` for every workspace without a church server (see the
 [plan](public-server-plan.md) and the [discovery](public-server-discovery.md)). This guide is
 for whoever runs it; churches running their own server follow the
-[Church server deployment](server-deployment.md).
+[Church server deployment](server-deployment.md). The order of the first deployment and the
+release is in the [rollout plan](public-server-rollout.md).
 
 ## What it does and keeps
 
