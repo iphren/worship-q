@@ -50,7 +50,7 @@ docker compose -f apps/server/compose.public.yaml up -d --build
 | `WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR` | `600` | Bible requests per hour, per copy of the app |
 | `WORSHIP_Q_PUBLIC_IP_FACTOR` | `5` | An address may do this many times what one copy may |
 | `WORSHIP_Q_PUBLIC_IDLE_DAYS` | `90` | Days unseen before a workspace is forgotten |
-| `WORSHIP_Q_PUBLIC_PROXY_HOPS` | `2` | Proxies in front that add to `X-Forwarded-For` (CloudFront, the reverse proxy) |
+| `WORSHIP_Q_PUBLIC_PROXY_HOPS` | `1` | Proxies in front that add to `X-Forwarded-For`: the reverse proxy; `2` with a CDN before it |
 | `WORSHIP_Q_MAX_IMAGE_MB`, `WORSHIP_Q_MAX_DECK_MB` | 25, 100 | Upload limits; videos are never taken |
 | `WORSHIP_Q_TURN_MIN_PORT`, `WORSHIP_Q_TURN_MAX_PORT` | 49152, 65535 | The relay's UDP ports |
 | `WORSHIP_Q_TURN_TOTAL` | `2000` | Relayed connections at once, in all |
@@ -63,8 +63,10 @@ with `node dist/cli.js settings set bibleVersions '[...]'`.
 
 ## In front of it
 
-As for a church server (see **Reverse proxy and CloudFront** in the church guide), with these
-differences:
+The reverse proxy as for a church server (see **Reverse proxy and CloudFront** in the church
+guide), with DNS pointing straight at it and its own TLS certificate (Let's Encrypt). No CDN is
+needed: coturn answers on the host's own address anyway, so a CDN would not hide it. The
+differences from a church server:
 
 - A body limit of at least 100 MB: `client_max_body_size 100m;`.
 - WebSockets on `/api/v1/coordinator` and `/api/v1/remote` only.
@@ -72,8 +74,12 @@ differences:
   `x-worship-q-protocol`.
 - `X-Forwarded-For` added to, never replaced: nginx's
   `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`. The limits count by the
-  address `WORSHIP_Q_PUBLIC_PROXY_HOPS` entries from the end, the one CloudFront saw; anything
-  earlier is the visitor's own writing. With another chain of proxies, set the number to it.
+  address `WORSHIP_Q_PUBLIC_PROXY_HOPS` entries from the end, the one nginx saw; anything
+  earlier is the visitor's own writing.
+- With a CDN such as CloudFront before nginx, set `WORSHIP_Q_PUBLIC_PROXY_HOPS=2`, and have
+  it pass the three headers above, allow WebSockets and cache nothing. Never set the number
+  higher than the proxies really there: visitors could then choose their address and pass
+  the limits.
 - **UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
   the proxy. Each relayed listener uses one port.
 
@@ -83,6 +89,20 @@ Check it from outside:
 curl https://public.worship-q.com/api/v1/info   # "public":true, "limits":{...}
 curl https://public.worship-q.com/              # explains itself
 ```
+
+And that a visitor cannot choose their address: six joins, each claiming another, should end
+in `429` (they leave five empty workspaces, forgotten after 90 days unseen):
+
+```sh
+for i in 1 2 3 4 5 6; do
+  curl -s -o /dev/null -w "%{http_code}\n" -X POST https://public.worship-q.com/api/v1/public/join \
+    -H 'content-type: application/json' -H "X-Forwarded-For: 192.0.2.$i" \
+    -d '{"protocolVersion":9}'
+done   # 200 200 200 200 200 429
+```
+
+Six `200`s mean `WORSHIP_Q_PUBLIC_PROXY_HOPS` is higher than the proxies in front; a `429` at
+once means nginx replaces `X-Forwarded-For` or the number is too low.
 
 ## Logs and privacy
 

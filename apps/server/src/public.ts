@@ -21,8 +21,10 @@ export interface PublicConfig {
   /** Days a workspace may go unseen before it is forgotten (S4). */
   idleDays: number;
   /**
-   * Proxies in front of the server that add to X-Forwarded-For (CloudFront, then the reverse
-   * proxy): the address before them is the visitor's, and anything earlier the visitor wrote.
+   * Proxies in front of the server that add to X-Forwarded-For: the reverse proxy, and a CDN
+   * if there is one before it. The address before them is the visitor's, and anything earlier
+   * the visitor wrote. Too few counts every visitor as the CDN, which shows at once; too many
+   * lets visitors choose their address, which does not. So the default is the reverse proxy.
    */
   proxyHops: number;
 }
@@ -33,7 +35,7 @@ export const DEFAULT_PUBLIC: PublicConfig = {
   biblePerHour: 600,
   ipFactor: 5,
   idleDays: 90,
-  proxyHops: 2,
+  proxyHops: 1,
 };
 
 /** The public server's own upload limits, smaller than a church's; videos are not taken. */

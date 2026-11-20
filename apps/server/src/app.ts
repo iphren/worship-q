@@ -256,8 +256,8 @@ export async function buildServer(config: ServerConfig) {
           ? { stream: config.logStream }
           : (config.logger ?? false),
     bodyLimit: 16 * 1024 * 1024,
-    // Behind CloudFront and a reverse proxy. A public server counts its limits by address, so
-    // it trusts only those hops: a client's own X-Forwarded-For never names who it is.
+    // Behind a reverse proxy, and perhaps a CDN. A public server counts its limits by address,
+    // so it trusts only those hops: a client's own X-Forwarded-For never names who it is.
     // `hop` counts from the connection itself, 0, back towards the visitor.
     trustProxy: publicMode ? (_address: string, hop: number) => hop < publicMode.proxyHops : true,
   });

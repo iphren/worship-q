@@ -23,9 +23,10 @@ services:
       WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR: ${WORSHIP_Q_PUBLIC_BIBLE_PER_HOUR:-600}
       WORSHIP_Q_PUBLIC_IP_FACTOR: ${WORSHIP_Q_PUBLIC_IP_FACTOR:-5}
       WORSHIP_Q_PUBLIC_IDLE_DAYS: ${WORSHIP_Q_PUBLIC_IDLE_DAYS:-90}
-      # Proxies adding to X-Forwarded-For before the server: CloudFront and the reverse proxy.
-      # The limits count by the address before them; a wrong number lets visitors choose theirs.
-      WORSHIP_Q_PUBLIC_PROXY_HOPS: ${WORSHIP_Q_PUBLIC_PROXY_HOPS:-2}
+      # Proxies adding to X-Forwarded-For before the server: the reverse proxy, and 2 with a
+      # CDN such as CloudFront before it. The limits count by the address before them; too
+      # high a number lets visitors choose theirs.
+      WORSHIP_Q_PUBLIC_PROXY_HOPS: ${WORSHIP_Q_PUBLIC_PROXY_HOPS:-1}
       # Upload limits in MB; without them, 25 for an image and 100 for a deck. Videos are
       # never taken. The reverse proxy's body limit must be at least the larger.
       WORSHIP_Q_MAX_IMAGE_MB: ${WORSHIP_Q_MAX_IMAGE_MB:-}

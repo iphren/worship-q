@@ -106,10 +106,12 @@ describe('public mode’s settings', () => {
     expect(DEFAULT_PUBLIC.idleDays).toBe(90);
   });
 
-  it('trusts CloudFront and the reverse proxy in front of it, unless told otherwise', () => {
-    expect(DEFAULT_PUBLIC.proxyHops).toBe(2);
-    const config = publicConfigFromEnv({ WORSHIP_Q_PUBLIC: '1', WORSHIP_Q_PUBLIC_PROXY_HOPS: '1' });
-    expect(config?.proxyHops).toBe(1);
+  it('trusts only the reverse proxy in front of it, unless told otherwise', () => {
+    // Too few hops behind a CDN counts everyone as the CDN, which shows; too many lets
+    // visitors choose their address, which does not.
+    expect(DEFAULT_PUBLIC.proxyHops).toBe(1);
+    const config = publicConfigFromEnv({ WORSHIP_Q_PUBLIC: '1', WORSHIP_Q_PUBLIC_PROXY_HOPS: '2' });
+    expect(config?.proxyHops).toBe(2);
   });
 
   it('reads each limit, and stops on a bad one, naming it', () => {
@@ -281,10 +283,25 @@ describe('joining (M2.4, M2.5)', () => {
     expect((await joinFrom('198.51.100.8')).statusCode).toBe(200);
   });
 
-  it('counts the address CloudFront saw, not one the client wrote in X-Forwarded-For', async () => {
+  it('counts the address nginx saw, not one the client wrote in X-Forwarded-For', async () => {
     const { app } = await setup();
-    // The client writes its own X-Forwarded-For; CloudFront adds the address it saw, and the
-    // reverse proxy CloudFront's, before the request reaches the server from the proxy.
+    // The client writes its own X-Forwarded-For; nginx adds the address it saw before the
+    // request reaches the server from it.
+    const joinAs = (spoofed: string) =>
+      app.inject({
+        method: 'POST',
+        url: '/api/v1/public/join',
+        payload: { protocolVersion: PROTOCOL_VERSION },
+        remoteAddress: '127.0.0.1',
+        headers: { 'x-forwarded-for': `${spoofed}, 198.51.100.7` },
+      });
+    for (let i = 0; i < 5; i++) expect((await joinAs(`192.0.2.${i}`)).statusCode).toBe(200);
+    expect((await joinAs('192.0.2.99')).statusCode).toBe(429);
+  });
+
+  it('counts the address CloudFront saw when told of it as a second hop', async () => {
+    const { app } = await setup({ public: { proxyHops: 2 } });
+    // CloudFront adds the address it saw, and nginx CloudFront's.
     const joinAs = (spoofed: string) =>
       app.inject({
         method: 'POST',
