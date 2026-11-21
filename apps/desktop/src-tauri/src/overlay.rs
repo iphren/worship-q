@@ -172,6 +172,9 @@ const YOUTUBE_EMBED: &str = "https://www.youtube-nocookie.com/embed/";
 /// when the address is not one or the server is not running. The slideshow window shows the
 /// video through this page because YouTube refuses to play a video opened on its own: it
 /// plays only inside a page with a web address, which the app's own pages do not have.
+/// The page is named `localhost`, not `127.0.0.1`: YouTube refuses most music videos in a
+/// page at `127.0.0.1` ("video unavailable", error 150) but plays them at `localhost`. The
+/// server listens on `127.0.0.1`, which `localhost` reaches.
 pub fn youtube_page(overlay: &Overlay, embed: &str) -> Option<String> {
     if overlay.error.lock().unwrap().is_some() {
         return None;
@@ -179,7 +182,7 @@ pub fn youtube_page(overlay: &Overlay, embed: &str) -> Option<String> {
     let (id, query) = embed.strip_prefix(YOUTUBE_EMBED)?.split_once('?')?;
     youtube_frame(id, query)?;
     Some(format!(
-        "http://127.0.0.1:{OVERLAY_PORT}/youtube/{id}?{query}"
+        "http://localhost:{OVERLAY_PORT}/youtube/{id}?{query}"
     ))
 }
 
@@ -425,7 +428,7 @@ mod tests {
         let embed = "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0";
         assert_eq!(
             youtube_page(&overlay, embed).as_deref(),
-            Some("http://127.0.0.1:47310/youtube/dQw4w9WgXcQ?autoplay=1&rel=0")
+            Some("http://localhost:47310/youtube/dQw4w9WgXcQ?autoplay=1&rel=0")
         );
         assert!(youtube_page(&overlay, "https://example.org/embed/dQw4w9WgXcQ?a=1").is_none());
         // Without the server the web page is shown, as before.
