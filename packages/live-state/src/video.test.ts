@@ -432,3 +432,87 @@ describe('an Autoplay video entered while blank (U23)', () => {
     expect(state.video!.playing).toBe(false);
   });
 });
+
+describe('a YouTube video, whose length may not be known (YouTube control D4, D5)', () => {
+  const youtube = (durationSeconds: number, startSeconds?: number): PlayablePiece[] => [
+    { itemId: 'song', songId: 's1', pieceId: 'a' },
+    {
+      itemId: 'v1',
+      songId: 'yt',
+      pieceId: 'website',
+      video: { durationSeconds, autoplay: true, ...(startSeconds ? { startSeconds } : {}) },
+    },
+    { itemId: 'reading', songId: 's2', pieceId: 'r' },
+  ];
+  const enterYoutube: CommandInput = { type: 'playPiece', itemId: 'v1', pieceId: 'website' };
+
+  it('keeps playing with no end while its length is 0', () => {
+    const state = run(fresh(), [[0, enterYoutube]], youtube(0));
+    expect(state.video).toMatchObject({ playing: true, position: 0, durationSeconds: 0 });
+    expect(shownAt(state, 5000)).toBe(5000);
+  });
+
+  it('seeks anywhere above 0 while its length is 0, and keeps playing', () => {
+    const state = run(
+      fresh(),
+      [
+        [0, enterYoutube],
+        [1, seek(120)],
+        [2, seek(-4)],
+      ],
+      youtube(0),
+    );
+    expect(state.video).toMatchObject({ playing: true, position: 0 });
+    const far = run(
+      fresh(),
+      [
+        [0, enterYoutube],
+        [1, seek(120)],
+      ],
+      youtube(0),
+    );
+    expect(far.video).toMatchObject({ playing: true, position: 120 });
+  });
+
+  it('plays on from where it was, not from 0, when played after a pause with no length', () => {
+    const state = run(
+      fresh(),
+      [
+        [0, enterYoutube],
+        [30, pause],
+        [40, play],
+      ],
+      youtube(0),
+    );
+    expect(state.video).toMatchObject({ playing: true, position: 30 });
+  });
+
+  it('starts at the link’s time the first time, and where it was left after that', () => {
+    const first = run(fresh(), [[0, enterYoutube]], youtube(200, 90));
+    expect(first.video).toMatchObject({ position: 90, playing: true });
+    const back = run(
+      first,
+      [
+        [10, leave],
+        [20, enterYoutube],
+      ],
+      youtube(200, 90),
+    );
+    expect(back.video).toMatchObject({ position: 100, playing: true });
+  });
+
+  it('takes a length learned while it is presented on the next command', () => {
+    const started = run(fresh(), [[0, enterYoutube]], youtube(0));
+    const paused = run(started, [[10, pause]], youtube(200));
+    expect(paused.video).toMatchObject({ durationSeconds: 200, position: 10, playing: false });
+    const played = run(started, [[10, play]], youtube(200));
+    expect(played.video).toMatchObject({ durationSeconds: 200, position: 10, playing: true });
+    expect(shownAt(played, 500)).toBe(200);
+  });
+
+  it('is paused at the end when the length learned is shorter than where it is', () => {
+    const started = run(fresh(), [[0, enterYoutube]], youtube(0));
+    const state = run(started, [[90, { type: 'blank' }]], youtube(60));
+    expect(state.video).toMatchObject({ durationSeconds: 60, position: 60, playing: false });
+  });
+});

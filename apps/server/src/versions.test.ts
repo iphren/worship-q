@@ -130,7 +130,7 @@ describe('pulling with origins (D31)', () => {
     expect(records[0]!.data.title).toBe('Holy (North)');
   });
 
-  it('gives version 3 to 8 devices what a version 9 device gets, after the OBS, video, passage, audio, website and thumbnail bumps', async () => {
+  it('gives version 3 to 9 devices what a version 10 device gets, after the OBS, video, passage, audio, website, thumbnail and website length bumps', async () => {
     const { app, headers, b1 } = await setup();
     const pull = (protocol: number) =>
       app.inject({
@@ -145,7 +145,8 @@ describe('pulling with origins (D31)', () => {
     const seven = await pull(7);
     const eight = await pull(8);
     const nine = await pull(9);
-    expect(PROTOCOL_VERSION).toBe(9);
+    const ten = await pull(10);
+    expect(PROTOCOL_VERSION).toBe(10);
     expect(three.statusCode).toBe(200);
     expect(four.statusCode).toBe(200);
     expect(three.json().records).toEqual(four.json().records);
@@ -154,8 +155,9 @@ describe('pulling with origins (D31)', () => {
     expect(six.json().records).toEqual(seven.json().records);
     expect(seven.json().records).toEqual(eight.json().records);
     expect(eight.json().records).toEqual(nine.json().records);
+    expect(nine.json().records).toEqual(ten.json().records);
     const info = await app.inject({ method: 'GET', url: '/api/v1/info' });
-    expect(info.json()).toMatchObject({ protocolVersion: 9, minProtocolVersion: 2 });
+    expect(info.json()).toMatchObject({ protocolVersion: 10, minProtocolVersion: 2 });
   });
 
   it('marks the church’s record as the church’s, without a shadow, for a workspace with no version', async () => {
@@ -514,5 +516,77 @@ describe('live audio and older devices (protocol version 7)', () => {
       headers: context.headers(context.c.token, 6),
     });
     expect(response.statusCode).toBe(200);
+  });
+});
+
+describe('older desktops and YouTube lengths (YouTube control D3)', () => {
+  const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+  const push = async (
+    context: Awaited<ReturnType<typeof setup>>,
+    protocol: number,
+    record: SyncRecord,
+  ) =>
+    context.app.inject({
+      method: 'POST',
+      url: '/api/v1/sync/push',
+      headers: context.headers(context.c.token, protocol),
+      payload: { protocolVersion: protocol, records: [record] },
+    });
+  const stored = (context: Awaited<ReturnType<typeof setup>>) =>
+    context.instance
+      .pull(context.south.id, 0, 500, PROTOCOL_VERSION)
+      .records.find((r) => r.id === 'w1')!.data;
+
+  it('keeps the length when a version 9 device renames the website', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(
+      context,
+      10,
+      song('w1', 'Video', time.now(), { website: { url, durationSeconds: 213 } }),
+    );
+    time.advance();
+    const renamed = await push(context, 9, {
+      ...song('w1', 'Welcome video', time.now(), { website: { url } }),
+      revision: 2,
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(stored(context)).toMatchObject({
+      title: 'Welcome video',
+      website: { url, durationSeconds: 213 },
+    });
+  });
+
+  it('drops the length when a version 9 device changes the address', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(
+      context,
+      10,
+      song('w1', 'Video', time.now(), { website: { url, durationSeconds: 213 } }),
+    );
+    time.advance();
+    const other = 'https://youtu.be/kJQP7kiw5Fk';
+    await push(context, 9, {
+      ...song('w1', 'Video', time.now(), { website: { url: other } }),
+      revision: 2,
+    });
+    expect(stored(context).website).toEqual({ url: other });
+  });
+
+  it('lets a version 10 device save a website without a length', async () => {
+    const context = await setup();
+    const time = context.time;
+    await push(
+      context,
+      10,
+      song('w1', 'Video', time.now(), { website: { url, durationSeconds: 213 } }),
+    );
+    time.advance();
+    await push(context, 10, {
+      ...song('w1', 'Video', time.now(), { website: { url } }),
+      revision: 2,
+    });
+    expect(stored(context).website).toEqual({ url });
   });
 });

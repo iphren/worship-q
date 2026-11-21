@@ -1408,6 +1408,53 @@ describe('websites', () => {
   });
 });
 
+describe('YouTube videos in websites (YouTube control)', () => {
+  const url = 'https://youtu.be/dQw4w9WgXcQ?t=30';
+  const present = async (website: { url: string; durationSeconds?: number }) => {
+    const created = await session.createSong({ title: 'Video', website });
+    await session.addSong(session.openDate, created.id);
+    await session.goLive(session.openDate);
+    await session.next();
+    return created;
+  };
+
+  it('gives a YouTube video a clock, playing from the link’s time, carried in the frame', async () => {
+    await present({ url, durationSeconds: 213 });
+    expect(session.video).toMatchObject({ playing: true, position: 30, durationSeconds: 213 });
+    const frame = await session.frame(mediaUrl);
+    expect(frame.website).toMatchObject({
+      url,
+      video: { playing: true, position: 30, durationSeconds: 213 },
+    });
+    expect(frame.video ?? null).toBeNull();
+    await session.videoPlay(false);
+    expect((await session.frame(mediaUrl)).website?.video).toMatchObject({ playing: false });
+  });
+
+  it('gives a website that is not a YouTube video no clock', async () => {
+    await present({ url: 'https://example.org/live' });
+    expect(session.video).toBeNull();
+    expect((await session.frame(mediaUrl)).website).toEqual({ url: 'https://example.org/live' });
+  });
+
+  it('fills in a length the player reports, and takes it on the next command', async () => {
+    const created = await present({ url });
+    expect(session.video).toMatchObject({ durationSeconds: 0 });
+    expect(await session.setWebsiteLength(created.id, url, 213.4)).toBe(true);
+    expect((await store.getSong(created.id))!.website).toEqual({ url, durationSeconds: 213.4 });
+    await session.videoPlay(false);
+    expect(session.video).toMatchObject({ durationSeconds: 213.4 });
+    // Close enough, another address, or nonsense: nothing is saved.
+    expect(await session.setWebsiteLength(created.id, url, 214)).toBe(false);
+    expect(await session.setWebsiteLength(created.id, 'https://youtu.be/kJQP7kiw5Fk', 90)).toBe(
+      false,
+    );
+    expect(await session.setWebsiteLength(created.id, url, 0)).toBe(false);
+    expect(await session.setWebsiteLength(created.id, url, Number.NaN)).toBe(false);
+    expect(await session.setWebsiteLength(created.id, url, 300)).toBe(true);
+  });
+});
+
 describe('video items (media uploads M5.4, M6.1)', () => {
   const video = {
     file: 'video-0f8fad5b-d9cb-469f-a165-70867728950e.mp4',

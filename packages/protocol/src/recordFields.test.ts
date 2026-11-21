@@ -31,7 +31,7 @@ import {
  * 3. Update `PINNED` below: the new version and the fields as they now are.
  */
 const PINNED = {
-  protocol: 9,
+  protocol: 10,
   fields: [
     'workspace.id',
     'workspace.name',
@@ -70,6 +70,7 @@ const PINNED = {
     'song.deck.pages[].text',
     'song.website',
     'song.website.url',
+    'song.website.durationSeconds',
     'song.video',
     'song.video.file',
     'song.video.source',
@@ -132,6 +133,7 @@ const PINNED = {
     'songRevision.deck.pages[].text',
     'songRevision.website',
     'songRevision.website.url',
+    'songRevision.website.durationSeconds',
     'songRevision.video',
     'songRevision.video.file',
     'songRevision.video.source',

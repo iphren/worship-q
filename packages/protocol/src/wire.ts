@@ -61,9 +61,11 @@ import {
  * declaring the `audio` capability. Version 8 lets a phone add a website by its address: an
  * `addWebsite` command, which the relay passes on only to desktops declaring the `websites`
  * capability. Version 9 lets a phone ask the desktop for a slide's small image, for a desktop
- * on the public server, which keeps no files (public server plan, S7).
+ * on the public server, which keeps no files (public server plan, S7). Version 10 adds a
+ * YouTube video's length to a website (`website.durationSeconds`, YouTube control D3), which
+ * the instance keeps when an older desktop saves the website at the same address without it.
  */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
 /**
@@ -76,6 +78,8 @@ export const PASSAGE_PROTOCOL_VERSION = 6;
 export const WEBSITE_PROTOCOL_VERSION = 8;
 /** The first protocol version in which a phone asks the desktop for slide thumbnails (S7). */
 export const THUMBNAIL_PROTOCOL_VERSION = 9;
+/** The first protocol version that knows a website's `durationSeconds` (YouTube control D3). */
+export const WEBSITE_LENGTH_PROTOCOL_VERSION = 10;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 

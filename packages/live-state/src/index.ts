@@ -20,7 +20,10 @@ export interface PlayablePiece {
   itemId: string;
   songId: string;
   pieceId: string;
-  /** Set on a video item's one piece: its length and whether it plays on entry (U23). */
+  /**
+   * Set on a video item's one piece, and on a YouTube video's website piece: its length,
+   * whether it plays on entry (U23), and where it starts.
+   */
   video?: VideoInfo;
 }
 
@@ -227,7 +230,8 @@ function reduce(
     case 'videoPause':
     case 'videoSeek': {
       // One meant for an item no longer presented, as from a slow phone, changes nothing.
-      const video = applyVideoCommand(state, command, context.now);
+      const info = presentedVideo(state, state, context.sequence);
+      const video = applyVideoCommand(state, command, context.now, info);
       return video ? { video } : {};
     }
   }
@@ -413,7 +417,7 @@ export function forgetVideoPosition(state: LiveState, itemId: string, now: strin
   return { ...state, videoPositions, revision: state.revision + 1, updatedAt: now };
 }
 
-export { END_SLACK_SECONDS, videoAt, videoPosition, type VideoInfo } from './video';
+export { END_SLACK_SECONDS, knowsLength, videoAt, videoPosition, type VideoInfo } from './video';
 export * from './coordination';
 export * from './audio';
 export * from './obs';
