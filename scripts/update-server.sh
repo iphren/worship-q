@@ -48,7 +48,7 @@ docker image prune -f >/dev/null
 docker builder prune -f --filter until=24h >/dev/null
 
 # Lays out /api/v1/info. Fields it does not know are shown too, by their shape: switches as
-# ✓ or ✗, groups indented under their name, and byte counts under a "limits" key in MB.
+# ✓ or ✗, groups indented under their name, and byte counts under a nested "limits" key in MB.
 # Arguments: the port, the deployed commit, then "color" when writing to a terminal.
 format='
 let raw = "";
@@ -82,7 +82,9 @@ process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
         // A blank line sets each top-level group apart from what comes before it.
         if (depth === 0 && rows.length) rows.push(null);
         rows.push([depth, words(k), ""]);
-        walk(v, depth + 1, /limit|size|bytes/i.test(k));
+        // Sizes are grouped under a feature (media.limits). A top-level limits group holds
+        // counts: the public server phones, listeners and media per day.
+        walk(v, depth + 1, depth > 0 && /limit|size|bytes/i.test(k));
       }
     }
   };
@@ -109,7 +111,8 @@ process.stdin.on("data", (chunk) => (raw += chunk)).on("end", () => {
 '
 
 # Asked here, not inside the $(...) below, where standard output is always a pipe.
-color=$([ -t 1 ] && echo color || true)
+color=
+if [ -t 1 ]; then color=color; fi
 
 port=$(sed -n 's/^WORSHIP_Q_PORT=//p' apps/server/.env 2>/dev/null || true)
 for _ in $(seq 30); do
