@@ -1,17 +1,44 @@
 #!/usr/bin/env bash
-# Updates the church server to the latest commit and restarts it.
+# Updates the server to the latest commit and restarts it.
 # Run on the server from anywhere inside the repository:  scripts/update-server.sh
-# The public server:  scripts/update-server.sh public
+# It updates the server whose containers are on this host, running or stopped: the church
+# server or the public server. Name one to choose (and for a first deploy of the public
+# server):  scripts/update-server.sh public   or   scripts/update-server.sh church
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
-if [[ "${1:-}" == public ]]; then
-  compose=(docker compose -f apps/server/compose.public.yaml)
-  service=worship-q-public
-else
-  compose=(docker compose -f apps/server/compose.yaml)
-  service=worship-q
+church=(docker compose -f apps/server/compose.yaml)
+public=(docker compose -f apps/server/compose.public.yaml)
+
+mode=${1:-}
+if [[ -z "$mode" ]]; then
+  # `ps -a` lists stopped containers too, so a server that crashed is still recognised.
+  has_church=$("${church[@]}" ps -a -q worship-q 2>/dev/null || true)
+  has_public=$("${public[@]}" ps -a -q worship-q-public 2>/dev/null || true)
+  if [[ -n "$has_church" && -n "$has_public" ]]; then
+    echo "Both a church server and the public server are on this host." >&2
+    echo "Name the one to update: scripts/update-server.sh church   or   public" >&2
+    exit 2
+  fi
+  # Neither yet: a church server's first deploy, as before.
+  mode=$([[ -n "$has_public" ]] && echo public || echo church)
 fi
+
+case "$mode" in
+  public)
+    compose=("${public[@]}")
+    service=worship-q-public
+    ;;
+  church)
+    compose=("${church[@]}")
+    service=worship-q
+    ;;
+  *)
+    echo "Unknown server \"$mode\": use church or public." >&2
+    exit 2
+    ;;
+esac
+echo "Updating the $mode server."
 
 git pull --ff-only
 "${compose[@]}" up -d --build

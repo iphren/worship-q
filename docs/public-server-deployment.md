@@ -188,7 +188,8 @@ follows; change it with any of these.
 
 ## Updating
 
-With `scripts/update-server.sh public`, before the desktops'
+With `scripts/update-server.sh`, which finds the public server's containers on the host (name
+it, `scripts/update-server.sh public`, for the first deploy), before the desktops'
 release when the protocol version rises. One process holds every workspace's relay room, so a
 restart drops every phone for a few seconds; they reconnect by themselves. More than one
 process needs routing by workspace (the desktop's token and the phone's `w=` both name it)
