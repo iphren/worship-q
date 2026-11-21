@@ -60,7 +60,8 @@ pub fn run() {
             app.manage(instances::Instances::start(app.handle().clone(), &root));
             let dir = workspaces::active_dir(&root);
             fs::create_dir_all(dir.join(files::BACKGROUNDS_DIR))?;
-            // The configured scope covers only the first workspace's backgrounds.
+            // Only the open workspace's backgrounds and videos are shown, so only its folders
+            // are allowed; none are configured in tauri.conf.json.
             app.asset_protocol_scope()
                 .allow_directory(dir.join(files::BACKGROUNDS_DIR), true)?;
             // This computer's copies of videos, played by the slideshow (U8).

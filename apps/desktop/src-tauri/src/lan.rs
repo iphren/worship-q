@@ -37,8 +37,8 @@ use tokio_tungstenite::tungstenite::Message;
 /// Next to the overlay port; it never changes, so firewall rules stay valid.
 pub const LAN_PORT: u16 = 47_311;
 const SERVICE_TYPE: &str = "_worship-q._tcp.local.";
-const CERT_FILE: &str = "lan-cert.der";
-const KEY_FILE: &str = "lan-key.der";
+pub(crate) const CERT_FILE: &str = "lan-cert.der";
+pub(crate) const KEY_FILE: &str = "lan-key.der";
 /// The name the certificate is made for and the client expects; it is pinned, not resolved.
 const CERT_NAME: &str = "worship-q.local";
 /// A connection that has not proved itself in this time is closed.

@@ -208,15 +208,13 @@ export function WorkspaceList() {
               </>
             ) : (
               <>
-                {entry.id !== 'default' && (
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={busy}
-                    onClick={() => setRemoving(entry)}
-                  >
-                    {t('workspaces.remove')}
-                  </button>
-                )}
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={busy}
+                  onClick={() => setRemoving(entry)}
+                >
+                  {t('workspaces.remove')}
+                </button>
                 <button
                   className="btn btn-sm"
                   disabled={busy}
