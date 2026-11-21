@@ -31,7 +31,7 @@ import {
  * 3. Update `PINNED` below: the new version and the fields as they now are.
  */
 const PINNED = {
-  protocol: 8,
+  protocol: 9,
   fields: [
     'workspace.id',
     'workspace.name',

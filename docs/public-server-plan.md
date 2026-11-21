@@ -1,7 +1,7 @@
 # Worship Q — Public Server Plan
 
 **Drafted:** 17 November 2026; owner's answers added the same day; the spec updated to match  
-**Status:** A future plan, not scheduled. Requirements only: nothing here is built. The [technical discovery](public-server-discovery.md) proposes how to build it.  
+**Status:** Built on the `public-server` branch on 18 November 2026, not released or deployed; see the [task breakdown](public-server-task-breakdown.md) §7 for what remains. The [technical discovery](public-server-discovery.md) says how it is built.  
 **Source:** the project owner's requests of 17 November 2026; the [spec](worship-q-requirements-and-architecture.md) (§ Public website and self-hosted instances, §3); the [Bible passages discovery](bible-passages-discovery.md); the [Media uploads plan](media-uploads-plan.md); the [Live audio plan](live-audio-plan.md); the [OBS control plan](obs-control-plan.md); the code at version 2.9.0.
 
 ## 1. Why

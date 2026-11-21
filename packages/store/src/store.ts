@@ -365,6 +365,17 @@ const SONG_PIN_PREFIX = songPinKey('');
 
 export type CopyMode = 'append' | 'replace';
 
+/** A video file and what uses it, for removing copies (U29). */
+export interface VideoUse {
+  file: string;
+  /** The title of a song naming it, one in the library when there is one. */
+  title: string;
+  /** Every song naming it is removed from the library. */
+  removed: boolean;
+  /** The dates of every run sheet presenting a song that names it, earliest first. */
+  dates: IsoDate[];
+}
+
 /** Data access for one local database. Every write in the app goes through here. */
 export class Store {
   /**
@@ -949,6 +960,51 @@ export class Store {
     return [...earliest]
       .map(([file, date]) => ({ file, date }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /**
+   * Every video file the workspace's songs name, in either of a song's versions (U29): the
+   * title to show it by, whether every song naming it is removed, and the dates of the run
+   * sheets presenting those songs.
+   */
+  async videoUses(workspaceId: string): Promise<VideoUse[]> {
+    const songs = await this.db.select<{
+      id: string;
+      title: string;
+      video: string;
+      cv_video: string | null;
+      removed_at: string | null;
+    }>(
+      `SELECT song.id, song.title, song.video, cv.video AS cv_video, song.removed_at FROM song
+       LEFT JOIN church_version cv ON cv.song_id = song.id
+       WHERE song.workspace_id = ? AND (song.video IS NOT NULL OR cv.video IS NOT NULL)`,
+      [workspaceId],
+    );
+    const dates = await this.db.select<{ song_id: string; date: string }>(
+      `SELECT DISTINCT run_sheet_item.song_id AS song_id, run_sheet.date AS date
+       FROM run_sheet_item JOIN run_sheet ON run_sheet.id = run_sheet_item.run_sheet_id
+       WHERE run_sheet.workspace_id = ?`,
+      [workspaceId],
+    );
+    const datesOf = new Map<string, IsoDate[]>();
+    for (const row of dates)
+      datesOf.set(row.song_id, [...(datesOf.get(row.song_id) ?? []), row.date]);
+    const uses = new Map<string, VideoUse>();
+    for (const song of songs) {
+      for (const raw of [song.video, song.cv_video]) {
+        const file = videoOf(raw ? JSON.parse(raw) : null)?.file;
+        if (!file) continue;
+        const use = uses.get(file) ?? { file, title: song.title, removed: true, dates: [] };
+        if (!song.removed_at) {
+          // A song still in the library names it under its own title.
+          if (use.removed) use.title = song.title;
+          use.removed = false;
+        }
+        use.dates = [...new Set([...use.dates, ...(datesOf.get(song.id) ?? [])])].sort();
+        uses.set(file, use);
+      }
+    }
+    return [...uses.values()];
   }
 
   // ── Run sheets ───────────────────────────────────────────────────────────

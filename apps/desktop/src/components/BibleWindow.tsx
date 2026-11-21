@@ -29,6 +29,7 @@ import { BibleRequestError, workspaceVersions } from '../app/bible';
 import { bibleWindow } from '@worship-q/protocol';
 import { useApp, useCloud, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
+import { PrivacyLink } from './PrivacyLink';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { warningText } from './PassageWarnings';
@@ -264,7 +265,8 @@ export function BibleWindow(props: {
     void finish(false);
   }
 
-  const connected = status.server !== null;
+  // Without a church server the public server answers, joined on the first request.
+  const connected = status.server !== null || cloud.usesPublicServer;
   const unavailable = !connected
     ? t('bible.needsChurch')
     : offered && offered.length === 0
@@ -322,6 +324,11 @@ export function BibleWindow(props: {
     >
       <div className="flex h-[70vh] min-h-0 flex-col gap-3">
         {unavailable && <p className="text-amber-300">{unavailable}</p>}
+        {!cloud.connected && cloud.usesPublicServer && (
+          <p className="text-xs text-slate-400">
+            {t('bible.publicNote')} <PrivacyLink />
+          </p>
+        )}
         {/* The versions stay on their own line under the search box, whatever its width. */}
         <div className="flex flex-col gap-2">
           <input

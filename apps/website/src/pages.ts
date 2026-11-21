@@ -42,7 +42,7 @@ export const PAGES: PageSpec[] = [
     path: '/server/',
     title: 'Church server setup — Worship Q',
     description:
-      "Run your church's own free Worship Q server with Docker: shared songs and media, Bible passages, phone remote control, backups and an admin app.",
+      "Run your church's own free Worship Q server with Docker: several computers presenting together, shared songs and media, backups, Bible versions with your keys and an admin app.",
     source: { doc: 'server-deployment.md' },
   },
   {
@@ -86,6 +86,13 @@ export const PAGES: PageSpec[] = [
     description:
       'How Worship Q, a free and open-source church presentation app, compares with ProPresenter, EasyWorship, OpenLP, FreeShow and Proclaim.',
     source: { page: 'compare.md' },
+  },
+  {
+    path: '/privacy/',
+    title: 'Privacy — Worship Q',
+    description:
+      'What the Worship Q app, the free public server and this website handle, how long anything is kept, and who else is involved.',
+    source: { page: 'privacy.md' },
   },
   {
     path: '/releases/',

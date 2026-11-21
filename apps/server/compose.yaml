@@ -45,6 +45,12 @@ services:
       - '127.0.0.1:${WORSHIP_Q_LOCAL_API_PORT:-8081}:8081'
     volumes:
       - worship-q-data:/data
+    # Docker never trims its logs by itself; keep about 50 MB, the oldest lines dropped first.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
 
   # The relay for live audio listeners whose network allows no direct path (live audio
   # plan A10). Off by default; start it with `--profile turn`. UDP only: 3478 and the relay
@@ -55,6 +61,12 @@ services:
     profiles: ['turn']
     restart: unless-stopped
     network_mode: host
+    # About 50 MB of log, as for the server.
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
     command:
       - --listening-port=3478
       - --listening-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}

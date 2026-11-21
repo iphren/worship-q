@@ -185,7 +185,13 @@ function BroadcastSettings() {
           type="checkbox"
           className="mt-1 h-4 w-4"
           checked={shared.switchOn}
-          onChange={(event) => cloud.audio.setSwitch(event.target.checked)}
+          onChange={(event) => {
+            cloud.audio.setSwitch(event.target.checked);
+            // Phones listen through the public server when there is no church server (P5).
+            if (event.target.checked && cloud.usesPublicServer) {
+              void cloud.ensurePublic().catch(() => undefined);
+            }
+          }}
         />
         <span>
           <span className="block">{t('audio.broadcast')}</span>

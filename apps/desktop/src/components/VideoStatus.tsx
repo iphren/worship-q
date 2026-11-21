@@ -35,6 +35,10 @@ export function VideoCopyState(props: { file: string }) {
   const { cloud } = useApp();
   const status = useVideoCopy(props.file);
   if (!status || status.kind === 'ready') return null;
+  // Without a church server the copy is the only one: gone means gone (U30).
+  if (status.kind === 'waiting' && !cloud.connected) {
+    return <span className="mt-1 block text-xs text-amber-300">{t('video.goneHere')}</span>;
+  }
   if (status.kind === 'failed') {
     return (
       <span className="mt-1 flex items-center gap-2 text-xs text-rose-300">
@@ -76,6 +80,7 @@ export function VideoCopyState(props: { file: string }) {
 
 /** A video item's tile among the Live page's slides: its length and its copy's state. */
 export function VideoTile(props: { video: Video }) {
+  const { cloud } = useApp();
   const has = useHasCopy(props.video.file);
   return (
     <span className="flex flex-col items-center justify-center gap-1 py-1">
@@ -83,7 +88,11 @@ export function VideoTile(props: { video: Video }) {
         ▶
       </span>
       <span className="text-xs text-slate-300">{formatDuration(props.video.durationSeconds)}</span>
-      {has === false && <span className="text-[11px] text-amber-300">{t('video.notReady')}</span>}
+      {has === false && (
+        <span className="text-[11px] text-amber-300">
+          {t(cloud.connected ? 'video.notReady' : 'video.goneHere')}
+        </span>
+      )}
       <span className="w-full px-1">
         <VideoCopyState file={props.video.file} />
       </span>
@@ -107,6 +116,7 @@ function useTicking(on: boolean): number {
  * a scrubber, and jumps of 10 seconds. Says so when this computer has no copy to play.
  */
 export function VideoControls(props: { file: string | null }) {
+  const { cloud } = useApp();
   const session = useSession();
   const video = session.video;
   const now = useTicking(!!video?.playing);
@@ -171,7 +181,7 @@ export function VideoControls(props: { file: string | null }) {
       />
       {props.file && has === false && (
         <span className="w-full text-xs text-amber-300" role="status">
-          {t('video.notDownloaded')}
+          {t(cloud.connected ? 'video.notDownloaded' : 'video.goneHere')}
         </span>
       )}
     </div>

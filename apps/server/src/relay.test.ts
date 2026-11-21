@@ -1304,3 +1304,148 @@ describe('browser outputs (M7.3, M7.8)', () => {
     expect(page.socket.closed).toBe(4001);
   });
 });
+
+describe('the public server’s caps (public server S3)', () => {
+  /** A desktop that records what reaches it, and a phone connected straight to it by grant. */
+  async function room(options: RelayOptions) {
+    const made = await setup(options);
+    const a = made.desktop('Projector', { withHost: false, audio: true });
+    const phoneWith = (grant: string) => made.phone({ grant });
+    return { ...made, a, phoneWith };
+  }
+
+  it('lets two phones in and tells a third the workspace is full', async () => {
+    const { phoneWith } = await room({ maxPhones: 2 });
+    const one = phoneWith('g.1');
+    const two = phoneWith('g.2');
+    const three = phoneWith('g.3');
+    expect(one.socket.closed).toBeNull();
+    expect(two.socket.closed).toBeNull();
+    expect(three.socket.last()).toEqual({ type: 'unavailable', reason: 'full', limit: 2 });
+    expect(three.socket.closed).toBe(4029);
+  });
+
+  it('lets a third phone in once one of two leaves', async () => {
+    const { phoneWith } = await room({ maxPhones: 2 });
+    const one = phoneWith('g.1');
+    phoneWith('g.2');
+    one.handlers.close();
+    const three = phoneWith('g.3');
+    expect(three.socket.closed).toBeNull();
+  });
+
+  it('never refuses a phone coming back with its grant while its old connection lingers', async () => {
+    const { phoneWith } = await room({ maxPhones: 2 });
+    const one = phoneWith('g.1');
+    phoneWith('g.2');
+    const again = phoneWith('g.1');
+    expect(again.socket.closed).toBeNull();
+    // Nothing was closed to make room.
+    expect(one.socket.closed).toBeNull();
+  });
+
+  it('counts phones without a grant yet, which are waiting for approval', async () => {
+    const { phone } = await room({ maxPhones: 2 });
+    phone({ invite: 'x.1' });
+    phone({ invite: 'x.2' });
+    const third = phone({ invite: 'x.3' });
+    expect(third.socket.closed).toBe(4029);
+  });
+
+  it('has no limit of phones on a church server', async () => {
+    const { phoneWith } = await room({});
+    const phones = [1, 2, 3, 4, 5, 6].map((n) => phoneWith(`g.${n}`));
+    expect(phones.every((p) => p.socket.closed === null)).toBe(true);
+  });
+
+  const listen = (session: string) => ({
+    type: 'audioSignal',
+    signal: { kind: 'listen', session },
+  });
+
+  it('answers a third listener `full` itself, without passing it to the desktop', async () => {
+    const { a, phoneWith } = await room({ maxListeners: 2 });
+    const phones = ['g.1', 'g.2', 'g.3'].map(phoneWith);
+    phones[0]!.say(listen('s1'));
+    phones[1]!.say(listen('s2'));
+    const before = a.socket.received.length;
+    phones[2]!.say(listen('s3'));
+    expect(a.socket.received).toHaveLength(before);
+    expect(phones[2]!.socket.last()).toEqual({
+      type: 'audioSignal',
+      signal: { kind: 'full', session: 's3' },
+    });
+  });
+
+  it('frees a listener’s place when the phone closes its session, or the desktop does', async () => {
+    const { a, phoneWith } = await room({ maxListeners: 2 });
+    const phones = ['g.1', 'g.2', 'g.3', 'g.4'].map(phoneWith);
+    phones[0]!.say(listen('s1'));
+    phones[1]!.say(listen('s2'));
+    phones[0]!.say({ type: 'audioSignal', signal: { kind: 'close', session: 's1', reason: 'x' } });
+    phones[2]!.say(listen('s3'));
+    expect(phones[2]!.socket.last()).not.toMatchObject({ signal: { kind: 'full' } });
+    // The broadcaster ends the second phone's session.
+    const id = (
+      a.socket
+        .ofType<Extract<RelayToDesktop, { type: 'message' }>>('message')
+        .find((m) => (m.data as { signal?: { session: string } }).signal?.session === 's2') as {
+        from: string;
+      }
+    ).from;
+    a.say({
+      type: 'send',
+      to: id,
+      data: { type: 'audioSignal', signal: { kind: 'close', session: 's2', reason: 'off' } },
+    });
+    phones[3]!.say(listen('s4'));
+    expect(phones[3]!.socket.last()).not.toMatchObject({ signal: { kind: 'full' } });
+  });
+
+  it('frees a listener’s place when the phone disconnects', async () => {
+    const { phoneWith } = await room({ maxListeners: 1 });
+    const one = phoneWith('g.1');
+    const two = phoneWith('g.2');
+    one.say(listen('s1'));
+    one.handlers.close();
+    two.say(listen('s2'));
+    expect(two.socket.last()).not.toMatchObject({ signal: { kind: 'full' } });
+  });
+
+  it('keeps a listener’s place when it listens afresh with a new session (A17)', async () => {
+    const { phoneWith } = await room({ maxListeners: 2 });
+    const phones = ['g.1', 'g.2'].map(phoneWith);
+    phones[0]!.say(listen('s1'));
+    phones[1]!.say(listen('s2'));
+    phones[0]!.say(listen('s1b'));
+    expect(phones[0]!.socket.last()).not.toMatchObject({ signal: { kind: 'full' } });
+  });
+});
+
+describe('slide thumbnails through the relay (public server S7)', () => {
+  it('carries a phone’s ask to the desktop and its answer back', async () => {
+    const { host, desktop, phone } = await setup();
+    desktop('Laptop');
+    host.setThumbnails({ read: async () => null });
+    const remote = phone({ invite: host.invite() });
+    await settle();
+    await host.approve(host.pending[0]!.connection);
+    await settle();
+    const name = 'deck-0f8fad5b-d9cb-469f-a165-70867728950e-001-t.jpg';
+    remote.say({ type: 'thumbnail', name });
+    await settle();
+    expect(remote.socket.last()).toEqual({ type: 'thumbnail', name, missing: true });
+  });
+
+  it('drops an ask for anything but a thumbnail’s name', async () => {
+    const { host, desktop, phone } = await setup();
+    const laptop = desktop('Laptop');
+    host.setThumbnails({ read: async () => 'x' });
+    const remote = phone({ invite: host.invite() });
+    await settle();
+    const before = laptop.socket.received.length;
+    remote.say({ type: 'thumbnail', name: '../../instance.db' });
+    await settle();
+    expect(laptop.socket.received).toHaveLength(before);
+  });
+});

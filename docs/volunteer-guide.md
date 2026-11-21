@@ -1,8 +1,10 @@
 # Worship Q — Volunteer Guide
 
-Everything stays on this computer. You need no account and no internet. If your church runs a
-Worship Q server, several computers and phones can share one presentation; see **Several
-computers** below.
+Everything stays on this computer. You need no account and no internet to plan and present.
+Phones, Bible passages and slides from PowerPoint or PDF go through the free Worship Q public
+server, which keeps nothing, the first time you use them; that needs the internet. If your
+church runs its own Worship Q server, several computers share one presentation and its songs;
+see **Several computers** below.
 
 ## 1. Add a song
 
@@ -69,14 +71,18 @@ mid-service, reopening Worship Q carries on where it was.
 
 ## Slides, PDFs, photos and videos
 
-These need your church's Worship Q server (see **Several computers**).
+Without a church server, **videos stay on this computer**: Worship Q keeps a copy and needs no
+internet for them. **Slides, PDFs and photos** are made by the free Worship Q public server,
+which keeps nothing once this computer has them; another computer cannot fetch them later,
+and **Download original** and **Reconvert** are not offered. A church server keeps both for
+every computer of the workspace.
 
 - **Add them** from **Library → Media → Add media…**, with **Media…** next to the song search
   of a run sheet (added at the end), or by dragging files from Finder or Explorer onto a run
   sheet: a blue line shows where they will land. Several files at once are fine.
 - **Two bars.** First a bar fills as the file is sent, with its percentage. Slides, PDFs and
-  photos then show moving stripes while the church server works on them. Videos are ready as
-  soon as they are sent. In a run sheet the bars are on the item itself; in the library they
+  photos then show moving stripes while the server works on them. Videos are ready as soon as
+  they are sent, or at once without a church server. In a run sheet the bars are on the item itself; in the library they
   are under the search box. You can move to another page meanwhile. ✕ cancels while
   sending; if something goes wrong, the reason shows with **Try again**.
 - **Too big?** The message says how big the file is and what the server accepts. Export a
@@ -85,19 +91,29 @@ These need your church's Worship Q server (see **Several computers**).
   photo as JPEG first, or set the iPhone to **Settings → Camera → Formats → Most
   Compatible**.
 - **The ⋯ menu** on each run sheet item has **Edit…** (lyrics, a title, or a video's title
-  and **Autoplay**), **Download original**, **Upload new version…** and **Remove**. A new
+  and **Autoplay**), **Download original**, **Upload new version…** (**Use new version…** for
+  a video without a church server) and **Remove**. A new
   version keeps the item's title and its place in every run sheet; if it fails, nothing
   changes.
 
 ### Videos
 
-Every computer downloads the videos of today's and upcoming run sheets ahead of time; a
-violet bar on the item shows it, and nothing streams during the service. A video item starts
+With a church server, every computer downloads the videos of today's and upcoming run sheets
+ahead of time; a violet bar on the item shows it, and nothing streams during the service. A video item starts
 paused, unless **Autoplay** is on in its Edit window. While a video is live, a control bar
 above the slides plays, pauses and moves through it, and phones get the same bar. The keys
 change too: Space plays or pauses and ↑ and ↓ jump 10 seconds back and forward. ← and →
 move to another item as usual, and Enter presents the next item. Leave a video for a reading and come back: it carries on where it was. Blanking
 pauses it; showing the screen again carries on. Going live with another run sheet forgets where videos were.
+
+**Old videos.** Half an hour after Worship Q opens, it removes copies of videos used only by
+past run sheets, or by no item any more. A copy your church server also has goes without a
+word: it comes back when a run sheet needs it. A copy only this computer has is never removed
+without asking: a banner says how much space such videos use, with **Review…**, which lists
+them, each with **Open** to play it, and **Dismiss**. Untick what you want to keep and choose
+**Remove selected**. Only Worship Q's copy is deleted, never the file you added it from. A
+video you keep is not offered again for 30 days, and the banner waits until such videos use
+at least 100 MB.
 
 Video sound plays from the slideshow window. Choose where under **Settings → Audio on
 this computer**; the app asks once to use the microphone, which it only uses to list your
@@ -135,7 +151,9 @@ beside the song search on the Present page (or in the calendar's run sheet edito
   choose **Slideshow background** to use the workspace's.
 - Passages are **not shown on the subtitle overlay**. To show one on the stream, switch OBS to
   a scene with the slides.
-- New passages need the church server; passages already in a run sheet present offline.
+- New passages need the internet: through your church's server, or without one through the
+  free Worship Q public server, which offers the versions that need no key (such as KJV, BSB
+  and the Chinese Union Version). Passages already in a run sheet present offline.
 - On a **phone**, **Edit → Add a Bible passage** does the same, except editing a passage
   already added. A reference typed into the phone's library search offers **Open … in the
   Bible** too.
@@ -194,6 +212,10 @@ Open the phone icon at the bottom of the sidebar on any computer. A phone that s
 code asks for control and shows a four-digit code; approve it when the code matches. The
 phone then works with every computer of the workspace until someone chooses **Disconnect**
 or **Disconnect all**.
+
+Without a church server, phones connect through the free Worship Q public server, so the
+computer and the phones need the internet. Two phones can be connected at a time, and two can
+listen to live audio.
 
 ## OBS
 

@@ -33,11 +33,12 @@ different from the speaker's Bible. The projector never shows these notes.
 
 ## Which versions
 
-Bible passages come through your church's free Worship Q server
-([setup](/server/#bible-passages)). With no key at all it offers the King James Version, the
-Berean Standard Bible and the Chinese Union Version, among others. With the church's own
-free keys it adds versions such as the NIV (Anglicised), the NKJV, the NLT and the ESV. The
-church chooses which versions to offer, and each workspace shows up to two.
+Without a church server, Bible passages come through the free Worship Q public server, with
+nothing to set up: it offers the versions that need no key, such as the King James Version,
+the Berean Standard Bible and the Chinese Union Version. Your church's own free Worship Q
+server ([setup](/server/#bible-passages)) offers the same, and with the church's own free
+keys adds versions such as the NIV (Anglicised), the NKJV, the NLT and the ESV. The church
+chooses which versions to offer, and each workspace shows up to two.
 
 Passages already in a run sheet present without internet.
 

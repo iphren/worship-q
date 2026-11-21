@@ -16,6 +16,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Must match `PROTOCOL_HEADER` in the protocol package; see `cloud.rs` for the version.
 const PROTOCOL_HEADER: &str = "x-worship-q-protocol";
+/// Must match `INSTALL_HEADER` in the protocol package: names this copy of the app to the
+/// public server, for its limits, and to no other server (public server S2).
+const INSTALL_HEADER: &str = "x-worship-q-install";
 const PROTOCOL_VERSION: &str = "2";
 /// The event each transfer reports its progress with.
 pub const PROGRESS_EVENT: &str = "media-progress";
@@ -114,6 +117,7 @@ impl<R: Read, F: FnMut(u64, u64)> Read for Counting<R, F> {
 
 fn client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
+        .user_agent(crate::USER_AGENT)
         .connect_timeout(Duration::from_secs(15))
         // A 200 MB video on a slow venue connection.
         .timeout(Duration::from_secs(60 * 60))
@@ -126,7 +130,8 @@ fn client() -> Result<reqwest::blocking::Client, String> {
 /// `refused:<code>:<message>` with the instance's reason (its `reason` code, else its `error`
 /// code, for the interface to translate; the message for when it cannot), `connection-closed`
 /// when the connection broke while sending, and `cancelled`, `unauthorized`, `update-needed`,
-/// `decks-unavailable`, `not-found` or `server answered <status>` otherwise.
+/// `decks-unavailable`, `not-found` or `server answered <status>` otherwise. The public
+/// server's limits are `rate-limited:<seconds>` and `busy:<seconds>`, the wait it asked for.
 fn answer_error(status: u16, body: &str) -> String {
     let json = serde_json::from_str::<serde_json::Value>(body).ok();
     let field = |name: &str| {
@@ -141,6 +146,18 @@ fn answer_error(status: u16, body: &str) -> String {
         401 => "unauthorized".into(),
         426 => "update-needed".into(),
         501 => "decks-unavailable".into(),
+        429 => format!(
+            "rate-limited:{}",
+            json.as_ref()
+                .and_then(|v| v["retryAfter"].as_u64())
+                .unwrap_or(0)
+        ),
+        503 if field("error").as_deref() == Some("busy") => format!(
+            "busy:{}",
+            json.as_ref()
+                .and_then(|v| v["retryAfter"].as_u64())
+                .unwrap_or(0)
+        ),
         404 => field("error").unwrap_or_else(|| "not-found".into()),
         400 | 422 => match field("message") {
             Some(message) => {
@@ -170,6 +187,7 @@ fn send_error(error: reqwest::Error, cancelled: &AtomicBool) -> String {
 pub fn upload_file(
     url: &str,
     token: &str,
+    install: Option<&str>,
     source: &Path,
     cancelled: Arc<AtomicBool>,
     report: impl FnMut(u64, u64) + Send + 'static,
@@ -177,11 +195,15 @@ pub fn upload_file(
     let file = File::open(source).map_err(|e| format!("file: {e}"))?;
     let total = file.metadata().map_err(err)?.len();
     let reader = Counting::new(file, total, cancelled.clone(), report);
-    let response = client()?
+    let mut request = client()?
         .post(url)
         .bearer_auth(token)
         .header(PROTOCOL_HEADER, PROTOCOL_VERSION)
-        .header("content-type", "application/octet-stream")
+        .header("content-type", "application/octet-stream");
+    if let Some(install) = install {
+        request = request.header(INSTALL_HEADER, install);
+    }
+    let response = request
         .body(reqwest::blocking::Body::sized(reader, total))
         .send()
         .map_err(|e| send_error(e, &cancelled))?;
@@ -285,6 +307,7 @@ pub async fn upload_media(
     route: String,
     source: String,
     name: String,
+    install: Option<String>,
 ) -> Result<String, String> {
     if !["images", "videos", "decks"].contains(&route.as_str()) {
         return Err(format!("unknown route {route}"));
@@ -295,7 +318,14 @@ pub async fn upload_media(
     let cancelled = transfers.start(&upload_id);
     let report = emitter(&app, &upload_id);
     let result = tauri::async_runtime::spawn_blocking(move || {
-        upload_file(url.as_str(), &token, Path::new(&source), cancelled, report)
+        upload_file(
+            url.as_str(),
+            &token,
+            install.as_deref(),
+            Path::new(&source),
+            cancelled,
+            report,
+        )
     })
     .await
     .map_err(err)
@@ -402,6 +432,23 @@ pub fn list_videos(data: State<'_, AppData>) -> Vec<String> {
         .filter_map(|e| e.ok()?.file_name().into_string().ok())
         .filter(|name| checked_video(name).is_ok())
         .collect()
+}
+
+/// Opens this computer's copy of a video in the system's video player, so the operator can
+/// see what it is before removing it (U30). Only a copy in the app's own folder, by its name.
+#[tauri::command]
+pub fn open_video(data: State<'_, AppData>, file: String) -> Result<(), String> {
+    let path = videos_dir(&data).join(checked_video(&file)?);
+    if !path.is_file() {
+        return Err("not-found".into());
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("/usr/bin/open");
+    #[cfg(target_os = "windows")]
+    let mut command = std::process::Command::new("explorer.exe");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = std::process::Command::new("xdg-open");
+    command.arg(&path).spawn().map(|_| ()).map_err(err)
 }
 
 /// Deletes this computer's copy of a video, and any half-fetched one.
@@ -562,6 +609,25 @@ mod tests {
     }
 
     #[test]
+    fn upload_names_the_app_in_its_user_agent() {
+        // Firewalls in front of a server (AWS WAF's managed rules) block requests without one.
+        let source = temp_file("slides.pdf", b"%PDF-1.4");
+        let (address, server) = serve_once(200, "{}");
+        upload_file(
+            &format!("{address}/api/v1/decks?name=slides.pdf"),
+            "token",
+            None,
+            &source,
+            Arc::new(AtomicBool::new(false)),
+            |_, _| {},
+        )
+        .unwrap();
+        let (head, _) = server.join().unwrap();
+        let expected = format!("user-agent: worshipq/{}\r\n", env!("CARGO_PKG_VERSION"));
+        assert!(head.to_ascii_lowercase().contains(&expected), "{head}");
+    }
+
+    #[test]
     fn upload_reports_progress_in_order_up_to_the_total() {
         let bytes = vec![7u8; 3 * 1024 * 1024];
         let source = temp_file("clip.mp4", &bytes);
@@ -571,6 +637,7 @@ mod tests {
         let answer = upload_file(
             &format!("{address}/api/v1/videos?name=clip.mp4"),
             "token",
+            None,
             &source,
             Arc::new(AtomicBool::new(false)),
             move |sent, total| seen.lock().unwrap().push((sent, total)),
@@ -601,6 +668,7 @@ mod tests {
         upload_file(
             &format!("{address}/api/v1/images"),
             "t",
+            None,
             &source,
             Arc::new(AtomicBool::new(false)),
             move |sent, total| seen.lock().unwrap().push((sent, total)),
@@ -630,6 +698,7 @@ mod tests {
         let result = upload_file(
             &format!("{address}/api/v1/videos"),
             "t",
+            None,
             &source,
             cancelled,
             |_, _| {},
@@ -665,6 +734,16 @@ mod tests {
         );
         assert_eq!(answer_error(401, ""), "unauthorized");
         assert_eq!(answer_error(501, ""), "decks-unavailable");
+        // The public server's limits, with the wait it asked for (public server M5.5).
+        assert_eq!(
+            answer_error(429, r#"{"error":"rate-limited","retryAfter":3600}"#),
+            "rate-limited:3600"
+        );
+        assert_eq!(
+            answer_error(503, r#"{"error":"busy","retryAfter":30}"#),
+            "busy:30"
+        );
+        assert_eq!(answer_error(503, ""), "server answered 503");
         assert_eq!(answer_error(500, ""), "server answered 500");
     }
 
@@ -675,6 +754,7 @@ mod tests {
         let result = upload_file(
             &format!("{address}/api/v1/videos"),
             "t",
+            None,
             &source,
             Arc::new(AtomicBool::new(false)),
             |_, _| {},

@@ -101,7 +101,7 @@ export function footer(locale: SiteLocale = 'en'): string {
   return `<footer class="grid gap-6 border-t border-slate-800 py-8 text-sm text-slate-400 sm:grid-cols-3">
   <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.features}</span>${FEATURE_PAGES.map((path) => link(path, words.featurePages[path] ?? path)).join('')}</div>
   <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.help}</span>${link('/guide/', f.guide)}${link('/server/', f.server)}${link('/compare/', f.compare)}${link('/releases/', f.releases)}</div>
-  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.project}</span>${link(REPO_URL, f.source)}${link(`${REPO_URL}/blob/main/LICENSE`, f.licence)}${link('/llms.txt', f.llms, false)}</div>
+  <div class="flex flex-col gap-2"><span class="font-medium text-slate-300">${f.project}</span>${link(REPO_URL, f.source)}${link(`${REPO_URL}/blob/main/LICENSE`, f.licence)}${link('/privacy/', f.privacy)}${link('/llms.txt', f.llms, false)}</div>
 </footer>`;
 }
 

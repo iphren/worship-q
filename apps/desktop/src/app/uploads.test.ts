@@ -2,6 +2,7 @@ import type { Deck, Song, SongFields } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import type { MediaOffer } from './media';
 import {
+  localVideoName,
   MediaUploads,
   refusalMessage,
   uploadMessage,
@@ -33,7 +34,15 @@ const deckAnswer = (source: string, kind?: 'image'): string =>
 const flush = () => new Promise((done) => setTimeout(done, 0));
 
 function harness(
-  options: { platform?: string; offer?: MediaOffer | null; sizes?: Record<string, number> } = {},
+  options: {
+    platform?: string;
+    offer?: MediaOffer | null;
+    sizes?: Record<string, number>;
+    /** No church server: videos stay on this computer. */
+    localVideos?: boolean;
+    /** Confirming a deck fails, as when the public server cannot be reached. */
+    confirmFails?: boolean;
+  } = {},
 ) {
   let n = 0;
   const sending: Sending[] = [];
@@ -42,6 +51,8 @@ function harness(
   const editable = new Set(['2026-11-08']);
   const removedTemps: string[] = [];
   const stored: string[] = [];
+  const storedAs: string[] = [];
+  const confirmed: string[] = [];
   const fetched: string[] = [];
   const cancelledIds: string[] = [];
   const probes: Record<string, { durationSeconds: number; width: number; height: number } | Error> =
@@ -87,6 +98,11 @@ function harness(
     platform: options.platform ?? 'macos',
     offer: () => offer,
     credentials: () => credentials,
+    localVideos: () => options.localVideos ?? false,
+    confirmDeck: async (_credentials, deck) => {
+      if (options.confirmFails) throw new Error('offline');
+      confirmed.push(deck.source);
+    },
     fileSize: async (path) => {
       if (path.includes('missing')) throw new Error('file: not found');
       return sizes[path] ?? 1000;
@@ -118,9 +134,10 @@ function harness(
       if (deck.source.includes('fetch-fails')) throw new Error('server answered 500');
       fetched.push(...deck.pages.map((p) => p.image));
     },
-    storeVideo: async (source) => {
+    storeVideo: async (source, file) => {
       if (source.includes('nocopy')) throw new Error('disk full');
       stored.push(source);
+      storedAs.push(file);
     },
     createSong: async (fields) => {
       const made = song(fields);
@@ -169,6 +186,8 @@ function harness(
     editable,
     removedTemps,
     stored,
+    storedAs,
+    confirmed,
     fetched,
     cancelledIds,
     probes,
@@ -602,5 +621,114 @@ describe('refusals from the server (translation plan T7)', () => {
     expect(refusalMessage('heic-unsupported:HEIC photos cannot be read here.')).toContain('HEIC');
     expect(refusalMessage('conversion-failed:LibreOffice: no.')).toBe('LibreOffice: no.');
     expect(refusalMessage('Bad file.')).toBe('Bad file.');
+  });
+});
+
+describe('videos without a church server (public server M1.1)', () => {
+  it('copies and names a video here, sending nothing, and makes the item', async () => {
+    const h = harness({ localVideos: true });
+    h.deps.credentials = () => null;
+    h.uploads.add(['/videos/Welcome.MOV'], { kind: 'library' });
+    await flush();
+    await flush();
+    expect(h.sending).toHaveLength(0);
+    expect(h.stored).toEqual(['/videos/Welcome.MOV']);
+    expect(h.storedAs[0]).toMatch(/^video-u\d+\.mov$/);
+    const done = h.uploads.list[0]!.stage;
+    expect(done.kind).toBe('done');
+    const song = h.songs.get((done as { songId: string }).songId)!;
+    expect(song.video).toMatchObject({
+      file: h.storedAs[0],
+      source: 'Welcome.MOV',
+      bytes: 1000,
+      durationSeconds: 30,
+    });
+  });
+
+  it('refuses a video this computer cannot play, copying nothing', async () => {
+    const h = harness({ localVideos: true });
+    h.probes['/videos/av1.mp4'] = new Error('no');
+    h.uploads.add(['/videos/av1.mp4'], { kind: 'library' });
+    await flush();
+    await flush();
+    expect(h.stored).toHaveLength(0);
+    expect(h.uploads.list[0]!.stage.kind).toBe('failed');
+  });
+
+  it('refuses an empty file, and one that was moved', async () => {
+    const h = harness({ localVideos: true, sizes: { '/v/empty.mp4': 0 } });
+    h.uploads.add(['/v/empty.mp4', '/v/missing.mp4'], { kind: 'library' });
+    await flush();
+    await flush();
+    await flush();
+    expect(h.uploads.list.map((u) => u.stage.kind)).toEqual(['failed', 'failed']);
+    expect(h.stored).toHaveLength(0);
+  });
+
+  it('creates nothing when the copy could not be kept', async () => {
+    const h = harness({ localVideos: true });
+    h.uploads.add(['/v/nocopy.mp4'], { kind: 'library' });
+    await flush();
+    await flush();
+    expect(h.songs.size).toBe(0);
+    expect(h.uploads.list[0]!.stage.kind).toBe('failed');
+  });
+
+  it('places it in a run sheet and replaces a video item’s file, keeping Autoplay', async () => {
+    const h = harness({ localVideos: true });
+    h.uploads.add(['/v/a.mp4'], { kind: 'runSheet', date: '2026-11-08' });
+    await flush();
+    await flush();
+    const songId = (h.uploads.list[0]!.stage as { songId: string }).songId;
+    expect(h.runSheets.get('2026-11-08')?.[0]?.songId).toBe(songId);
+    await h.deps.saveSong(songId, {
+      video: { ...h.songs.get(songId)!.video!, autoplay: true },
+    });
+    h.uploads.add(['/v/b.mp4'], { kind: 'newVersion', songId });
+    await flush();
+    await flush();
+    const song = h.songs.get(songId)!;
+    expect(song.video?.source).toBe('b.mp4');
+    expect(song.video?.autoplay).toBe(true);
+    expect(h.storedAs).toHaveLength(2);
+  });
+
+  it('still sends slide decks to the server', async () => {
+    const h = harness({ localVideos: true });
+    h.uploads.add(['/d/talk.pptx'], { kind: 'library' });
+    await flush();
+    expect(h.sending).toHaveLength(1);
+  });
+
+  it('names a copy as a server would, lower case', () => {
+    expect(localVideoName('ABCDEF00-0000-4000-8000-000000000000', 'C:\\v\\Clip.MP4')).toBe(
+      'video-abcdef00-0000-4000-8000-000000000000.mp4',
+    );
+  });
+});
+
+describe('confirming a deck to the public server (M3.9)', () => {
+  it('confirms once every image is here, then makes the item', async () => {
+    const h = harness();
+    h.uploads.add(['/d/talk.pptx'], { kind: 'library' });
+    await h.complete(deckAnswer('talk'));
+    expect(h.fetched).toEqual(['deck-talk-001.jpg']);
+    expect(h.confirmed).toEqual(['talk']);
+    expect(h.uploads.list[0]!.stage.kind).toBe('done');
+  });
+
+  it('makes the item even when confirming fails', async () => {
+    const h = harness({ confirmFails: true });
+    h.uploads.add(['/d/talk.pptx'], { kind: 'library' });
+    await h.complete(deckAnswer('talk'));
+    expect(h.uploads.list[0]!.stage.kind).toBe('done');
+  });
+
+  it('confirms nothing when fetching the images failed', async () => {
+    const h = harness();
+    h.uploads.add(['/d/fetch-fails.pptx'], { kind: 'library' });
+    await h.complete(deckAnswer('fetch-fails'));
+    expect(h.confirmed).toEqual([]);
+    expect(h.songs.size).toBe(0);
   });
 });

@@ -1,7 +1,7 @@
 # Worship Q — Public Server Task Breakdown
 
 **Drafted:** 18 November 2026  
-**Status:** Not started. Of the decisions added here (§1), S1, S3–S6, S10 and S11 were made by the project owner on 18 November 2026; S2 and S7–S9 are proposed.  
+**Status:** M1–M6, M6b and M8 built on the `public-server` branch on 18 November 2026, with their tests; M7's files (the Compose file, the guide to running it) are written, its infrastructure (host, CloudFront, monitoring) and privacy notice are not; the M9 walkthrough waits for a deployed public server. Of the decisions added here (§1), S1, S3–S6, S10 and S11 were made by the project owner on 18 November 2026; S2 and S7–S9 were built as proposed. §7 lists where the build differs from the tasks.  
 **Source:** the [Public Server Plan](public-server-plan.md) (P1–P6, the rule in §3), referred to here as "the plan"; the [technical discovery](public-server-discovery.md), referred to as "the discovery", with the owner's decisions of 18 November 2026 (§8 there); the [Media Uploads Plan](media-uploads-plan.md) (U26, U29, U30); and the code at version 2.10.1 (protocol version 8, minimum 2).
 
 ## 1. How to read this
@@ -169,9 +169,9 @@ Everywhere the site, the README and the app's descriptions say a feature needs a
 | --- | --- | --- | --- | --- | --- |
 | M7.1 | Compose for public mode: the same image, `WORSHIP_Q_PUBLIC=1`, no local API port, limits in `.env` | `apps/server/compose.public.yaml` or a profile | M2 | `docker compose config` in CI | — |
 | M7.2 | TURN for the public relay: wide port range, `user-quota=2`, `total-quota`, own host or managed service; `WORSHIP_Q_TURN_*` set | compose, `docs/server-deployment.md` | M7.1 | Manual: a `relay` candidate from Trickle ICE | — |
-| M7.3 | Host, TLS, CloudFront as for a church server; `/` explains the public server in one sentence | infrastructure; `app.ts` | M7.1 | Manual: `curl /api/v1/info` shows `public: true` | — |
+| M7.3 | Host, TLS, CloudFront before nginx (decided 20 November 2026), `WORSHIP_Q_PUBLIC_PROXY_HOPS=2`, nginx refusing requests without CloudFront's origin header; `/` explains the public server in one sentence | infrastructure; `app.ts` | M7.1 | Manual: `curl /api/v1/info` shows `public: true` | — |
 | M7.4 | Monitoring: up check, disk, conversion queue length, relay connections, 429 counts | infrastructure | M7.3 | — | Alerts reach the owner |
-| M7.5 | Privacy notice on the website: what passes through, the deletion rule, logs, where it runs; English page, and the Chinese pages under `/zh-hans/` and `/zh-hant/` only | `apps/website` | M2.10 | — | Linked from the app's one-computer notes |
+| M7.5 | Privacy notice on the website: what passes through, the deletion rule, logs, where it runs; English page, and the Chinese pages under `/zh-hans/` and `/zh-hant/` only | `apps/website`, `PrivacyLink.tsx`, `open_privacy` in `lib.rs` | M2.10 | `website_pages_follow_the_interface_language` | Linked from the app's one-computer notes |
 
 ### M8 — Joining a church later (M)
 
@@ -223,6 +223,7 @@ Rules: once per launch, 30 minutes after it opens; only copies used by past run 
 - A video both on last week's and next week's run sheets: kept.
 - A video on no run sheet (just added to the library): kept, however old.
 - A song deleted: its copy is a candidate (b). The song restored from history before the moment: kept.
+- A song deleted but still on a current, upcoming or live run sheet, which presents it marked removed: kept.
 - **Use new version…** or **Upload new version…** replaced a file: the old file is a candidate (b); the new one is not.
 - A copy named by two songs, one deleted: kept while the other uses it as U29 allows.
 - Today's run sheet, the app open across midnight: nothing removed during that run.
@@ -506,3 +507,18 @@ Five tasks can begin on day one: M1.1, M1.3, M2.1, M3.1 and M4.2.
 | A swept workspace loses phones' approvals | M3.8 | Only after 90 days unseen; the desktop rejoins by itself; phones ask again |
 | The website promises features before the release that delivers them | M6b | Kept on a branch, merged with the release |
 | Users treat the public server as backup | M6.2, M7.5 | One-computer notes where media and Bible are added; privacy notice; the plan's §5 in the guide |
+
+## 7. Where the build differs
+
+Built on 18 November 2026; each point is what the code does, and why.
+
+- **S2, the install identifier,** is kept in the webview's storage (`worship-q.install`), not in the app's data folder: the storage is shared by every local workspace and survives restarts, and no native code is needed. A cleared webview makes a new one, which only resets that copy's counts.
+- **S6:** with no `bibleVersions` set, a public server offers every version a provider serves without a key, rather than none; nothing needs setting with the CLI.
+- **M2.3** is an allowlist (`PUBLIC_ROUTES` in `apps/server/src/public.ts`), checked before any handler: a route added later is off in public mode until listed.
+- **M3.6:** sharing OBS with phones joins nothing by itself; phones reach OBS only once the phone panel has joined the public server.
+- **M5.5:** a Bible request over the public server's hourly limit shows as the Bible being unavailable, without the wait: the phone and window share one error code, unchanged.
+- **M7.2:** coturn's `user-quota` is not used: the relay's credentials are named by their expiry time, shared by every device, so it would limit everyone together. The relay's own limit of two listeners per workspace, coturn's `total-quota` and `max-bps` bound it instead.
+- **M7.5,** the privacy notice, is written at `/privacy/` (20 November 2026: AWS London, IHS Technology as controller, logs deleted after 14 days through journald), linked from the footer and the FAQ; the link from the app's one-computer notes is not made yet.
+- **M8.3:** the small copy is made when a slide image arrives without one, as the desktop sends each image before its small copy.
+- **Phones over the limit** see a page saying how many phones the public server allows, and connect by themselves when one leaves.
+

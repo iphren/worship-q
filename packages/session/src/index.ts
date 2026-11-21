@@ -1369,6 +1369,13 @@ export class Session {
     });
   }
 
+  /** Names a workspace kept only on this computer; once joined, the church names it. */
+  setWorkspaceName(name: string): Promise<void> {
+    return this.mutate(async () => {
+      this.workspace_ = await this.store.setWorkspaceName(this.workspace_.id, name.trim());
+    });
+  }
+
   setMeetingDays(days: readonly number[]): Promise<void> {
     return this.mutate(async () => {
       this.workspace_ = await this.store.setMeetingDays(this.workspace_.id, days);

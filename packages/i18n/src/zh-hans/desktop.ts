@@ -283,8 +283,8 @@ export const desktop: Record<DesktopKey, string> = {
   'workspaces.title': '这台电脑上的工作区',
   'workspaces.hint':
     '每个工作区有自己的诗歌、流程表、设置和教会连接。切换时 Worship Q 会重新打开。',
-  'workspaces.unnamed': '新工作区',
-  'workspaces.local': '未连接',
+  'workspaces.rename': '重命名…',
+  'workspaces.name': '工作区名称',
   'workspaces.connect': '连接…',
   'workspaces.switch': '切换',
   'workspaces.add': '添加工作区',
@@ -772,4 +772,47 @@ export const desktop: Record<DesktopKey, string> = {
   'menu.zoom': '缩放',
   'menu.help': '帮助',
   'menu.guide': '同工操作指南',
+
+  // The public server and old videos (public server plan, U30).
+  'church.publicServer':
+    '这是 Worship Q 公共服务器。没有教会服务器的工作区已经在使用它，无需连接。若要在多台电脑之间共享诗歌，请使用教会自己的服务器。',
+  'public.problem': '无法连接公共服务器',
+  'public.unreachable':
+    '无法连接 Worship Q 公共服务器：手机、经文查询和新幻灯片需等连接恢复后才能使用。请检查这台电脑的网络。投影不受影响。',
+  'public.updateNeeded': '请更新 Worship Q 后再使用公共服务器。',
+  'public.privacy': '隐私说明',
+  'workspaces.public': '已连接公共服务器',
+  'remote.joiningPublic': '正在连接 Worship Q 公共服务器…',
+  'remote.publicUnreachable':
+    '无法连接 Worship Q 公共服务器，手机暂时无法连接。请检查这台电脑的网络。',
+  'remote.publicNote':
+    '手机通过免费的 Worship Q 公共服务器连接，因此需要互联网。最多同时连接 {phones} 部手机；服务器上不保留任何内容。',
+  'bible.publicNote':
+    '经文由免费的 Worship Q 公共服务器提供，可使用无需密钥的译本。NIV、ESV 等译本需要教会自己的服务器。',
+  'media.useNewVersion': '使用新版本',
+  'media.oneComputer':
+    '视频只保存在这台电脑上。幻灯片由免费的 Worship Q 公共服务器转换，服务器不保留任何内容：其他电脑之后无法获取。',
+  'media.publicUnreachable':
+    '无法连接 Worship Q 公共服务器，暂时无法转换幻灯片。请检查这台电脑的网络后重试。',
+  'media.publicLimit':
+    '这台电脑今天添加的幻灯片和图片已达公共服务器的上限。请在 {hours} 小时后重试，或使用教会自己的服务器。',
+  'media.publicBusy': '公共服务器正在转换其他幻灯片。请稍后重试。',
+  'video.goneHere': '这个视频已不在这台电脑上。请用“使用新版本”重新添加文件。',
+  'cleanup.banner': '只存在于这台电脑上的旧视频占用了 {size}。删除它们可以释放空间。',
+  'cleanup.review': '查看',
+  'cleanup.dismiss': '忽略',
+  'cleanup.title': '这台电脑上的旧视频',
+  'cleanup.intro':
+    '这些视频只在过去的流程表中，或不在任何项目中，而且只有这台电脑上有副本。删除只会删掉 Worship Q 的副本，不会动你当初添加的文件。',
+  'cleanup.selectAll': '全选',
+  'cleanup.selectNone': '全不选',
+  'cleanup.total': '已选：{size}',
+  'cleanup.remove': '删除所选',
+  'cleanup.open': '打开',
+  'cleanup.openFailed': '无法打开这个副本。',
+  'cleanup.freed': '已释放 {size} 磁盘空间。',
+  'cleanup.failed': '有 {count} 个无法删除。',
+  'cleanup.needed': '有 {count} 个已保留，因为现在有流程表在使用它。',
+  'cleanup.gb': '{size} GB',
+  'cleanup.mb': '{size} MB',
 };

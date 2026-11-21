@@ -75,6 +75,31 @@ export interface FileTransfer {
   download(fileName: string): Promise<void>;
   /** Of the given files, those this device does not have. */
   missing(fileNames: string[]): Promise<string[]>;
+  /**
+   * Sends the media files songs name that the instance does not have yet: slide images,
+   * their small copies and video copies made without a church server (public server M8).
+   * Each file on its own; one that fails is skipped, so joining still completes.
+   */
+  uploadMedia?(fileNames: string[]): Promise<void>;
+}
+
+/**
+ * The files a song record's media names: each slide's image and small copy, and its video
+ * (public server M8).
+ */
+export function songMediaFiles(record: SyncRecord): string[] {
+  if (record.kind !== 'song' || record.data.removedAt) return [];
+  const data = record.data as {
+    deck?: { pages?: { image?: unknown; thumbnail?: unknown }[] } | null;
+    video?: { file?: unknown } | null;
+  };
+  const files: string[] = [];
+  for (const page of data.deck?.pages ?? []) {
+    if (typeof page.image === 'string') files.push(page.image);
+    if (typeof page.thumbnail === 'string') files.push(page.thumbnail);
+  }
+  if (typeof data.video?.file === 'string') files.push(data.video.file);
+  return files;
 }
 
 export class UpdateNeededError extends Error {
@@ -317,7 +342,13 @@ export class SyncClient {
     // Changes made from here on are pushed next time.
     const through = this.now();
     const records = await this.sync.localChanges(workspaceId, state.pushedThrough);
-    // Files first, so that no device learns of a background before it can fetch it.
+    // Files first, so that no device learns of a background before it can fetch it. On the
+    // first push after joining, also the media this computer made without a church server,
+    // which the instance has never had (public server M8).
+    if (state.pushedThrough === null && this.files.uploadMedia) {
+      const media = [...new Set(records.flatMap(songMediaFiles))];
+      if (media.length > 0) await this.files.uploadMedia(media);
+    }
     for (const record of records) {
       if (record.kind === 'background' && !record.data.removedAt) {
         const fileName = String(record.data.fileName);
@@ -427,6 +458,8 @@ export class SyncClient {
       lastError: null,
       manageLibrary: null,
       manageLibraryTypes: null,
+      // A church's connection replaces the public server's (public server M3.11).
+      publicServer: false,
     });
   }
 

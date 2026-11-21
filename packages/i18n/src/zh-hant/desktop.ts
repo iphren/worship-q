@@ -274,8 +274,8 @@ export const desktop: Record<DesktopKey, string> = {
   'workspaces.title': '這台電腦上的工作區',
   'workspaces.hint':
     '每個工作區有自己的詩歌、流程表、設定和教會連線。切換時 Worship Q 會重新開啟。',
-  'workspaces.unnamed': '新工作區',
-  'workspaces.local': '未連線',
+  'workspaces.rename': '重新命名…',
+  'workspaces.name': '工作區名稱',
   'workspaces.connect': '連線…',
   'workspaces.switch': '切換',
   'workspaces.add': '新增工作區',
@@ -753,4 +753,47 @@ export const desktop: Record<DesktopKey, string> = {
   'menu.zoom': '縮放',
   'menu.help': '輔助說明',
   'menu.guide': '同工操作指南',
+
+  // The public server and old videos (public server plan, U30).
+  'church.publicServer':
+    '這是 Worship Q 公共伺服器。沒有教會伺服器的工作區已經在使用它，不需要連線。若要在多台電腦之間共享詩歌，請使用教會自己的伺服器。',
+  'public.problem': '無法連線公共伺服器',
+  'public.unreachable':
+    '無法連線 Worship Q 公共伺服器：手機、經文查詢和新投影片需等連線恢復後才能使用。請檢查這台電腦的網路。投影不受影響。',
+  'public.updateNeeded': '請更新 Worship Q 後再使用公共伺服器。',
+  'public.privacy': '隱私說明',
+  'workspaces.public': '已連線公共伺服器',
+  'remote.joiningPublic': '正在連線 Worship Q 公共伺服器…',
+  'remote.publicUnreachable':
+    '無法連線 Worship Q 公共伺服器，手機暫時無法連線。請檢查這台電腦的網路。',
+  'remote.publicNote':
+    '手機透過免費的 Worship Q 公共伺服器連線，因此需要網際網路。最多同時連線 {phones} 支手機；伺服器上不保留任何內容。',
+  'bible.publicNote':
+    '經文由免費的 Worship Q 公共伺服器提供，可使用不需金鑰的譯本。NIV、ESV 等譯本需要教會自己的伺服器。',
+  'media.useNewVersion': '使用新版本',
+  'media.oneComputer':
+    '影片只保存在這台電腦上。投影片由免費的 Worship Q 公共伺服器轉換，伺服器不保留任何內容：其他電腦之後無法取得。',
+  'media.publicUnreachable':
+    '無法連線 Worship Q 公共伺服器，暫時無法轉換投影片。請檢查這台電腦的網路後重試。',
+  'media.publicLimit':
+    '這台電腦今天新增的投影片和圖片已達公共伺服器的上限。請在 {hours} 小時後重試，或使用教會自己的伺服器。',
+  'media.publicBusy': '公共伺服器正在轉換其他投影片。請稍後重試。',
+  'video.goneHere': '這個影片已不在這台電腦上。請用「使用新版本」重新加入檔案。',
+  'cleanup.banner': '只存在於這台電腦上的舊影片佔用了 {size}。刪除它們可以釋放空間。',
+  'cleanup.review': '檢視',
+  'cleanup.dismiss': '忽略',
+  'cleanup.title': '這台電腦上的舊影片',
+  'cleanup.intro':
+    '這些影片只在過去的流程表中，或不在任何項目中，而且只有這台電腦上有副本。刪除只會刪掉 Worship Q 的副本，不會動你當初加入的檔案。',
+  'cleanup.selectAll': '全選',
+  'cleanup.selectNone': '全不選',
+  'cleanup.total': '已選：{size}',
+  'cleanup.remove': '刪除所選',
+  'cleanup.open': '開啟',
+  'cleanup.openFailed': '無法開啟這個副本。',
+  'cleanup.freed': '已釋放 {size} 磁碟空間。',
+  'cleanup.failed': '有 {count} 個無法刪除。',
+  'cleanup.needed': '有 {count} 個已保留，因為現在有流程表在使用它。',
+  'cleanup.gb': '{size} GB',
+  'cleanup.mb': '{size} MB',
 };

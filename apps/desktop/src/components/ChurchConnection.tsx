@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { useApp, useCloud } from '../app/context';
 import type { JoinPreview } from '../app/cloud';
 import { canPair, joinMethod } from '../app/joinMethod';
+import { isPublicServer } from '../app/publicServer';
 import { intlLocale, t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
 import { ConfirmDialog, Dialog } from './Dialog';
@@ -52,6 +53,24 @@ export function useChurchProblem(): ChurchProblem | null {
   if (backup.kind === 'failed')
     return problem(t('church.problemBackup'), t('church.backupFailed', { error: backup.message }));
   return null;
+}
+
+/**
+ * What is wrong with the public server's connection (plan §2), as the church's problems are
+ * shown; null when connected, or when this workspace does not use the public server.
+ */
+export function usePublicProblem(): ChurchProblem | null {
+  const { state, relay } = useCloud();
+  if (!state?.publicServer || state.joinedAt) return null;
+  const problem = (summary: string, detail: string) => ({ summary, detail });
+  switch (relay.kind) {
+    case 'connected':
+      return null;
+    case 'update-needed':
+      return problem(t('church.problemAppUpdate'), t('public.updateNeeded'));
+    default:
+      return problem(t('public.problem'), t('public.unreachable'));
+  }
 }
 
 /** Settings section: connect to a church instance, or the state of the connection. */
@@ -107,6 +126,11 @@ function ConnectForm() {
     setError(null);
     try {
       const info = await cloud.probe(address);
+      // The public server cannot be joined: it is used already, by itself (S5, M3.10).
+      if (isPublicServer(info)) {
+        setError(t('church.publicServer'));
+        return;
+      }
       if (joinMethod(info) === 'pairing') await pair(info);
       else setStep({ kind: 'code', info });
     } catch (e) {

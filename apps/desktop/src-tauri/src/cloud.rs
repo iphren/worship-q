@@ -22,6 +22,7 @@ fn err(e: impl ToString) -> String {
 
 fn client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
+        .user_agent(crate::USER_AGENT)
         .connect_timeout(Duration::from_secs(15))
         // Videos can be large on a slow venue connection.
         .timeout(Duration::from_secs(60 * 30))
@@ -62,6 +63,22 @@ pub async fn upload_background(
     file_name: String,
 ) -> Result<(), String> {
     let path = backgrounds_dir(&data).join(checked_name(&file_name)?);
+    let url = format!("{server}/api/v1/files/{file_name}");
+    tauri::async_runtime::spawn_blocking(move || upload(url, token, path))
+        .await
+        .map_err(err)?
+}
+
+/// Sends this computer's copy of a video to the instance, when joining a church with videos
+/// added without one (public server M8).
+#[tauri::command(async)]
+pub async fn upload_video_copy(
+    data: State<'_, AppData>,
+    server: String,
+    token: String,
+    file_name: String,
+) -> Result<(), String> {
+    let path = crate::media::videos_dir(&data).join(crate::media::checked_video(&file_name)?);
     let url = format!("{server}/api/v1/files/{file_name}");
     tauri::async_runtime::spawn_blocking(move || upload(url, token, path))
         .await

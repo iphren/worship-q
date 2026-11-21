@@ -237,6 +237,52 @@ export class Instance {
     return this.addDevice(workspace.id, name, 'code', null);
   }
 
+  /**
+   * A public server's join (public server M2.5): a workspace of its own and one device in
+   * it, with no code and no administrator. The workspace's code is made and never shown.
+   */
+  joinPublic(): { device: DeviceRow; token: string; workspace: WorkspaceRow } {
+    return transaction(this.db, () => {
+      const { workspace } = this.createWorkspace('Public');
+      const { device, token } = this.addDevice(workspace.id, 'Worship Q', 'code', null);
+      return { device, token, workspace };
+    });
+  }
+
+  /**
+   * Forgets the workspaces none of whose devices was seen since `before` (public server S4),
+   * with everything they hold; returns their identifiers so their folders can go too. Only a
+   * public server calls this.
+   */
+  forgetIdleWorkspaces(before: string): string[] {
+    const ids = this.db
+      .prepare(
+        `SELECT id FROM workspace WHERE NOT EXISTS (
+           SELECT 1 FROM device WHERE device.workspace_id = workspace.id AND device.last_seen_at >= ?
+         )`,
+      )
+      .all(before)
+      .map((row) => text(row.id));
+    if (ids.length === 0) return ids;
+    transaction(this.db, () => {
+      for (const id of ids) {
+        for (const table of [
+          'live_snapshot',
+          'output_link',
+          'backup',
+          'record',
+          'audio_recording',
+          'presentation_log',
+          'device',
+        ]) {
+          this.db.prepare(`DELETE FROM ${table} WHERE workspace_id = ?`).run(id);
+        }
+        this.db.prepare('DELETE FROM workspace WHERE id = ?').run(id);
+      }
+    });
+    return ids;
+  }
+
   /** Why `enroll` refused a code, for the message shown on the device. */
   codeRefusal(code: string): 'invalid-code' | 'codes-off' {
     const workspace = this.workspaceByCode(code);

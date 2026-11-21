@@ -302,8 +302,8 @@ export const desktop = {
   'workspaces.title': 'Workspaces on this computer',
   'workspaces.hint':
     'Each workspace keeps its own songs, run sheets, settings and church connection. Switching reopens Worship Q.',
-  'workspaces.unnamed': 'New workspace',
-  'workspaces.local': 'Not connected',
+  'workspaces.rename': 'Rename…',
+  'workspaces.name': 'Workspace name',
   'workspaces.connect': 'Connect…',
   'workspaces.switch': 'Switch',
   'workspaces.add': 'Add workspace',
@@ -836,6 +836,50 @@ export const desktop = {
   'menu.zoom': 'Zoom',
   'menu.help': 'Help',
   'menu.guide': 'Volunteer Guide',
+
+  // The public server and old videos (public server plan, U30).
+  'church.publicServer':
+    'This is the Worship Q public server. Workspaces without a church server use it already, so there is nothing to connect. To share songs between computers, your church runs its own server.',
+  'public.problem': 'Public server not reachable',
+  'public.unreachable':
+    'The Worship Q public server cannot be reached: phones, Bible lookups and new slides wait until it can. Check this computer’s internet. Presenting carries on.',
+  'public.updateNeeded': 'Update Worship Q to use the public server.',
+  'public.privacy': 'Privacy',
+  'workspaces.public': 'Connected to the public server',
+  'remote.joiningPublic': 'Connecting to the Worship Q public server…',
+  'remote.publicUnreachable':
+    'The Worship Q public server cannot be reached, so phones cannot connect. Check this computer’s internet.',
+  'remote.publicNote':
+    'Phones connect through the free Worship Q public server, so they need the internet. Up to {phones} phones at a time; nothing is kept there.',
+  'bible.publicNote':
+    'Passages come through the free Worship Q public server, which offers the versions that need no key. NIV, ESV and others need your church’s own server.',
+  'media.useNewVersion': 'Use new version',
+  'media.oneComputer':
+    'Videos stay on this computer. Slides are made by the free Worship Q public server, which keeps nothing: other computers cannot fetch them later.',
+  'media.publicUnreachable':
+    'The Worship Q public server cannot be reached, so slides cannot be made. Check this computer’s internet and try again.',
+  'media.publicLimit':
+    'This computer has added as many slide decks and images today as the public server allows. Try again in {hours} h, or use your church’s own server.',
+  'media.publicBusy': 'The public server is busy making other slides. Try again in a minute.',
+  'video.goneHere':
+    'This video is no longer on this computer. Use new version to add the file again.',
+  'cleanup.banner': 'Old videos only on this computer use {size}. Remove them to free the space.',
+  'cleanup.review': 'Review',
+  'cleanup.dismiss': 'Dismiss',
+  'cleanup.title': 'Old videos on this computer',
+  'cleanup.intro':
+    'These videos are only in past run sheets, or in no item at all, and this computer has the only copy. Removing one deletes Worship Q’s copy: the file you added it from is not touched.',
+  'cleanup.selectAll': 'Select all',
+  'cleanup.selectNone': 'Select none',
+  'cleanup.total': 'Selected: {size}',
+  'cleanup.remove': 'Remove selected',
+  'cleanup.open': 'Open',
+  'cleanup.openFailed': 'This copy could not be opened.',
+  'cleanup.freed': 'Freed {size} of disk space.',
+  'cleanup.failed': '{count} could not be removed.',
+  'cleanup.needed': '{count} kept, as a run sheet now uses it.',
+  'cleanup.gb': '{size} GB',
+  'cleanup.mb': '{size} MB',
 } as const;
 
 export type DesktopKey = keyof typeof desktop;

@@ -886,6 +886,13 @@ describe('meeting days (criterion 19)', () => {
   // Monday 12 October 2026.
   beforeEach(() => env.setNow('2026-10-12T09:00:00.000Z'));
 
+  it('renames the workspace, trimmed, and keeps the name when reopened', async () => {
+    await session.setWorkspaceName('  Hall computer ');
+    expect(session.workspace.name).toBe('Hall computer');
+    await reopen();
+    expect(session.workspace.name).toBe('Hall computer');
+  });
+
   it('opens today for Any day and for Every day, keeping the two selections distinct', async () => {
     await session.setMeetingDays([]);
     await reopen();

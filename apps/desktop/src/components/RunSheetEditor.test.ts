@@ -173,4 +173,25 @@ describe('the run sheet item menu (U27)', () => {
       'remove',
     ]);
   });
+
+  it('without a church server: replaces videos and decks, keeps no deck original', () => {
+    const churchless = { ...state, connected: false, churchless: true, localVideo: true };
+    const byAction = (actions: ReturnType<typeof itemActions>) =>
+      Object.fromEntries(actions.map((a) => [a.action, a.disabled]));
+    expect(byAction(itemActions(song({ video }), churchless))).toMatchObject({
+      download: null,
+      replace: null,
+    });
+    expect(byAction(itemActions(song({ deck }), churchless))).toMatchObject({
+      download: 'not kept',
+      replace: null,
+      reconvert: 'not kept',
+    });
+  });
+
+  it('in viewer mode without a church server, still needs a server to replace', () => {
+    const viewer = { ...state, connected: false, churchless: false };
+    const actions = itemActions(song({ deck }), viewer);
+    expect(actions.find((a) => a.action === 'replace')?.disabled).toBe('connect');
+  });
 });

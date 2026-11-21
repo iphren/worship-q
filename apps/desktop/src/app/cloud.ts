@@ -6,6 +6,11 @@
  * Everything here is optional. Without a connection the app works exactly as before, and
  * losing the connection never interrupts a presentation. That includes this computer's OBS
  * link: its own controls work without one, and are shared with the workspace with one.
+ *
+ * A workspace without a church server uses the Worship Q public server for remote control,
+ * Bible passages, slide decks and live audio (public server plan), joining it the first time
+ * one of these is used. Nothing is synchronized there, backed up or recorded: `connected`
+ * still means joined to a church, and `service` says who answers the features.
  */
 import { getVersion } from '@tauri-apps/api/app';
 import {
@@ -13,8 +18,12 @@ import {
   DeckSchema,
   deckLyrics,
   OBS_PROTOCOL_VERSION,
+  INSTALL_HEADER,
   PROTOCOL_HEADER,
   PROTOCOL_VERSION,
+  THUMBNAIL_MAX_BYTES,
+  THUMBNAIL_NAME,
+  VIDEO_FILE,
   WEBSITE_PROTOCOL_VERSION,
   type BiblePassageResponse,
   type BibleVersionsResponse,
@@ -27,6 +36,7 @@ import {
   type OutputKind,
   type OutputLink,
   type PairingStartResponse,
+  type PublicJoinResponse,
   type RelayToDesktop,
   type ServerInfo,
   type Song,
@@ -59,7 +69,7 @@ import { infoDue } from './serverInfo';
 import { BibleClient, BibleRequestError, workspaceVersions, type BibleServer } from './bible';
 import { forgetToken, keychainAccount, protectToken } from './credentials';
 import { deckIdOf, originalSource, probeVideo } from './mediaFiles';
-import { mediaOffer, type MediaOffer } from './media';
+import { mediaKindOf, mediaOffer, type MediaOffer } from './media';
 import { MediaUploads, type UploadDeps, type UploadTarget } from './uploads';
 import { VideoCache, type VideoCacheDeps } from './videoCache';
 import { LanHost, LanTransport, type KnownPeer } from './lan';
@@ -78,6 +88,18 @@ import { ObsShare, shareObsWithPhones } from './obsShare';
 import type { OutputController } from './output';
 import { TransportSwitch, type Transport, type TransportKind } from './transport';
 import { websiteTitle } from './websiteTitle';
+import {
+  adoptsInfo,
+  beginChurchJoin,
+  installId,
+  isPublicServer,
+  PUBLIC_SERVER_URL,
+  PublicServerError,
+  publicAtLaunch,
+  serviceOf,
+  syncTarget,
+  type Service,
+} from './publicServer';
 import { t } from '@worship-q/i18n/desktop';
 
 const SYNC_EVERY_MS = 60_000;
@@ -101,7 +123,9 @@ export type RelayStatus =
   /** Connected; the live link says what role this device has. */
   | { kind: 'connected' }
   | { kind: 'update-needed' }
-  | { kind: 'unauthorized' };
+  | { kind: 'unauthorized' }
+  /** The public server could not be joined: no internet, or it is down (plan §2). */
+  | { kind: 'unreachable' };
 
 export interface CloudStatus {
   sync: SyncStatus;
@@ -251,7 +275,7 @@ export class CloudController {
     });
     shareObsWithPhones(this.obs, this.host);
     this.ice = new IceServers(() =>
-      this.connected
+      this.service
         ? this.call<{ iceServers: IceServer[] }>('GET', '/api/v1/ice')
         : Promise.reject(new Error('not-connected')),
     );
@@ -283,6 +307,9 @@ export class CloudController {
       });
     }
     this.audio = new AudioShare({
+      // Two on the public server (S3); a church server sets none.
+      listenerLimit: () =>
+        (this.status_ as CloudStatus | undefined)?.server?.limits?.listeners ?? null,
       recorder: this.recorder,
       // Asked while this constructor runs, before the status exists.
       recordsOffered: () =>
@@ -344,6 +371,122 @@ export class CloudController {
     return !!this.state?.deviceToken && !!this.state.joinedAt;
   }
 
+  /**
+   * Who answers this workspace's server features: its church server, the public server once
+   * joined, or nobody (public server discovery §4.2).
+   */
+  get service(): Service | null {
+    return this.state ? serviceOf(this.state) : null;
+  }
+
+  /** This workspace has no church server, so it uses the public server when it needs one. */
+  get usesPublicServer(): boolean {
+    return !this.connected && !this.session.isViewer;
+  }
+
+  private publicJoin: Promise<void> | null = null;
+  /** The church being joined, until it enrols this computer (M3.11). */
+  private joining: string | null = null;
+  /** The protocol version the church being joined speaks. */
+  private joiningProtocol = PROTOCOL_VERSION;
+  /** A refused public token is replaced once per run, never in a loop (S4, M3.8). */
+  private publicRejoined = false;
+
+  /**
+   * Joins the public server, once, the first time a feature needs it (M3.5): checks the
+   * address is the public server, asks for a workspace of its own, keeps the token like a
+   * church's, and connects to the relay. Nothing when a church or the public server already
+   * answers; refused in viewer mode (S10).
+   */
+  async ensurePublic(): Promise<void> {
+    if (this.connected || this.service?.kind === 'public') return;
+    if (this.session.isViewer) throw new PublicServerError('viewer');
+    this.publicJoin ??= this.joinPublic().finally(() => {
+      this.publicJoin = null;
+    });
+    return this.publicJoin;
+  }
+
+  /** This copy of the app's identifier, for the public server's limits only (S2). */
+  private get install(): string {
+    return installId(typeof localStorage === 'undefined' ? null : localStorage);
+  }
+
+  private async joinPublic(): Promise<void> {
+    const server = PUBLIC_SERVER_URL.replace(/\/+$/, '');
+    let joined: PublicJoinResponse;
+    try {
+      const info = await this.negotiate(server);
+      if (!info) throw new PublicServerError('unreachable');
+      if (!isPublicServer(info)) throw new PublicServerError('not-public');
+      const response = await fetch(`${server}/api/v1/public/join`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [INSTALL_HEADER]: this.install },
+        body: JSON.stringify({ protocolVersion: this.protocolVersion }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.status === 426) throw new PublicServerError('update-needed');
+      if (!response.ok) throw new PublicServerError('refused');
+      joined = (await response.json()) as PublicJoinResponse;
+    } catch (error) {
+      this.update({ relay: { kind: 'unreachable' } });
+      throw error instanceof PublicServerError ? error : new PublicServerError('unreachable');
+    }
+    await this.syncStore.setState({
+      server,
+      deviceId: joined.deviceId,
+      deviceToken: joined.deviceToken,
+      workspaceServerId: joined.workspace.id,
+      deviceName: t('app.thisComputer'),
+      workspaceName: this.session.workspace.name,
+      joinedAt: null,
+      publicServer: true,
+    });
+    await this.protectCredentials();
+    await this.refreshState();
+    await this.startPublic();
+  }
+
+  /** The public server's side of a running app: the relay, without synchronization (M3.7). */
+  private async startPublic(): Promise<void> {
+    if (this.link) return;
+    this.lan = null;
+    await this.startLive({ public: true });
+  }
+
+  /**
+   * The public server refused this workspace's token: it forgot the workspace after 90 days
+   * unseen (S4). A new one is joined, once per run, with nothing asked of the operator; only
+   * phones approved before must scan the new code.
+   */
+  private async publicTokenRefused(): Promise<void> {
+    if (this.publicRejoined || this.service?.kind !== 'public') return;
+    this.publicRejoined = true;
+    this.stopLive();
+    await this.forgetPublic();
+    await this.ensurePublic().catch(() => undefined);
+  }
+
+  /** Forgets the public server's workspace here, token included; the content stays. */
+  private async forgetPublic(): Promise<void> {
+    await this.syncStore.setState({
+      server: null,
+      deviceToken: null,
+      deviceId: null,
+      workspaceServerId: null,
+      tokenStorage: null,
+      publicServer: false,
+    });
+    this.syncStore.setMemoryToken(null);
+    if (this.workspaceFolder) {
+      await forgetToken(
+        { set: native.keychainSet, get: native.keychainGet, delete: native.keychainDelete },
+        keychainAccount(this.workspaceFolder),
+      );
+    }
+    await this.refreshState();
+  }
+
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -355,8 +498,9 @@ export class CloudController {
   }
 
   private makeClient(): SyncClient {
-    const server = () => this.state?.server ?? '';
-    const token = () => this.state?.deviceToken ?? '';
+    // While a church is being joined, its address, and no token until it gives one (M3.11).
+    const server = () => syncTarget(this.state, this.joining).server;
+    const token = () => syncTarget(this.state, this.joining).token ?? '';
     const files: FileTransfer = {
       upload: (fileName) => native.uploadBackground(server(), token(), fileName),
       download: async (fileName) => {
@@ -368,13 +512,39 @@ export class CloudController {
         for (const name of fileNames) if (!(await native.backgroundUrl(name))) missing.push(name);
         return missing;
       },
+      // Slides, their small copies and videos made without a church server, which the
+      // church has never had (public server M8). One that fails is skipped: the item then
+      // shows as missing on the other computers, and joining completes.
+      uploadMedia: async (fileNames) => {
+        for (const name of fileNames) {
+          try {
+            const video = VIDEO_FILE.test(name);
+            const here = video
+              ? (await native.videoLocation(name)).exists
+              : !!(await native.backgroundUrl(name));
+            if (!here) continue;
+            const has = await fetch(`${server()}/api/v1/files/${encodeURIComponent(name)}`, {
+              method: 'HEAD',
+              headers: {
+                [PROTOCOL_HEADER]: String(this.protocolVersion),
+                authorization: `Bearer ${token()}`,
+              },
+            });
+            if (has.ok) continue;
+            if (video) await native.uploadVideoCopy(server(), token(), name);
+            else await native.uploadBackground(server(), token(), name);
+          } catch (error) {
+            console.warn('[cloud] Could not send a media file when joining', name, error);
+          }
+        }
+      },
     };
     // The address can change when connecting, so it is looked up on every call.
     const api = httpApi(
       '',
-      () => this.state?.deviceToken ?? null,
+      () => syncTarget(this.state, this.joining).token,
       (input, init) => fetch(`${server()}${String(input)}`, init),
-      () => this.protocolVersion,
+      () => (this.joining ? this.joiningProtocol : this.protocolVersion),
     );
     const client = new SyncClient(this.session, this.syncStore, api, files);
     client.subscribe(() => {
@@ -444,14 +614,21 @@ export class CloudController {
    * offers a Bible; null otherwise, when the window uses what it saved (P4.1).
    */
   private bibleServer(): BibleServer | null {
-    const { server, deviceToken } = this.state ?? {};
     // Asked even when the server's last info said it had no Bible: that may be out of date,
-    // and the server refuses a version it does not offer.
-    if (!server || !deviceToken) return null;
+    // and the server refuses a version it does not offer. Without a church server, the
+    // public server's, joined on the first request (M3.6).
+    if (!this.service && !this.usesPublicServer) return null;
     const request = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+      if (!this.service) {
+        await this.ensurePublic().catch(() => {
+          throw new BibleRequestError('unavailable', 'public-server');
+        });
+      }
+      const { server, token: deviceToken } = this.service!;
       const headers: Record<string, string> = {
         [PROTOCOL_HEADER]: String(this.protocolVersion),
         authorization: `Bearer ${deviceToken}`,
+        ...this.installHeader(),
       };
       if (body !== undefined) headers['content-type'] = 'application/json';
       const response = await fetch(`${server}${path}`, {
@@ -466,6 +643,8 @@ export class CloudController {
           reason?: string;
         };
         const code = answer.error;
+        // The public server's hourly limit: the window says the Bible is unavailable for now.
+        if (response.status === 429) throw new BibleRequestError('unavailable', 'rate-limited');
         throw new BibleRequestError(
           code === 'not-offered' ||
             code === 'not-found' ||
@@ -508,6 +687,7 @@ export class CloudController {
     const headers: Record<string, string> = {
       [PROTOCOL_HEADER]: String(this.protocolVersion),
       authorization: `Bearer ${deviceToken}`,
+      ...this.installHeader(),
     };
     if (body !== undefined) headers['content-type'] = 'application/json';
     const response = await fetch(`${server}${path}`, {
@@ -516,7 +696,12 @@ export class CloudController {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!response.ok) throw new Error(`${method} ${path}: ${response.status}`);
-    return (await response.json()) as T;
+    return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+  }
+
+  /** The install header, for the public server only; a church server is never told (S2). */
+  private installHeader(): Record<string, string> {
+    return this.service?.kind === 'public' ? { [INSTALL_HEADER]: this.install } : {};
   }
 
   async start(): Promise<void> {
@@ -529,6 +714,7 @@ export class CloudController {
     // Run sheet edits, here or arriving, may need videos fetched or let them go (U8, U9).
     this.session.subscribe(() => this.scheduleVideos());
     this.scheduleVideos();
+    this.timers.push(window.setInterval(() => this.tickVideos(), 60_000));
     // Edits made here are sent shortly after; content applied from the instance is not.
     this.session.subscribe(() => {
       if (this.syncing || !this.connected) return;
@@ -554,7 +740,18 @@ export class CloudController {
     await this.startObs().catch(console.error);
     // So does capture for live audio, which starts with the workspace when switched on (A15).
     this.startAudio();
-    if (!this.connected) return;
+    if (!this.connected) {
+      // A workspace that used the public server reconnects at launch, so its phones come
+      // back; one that never did makes no request until a feature needs it (M3.6).
+      const atLaunch = this.state ? publicAtLaunch(this.state, this.session.isViewer) : 'none';
+      if (atLaunch === 'connect') {
+        await this.startPublic().catch(console.error);
+      } else if (atLaunch === 'forget') {
+        // Its token is gone (the keychain entry was removed): joined again when needed.
+        await this.forgetPublic();
+      }
+      return;
+    }
     await this.checkFonts();
     if (this.state?.server) await this.negotiate(this.state.server);
     this.lan = await native.lanStatus().catch(() => null);
@@ -588,6 +785,27 @@ export class CloudController {
     this.listen?.dispose();
     this.audio.stop();
     this.host.dispose();
+  }
+
+  /** Ends the live link and its connections, as before `startLive`; the content stays. */
+  private stopLive(): void {
+    this.relay?.close();
+    this.relay = null;
+    this.lanTransport?.close();
+    this.lanTransport = null;
+    this.lanHost?.stop();
+    this.lanHost = null;
+    this.link?.stop();
+    this.link = null;
+    this.transports = null;
+    this.host.detach();
+    this.obsReporter?.stop();
+    this.obsReporter = null;
+    this.audioReporter?.stop();
+    this.audioReporter = null;
+    void this.presentationLog?.stop();
+    this.presentationLog = null;
+    this.update({ live: null, relay: { kind: 'off' } });
   }
 
   /**
@@ -777,7 +995,12 @@ export class CloudController {
    * computers pair with an administrator's approval, or still join with a code.
    */
   async probe(address: string): Promise<ServerInfo | null> {
-    return this.negotiate(normalizeServer(address));
+    const server = normalizeServer(address);
+    // The public server is asked without touching this workspace's connection: it cannot
+    // be joined as a church server, and its info must not replace the one in use (M3.10).
+    const { info } = await negotiate(server);
+    if (!adoptsInfo(this.service, info)) return info;
+    return this.negotiate(server);
   }
 
   /**
@@ -796,7 +1019,7 @@ export class CloudController {
   ): Promise<
     { status: 'pending' | 'refused' | 'expired' } | { status: 'approved'; join: JoinPreview }
   > {
-    const server = this.state?.server;
+    const server = this.joining ?? this.state?.server;
     if (!server) throw new Error('not-connected');
     const result = await this.client.pollPairing(server, secret, deviceName);
     if (result.status !== 'approved') return { status: result.status };
@@ -809,8 +1032,18 @@ export class CloudController {
   /** Points the connection at an instance and learns what it speaks. */
   private async aim(address: string): Promise<string> {
     const server = normalizeServer(address);
-    this.state = { ...(this.state ?? (await this.syncStore.getState())), server };
-    await this.negotiate(server);
+    // Joining a church replaces the public server's connection (M3.11), but only once the
+    // church enrols this computer: until then the public relay, its phones and the public
+    // server's info stay in use, and a failed or abandoned join leaves them so.
+    const base = this.state ?? (await this.syncStore.getState());
+    this.state = beginChurchJoin(base, server);
+    this.joining = server;
+    if (this.service?.kind === 'public') {
+      this.joiningProtocol = (await negotiate(server)).protocol;
+    } else {
+      await this.negotiate(server);
+      this.joiningProtocol = this.protocolVersion;
+    }
     return server;
   }
 
@@ -818,8 +1051,16 @@ export class CloudController {
     workspace: { name: string; contentId: string | null },
     allowMerge: boolean,
   ): Promise<JoinPreview> {
+    this.joining = null;
+    // The church's token replaces the public server's, in the keychain too (M3.11). The state
+    // here is still the public one: enrolling wrote the church's to the store only.
+    const fromPublic = this.service?.kind === 'public';
     await this.protectCredentials();
     await this.refreshState();
+    if (fromPublic) {
+      this.stopLive();
+      if (this.state?.server) await this.negotiate(this.state.server);
+    }
     return {
       workspaceName: workspace.name,
       churchEmpty: workspace.contentId === null,
@@ -897,7 +1138,22 @@ export class CloudController {
 
   /** What the church's server takes now (U19); null when not connected. */
   mediaOffer(): MediaOffer | null {
-    return this.connected ? mediaOffer(this.status_.server) : null;
+    if (this.connected) return mediaOffer(this.status_.server);
+    // Without a church server: videos stay here, with no limit but the disk's; decks and
+    // images go to the public server, at its limits once it has said them (M1.1, M3.9).
+    const info = this.service?.kind === 'public' ? this.status_.server : null;
+    const media = info?.media ?? {
+      images: true,
+      videos: false,
+      limits: { image: 25 * 1024 * 1024, deck: 100 * 1024 * 1024, video: 0 },
+    };
+    return {
+      decks: info ? info.decks : true,
+      images: media.images,
+      videos: true,
+      limits: { ...media.limits, video: Number.MAX_SAFE_INTEGER },
+      current: true,
+    };
   }
 
   /**
@@ -906,7 +1162,12 @@ export class CloudController {
    * show, which are left out.
    */
   async addMedia(paths: readonly string[], target: UploadTarget): Promise<string[]> {
-    await this.recheckProtocol().catch(() => undefined);
+    if (this.connected) {
+      await this.recheckProtocol().catch(() => undefined);
+    } else if (paths.some((path) => (mediaKindOf(path) ?? 'video') !== 'video')) {
+      // Decks and images need the public server; a failure shows on each upload.
+      await this.ensurePublic().catch(() => undefined);
+    }
     return this.uploads.add(paths, target).refused;
   }
 
@@ -921,20 +1182,52 @@ export class CloudController {
           : 'other',
       offer: () => this.mediaOffer(),
       credentials: () => {
-        const { server, deviceToken } = this.state ?? {};
-        return server && deviceToken && this.connected ? { server, token: deviceToken } : null;
+        const service = this.service;
+        return service ? { server: service.server, token: service.token } : null;
+      },
+      localVideos: () => !this.connected,
+      confirmDeck: async ({ server, token }, deck) => {
+        // The public server deletes a deck once its images are here (plan §3).
+        if (this.service?.kind !== 'public') return;
+        const id = /^deck-([0-9a-f-]{36})-/.exec(deck.pages[0]?.image ?? '')?.[1];
+        if (!id) return;
+        await fetch(`${server}/api/v1/decks/${id}`, {
+          method: 'DELETE',
+          headers: {
+            [PROTOCOL_HEADER]: String(this.protocolVersion),
+            authorization: `Bearer ${token}`,
+            ...this.installHeader(),
+          },
+        });
       },
       fileSize: native.fileSize,
       convertHeic: native.convertHeic,
       removeConverted: native.removeConverted,
       probeVideo: async (path) => probeVideo(await native.mediaFileUrl(path)),
       upload: ({ server, token }, id, route, source, name, onProgress) =>
-        native.uploadMedia(server, token, id, route, source, name, onProgress),
+        native.uploadMedia(
+          server,
+          token,
+          id,
+          route,
+          source,
+          name,
+          onProgress,
+          this.service?.kind === 'public' ? this.install : null,
+        ),
       cancel: async (id) => {
         await native.cancelTransfer(id);
       },
       fetchDeckImages: async ({ server, token }, deck) => {
-        for (const page of deck.pages) await native.downloadBackground(server, token, page.image);
+        // The public server keeps nothing, so the small copies phones are shown come too,
+        // and are sent to phones from here (S7).
+        const thumbnails = this.service?.kind === 'public';
+        for (const page of deck.pages) {
+          await native.downloadBackground(server, token, page.image);
+          if (thumbnails && page.thumbnail) {
+            await native.downloadBackground(server, token, page.thumbnail);
+          }
+        }
         this.output.forgetFiles();
       },
       storeVideo: async (source, file) => {
@@ -952,6 +1245,22 @@ export class CloudController {
   /** What the video cache needs, on this computer and its church server. */
   private videoCacheDeps(): VideoCacheDeps {
     const key = 'worship-q.videoUploads';
+    const kept = (name: string) => ({
+      get: () => {
+        try {
+          return JSON.parse(localStorage.getItem(name) ?? '{}') as Record<string, string>;
+        } catch {
+          return {};
+        }
+      },
+      set: (value: Record<string, string>) => {
+        try {
+          localStorage.setItem(name, JSON.stringify(value));
+        } catch {
+          // Kept for this run only.
+        }
+      },
+    });
     return {
       today: () => this.session.today(),
       wanted: (from) => this.session.store.videosFrom(this.session.workspace.id, from),
@@ -972,26 +1281,47 @@ export class CloudController {
       },
       remove: (file) => native.removeVideo(file),
       connected: () => this.connected,
-      uploads: {
-        get: () => {
-          try {
-            return JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, string>;
-          } catch {
-            return {};
-          }
-        },
-        set: (value) => {
-          try {
-            localStorage.setItem(key, JSON.stringify(value));
-          } catch {
-            // Kept for this run only.
-          }
-        },
+      uploads: kept(key),
+      uses: () => this.session.store.videoUses(this.session.workspace.id),
+      // Since this page loaded, which is when the app, or this workspace, opened (U29).
+      elapsed: () => performance.now(),
+      serverHas: async (file) => {
+        const service = this.service;
+        if (service?.kind !== 'church') return null;
+        try {
+          const response = await fetch(
+            `${service.server}/api/v1/files/${encodeURIComponent(file)}`,
+            {
+              method: 'HEAD',
+              headers: {
+                [PROTOCOL_HEADER]: String(this.protocolVersion),
+                authorization: `Bearer ${service.token}`,
+              },
+              signal: AbortSignal.timeout(15_000),
+            },
+          );
+          if (response.ok) return true;
+          return response.status === 404 ? false : null;
+        } catch {
+          return null;
+        }
       },
+      copy: async (file) => {
+        const { path, exists } = await native.videoLocation(file);
+        if (!exists) return null;
+        return { path, bytes: await native.fileSize(path).catch(() => 0) };
+      },
+      // Per workspace, as its videos are (U30).
+      snoozes: kept(`worship-q.videoSnoozes.${this.session.workspace.id}`),
     };
   }
 
   /** Looks at the videos upcoming run sheets need, shortly after the last change. */
+  /** Removes video copies once per launch, 30 minutes after it opened (U29); asked every minute. */
+  private tickVideos(): void {
+    void this.videos.tick().catch(console.error);
+  }
+
   private scheduleVideos(): void {
     window.clearTimeout(this.videoTimer);
     this.videoTimer = window.setTimeout(() => void this.videos.pass().catch(console.error), 1500);
@@ -1207,8 +1537,36 @@ export class CloudController {
 
   // ── The shared live state ────────────────────────────────────────────────
 
-  private async startLive(): Promise<void> {
+  /**
+   * The shared live state: the relay, the venue network, the live link and the reports to
+   * the church server. On the public server (`public`), the relay alone: one computer is its
+   * own coordinator, and nothing is backed up, reported or logged there (M3.7).
+   */
+  private async startLive(options: { public?: boolean } = {}): Promise<void> {
+    const isPublic = options.public === true;
     this.obsReporter?.stop();
+    this.obsReporter = null;
+    this.audioReporter?.stop();
+    this.audioReporter = null;
+    void this.presentationLog?.stop();
+    this.presentationLog = null;
+    if (!isPublic) this.startReports();
+    const backup: LiveBackupApi | null = isPublic
+      ? null
+      : {
+          put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
+            this.call('PUT', '/api/v1/live', { snapshot, grants }).then(() => undefined),
+          get: () =>
+            this.call<{ snapshot: LiveSnapshot | null; grants: WorkspaceGrant[] }>(
+              'GET',
+              '/api/v1/live',
+            ),
+        };
+    await this.wireLive(isPublic, backup);
+  }
+
+  /** The OBS, audio and presentation-log reports a church server keeps for its admin app. */
+  private startReports(): void {
     this.obsReporter = new ObsReporter({
       state: () => this.obs.ownState(),
       snapshot: () => this.obs.takeSnapshot(),
@@ -1217,7 +1575,6 @@ export class CloudController {
       put: (state, snapshot) =>
         this.call('PUT', '/api/v1/obs', { state, snapshot }).then(() => undefined),
     });
-    this.audioReporter?.stop();
     this.audioReporter = new AudioReporter({
       state: () => this.audio.ownState(),
       subscribe: this.audio.subscribe,
@@ -1226,22 +1583,34 @@ export class CloudController {
           ? this.call('PUT', '/api/v1/audio', { state }).then(() => undefined)
           : Promise.resolve(),
     });
-    void this.presentationLog?.stop();
     this.presentationLog = new PresentationLogger({
       store: this.session.store,
       send: (batch) => this.call('POST', '/api/v1/presentation-log', batch).then(() => undefined),
       // Against a server from before the log, entries wait here and are sent once it has one.
       offered: () => this.connected && this.status_.server?.records?.log === true,
     });
-    const backup: LiveBackupApi = {
-      put: (snapshot: LiveSnapshot, grants: WorkspaceGrant[]) =>
-        this.call('PUT', '/api/v1/live', { snapshot, grants }).then(() => undefined),
-      get: () =>
-        this.call<{ snapshot: LiveSnapshot | null; grants: WorkspaceGrant[] }>(
-          'GET',
-          '/api/v1/live',
-        ),
-    };
+  }
+
+  /**
+   * A slide's small image from this computer's files, as base64, for a phone of a public
+   * workspace (S7): only a thumbnail's name, and nothing over the size phones are sent.
+   */
+  private async readThumbnail(name: string): Promise<string | null> {
+    if (!THUMBNAIL_NAME.test(name)) return null;
+    const url = await native.backgroundUrl(name);
+    if (!url) return null;
+    const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    if (bytes.length === 0 || bytes.length > THUMBNAIL_MAX_BYTES) return null;
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
+  }
+
+  private async wireLive(isPublic: boolean, backup: LiveBackupApi | null): Promise<void> {
+    // The public server keeps no files: phones are sent thumbnails from here (S7).
+    this.host.setThumbnails(isPublic ? { read: (name) => this.readThumbnail(name) } : null);
     const hello = (): Extract<DesktopToRelay, { type: 'hello' }> => ({
       type: 'hello',
       protocolVersion: this.protocolVersion,
@@ -1320,32 +1689,35 @@ export class CloudController {
     this.update({ live: link.status });
 
     // The coordinator's side of the venue network: a relay room over the connections the
-    // native core accepts (plan M5.3, M6.3).
-    this.lanHost = new LanHost({
-      workspaceId: () => this.state?.workspaceServerId ?? '',
-      deviceId: () => this.state?.deviceId ?? '',
-      deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
-      hello,
-      onMessage: (message) => {
-        switch (message.type) {
-          case 'ready':
-            link.setLanPeers(this.lanHost?.peers ?? []);
-            return;
-          case 'peer':
-            link.receive(message);
-            return;
-          case 'message':
-            this.lanPhones.add(message.from);
-            void this.host.message(message.from, message.data);
-            return;
-          case 'left':
-            this.lanPhones.delete(message.from);
-            this.host.left(message.from);
-            return;
-        }
-      },
-    });
-    await this.lanHost.start().catch(() => undefined);
+    // native core accepts (plan M5.3, M6.3). A public workspace has one computer, and its
+    // phones come through the public server: no venue network (M3.7).
+    this.lanHost = isPublic
+      ? null
+      : new LanHost({
+          workspaceId: () => this.state?.workspaceServerId ?? '',
+          deviceId: () => this.state?.deviceId ?? '',
+          deviceName: () => this.state?.deviceName ?? t('app.thisComputer'),
+          hello,
+          onMessage: (message) => {
+            switch (message.type) {
+              case 'ready':
+                link.setLanPeers(this.lanHost?.peers ?? []);
+                return;
+              case 'peer':
+                link.receive(message);
+                return;
+              case 'message':
+                this.lanPhones.add(message.from);
+                void this.host.message(message.from, message.data);
+                return;
+              case 'left':
+                this.lanPhones.delete(message.from);
+                this.host.left(message.from);
+                return;
+            }
+          },
+        });
+    await this.lanHost?.start().catch(() => undefined);
 
     const transportEvents = {
       open: (kind: TransportKind) => this.transports?.opened(kind),
@@ -1375,20 +1747,29 @@ export class CloudController {
           this.transports?.closed(kind);
           this.considerOffline();
         },
-        status: (relay) => this.update({ relay }),
+        status: (relay) => {
+          this.update({ relay });
+          // The public server forgot this workspace (S4): a new one, by itself.
+          if (isPublic && relay.kind === 'unauthorized') void this.publicTokenRefused();
+        },
       },
     });
     // The follower's side of the venue network: the coordinator found by mDNS (plan M5.5).
-    this.lanTransport = new LanTransport({
-      workspaceId: () => this.state?.workspaceServerId ?? '',
-      token: () => this.state?.deviceToken ?? '',
-      hello,
-      knownPeers: () => this.knownPeers(),
-      coordinatorId: () => (this.relay?.open ? (link.status.coordinatorId ?? null) : null),
-      enabled: () => link.status.role !== 'coordinator' && !this.offlineCoordinator,
-      events: transportEvents,
-    });
-    this.transports = new TransportSwitch([this.relay, this.lanTransport], {
+    this.lanTransport = isPublic
+      ? null
+      : new LanTransport({
+          workspaceId: () => this.state?.workspaceServerId ?? '',
+          token: () => this.state?.deviceToken ?? '',
+          hello,
+          knownPeers: () => this.knownPeers(),
+          coordinatorId: () => (this.relay?.open ? (link.status.coordinatorId ?? null) : null),
+          enabled: () => link.status.role !== 'coordinator' && !this.offlineCoordinator,
+          events: transportEvents,
+        });
+    const transports: Transport[] = this.lanTransport
+      ? [this.relay, this.lanTransport]
+      : [this.relay];
+    this.transports = new TransportSwitch(transports, {
       open: (kind) => link.connected(kind),
       close: () => link.disconnected(),
       message: (_kind, message) => {
@@ -1410,8 +1791,9 @@ export class CloudController {
       },
     });
     this.relay.start();
-    this.lanTransport.start();
-    this.considerOffline();
+    this.lanTransport?.start();
+    // One computer on the public server presents on its own already; nothing to wait for.
+    if (!isPublic) this.considerOffline();
   }
 
   private sendToPhone(to: string | undefined, data: HostToRemote): void {

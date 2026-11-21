@@ -27,6 +27,7 @@ export const words: Words = {
     source: '源代码',
     licence: 'MIT 许可证',
     llms: '供 AI 助手阅读（英文）',
+    privacy: '隐私说明',
   },
   featurePages: {
     '/bible/': '经文',
@@ -72,7 +73,7 @@ const FEATURES: Feature[] = [
   {
     title: '快速查找圣经经文',
     page: '/bible/',
-    text: '连接教会服务器后，可以输入经文出处（如“马可福音15:5-6”），或按书卷和章节浏览。最多可并排显示两个译本。',
+    text: '输入经文出处（如“马可福音15:5-6”），或按书卷和章节浏览。最多可并排显示两个译本。',
   },
   {
     title: '为每次聚会安排流程',
@@ -80,7 +81,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '幻灯片、PDF 和视频',
-    text: '通过教会服务器把 PowerPoint、Keynote 和 PDF 转成幻灯片，连同照片、视频和诗歌一起加入流程表。视频提前下载，聚会时无需在线播放。',
+    text: '把 PowerPoint、Keynote 和 PDF 转成幻灯片，连同照片、视频和诗歌一起加入流程表。视频从电脑本地播放，聚会时无需在线播放。',
   },
   {
     title: '兼顾现场投影与直播',
@@ -103,7 +104,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: '一台电脑就能使用',
-    text: '单机使用无需账号或互联网。需要共享诗歌、媒体、经文或使用手机遥控时，再连接教会自己的服务器。',
+    text: '无需账号，备课和投影也无需互联网。手机遥控、经文和幻灯片通过免费的公共服务器使用，服务器不保留任何内容；教会自己的服务器可在多台电脑之间共享。',
   },
   {
     title: '免费开源，没有订阅',
@@ -137,12 +138,12 @@ export const faq: Question[] = [
   {
     question: 'Worship Q 是免费的吗？',
     answer:
-      '是的。Worship Q 采用 MIT 开源许可证，完全免费，没有广告、订阅费用或付费版本。教会服务器也可以免费使用。',
+      '是的。Worship Q 采用 MIT 开源许可证，完全免费，没有广告、订阅费用或付费版本。手机遥控、经文和幻灯片所用的公共服务器免费，教会服务器也可以免费使用。',
   },
   {
     question: '需要注册账号或连接互联网吗？',
     answer:
-      '不需要。只用一台电脑时，Worship Q 无需账号和互联网也能运行。连接教会服务器后，还能在多台电脑之间共享诗歌和媒体、查找圣经经文、使用手机遥控并同步投影。',
+      '无需账号；只用一台电脑备课和投影时，也无需互联网。手机遥控、圣经经文以及 PowerPoint 或 PDF 幻灯片通过免费的 Worship Q 公共服务器使用，这需要互联网，服务器不保留任何内容。运行教会自己的服务器是可选的，可以让多台电脑同步投影、共享诗歌和媒体、异地备份，并使用需要密钥的圣经译本。',
   },
   {
     question: '支持哪些电脑？',
@@ -157,12 +158,12 @@ export const faq: Question[] = [
   {
     question: '如何查找并投影圣经经文？',
     answer:
-      '输入“马可福音15:5-6”或“可15:5-6”这样的经文出处，也可以浏览书卷、章节，或按关键词搜索。每张幻灯片最多可并排显示两个译本。经文由教会服务器提供，可使用无需密钥的 Free Use Bible API（如和合本、KJV、BSB），或配置教会自己的 API.Bible、YouVersion 密钥。',
+      '输入“马可福音15:5-6”或“可15:5-6”这样的经文出处，也可以浏览书卷、章节，或按关键词搜索。每张幻灯片最多可并排显示两个译本。没有教会服务器时，经文由免费的 Worship Q 公共服务器提供，可使用无需密钥的译本（如和合本、KJV、BSB）。教会服务器还可以使用教会自己的 API.Bible、YouVersion 或 ESV 密钥，提供 NIV、NKJV、ESV 等译本。',
   },
   {
     question: '支持 PowerPoint、Keynote、PDF 和视频吗？',
     answer:
-      '支持，但需要连接教会服务器。PowerPoint、Keynote、OpenDocument 和 PDF 文件会转换为幻灯片；照片、视频也可以加入流程表。视频会提前下载，避免聚会中依赖在线播放。',
+      '支持。PowerPoint、Keynote、OpenDocument 和 PDF 文件会转换为幻灯片；照片、视频也可以加入流程表。没有教会服务器时，幻灯片由免费的 Worship Q 公共服务器转换后保存在电脑上，视频也保存在电脑上。连接教会服务器后，教会的每台电脑都能使用这些内容，视频会提前下载，避免聚会中依赖在线播放。',
   },
   {
     question: '可以搭配 OBS 直播吗？',
@@ -172,12 +173,22 @@ export const faq: Question[] = [
   {
     question: '可以用手机控制投影吗？',
     answer:
-      '可以，需要连接教会服务器。手机扫描二维码并获得电脑端批准后，就能切换幻灯片、调整正在使用的流程表，或临时添加经文。',
+      '可以。手机扫描二维码并获得电脑端批准后，就能切换幻灯片、调整正在使用的流程表，或临时添加经文。没有教会服务器时，最多两部手机可同时通过免费的 Worship Q 公共服务器连接，因此电脑和手机都需要互联网。',
   },
   {
     question: '多台电脑能同步显示同一套投影吗？',
     answer:
       '可以。连接到同一工作区的电脑会同步显示当前幻灯片；如果主控电脑出现故障，其他电脑可以接管并从原来的位置继续。互联网中断时，同一局域网中的电脑仍可保持同步；这一功能已通过双机断网测试。',
+  },
+  {
+    question: '什么是 Worship Q 公共服务器？它会保存什么？',
+    answer:
+      '这是由 Worship Q 项目运行的免费服务器。没有教会服务器的电脑会自动使用它来进行手机遥控、查找经文、转换幻灯片和现场音频，无需任何设置或登录。它不保留任何内容：电脑取得幻灯片后立即删除，其他内容一天内删除；诗歌、流程表和录音从不会上传到那里。所以它只是单台电脑的帮手，而不是保存教会内容的地方。经过它的内容和保留时间，详见隐私说明 worship-q.com/zh-hans/privacy/。',
+  },
+  {
+    question: '教会为什么还要运行自己的服务器？',
+    answer:
+      '为了共享：多台电脑同步投影，教会的每台电脑都有诗歌、流程表、幻灯片和视频，教会资源库，异地备份，供直播电脑使用的浏览器远程画面，NIV、ESV 等需要密钥的圣经译本，现场音频录制，以及管理后台。之后加入的电脑会带上它的幻灯片和视频。',
   },
   {
     question: '能从 ProPresenter、EasyWorship 或 OpenLP 导入诗歌吗？',
@@ -188,6 +199,11 @@ export const faq: Question[] = [
 
 /** The Markdown pages' titles and descriptions, by their English path. */
 export const pages: Record<string, PageText> = {
+  '/privacy/': {
+    title: '隐私说明 — Worship Q',
+    description:
+      'Worship Q 应用、免费公共服务器和本网站会处理哪些信息、保留多久，以及还涉及哪些第三方。',
+  },
   '/guide/': {
     title: 'Worship Q 同工操作指南 — Worship Q',
     description:
@@ -196,7 +212,7 @@ export const pages: Record<string, PageText> = {
   '/server/': {
     title: 'Worship Q 教会服务器部署指南 — Worship Q',
     description:
-      '使用 Docker 部署免费的 Worship Q 教会服务器，实现诗歌和媒体共享、经文查询、手机遥控、备份及后台管理。',
+      '使用 Docker 部署免费的 Worship Q 教会服务器，实现多台电脑同步投影、诗歌和媒体共享、备份、使用教会密钥的圣经译本及后台管理。',
   },
   '/bible/': {
     title: '投影圣经经文 — Worship Q',

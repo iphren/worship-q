@@ -3,24 +3,25 @@
 _Every screen. In harmony._
 
 Church lyrics and presentation software. The desktop app works on its own, with no church
-server, account or network. A church server lets several computers, phones and browsers
-share one presentation.
+server, account or network. Without a church server, phones, Bible passages, slide decks and
+live audio go through the Worship Q public server, which keeps nothing. A church server lets
+several computers, phones and browsers share one presentation and its content.
 
 ## Documentation
 
-| For                     | Document                                                                                                                                                                 |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Volunteers              | [Volunteer guide](docs/volunteer-guide.md)                                                                                                                               |
-| Whoever runs the server | [Church server deployment](docs/server-deployment.md)                                                                                                                    |
-| Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                         |
-| Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                         |
-| Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md)         |
-| Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                                      |
-| Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                         |
-| OBS control             | [Plan](docs/obs-control-plan.md), [task breakdown](docs/obs-control-task-breakdown.md), [acceptance record](docs/acceptance/obs-control.md), [spike](docs/spikes/obs.md) |
-| Search and AI discovery | [Plan](docs/seo-plan.md)                                                                                                                                                 |
-| Public server           | [Plan](docs/public-server-plan.md)                                                                                                                                       |
-| Translation             | [Plan](docs/translation-plan.md)                                                                                                                                         |
+| For                     | Document                                                                                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Volunteers              | [Volunteer guide](docs/volunteer-guide.md)                                                                                                                                               |
+| Whoever runs the server | [Church server deployment](docs/server-deployment.md)                                                                                                                                    |
+| Developers              | [Requirements and architecture](docs/worship-q-requirements-and-architecture.md)                                                                                                         |
+| Phase 1                 | [Task breakdown](docs/phase-1-task-breakdown.md)                                                                                                                                         |
+| Phase 2                 | [Plan](docs/phase-2-plan.md), [task breakdown](docs/phase-2-task-breakdown.md), [acceptance record](docs/acceptance/phase-2.md), [LAN spike](docs/spikes/lan.md)                         |
+| Phase 3                 | [Plan](docs/phase-3-plan.md), [acceptance record](docs/acceptance/phase-3.md), [sign-in spike](docs/spikes/oidc.md)                                                                      |
+| Next                    | [Media uploads plan](docs/media-uploads-plan.md)                                                                                                                                         |
+| OBS control             | [Plan](docs/obs-control-plan.md), [task breakdown](docs/obs-control-task-breakdown.md), [acceptance record](docs/acceptance/obs-control.md), [spike](docs/spikes/obs.md)                 |
+| Search and AI discovery | [Plan](docs/seo-plan.md)                                                                                                                                                                 |
+| Public server           | [Plan](docs/public-server-plan.md), [discovery](docs/public-server-discovery.md), [task breakdown](docs/public-server-task-breakdown.md), [running it](docs/public-server-deployment.md) |
+| Translation             | [Plan](docs/translation-plan.md)                                                                                                                                                         |
 
 ## Develop
 
@@ -50,6 +51,17 @@ pnpm --filter @worship-q/server cli workspace create "Test"
 
 For Docker, the reverse proxy and CloudFront, see
 [Church server deployment](docs/server-deployment.md).
+
+### Public server
+
+The same server in public mode, with a data folder of its own, and the desktop pointed at it:
+
+```sh
+(cd apps/server && node build.mjs && WORSHIP_Q_PUBLIC=1 WORSHIP_Q_DATA=./data-public PORT=8090 node dist/main.js)
+VITE_WORSHIP_Q_PUBLIC_SERVER=http://localhost:8090 pnpm dev
+```
+
+To run it for real, see [Running the public server](docs/public-server-deployment.md).
 
 ### Website
 
@@ -88,7 +100,7 @@ playwright install chromium`.
 
 ```text
 apps/desktop/          Desktop app: React interface and the Tauri (Rust) core
-apps/server/           Church server: sync, backups, church defaults, relay, live-state backup
+apps/server/           Church server: sync, backups, church defaults, relay, live-state backup; the public server in public mode
 apps/remote/           Phone remote-control page, served by the church server
 apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
 apps/admin/            Admin web app for the church's administrators, served by the church server at /admin/

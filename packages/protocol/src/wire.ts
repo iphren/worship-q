@@ -60,9 +60,10 @@ import {
  * connection, new kinds the relay must know before it passes them on, sent only to devices
  * declaring the `audio` capability. Version 8 lets a phone add a website by its address: an
  * `addWebsite` command, which the relay passes on only to desktops declaring the `websites`
- * capability.
+ * capability. Version 9 lets a phone ask the desktop for a slide's small image, for a desktop
+ * on the public server, which keeps no files (public server plan, S7).
  */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
 /**
@@ -73,6 +74,8 @@ export const VIDEO_PROTOCOL_VERSION = 5;
 export const PASSAGE_PROTOCOL_VERSION = 6;
 /** The first protocol version in which a phone adds a website by its address. */
 export const WEBSITE_PROTOCOL_VERSION = 8;
+/** The first protocol version in which a phone asks the desktop for slide thumbnails (S7). */
+export const THUMBNAIL_PROTOCOL_VERSION = 9;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -141,7 +144,43 @@ export interface ServerInfo {
    * from before them, which takes neither; a desktop then uploads nothing.
    */
   records?: { audio: boolean; log: boolean };
+  /**
+   * This is the Worship Q public server (public server plan): it serves workspaces without a
+   * church server, cannot be joined as a church server, and keeps nothing. Missing on a
+   * church server.
+   */
+  public?: boolean;
+  /** The public server's limits; missing on a church server, which has none of these. */
+  limits?: PublicLimits;
 }
+
+/** What the public server allows each workspace and each copy of the app (S3). */
+export interface PublicLimits {
+  /** Live audio listeners at once, per workspace. */
+  listeners: number;
+  /** Phones connected at once, per workspace. */
+  phones: number;
+  /** Slide decks and images together, per day, per copy of the app. */
+  mediaPerDay: number;
+}
+
+/** The header naming a copy of the app to the public server, for its limits (S2). */
+export const INSTALL_HEADER = 'x-worship-q-install';
+
+/** The answer of a public server asked to join as a church server (S5). */
+export const PUBLIC_SERVER = 'public-server';
+
+/** What `POST /api/v1/public/join` answers. */
+export interface PublicJoinResponse {
+  deviceId: string;
+  deviceToken: string;
+  workspace: { id: string };
+}
+
+/** A slide thumbnail's name, as a deck's pages name them; nothing else may be asked for. */
+export const THUMBNAIL_NAME = /^deck-[0-9a-f-]{36}-\d{3,}-t\.jpg$/;
+/** The largest thumbnail a desktop sends through the relay, in bytes before encoding (S7). */
+export const THUMBNAIL_MAX_BYTES = 256 * 1024;
 
 /** Upload limits in bytes, per kind of file (U1). */
 export interface MediaLimits {
@@ -540,6 +579,8 @@ export const RemoteToHostSchema = z.discriminatedUnion('type', [
   }),
   /** Live audio (protocol version 7): a signal for the broadcaster, in this phone's name. */
   z.object({ type: z.literal('audioSignal'), signal: AudioSignalSchema }),
+  /** A slide's small image, from the desktop (protocol version 9, S7). */
+  z.object({ type: z.literal('thumbnail'), name: z.string().regex(THUMBNAIL_NAME) }),
 ]);
 export type RemoteToHost = z.infer<typeof RemoteToHostSchema>;
 
@@ -620,6 +661,11 @@ export interface RemoteView {
    * and from desktops whose church server is older.
    */
   websites?: boolean;
+  /**
+   * Slide thumbnails come from the desktop, asked for with `thumbnail` (protocol version 9),
+   * not from the server; set on the public server, which keeps no files (S7).
+   */
+  thumbnailVia?: 'host';
 }
 
 /** From the desktop to a remote controller. */
@@ -645,7 +691,9 @@ export type HostToRemote =
       error?: BibleAnswerError;
     }
   /** Live audio (protocol version 7): a signal from the broadcaster for this phone. */
-  | { type: 'audioSignal'; signal: AudioSignal };
+  | { type: 'audioSignal'; signal: AudioSignal }
+  /** A slide's small image as base64 JPEG, or `missing` (protocol version 9, S7). */
+  | { type: 'thumbnail'; name: string; data?: string; missing?: true };
 
 /** Why the desktop could not answer a phone's Bible request. */
 export type BibleAnswerError = BibleErrorCode | 'offline';
@@ -663,6 +711,8 @@ export type RelayToRemote =
    * again with its grant and is routed to another operator device.
    */
   | { type: 'unavailable'; reason: 'no-workspace' | 'presentation-offline' | 'reconnect' }
+  /** The workspace has as many phones as the public server allows (S3). */
+  | { type: 'unavailable'; reason: 'full'; limit: number }
   | { type: 'pong' };
 
 // ── Shared live state ──────────────────────────────────────────────────────

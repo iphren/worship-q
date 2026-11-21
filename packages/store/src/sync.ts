@@ -86,6 +86,12 @@ export interface SyncState {
   manageLibrary: boolean | null;
   /** The Church Library types the workspace manages, as the instance last said. */
   manageLibraryTypes: LibraryType[] | null;
+  /**
+   * The connection is to the Worship Q public server, not a church's (public server plan):
+   * `server` and `deviceToken` are the public server's, and `joinedAt` stays null, since
+   * nothing is synchronized there.
+   */
+  publicServer: boolean;
 }
 
 export const EMPTY_SYNC_STATE: SyncState = {
@@ -109,6 +115,7 @@ export const EMPTY_SYNC_STATE: SyncState = {
   lanPeers: null,
   manageLibrary: null,
   manageLibraryTypes: null,
+  publicServer: false,
 };
 
 export interface AppliedChanges {

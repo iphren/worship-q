@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { useApp, useCloud, useRemoteHost, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
+import { PrivacyLink } from './PrivacyLink';
 import { Dialog } from './Dialog';
 
 /** How often the QR code is redrawn, picking up a fresh invitation when one is made. */
@@ -9,12 +10,35 @@ const REFRESH_MS = 30_000;
 
 function useInviteLink(): string | null {
   const { cloud } = useApp();
+  const status = useCloud();
   const [link, setLink] = useState(() => cloud.remoteLink());
   useEffect(() => {
+    // At once when the connection changes, as when the public server was just joined.
+    setLink(cloud.remoteLink());
     const timer = window.setInterval(() => setLink(cloud.remoteLink()), REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [cloud]);
+  }, [cloud, status.state, status.relay]);
   return link;
+}
+
+/**
+ * Joins the public server when the panel opens in a workspace without a church server
+ * (public server M3.6, M4.1): `failed` when it could not be reached, with a way to try again.
+ */
+function usePublicServer(): { failed: boolean; retry(): void } {
+  const { cloud } = useApp();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!cloud.usesPublicServer) return;
+    let active = true;
+    setFailed(false);
+    cloud.ensurePublic().catch(() => active && setFailed(true));
+    return () => {
+      active = false;
+    };
+  }, [cloud, attempt]);
+  return { failed, retry: () => setAttempt((n) => n + 1) };
 }
 
 function QrCode(props: { value: string }) {
@@ -106,13 +130,26 @@ export function RemoteControlDialog(props: { onClose(): void }) {
   const status = useCloud();
   const host = useRemoteHost();
   const link = useInviteLink();
+  const publicServer = usePublicServer();
   const [copied, setCopied] = useState(false);
   const { relay } = status;
+  const isPublic = cloud.service?.kind === 'public';
 
   let body: React.ReactNode;
   if (session.isViewer) {
     body = <p>{t('remote.viewer')}</p>;
-  } else if (!cloud.connected) {
+  } else if (cloud.usesPublicServer && publicServer.failed) {
+    body = (
+      <div className="space-y-3">
+        <p>{t('remote.publicUnreachable')}</p>
+        <button className="btn" onClick={publicServer.retry}>
+          {t('media.tryAgain')}
+        </button>
+      </div>
+    );
+  } else if (cloud.usesPublicServer && !isPublic) {
+    body = <p>{t('remote.joiningPublic')}</p>;
+  } else if (!cloud.connected && !isPublic) {
     body = (
       <div className="space-y-3">
         <p>{t('remote.notConnected')}</p>
@@ -134,6 +171,11 @@ export function RemoteControlDialog(props: { onClose(): void }) {
       <div className="space-y-4">
         <QrCode value={link} />
         <p className="text-center text-xs text-slate-400">{t('remote.scan')}</p>
+        {isPublic && (
+          <p className="text-center text-xs text-slate-400">
+            {t('remote.publicNote', { phones: status.server?.limits?.phones ?? 2 })} <PrivacyLink />
+          </p>
+        )}
         <div className="flex justify-center">
           <button
             className="btn btn-sm"
@@ -202,7 +244,7 @@ export function RemoteControlDialog(props: { onClose(): void }) {
       onClose={props.onClose}
       actions={
         <>
-          {cloud.connected && !session.isViewer && (
+          {(cloud.connected || isPublic) && !session.isViewer && (
             <button className="btn btn-danger" onClick={() => void host.disconnectAll()}>
               {t('remote.disconnectAll')}
             </button>

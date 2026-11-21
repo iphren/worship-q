@@ -111,7 +111,7 @@ export const remote = {
   'listen.connecting': 'Connecting…',
   'listen.playing': 'Playing',
   'listen.waiting': 'Connected; the broadcast is waiting for its input',
-  'listen.full': 'The broadcast is full: ten are listening already',
+  'listen.full': 'The broadcast is full: no more phones can listen now',
   'listen.unreachableRelay':
     'Could not connect. The church’s relay was tried; this network may block it.',
   'listen.unreachable':
@@ -146,4 +146,9 @@ export const remote = {
   'bible.loadingPassage': 'Loading the passage…',
   'bible.add': 'Add to run sheet',
   'bible.present': 'Present',
+
+  // The public server and old videos (public server plan, U30).
+  'connect.fullTitle': 'Too many phones',
+  'connect.full':
+    'This presentation uses the Worship Q public server, which lets {limit} phones connect at a time. This page connects by itself when one leaves.',
 } as const;
