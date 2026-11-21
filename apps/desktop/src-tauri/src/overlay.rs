@@ -13,7 +13,7 @@ use crate::files::{backgrounds_dir, checked_name};
 use crate::media::{checked_video, videos_dir};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, RawQuery, State as AxumState};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode, Uri};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
@@ -69,7 +69,7 @@ fn answers_as_worship_q() -> bool {
     let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
     let _ = stream.set_write_timeout(Some(Duration::from_millis(500)));
     if stream
-        .write_all(b"GET /overlay/subtitle HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+        .write_all(b"GET /overlay/subtitle HTTP/1.0\r\nHost: localhost\r\n\r\n")
         .is_err()
     {
         return false;
@@ -146,12 +146,32 @@ fn bundled(app: &AppHandle<Wry>, path: &str) -> Option<Response> {
     )
 }
 
-async fn page(AxumState(state): AxumState<ServerState>) -> Response {
-    serve_page(&state.app, "overlay.html")
+async fn page(AxumState(state): AxumState<ServerState>, headers: HeaderMap, uri: Uri) -> Response {
+    to_localhost(&headers, &uri).unwrap_or_else(|| serve_page(&state.app, "overlay.html"))
 }
 
-async fn slideshow_page(AxumState(state): AxumState<ServerState>) -> Response {
-    serve_page(&state.app, "slideshow.html")
+async fn slideshow_page(
+    AxumState(state): AxumState<ServerState>,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    to_localhost(&headers, &uri).unwrap_or_else(|| serve_page(&state.app, "slideshow.html"))
+}
+
+/// Sends a browser that asked for a page at `127.0.0.1`, as OBS sources saved with that
+/// address do, to the same page at `localhost`, where YouTube plays the music videos
+/// it refuses at `127.0.0.1` (`youtube_page`). The page's own requests then follow it there.
+/// A request without a `User-Agent` is answered where it is: browsers and OBS always send
+/// one, and older copies of the app checking who holds the port (`answers_as_worship_q`)
+/// never do, and look for the page itself.
+fn to_localhost(headers: &HeaderMap, uri: &Uri) -> Option<Response> {
+    let host = headers.get(header::HOST)?.to_str().ok()?;
+    if host.split(':').next() != Some("127.0.0.1") || !headers.contains_key(header::USER_AGENT) {
+        return None;
+    }
+    let path = uri.path_and_query().map_or("/", |p| p.as_str());
+    let url = format!("http://localhost:{OVERLAY_PORT}{path}");
+    Some(Redirect::temporary(&url).into_response())
 }
 
 fn serve_page(app: &AppHandle<Wry>, name: &str) -> Response {
@@ -206,7 +226,15 @@ allow=\"autoplay; encrypted-media; fullscreen\"></iframe></body></html>"
     ))
 }
 
-async fn youtube(Path(id): Path<String>, RawQuery(query): RawQuery) -> Response {
+async fn youtube(
+    Path(id): Path<String>,
+    RawQuery(query): RawQuery,
+    headers: HeaderMap,
+    uri: Uri,
+) -> Response {
+    if let Some(redirect) = to_localhost(&headers, &uri) {
+        return redirect;
+    }
     match youtube_frame(&id, query.as_deref().unwrap_or("")) {
         Some(page) => Html(page).into_response(),
         None => StatusCode::NOT_FOUND.into_response(),
@@ -390,7 +418,7 @@ pub fn overlay_publish(overlay: State<'_, Overlay>, frame: String, kind: Option<
 #[tauri::command]
 pub fn overlay_status(overlay: State<'_, Overlay>) -> (String, Option<String>) {
     (
-        format!("http://127.0.0.1:{OVERLAY_PORT}/overlay/subtitle"),
+        format!("http://localhost:{OVERLAY_PORT}/overlay/subtitle"),
         overlay.error.lock().unwrap().clone(),
     )
 }
@@ -420,6 +448,29 @@ mod tests {
         assert!(youtube_frame("short", "").is_none());
         assert!(youtube_frame("dQw4w9WgXc\"", "").is_none());
         assert!(youtube_frame("dQw4w9WgXcQ", "a=\"><script>").is_none());
+    }
+
+    #[test]
+    fn sends_browsers_at_the_ip_address_to_localhost() {
+        let uri: Uri = "/slideshow?size=small".parse().unwrap();
+        let headers = |host: &str, agent: bool| {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::HOST, host.parse().unwrap());
+            if agent {
+                headers.insert(header::USER_AGENT, "OBS".parse().unwrap());
+            }
+            headers
+        };
+        let redirect = to_localhost(&headers("127.0.0.1:47310", true), &uri).unwrap();
+        assert_eq!(redirect.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            redirect.headers()[header::LOCATION],
+            "http://localhost:47310/slideshow?size=small"
+        );
+        // Already at localhost, or an older copy of the app checking the port: answered.
+        assert!(to_localhost(&headers("localhost:47310", true), &uri).is_none());
+        assert!(to_localhost(&headers("127.0.0.1:47310", false), &uri).is_none());
+        assert!(to_localhost(&HeaderMap::new(), &uri).is_none());
     }
 
     #[test]

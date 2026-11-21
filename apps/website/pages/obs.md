@@ -9,9 +9,9 @@ The **subtitle overlay** shows the lyrics on a transparent background, for an OB
 Source over your camera. It follows the projector slide by slide, and its lines are never
 wrapped.
 
-- On the computer running Worship Q, add `http://127.0.0.1:47310/overlay/subtitle` as a
+- On the computer running Worship Q, add `http://localhost:47310/overlay/subtitle` as a
   Browser Source. It needs no internet. The full slideshow is at
-  `http://127.0.0.1:47310/slideshow`.
+  `http://localhost:47310/slideshow`.
 - On a streaming computer without Worship Q, a link made in **Settings → Browser outputs**
   shows the overlay or the slideshow through your church's server.
 

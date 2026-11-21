@@ -427,8 +427,8 @@ revoked. The page uses the workspace's font when the browser has it, else the sy
 the connected-devices list says which. Anyone with the link sees what is on the projector.
 
 On a computer running Worship Q, OBS and browsers can also show the slideshow without
-internet at `http://127.0.0.1:47310/slideshow`, next to the subtitle overlay at
-`http://127.0.0.1:47310/overlay/subtitle`.
+internet at `http://localhost:47310/slideshow`, next to the subtitle overlay at
+`http://localhost:47310/overlay/subtitle`.
 
 ## Connected devices
 
