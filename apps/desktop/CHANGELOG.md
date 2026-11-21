@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.11.0](https://github.com/iphren/worship-q/compare/v2.10.1...v2.11.0) (2026-11-21)
+
+
+### Features
+
+* **desktop:** live run sheet says how far its day is, with quick switch chips ([e4f529a](https://github.com/iphren/worship-q/commit/e4f529aad36ec1f16b9278e5bf7adf55b132281a))
+
+
+### Bug Fixes
+
+* **desktop:** ask in a dialog before switching the live day, with tests ([4bf9014](https://github.com/iphren/worship-q/commit/4bf901468dc2af4351b78295e207f1c3a9f9394a))
+
 ## [2.10.1](https://github.com/iphren/worship-q/compare/v2.10.0...v2.10.1) (2026-11-18)
 
 
