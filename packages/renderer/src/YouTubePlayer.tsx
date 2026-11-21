@@ -155,6 +155,9 @@ export function YouTubePlayer(props: {
   report.current = props.onReport;
   const live = useRef(false);
   const start = useRef(props.startSeconds ?? 0);
+  // Whether the clock last said to play, for the autoplay check above.
+  const clockPlaying = useRef(true);
+  clockPlaying.current = clock?.playing ?? true;
 
   useEffect(() => {
     const element = box.current;
@@ -165,6 +168,8 @@ export function YouTubePlayer(props: {
     element.appendChild(holder);
     setReady(false);
     live.current = false;
+    // Each length is told once: the player gives it again on every change of state.
+    let told = 0;
     const tell = () => {
       const p = player.current;
       if (!p) return;
@@ -174,7 +179,10 @@ export function YouTubePlayer(props: {
         return;
       }
       const seconds = p.getDuration();
-      if (seconds > 0) report.current?.({ kind: 'length', id, seconds });
+      if (seconds > 0 && Math.abs(seconds - told) > 0.5) {
+        told = seconds;
+        report.current?.({ kind: 'length', id, seconds });
+      }
     };
     void loadApi()
       .then((YT) => {
@@ -204,7 +212,8 @@ export function YouTubePlayer(props: {
             },
             onError: (event) => report.current?.({ kind: 'error', id, code: event.data }),
             // The app's own windows still start it with sound a moment later (spike M0.1);
-            // a browser that really refuses gets it muted, with a button for sound.
+            // a browser that really refuses gets it muted, with a button for sound. Muted,
+            // it is started by following the clock, which may meanwhile have paused it.
             onAutoplayBlocked: () => {
               window.clearTimeout(blockedTimer);
               blockedTimer = window.setTimeout(() => {
@@ -212,9 +221,9 @@ export function YouTubePlayer(props: {
                 if (gone || !p) return;
                 const state = p.getPlayerState();
                 if (state === YT_STATE.playing || state === YT_STATE.buffering) return;
+                if (state === YT_STATE.paused && !clockPlaying.current) return;
                 p.mute();
                 setBlocked(true);
-                p.playVideo();
               }, AUTOPLAY_GRACE_MS);
             },
           },
