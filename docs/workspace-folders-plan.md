@@ -1,8 +1,7 @@
 # Worship Q — Workspace Folders Plan
 
 **Drafted:** 21 November 2026
-**Status:** Agreed direction with the project owner; not scheduled. To be built after v2.12.0, on
-its own branch: it changes where data lives and has nothing to do with the public server.
+**Status:** Built on branch `workspace-folders`; walkthrough pending ([acceptance record](acceptance/workspace-folders.md)).
 **Source:** the operator's question of 21 November 2026 on why the first workspace has no
 **Remove…** button; `apps/desktop/src-tauri/src/workspaces.rs` and the folders the app writes,
 as of version 2.10.1.
