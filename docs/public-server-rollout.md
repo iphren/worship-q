@@ -4,7 +4,7 @@
 tested; nothing below has been done yet.
 
 How the public server goes from the branch to every user: infrastructure, a private test with
-a build from the branch, the privacy notice, then the merge and release (v2.11.0). Each stage
+a build from the branch, the privacy notice, then the merge and release (v2.12.0). Each stage
 ends with checks; the next starts only when they pass. The settings themselves are in
 [Running the Public Server](public-server-deployment.md); this plan is the order and the gates.
 
@@ -38,7 +38,7 @@ outside both.
      minutes: well above the server's own limits, since a church's computers and phones share
      one address. In stage 3, see in the sampled requests which managed rules would block an
      upload (`SizeRestrictions_BODY` blocks bodies over 8 KB), set those to Count, then leave
-     monitor mode. Desktops from 2.11.0 send a `User-Agent` on uploads; older ones sent none.
+     monitor mode. Desktops from 2.12.0 send a `User-Agent` on uploads; older ones sent none.
 5. **Host journal:** journald deletes logs after 14 days (the settings in the guide's **Logs and
    privacy**), as the privacy notice says.
 6. **Firewall** (the host's and the provider's): UDP 3478 and the relay ports (49152–65535 by
@@ -127,10 +127,10 @@ logs. A change to the server's logging or retention changes the notice too.
 ## Stage 6 — Merge and release
 
 1. Merge `public-server` into `main`. The website deploys at once (`website.yml`) with the
-   guide pages and the privacy notice; release-please opens its release PR for **v2.11.0**.
+   guide pages and the privacy notice; release-please opens its release PR for **v2.12.0**.
 2. Merge the release PR. `release.yml` builds a **draft** GitHub Release with the installers.
 3. Install from the draft on macOS and Windows; a new install joins the public server.
-4. Publish the draft. Installed apps then update to 2.11.0, and new ones use the public server.
+4. Publish the draft. Installed apps then update to 2.12.0, and new ones use the public server.
 5. Move the server's checkout from `public-server` to `main` and redeploy, so it runs what was
    released.
 
@@ -154,4 +154,4 @@ logs. A change to the server's logging or retention changes the notice too.
 
 Made on 20 November 2026: the server runs on AWS in London (eu-west-2) behind CloudFront; IHS
 Technology is the controller; logs are deleted after 14 days. On 21 November 2026 the app's one-computer notes were linked to
-the notice; the link ships with v2.11.0.
+the notice; the link ships with v2.12.0.
