@@ -7,7 +7,6 @@
 
 * **desktop:** add a background image or video from a song or the Bible ([9d0ff87](https://github.com/iphren/worship-q/commit/9d0ff871906764cb0f95f4c48a74674a99d0465a))
 * **desktop:** bring back the still-live run sheet banner ([21d41c9](https://github.com/iphren/worship-q/commit/21d41c9ebe905c691757c3bd28835c4f587ff675))
-* **desktop:** give new workspaces their own folder and allow removing the first ([45bb4f4](https://github.com/iphren/worship-q/commit/45bb4f4e466cdb968baa9faa3baf7136cde42225))
 * **desktop:** give new workspaces their own folder and allow removing the first ([0ef5ea2](https://github.com/iphren/worship-q/commit/0ef5ea295fbb1763cb159e905bd01a282881d8b2))
 
 
