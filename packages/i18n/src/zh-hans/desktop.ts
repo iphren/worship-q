@@ -778,6 +778,7 @@ export const desktop: Record<DesktopKey, string> = {
   'public.unreachable':
     '无法连接 Worship Q 公共服务器：手机、经文查询和新幻灯片需等连接恢复后才能使用。请检查这台电脑的网络。投影不受影响。',
   'public.updateNeeded': '请更新 Worship Q 后再使用公共服务器。',
+  'public.privacy': '隐私说明',
   'workspaces.public': '通过公共服务器',
   'remote.joiningPublic': '正在连接 Worship Q 公共服务器…',
   'remote.publicUnreachable':

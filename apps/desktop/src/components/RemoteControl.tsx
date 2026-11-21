@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { useApp, useCloud, useRemoteHost, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
+import { PrivacyLink } from './PrivacyLink';
 import { Dialog } from './Dialog';
 
 /** How often the QR code is redrawn, picking up a fresh invitation when one is made. */
@@ -172,7 +173,7 @@ export function RemoteControlDialog(props: { onClose(): void }) {
         <p className="text-center text-xs text-slate-400">{t('remote.scan')}</p>
         {isPublic && (
           <p className="text-center text-xs text-slate-400">
-            {t('remote.publicNote', { phones: status.server?.limits?.phones ?? 2 })}
+            {t('remote.publicNote', { phones: status.server?.limits?.phones ?? 2 })} <PrivacyLink />
           </p>
         )}
         <div className="flex justify-center">

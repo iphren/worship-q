@@ -171,7 +171,7 @@ Everywhere the site, the README and the app's descriptions say a feature needs a
 | M7.2 | TURN for the public relay: wide port range, `user-quota=2`, `total-quota`, own host or managed service; `WORSHIP_Q_TURN_*` set | compose, `docs/server-deployment.md` | M7.1 | Manual: a `relay` candidate from Trickle ICE | — |
 | M7.3 | Host, TLS, CloudFront before nginx (decided 20 November 2026), `WORSHIP_Q_PUBLIC_PROXY_HOPS=2`, nginx refusing requests without CloudFront's origin header; `/` explains the public server in one sentence | infrastructure; `app.ts` | M7.1 | Manual: `curl /api/v1/info` shows `public: true` | — |
 | M7.4 | Monitoring: up check, disk, conversion queue length, relay connections, 429 counts | infrastructure | M7.3 | — | Alerts reach the owner |
-| M7.5 | Privacy notice on the website: what passes through, the deletion rule, logs, where it runs; English page, and the Chinese pages under `/zh-hans/` and `/zh-hant/` only | `apps/website` | M2.10 | — | Linked from the app's one-computer notes |
+| M7.5 | Privacy notice on the website: what passes through, the deletion rule, logs, where it runs; English page, and the Chinese pages under `/zh-hans/` and `/zh-hant/` only | `apps/website`, `PrivacyLink.tsx`, `open_privacy` in `lib.rs` | M2.10 | `website_pages_follow_the_interface_language` | Linked from the app's one-computer notes |
 
 ### M8 — Joining a church later (M)
 

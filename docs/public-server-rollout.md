@@ -101,7 +101,9 @@ server is redeployed from it.
 ## Stage 4 — Privacy notice (M7.5)
 
 Written on 20 November 2026 at `/privacy/` (`apps/website/pages/privacy.md`, and the Chinese
-pages under `zh-hans/` and `zh-hant/`), linked from the footer and the FAQ. It goes live with
+pages under `zh-hans/` and `zh-hant/`), linked from the footer, the FAQ, and the app's notes
+on the public server for phones, Bible passages and slides (a **Privacy** link opening the page
+in the interface language). It goes live with
 the merge in stage 6, before any user is pointed at the server. It states:
 
 - IHS Technology as the controller; the server on AWS in London behind CloudFront.
@@ -151,5 +153,5 @@ logs. A change to the server's logging or retention changes the notice too.
 ## Decisions
 
 Made on 20 November 2026: the server runs on AWS in London (eu-west-2) behind CloudFront; IHS
-Technology is the controller; logs are deleted after 14 days. Still open: linking the notice
-from the app's one-computer notes (M7.5's last part), which needs a desktop release.
+Technology is the controller; logs are deleted after 14 days. On 21 November 2026 the app's one-computer notes were linked to
+the notice; the link ships with v2.11.0.

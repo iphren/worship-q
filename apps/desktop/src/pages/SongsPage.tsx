@@ -15,6 +15,7 @@ import {
   useUploads,
 } from '../components/UploadProgress';
 import { formatDate, t } from '@worship-q/i18n/desktop';
+import { PrivacyLink } from '../components/PrivacyLink';
 import { useFileDrop } from '../lib/fileDrop';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { useSearchShortcut } from '../lib/searchShortcut';
@@ -379,7 +380,9 @@ function AddMedia(props: { onRefused(message: string | null): void }) {
         <p className="text-xs text-slate-500">{blocked ?? t('media.needsServerUpdate')}</p>
       )}
       {!blocked && !cloud.connected && (
-        <p className="text-xs text-slate-500">{t('media.oneComputer')}</p>
+        <p className="text-xs text-slate-500">
+          {t('media.oneComputer')} <PrivacyLink />
+        </p>
       )}
     </div>
   );

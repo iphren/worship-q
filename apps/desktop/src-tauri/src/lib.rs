@@ -139,6 +139,7 @@ pub fn run() {
             instances::other_instances,
             open_website,
             open_guide,
+            open_privacy,
             output::open_output,
             output::close_output,
             output::window_output,
@@ -213,16 +214,28 @@ fn open_website() -> Result<(), String> {
     open_in_browser(WEBSITE)
 }
 
-/// Opens the volunteer guide on the website in the interface language (`zh-Hans`, `zh-Hant`,
-/// or English for anything else), from the Help menu.
+/// Opens the volunteer guide on the website in the interface language, from the Help menu.
 #[tauri::command]
 fn open_guide(locale: String) -> Result<(), String> {
-    let path = match locale.as_str() {
-        "zh-Hans" => "/zh-hans/guide/",
-        "zh-Hant" => "/zh-hant/guide/",
-        _ => "/guide/",
+    open_in_browser(&website_page(&locale, "guide/"))
+}
+
+/// Opens the privacy notice on the website in the interface language, from the notes on what
+/// the public server does.
+#[tauri::command]
+fn open_privacy(locale: String) -> Result<(), String> {
+    open_in_browser(&website_page(&locale, "privacy/"))
+}
+
+/// A page of the website in the interface language: `zh-Hans`, `zh-Hant`, or English for
+/// anything else. Pages are fixed here, so the interface cannot open any other address.
+fn website_page(locale: &str, page: &str) -> String {
+    let language = match locale {
+        "zh-Hans" => "zh-hans/",
+        "zh-Hant" => "zh-hant/",
+        _ => "",
     };
-    open_in_browser(&format!("{WEBSITE}{path}"))
+    format!("{WEBSITE}/{language}{page}")
 }
 
 fn open_in_browser(url: &str) -> Result<(), String> {
@@ -273,5 +286,27 @@ fn grow_to_minimum(window: &tauri::Window) {
     let height = size.height.max(config.min_height.unwrap_or(0.0));
     if width != size.width || height != size.height {
         let _ = window.set_size(LogicalSize::new(width, height));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::website_page;
+
+    #[test]
+    fn website_pages_follow_the_interface_language() {
+        assert_eq!(
+            website_page("en", "privacy/"),
+            "https://worship-q.com/privacy/"
+        );
+        assert_eq!(
+            website_page("zh-Hans", "privacy/"),
+            "https://worship-q.com/zh-hans/privacy/"
+        );
+        assert_eq!(
+            website_page("zh-Hant", "guide/"),
+            "https://worship-q.com/zh-hant/guide/"
+        );
+        assert_eq!(website_page("fr", "guide/"), "https://worship-q.com/guide/");
     }
 }

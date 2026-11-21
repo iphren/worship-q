@@ -842,6 +842,7 @@ export const desktop = {
   'public.unreachable':
     'The Worship Q public server cannot be reached: phones, Bible lookups and new slides wait until it can. Check this computer’s internet. Presenting carries on.',
   'public.updateNeeded': 'Update Worship Q to use the public server.',
+  'public.privacy': 'Privacy',
   'workspaces.public': 'Through the public server',
   'remote.joiningPublic': 'Connecting to the Worship Q public server…',
   'remote.publicUnreachable':
