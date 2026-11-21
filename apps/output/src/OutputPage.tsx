@@ -13,9 +13,9 @@ import {
   type OutputToRelay,
   type OutputView,
   type RelayToOutput,
-  youtubeEmbedUrl,
+  youtubeVideo,
 } from '@worship-q/protocol';
-import { Slide, buildFrame, fontAvailable, missingFonts } from '@worship-q/renderer';
+import { Slide, YouTubePlayer, buildFrame, fontAvailable, missingFonts } from '@worship-q/renderer';
 import { useEffect, useMemo, useState } from 'react';
 import { t } from '@worship-q/i18n/output';
 
@@ -182,6 +182,7 @@ export function OutputPage() {
     );
   }
 
+  const youtube = frame.website ? youtubeVideo(frame.website.url) : null;
   return (
     <div
       style={{
@@ -198,22 +199,33 @@ export function OutputPage() {
         sound={kind === 'slideshow'}
         soundLabel={t('video.clickForSound')}
       />
-      {frame.website && (
-        <iframe
-          title={t('output.website')}
-          // A YouTube link shows its video alone: YouTube's page refuses to be framed.
-          src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
-          allow="autoplay; encrypted-media; fullscreen"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            border: 0,
-            background: '#000',
-          }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+      {youtube && frame.website ? (
+        // A YouTube link shows its video alone, following the live state's clock: YouTube's
+        // page refuses to be framed (YouTube control M3.1).
+        <YouTubePlayer
+          id={youtube.id}
+          clock={frame.website.video ?? null}
+          startSeconds={youtube.startSeconds}
+          sound={kind === 'slideshow'}
+          soundLabel={t('video.clickForSound')}
         />
+      ) : (
+        frame.website && (
+          <iframe
+            title={t('output.website')}
+            src={frame.website.url}
+            allow="autoplay; encrypted-media; fullscreen"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              border: 0,
+              background: '#000',
+            }}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+          />
+        )
       )}
     </div>
   );

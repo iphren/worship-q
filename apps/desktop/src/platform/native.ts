@@ -52,6 +52,11 @@ export const native = {
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('download_background', { server, token, fileName }),
+  /**
+   * A YouTube video's length in seconds, read from its watch page (YouTube control D3); null
+   * for a live stream, or when it cannot be read.
+   */
+  youtubeLength: (id: string) => invoke<number | null>('youtube_length', { id }),
   /** The start of a web page, up to its `<head>`'s end, to read the site's title from. */
   fetchPageStart: async (url: string) => {
     const page = await invoke<{ contentType: string | null; body: string }>('fetch_page_start', {

@@ -5,7 +5,9 @@ import type { CopyStatus } from '../app/videoCache';
 import { t } from '@worship-q/i18n/desktop';
 import { Icon } from './Icon';
 import { native } from '../platform/native';
-import { videoPosition } from '@worship-q/live-state';
+import { knowsLength, videoPosition } from '@worship-q/live-state';
+import { youtubeVideo } from '@worship-q/protocol';
+import { useOutputStatus } from './OutputPanel';
 import { formatDuration } from '@worship-q/session';
 
 /** A video's copy on this computer, re-rendering the caller when it changes (U8). */
@@ -112,12 +114,15 @@ function useTicking(on: boolean): number {
 }
 
 /**
- * The control bar while a video item is live (M6.4): play or pause, the position and length,
- * a scrubber, and jumps of 10 seconds. Says so when this computer has no copy to play.
+ * The control bar while a video item or a YouTube video is live (M6.4, YouTube control M4.1):
+ * play or pause, the position and length, a scrubber, and jumps of 10 seconds. Says so when
+ * this computer has no copy to play, or YouTube will not play the video. While a YouTube
+ * video's length is not known, and for a live stream, it only plays and pauses (D4).
  */
 export function VideoControls(props: { file: string | null }) {
   const { cloud } = useApp();
   const session = useSession();
+  const output = useOutputStatus();
   const video = session.video;
   const now = useTicking(!!video?.playing);
   const has = useHasCopy(props.file ?? '');
@@ -125,21 +130,26 @@ export function VideoControls(props: { file: string | null }) {
   if (!video) return null;
   const position = dragging ?? videoPosition(video, new Date(now).toISOString());
   const duration = video.durationSeconds;
+  const youtube = output.frame.website ? youtubeVideo(output.frame.website.url)?.id : undefined;
+  const live = !!youtube && output.youtubeLive === youtube;
+  const seekable = knowsLength(video) && !live;
   return (
     <div
       className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-800 bg-violet-950/80 px-3 py-2"
       role="group"
       aria-label={t('video.controls')}
     >
-      <button
-        type="button"
-        className="btn px-2"
-        title={`${t('video.back')} (←)`}
-        aria-label={t('video.back')}
-        onClick={() => void session.videoSeek({ by: -10 })}
-      >
-        <Icon name="back10" />
-      </button>
+      {seekable && (
+        <button
+          type="button"
+          className="btn px-2"
+          title={`${t('video.back')} (←)`}
+          aria-label={t('video.back')}
+          onClick={() => void session.videoSeek({ by: -10 })}
+        >
+          <Icon name="back10" />
+        </button>
+      )}
       <button
         type="button"
         className="btn border-violet-500 bg-violet-600 px-4 hover:bg-violet-500"
@@ -149,39 +159,52 @@ export function VideoControls(props: { file: string | null }) {
       >
         <Icon name={video.playing ? 'pause' : 'play'} />
       </button>
-      <button
-        type="button"
-        className="btn px-2"
-        title={`${t('video.forward')} (→)`}
-        aria-label={t('video.forward')}
-        onClick={() => void session.videoSeek({ by: 10 })}
-      >
-        <Icon name="forward10" />
-      </button>
+      {seekable && (
+        <button
+          type="button"
+          className="btn px-2"
+          title={`${t('video.forward')} (→)`}
+          aria-label={t('video.forward')}
+          onClick={() => void session.videoSeek({ by: 10 })}
+        >
+          <Icon name="forward10" />
+        </button>
+      )}
       <span className="w-24 shrink-0 text-center text-xs text-violet-200 tabular-nums">
-        {formatDuration(position)} / {formatDuration(duration)}
+        {live
+          ? t('video.liveStream')
+          : seekable
+            ? `${formatDuration(position)} / ${formatDuration(duration)}`
+            : formatDuration(position)}
       </span>
-      <input
-        type="range"
-        className="min-w-32 flex-1 accent-violet-400"
-        min={0}
-        max={duration || 1}
-        step={0.1}
-        value={Math.min(position, duration)}
-        aria-label={t('video.position')}
-        onChange={(event) => setDragging(Number(event.target.value))}
-        onPointerUp={() => {
-          if (dragging !== null) void session.videoSeek({ seconds: dragging });
-          setDragging(null);
-        }}
-        onKeyUp={() => {
-          if (dragging !== null) void session.videoSeek({ seconds: dragging });
-          setDragging(null);
-        }}
-      />
+      {seekable && (
+        <input
+          type="range"
+          className="min-w-32 flex-1 accent-violet-400"
+          min={0}
+          max={duration || 1}
+          step={0.1}
+          value={Math.min(position, duration)}
+          aria-label={t('video.position')}
+          onChange={(event) => setDragging(Number(event.target.value))}
+          onPointerUp={() => {
+            if (dragging !== null) void session.videoSeek({ seconds: dragging });
+            setDragging(null);
+          }}
+          onKeyUp={() => {
+            if (dragging !== null) void session.videoSeek({ seconds: dragging });
+            setDragging(null);
+          }}
+        />
+      )}
       {props.file && has === false && (
         <span className="w-full text-xs text-amber-300" role="status">
           {t(cloud.connected ? 'video.notDownloaded' : 'video.goneHere')}
+        </span>
+      )}
+      {youtube && output.youtubeError?.id === youtube && (
+        <span className="w-full text-xs text-amber-300" role="status">
+          {t('video.youtubeRefused')}
         </span>
       )}
     </div>

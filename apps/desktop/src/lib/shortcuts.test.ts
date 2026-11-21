@@ -193,7 +193,7 @@ describe('runPresentAction', () => {
       setBlank: async (value) => void calls.push(`setBlank(${value})`),
       playSlide: record('playSlide'),
       clear: record('clear'),
-      video: { playing: false },
+      video: { playing: false, durationSeconds: 60 },
       videoPlay: async (playing) => void calls.push(`videoPlay(${playing})`),
       videoSeek: async (to) => void calls.push(`videoSeek(${to.by})`),
     };
@@ -205,6 +205,14 @@ describe('runPresentAction', () => {
     for (const action of ['video-toggle', 'video-back', 'video-forward'] as const)
       runPresentAction(session, action);
     expect(calls).toEqual(['videoPlay(true)', 'videoSeek(-10)', 'videoSeek(10)']);
+  });
+
+  it('only plays and pauses a YouTube video whose length is not known (YouTube control D4)', () => {
+    const { session, calls } = controls(false);
+    const youtube = { ...session, video: { playing: true, durationSeconds: 0 } };
+    for (const action of ['video-toggle', 'video-back', 'video-forward'] as const)
+      runPresentAction(youtube, action);
+    expect(calls).toEqual(['videoPlay(false)']);
   });
 
   it('hides and shows the lyrics with space while a slide is on screen', () => {

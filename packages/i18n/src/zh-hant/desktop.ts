@@ -685,6 +685,9 @@ export const desktop: Record<DesktopKey, string> = {
   'video.back': '後退 10 秒',
   'video.forward': '前進 10 秒',
   'video.position': '位置',
+  'video.liveStream': '直播',
+  'video.youtubeRefused':
+    'YouTube 不允許在這裡播放這部影片。影片擁有者可能不允許在其他網站播放，或者影片已被刪除。',
   'media.addTitle': '新增投影片、PDF、圖片或影片',
   'media.dialogName': '投影片、PDF、圖片和影片',
   'bible.open': '聖經',

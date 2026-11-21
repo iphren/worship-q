@@ -9,7 +9,7 @@ import {
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
+import { useWebsiteTitle, websiteFor, websiteTitle } from '../app/websiteTitle';
 import { t } from '@worship-q/i18n/desktop';
 import { useEdgeScroll } from '../lib/edgeScroll';
 import { scrollAlong, scroller, scrollToNearest, span } from '../lib/presentLayout';
@@ -258,7 +258,7 @@ export function RunSheetEditor(props: {
         library.find((song) => song.website?.url === url) ??
         (await session.createSong({
           title: (await websiteTitle(url)) || new URL(url).hostname,
-          website: { url },
+          website: await websiteFor(url),
         }));
       await session.addSong(date, song.id);
       setSearch('');

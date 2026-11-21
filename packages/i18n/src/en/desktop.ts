@@ -762,6 +762,9 @@ export const desktop = {
   'video.back': 'Back 10 seconds',
   'video.forward': 'Forward 10 seconds',
   'video.position': 'Position',
+  'video.liveStream': 'Live',
+  'video.youtubeRefused':
+    'YouTube won’t play this video here. Its owner may not allow it on other sites, or it may have been removed.',
   'media.addTitle': 'Add slides, PDFs, images or videos',
   'media.dialogName': 'Slides, PDFs, images and videos',
 

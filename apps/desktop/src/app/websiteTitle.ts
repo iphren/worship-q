@@ -1,3 +1,4 @@
+import { youtubeVideo, type Website } from '@worship-q/protocol';
 import { useEffect, useState } from 'react';
 import { native } from '../platform/native';
 import { pageTitle } from './pageTitle';
@@ -14,8 +15,36 @@ export function websiteTitle(url: string): Promise<string | null> {
     if (titles.size >= KEPT) titles.delete(titles.keys().next().value!);
     title = pageTitle(url, native.fetchPageStart);
     titles.set(url, title);
+    // A YouTube video's length is read meanwhile too, ready for the save.
+    void youtubeLength(url);
   }
   return title;
+}
+
+const lengths = new Map<string, Promise<number | null>>();
+
+/** A YouTube video's length, read once per address while the app runs; null otherwise. */
+function youtubeLength(url: string): Promise<number | null> {
+  const video = youtubeVideo(url);
+  if (!video) return Promise.resolve(null);
+  let length = lengths.get(video.id);
+  if (!length) {
+    if (lengths.size >= KEPT) lengths.delete(lengths.keys().next().value!);
+    length = native.youtubeLength(video.id).catch(() => null);
+    lengths.set(video.id, length);
+  }
+  return length;
+}
+
+/**
+ * The website to save for `url` (YouTube control D3): a YouTube video's with its length,
+ * kept from `before` when the address is the same, or read from YouTube. A length that
+ * cannot be read is left out; the slideshow fills it in once its player knows it.
+ */
+export async function websiteFor(url: string, before?: Website | null): Promise<Website> {
+  if (before?.url === url && before.durationSeconds !== undefined) return before;
+  const seconds = await youtubeLength(url);
+  return seconds ? { url, durationSeconds: seconds } : { url };
 }
 
 /**

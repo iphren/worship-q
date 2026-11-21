@@ -29,8 +29,13 @@ export default defineConfig({
     target: 'es2022',
     rollupOptions: {
       // The subtitle overlay and the slideshow are further pages, served on localhost for OBS
-      // and browsers on this computer.
-      input: { main: 'index.html', overlay: 'overlay.html', slideshow: 'slideshow.html' },
+      // and browsers on this computer, as is the page the slideshow window plays YouTube on.
+      input: {
+        main: 'index.html',
+        overlay: 'overlay.html',
+        slideshow: 'slideshow.html',
+        youtube: 'youtube.html',
+      },
     },
   },
 });
