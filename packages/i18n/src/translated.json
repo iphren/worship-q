@@ -733,7 +733,7 @@
     "workspaces.leaveLiveConfirm": "Reopen",
     "workspaces.leaveLiveTitle": "Close the presentation?",
     "workspaces.name": "Workspace name",
-    "workspaces.public": "Connected to the public server",
+    "workspaces.public": "Public server",
     "workspaces.remove": "Remove…",
     "workspaces.removeBody": "Its songs, run sheets and settings are deleted from this computer, a backup is saved in the app’s data folder first. Content synchronized with the church server stays there.",
     "workspaces.removed": "Removed. A backup was saved at {path}",

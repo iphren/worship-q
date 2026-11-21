@@ -762,7 +762,7 @@ export const desktop: Record<DesktopKey, string> = {
     '無法連線 Worship Q 公共伺服器：手機、經文查詢和新投影片需等連線恢復後才能使用。請檢查這台電腦的網路。投影不受影響。',
   'public.updateNeeded': '請更新 Worship Q 後再使用公共伺服器。',
   'public.privacy': '隱私說明',
-  'workspaces.public': '已連線公共伺服器',
+  'workspaces.public': '公共伺服器',
   'remote.joiningPublic': '正在連線 Worship Q 公共伺服器…',
   'remote.publicUnreachable':
     '無法連線 Worship Q 公共伺服器，手機暫時無法連線。請檢查這台電腦的網路。',
