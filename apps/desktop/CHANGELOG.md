@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.12.0](https://github.com/iphren/worship-q/compare/v2.11.0...v2.12.0) (2026-11-21)
+
+
+### Features
+
+* **desktop:** link the privacy notice from the public server notes ([3b2c8fa](https://github.com/iphren/worship-q/commit/3b2c8fa7d29d72462fc9c88d9106c1092f85775f))
+* **desktop:** workspaces without a church named after the computer ([cac07aa](https://github.com/iphren/worship-q/commit/cac07aaae1d2db1409fc096d73b83fc6120d2ddc))
+* the Worship Q public server ([5cdb54a](https://github.com/iphren/worship-q/commit/5cdb54a1e5673ded8dc9f51ecc634e53fab8c8c4))
+
 ## [2.11.0](https://github.com/iphren/worship-q/compare/v2.10.1...v2.11.0) (2026-11-21)
 
 
