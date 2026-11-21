@@ -300,8 +300,8 @@ export const desktop = {
   'workspaces.title': 'Workspaces on this computer',
   'workspaces.hint':
     'Each workspace keeps its own songs, run sheets, settings and church connection. Switching reopens Worship Q.',
-  'workspaces.unnamed': 'New workspace',
-  'workspaces.local': 'Not connected',
+  'workspaces.rename': 'Rename…',
+  'workspaces.name': 'Workspace name',
   'workspaces.connect': 'Connect…',
   'workspaces.switch': 'Switch',
   'workspaces.add': 'Add workspace',
@@ -843,7 +843,7 @@ export const desktop = {
     'The Worship Q public server cannot be reached: phones, Bible lookups and new slides wait until it can. Check this computer’s internet. Presenting carries on.',
   'public.updateNeeded': 'Update Worship Q to use the public server.',
   'public.privacy': 'Privacy',
-  'workspaces.public': 'Through the public server',
+  'workspaces.public': 'Connected to the public server',
   'remote.joiningPublic': 'Connecting to the Worship Q public server…',
   'remote.publicUnreachable':
     'The Worship Q public server cannot be reached, so phones cannot connect. Check this computer’s internet.',

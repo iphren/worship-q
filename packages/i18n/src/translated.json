@@ -730,15 +730,15 @@
     "workspaces.leaveLiveBody": "Worship Q reopens in the other workspace, and the slideshow on this computer closes.",
     "workspaces.leaveLiveConfirm": "Reopen",
     "workspaces.leaveLiveTitle": "Close the presentation?",
-    "workspaces.local": "Not connected",
-    "workspaces.public": "Through the public server",
+    "workspaces.name": "Workspace name",
+    "workspaces.public": "Connected to the public server",
     "workspaces.remove": "Remove…",
     "workspaces.removeBody": "Its songs, run sheets and settings are deleted from this computer, a backup is saved in the app’s data folder first. Content synchronized with the church server stays there.",
     "workspaces.removed": "Removed. A backup was saved at {path}",
     "workspaces.removeTitle": "Remove “{name}” from this computer?",
+    "workspaces.rename": "Rename…",
     "workspaces.switch": "Switch",
-    "workspaces.title": "Workspaces on this computer",
-    "workspaces.unnamed": "New workspace"
+    "workspaces.title": "Workspaces on this computer"
   },
   "remote": {
     "add.added": "Added “{title}” to the run sheet.",

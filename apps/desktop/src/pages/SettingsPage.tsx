@@ -12,7 +12,7 @@ import {
 } from '@worship-q/protocol';
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useApp, useQuery, useSession } from '../app/context';
+import { useApp, useCloud, useQuery, useSession } from '../app/context';
 import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
@@ -117,6 +117,8 @@ export function SettingsPage() {
   const { output } = useApp();
   const session = useSession();
   const status = useOutputStatus();
+  // A viewer follows a church's presentation; without a church there is nothing to follow.
+  const joined = Boolean(useCloud().state?.joinedAt);
   const workspaceId = session.workspace.id;
   const mainRef = useRef<HTMLDivElement>(null);
   const asideRef = useRef<HTMLElement>(null);
@@ -700,16 +702,20 @@ export function SettingsPage() {
         </Section>
 
         <Section title={t('viewer.title')} hint={t('viewer.hint')}>
-          <label className="flex items-start gap-3 text-sm">
+          {/* Turning it off stays possible, as when the church connection was removed. */}
+          <label
+            className={`flex items-start gap-3 text-sm ${!joined && !viewerMode ? 'text-slate-500' : ''}`}
+          >
             <input
               type="checkbox"
               className="mt-1 h-4 w-4"
               checked={viewerMode}
+              disabled={!joined && !viewerMode}
               onChange={(e) => setViewerChange(e.target.checked)}
             />
             <span>{t('viewer.toggle')}</span>
           </label>
-          {viewerMode && !session.following && (
+          {(viewerMode ? !session.following : !joined) && (
             <p className="text-xs text-slate-400">{t('viewer.notConnected')}</p>
           )}
         </Section>

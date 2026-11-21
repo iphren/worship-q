@@ -6,6 +6,7 @@ import { ChurchConnection, useChurchProblem, usePublicProblem } from './ChurchCo
 import { ConfirmDialog, Dialog } from './Dialog';
 import { Icon } from './Icon';
 import { useOutputStatus } from './OutputPanel';
+import logo from '../assets/logo.svg';
 
 /** The workspaces kept on this computer; null until read. */
 export function useWorkspaces(): { workspaces: WorkspaceEntry[] | null; reload(): void } {
@@ -17,19 +18,43 @@ export function useWorkspaces(): { workspaces: WorkspaceEntry[] | null; reload()
   return { workspaces, reload };
 }
 
-/** The current workspace's name: the church's name for it once joined, else its own. */
+let computerName: Promise<string | null> | null = null;
+
+/** The computer's own name, which names a workspace that has none; null until read. */
+function useComputerName(): string | null {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    computerName ??= native.computerName().catch(() => null);
+    void computerName.then((computer) => active && setName(computer));
+    return () => {
+      active = false;
+    };
+  }, []);
+  return name;
+}
+
+/**
+ * The current workspace's name: the church's name for it once joined, else its own, else
+ * the computer's.
+ */
 export function useWorkspaceName(): string {
   const session = useSession();
   const { state } = useCloud();
+  const fallback = useComputerName() || t('app.thisComputer');
   const churchName = state?.joinedAt ? state.workspaceName : null;
-  return churchName || session.workspace.name || t('workspaces.unnamed');
+  return churchName || session.workspace.name || fallback;
 }
 
 /** Settings section: the workspaces on this computer, to switch between, add or remove. */
 export function WorkspaceList() {
   const currentName = useWorkspaceName();
+  const computer = useComputerName() || t('app.thisComputer');
+  const session = useSession();
   const problem = useChurchProblem();
   const { cloud } = useApp();
+  /** The new name being typed for this workspace, while renaming it. */
+  const [renaming, setRenaming] = useState<string | null>(null);
   const output = useOutputStatus();
   const { workspaces, reload } = useWorkspaces();
   const [busy, setBusy] = useState(false);
@@ -52,8 +77,7 @@ export function WorkspaceList() {
         ? { label: t('church.backupNow'), run: () => cloud.backupNow() }
         : null;
 
-  const nameOf = (entry: WorkspaceEntry) =>
-    entry.active ? currentName : entry.name || t('workspaces.unnamed');
+  const nameOf = (entry: WorkspaceEntry) => (entry.active ? currentName : entry.name || computer);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -88,19 +112,67 @@ export function WorkspaceList() {
       <ul className="divide-y divide-slate-700 rounded-md border border-slate-700">
         {workspaces.map((entry) => (
           <li key={entry.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p
-                className={`truncate font-medium ${entry.active ? 'text-emerald-300' : ''}`}
-                aria-current={entry.active ? 'true' : undefined}
+            {entry.active && renaming !== null ? (
+              <form
+                className="flex min-w-0 flex-1 items-center gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const name = renaming;
+                  setRenaming(null);
+                  void run(() => session.setWorkspaceName(name));
+                }}
               >
-                {nameOf(entry)}
-              </p>
-              <p className="truncate text-xs text-slate-400">
-                {entry.server ? entry.server.replace(/^https?:\/\//, '') : t('workspaces.local')}
-              </p>
-            </div>
-            {entry.active ? (
+                <input
+                  className="field min-w-0 flex-1"
+                  aria-label={t('workspaces.name')}
+                  placeholder={computer}
+                  value={renaming}
+                  autoFocus
+                  onChange={(event) => setRenaming(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') {
+                      // Closes the editing, not the dialog.
+                      event.stopPropagation();
+                      setRenaming(null);
+                    }
+                  }}
+                />
+                <button className="btn btn-sm" type="submit" disabled={busy}>
+                  {t('common.save')}
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  type="button"
+                  onClick={() => setRenaming(null)}
+                >
+                  {t('common.cancel')}
+                </button>
+              </form>
+            ) : (
+              <div className="min-w-0 flex-1">
+                <p
+                  className={`truncate font-medium ${entry.active ? 'text-emerald-300' : ''}`}
+                  aria-current={entry.active ? 'true' : undefined}
+                >
+                  {nameOf(entry)}
+                </p>
+                <p className="truncate text-xs text-slate-400">
+                  {entry.server ? entry.server.replace(/^https?:\/\//, '') : t('workspaces.public')}
+                </p>
+              </div>
+            )}
+            {renaming !== null && entry.active ? null : entry.active ? (
               <>
+                {/* Once joined, the church names the workspace. */}
+                {!joined && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy}
+                    onClick={() => setRenaming(session.workspace.name)}
+                  >
+                    {t('workspaces.rename')}
+                  </button>
+                )}
                 {!joined && (
                   <button
                     className="btn btn-sm"
@@ -241,7 +313,7 @@ export function WorkspaceButton() {
       ? problem?.summary
       : onPublic
         ? (problem?.summary ?? t('workspaces.public'))
-        : t('workspaces.local'),
+        : t('workspaces.public'),
     t('workspaces.choose'),
   ]
     .filter(Boolean)
@@ -275,21 +347,15 @@ export function WorkspaceButton() {
               <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-amber-400" />
             )}
           </span>
-        ) : onPublic ? (
-          // On the public server: no church to show initials for, but a connection to watch.
-          <span
-            className={`relative flex h-7 w-7 items-center justify-center rounded-full border ${
-              problem ? 'border-amber-400' : 'border-slate-500'
-            }`}
-          >
-            <Icon name="offline" className="h-4 w-4 text-slate-400" />
-            {problem && (
-              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-amber-400" />
+        ) : (
+          // No church to show initials for: the app's own icon, with the public server's
+          // problems marked on it. Not joined yet, it will be the first time it is needed.
+          <span className="relative">
+            <img src={logo} alt="" className="block h-6 w-6" />
+            {onPublic && problem && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-amber-400" />
             )}
           </span>
-        ) : (
-          // A workspace kept only on this computer has no church to show initials for.
-          <Icon name="offline" className="h-5 w-5 text-slate-400" />
         )}
       </button>
       {open && (

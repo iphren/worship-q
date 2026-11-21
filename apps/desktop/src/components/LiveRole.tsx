@@ -13,13 +13,14 @@ const ROLE_ICONS: Record<LiveRole, IconName> = {
 };
 
 /**
- * This computer's part in the shared presentation while connected to the church server:
+ * This computer's part in the shared presentation while connected to the church server (not
+ * the public server, where it is the only computer):
  * holding it, following another computer, or only viewing (D16). Its menu offers taking
  * over and switching viewer mode.
  */
 export function LiveRoleBadge() {
   const { cloud } = useApp();
-  const { live, relay } = useCloud();
+  const { live, relay, state } = useCloud();
   const [open, setOpen] = useState(false);
   const [viewerChange, setViewerChange] = useState<boolean | null>(null);
   const holder = useRef<HTMLDivElement>(null);
@@ -40,7 +41,8 @@ export function LiveRoleBadge() {
     };
   }, [open]);
 
-  if (!live || relay.kind !== 'connected') return null;
+  // On the public server this computer is the only one, so it always holds the presentation.
+  if (!live || relay.kind !== 'connected' || !state?.joinedAt) return null;
   const lost = live.coordinatorLost && live.role !== 'coordinator';
   const nobody = live.role === 'follower' && !live.coordinatorName;
   const title = lost

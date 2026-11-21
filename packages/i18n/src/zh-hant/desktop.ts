@@ -272,8 +272,8 @@ export const desktop: Record<DesktopKey, string> = {
   'workspaces.title': '這台電腦上的工作區',
   'workspaces.hint':
     '每個工作區有自己的詩歌、流程表、設定和教會連線。切換時 Worship Q 會重新開啟。',
-  'workspaces.unnamed': '新工作區',
-  'workspaces.local': '未連線',
+  'workspaces.rename': '重新命名…',
+  'workspaces.name': '工作區名稱',
   'workspaces.connect': '連線…',
   'workspaces.switch': '切換',
   'workspaces.add': '新增工作區',
@@ -760,7 +760,7 @@ export const desktop: Record<DesktopKey, string> = {
     '無法連線 Worship Q 公共伺服器：手機、經文查詢和新投影片需等連線恢復後才能使用。請檢查這台電腦的網路。投影不受影響。',
   'public.updateNeeded': '請更新 Worship Q 後再使用公共伺服器。',
   'public.privacy': '隱私說明',
-  'workspaces.public': '透過公共伺服器',
+  'workspaces.public': '已連線公共伺服器',
   'remote.joiningPublic': '正在連線 Worship Q 公共伺服器…',
   'remote.publicUnreachable':
     '無法連線 Worship Q 公共伺服器，手機暫時無法連線。請檢查這台電腦的網路。',
