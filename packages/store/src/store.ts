@@ -1016,6 +1016,18 @@ export class Store {
     return rows.map((row) => row.date);
   }
 
+  /** The latest date before `before` that has at least one planned item, or null. */
+  async lastDateWithItems(workspaceId: string, before: IsoDate): Promise<IsoDate | null> {
+    const rows = await this.db.select<{ date: string }>(
+      `SELECT date FROM run_sheet
+       WHERE workspace_id = ? AND date < ?
+         AND EXISTS (SELECT 1 FROM run_sheet_item WHERE run_sheet_id = run_sheet.id)
+       ORDER BY date DESC LIMIT 1`,
+      [workspaceId, before],
+    );
+    return rows[0]?.date ?? null;
+  }
+
   private touchRunSheet(runSheetId: string, now: string): Statement {
     return {
       sql: 'UPDATE run_sheet SET revision = revision + 1, updated_at = ? WHERE id = ?',

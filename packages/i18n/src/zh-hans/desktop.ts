@@ -159,6 +159,9 @@ export const desktop: Record<DesktopKey, string> = {
   'runSheet.glanceMore': '… 上方还有 {count} 项',
   'runSheet.removed': '已移除“{title}”',
 
+  'present.lastService': '上次聚会',
+  'present.liveWhen': '{when}的流程表',
+  'present.switchAgain': '再点一下以切换',
   'present.nothingLive': '尚未启用流程表',
   'present.nothingLiveBody': '请先启用一份流程表，再选择要在投影屏幕上显示的内容。',
   'present.goLiveWith': '启用{date}的流程表',
@@ -173,8 +176,6 @@ export const desktop: Record<DesktopKey, string> = {
   'present.editor': '编辑器',
   'present.previousContent': '之前的内容',
   'present.previousContentBody': '选择这份流程表中的内容后，投影才会切换。',
-  'present.keptTooLong': '{date}的流程表仍在进行中。',
-  'present.keptTooLongAction': '切换到{next}的流程表',
   'present.dismiss': '关闭',
   'present.locate': '定位当前幻灯片',
   'present.noLyrics': '这首诗歌没有歌词。',

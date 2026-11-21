@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import {
   format,
   formatDate,
+  formatRelativeDay,
   matchLanguage,
   meetingDaysLabel,
   parsePreference,
@@ -34,6 +35,23 @@ describe('interface text', () => {
     expect(formatDate('2026-11-01')).toBe('Sunday 1st Nov');
     expect(formatDate('2026-11-22')).toBe('Sunday 22nd Nov');
     expect(formatDate('2026-10-03')).toBe('Saturday 3rd Oct');
+  });
+
+  it('says how far a run sheet is from today', () => {
+    const today = '2026-11-21';
+    const live = (date: string) => t('present.liveWhen', { when: formatRelativeDay(date, today) });
+    expect(live('2026-11-21')).toBe('Live today');
+    expect(live('2026-11-22')).toBe('Live tomorrow');
+    expect(live('2026-11-23')).toBe('Live in 2 days');
+    expect(live('2026-11-27')).toBe('Live in 6 days');
+    expect(live('2026-11-20')).toBe('Live yesterday');
+    expect(live('2026-11-15')).toBe('Live 6 days ago');
+    // Days up to two weeks, not "next week".
+    expect(live('2026-12-01')).toBe('Live in 10 days');
+    expect(live('2026-12-12')).toBe('Live in 3 weeks');
+    expect(live('2026-09-21')).toBe('Live 2 months ago');
+    expect(live('2027-11-21')).toBe('Live in 1 year');
+    expect(live('2024-11-21')).toBe('Live 2 years ago');
   });
 });
 
@@ -86,6 +104,13 @@ describe('Chinese', () => {
       expect(formatDate('2026-11-22')).toBe('11月22日星期日');
       expect(t('calendar.copyTo', { date: formatDate('2026-11-01') })).toBe('复制到11月1日星期日');
       expect(meetingDaysLabel([3, 0])).toBe('星期日和星期三');
+      const live = (date: string) =>
+        t('present.liveWhen', { when: formatRelativeDay(date, '2026-11-21') });
+      expect(live('2026-11-27')).toBe('6天后的流程表');
+      expect(live('2026-11-23')).toBe('后天的流程表');
+      expect(live('2026-11-22')).toBe('明天的流程表');
+      expect(live('2026-11-21')).toBe('今天的流程表');
+      expect(live('2026-11-20')).toBe('昨天的流程表');
     } finally {
       setLocale('en');
     }

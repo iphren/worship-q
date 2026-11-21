@@ -11,7 +11,6 @@ import {
   createLiveState,
   DEFAULT_EXPIRY_MS,
   isExpired,
-  isKeptTooLong,
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
@@ -545,15 +544,6 @@ export class Session {
     return this.live_ !== null && this.isLive && isPresentingPreviousContent(this.live_);
   }
 
-  /** True once the live run sheet's date has passed; the operator is offered to end it. */
-  get keptTooLong(): boolean {
-    return (
-      this.live_ !== null &&
-      this.liveDate_ !== null &&
-      isKeptTooLong(this.live_, this.liveDate_, this.today())
-    );
-  }
-
   private nowIso(): string {
     return this.clock.now().toISOString();
   }
@@ -703,6 +693,14 @@ export class Session {
       entries.push({ item, song, pieces: songPieces(song, linesPerPiece) });
     }
     return entries;
+  }
+
+  /**
+   * The last service: the latest date before today whose run sheet has items, whether or not
+   * it is a meeting day. Null when there is none.
+   */
+  lastServiceDate(): Promise<IsoDate | null> {
+    return this.store.lastDateWithItems(this.workspace_.id, this.today());
   }
 
   /** The plan for a date, with each song's pieces. */

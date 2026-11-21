@@ -1053,6 +1053,17 @@ describe('run sheets', () => {
     ]);
   });
 
+  it('finds the last date before another that has something planned', async () => {
+    for (const date of ['2026-10-04', '2026-10-11']) {
+      const sheet = await store.ensureRunSheet(workspaceId, date);
+      await store.addItem(sheet.id, songs[0]!);
+    }
+    await store.ensureRunSheet(workspaceId, '2026-10-15');
+    expect(await store.lastDateWithItems(workspaceId, '2026-10-18')).toBe('2026-10-11');
+    expect(await store.lastDateWithItems(workspaceId, '2026-10-11')).toBe('2026-10-04');
+    expect(await store.lastDateWithItems(workspaceId, '2026-10-04')).toBeNull();
+  });
+
   describe('copying', () => {
     let source: string;
     let target: string;

@@ -339,14 +339,6 @@ export function isPresentingPreviousContent(state: LiveState): boolean {
   return state.presented !== null && state.presented.runSheetId !== state.runSheetId;
 }
 
-/**
- * Decision D6: offer to end once the live run sheet's date has passed. Nothing ends
- * automatically.
- */
-export function isKeptTooLong(state: LiveState, liveDate: string, today: string): boolean {
-  return state.status === 'live' && liveDate < today;
-}
-
 /** Where a piece of a rebuilt song now is, or null when every line of it was deleted. */
 function relocatePiece(
   pieceId: string,

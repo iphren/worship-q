@@ -404,7 +404,7 @@ Each workspace has at most one live state, shared by every connected client and 
 | Copy into a non-empty target | Offer **Append** or **Replace**; confirm Replace |
 | Choose **Go live** on a browsed date | Replace the active/live run sheet with that date's plan, which stays editable in live mode; retain the currently presented slide |
 | Actually play a piece from the new run sheet | Update presentation outputs to the new content |
-| Live state kept too long while an operator device stays connected | Show a highlighted, dismissible notification to end it and move to the next planned date; no automatic end or live switch |
+| Live state kept too long while an operator device stays connected | The run sheet's title on the Present tab says how far its date is from today ("Live yesterday"), updating at midnight; chips switch to the last service, today or the next meeting day, with a second click while a slide shows. No automatic end or live switch |
 
 The currently displayed piece can belong to the previously active run sheet after **Go live**. Retain the necessary presentation snapshot until another piece is played or output is cleared. A clear **Still presenting previous content** indication is recommended. **Go live** alone must not change the on-screen song or its appearance; edits to the presented song and changes to display settings do update it.
 

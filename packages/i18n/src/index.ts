@@ -214,6 +214,25 @@ export function formatDateWithYear(date: string): string {
     : `${formatDate(date)} ${year}`;
 }
 
+/**
+ * How far a date is from today, in words: "today", "tomorrow", "in 6 days", "3 weeks ago",
+ * or `今天`, `后天`, `6天后`. Days up to two weeks, as services are weekly and "next week"
+ * would be vague, then weeks up to two months, then months, then years.
+ */
+export function formatRelativeDay(date: string, today: string): string {
+  const days = Math.round((utcDate(date).getTime() - utcDate(today).getTime()) / 86_400_000);
+  const size = Math.abs(days);
+  if (size < 14) {
+    return new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'auto' }).format(days, 'day');
+  }
+  const always = new Intl.RelativeTimeFormat(intlLocale(), { numeric: 'always' });
+  const sign = Math.sign(days);
+  if (size < 60) return always.format(sign * Math.round(size / 7), 'week');
+  const months = Math.round(size / 30.44);
+  if (months < 12) return always.format(sign * months, 'month');
+  return always.format(sign * Math.max(1, Math.round(size / 365.25)), 'year');
+}
+
 export function formatMonth(year: number, month: number): string {
   return new Intl.DateTimeFormat(intlLocale(), {
     timeZone: 'UTC',
