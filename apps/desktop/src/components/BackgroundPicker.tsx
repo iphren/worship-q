@@ -1,3 +1,4 @@
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   DEFAULT_BACKGROUND_ID,
   type BackgroundAsset,
@@ -8,6 +9,56 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
 import { t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
+
+const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
+
+/**
+ * Adds an image or video to the workspace's backgrounds, then hands its id to `onImported`
+ * so the caller can choose it: the slideshow's background, a song's or the Bible's.
+ */
+export function ImportBackgroundButton(props: { onImported(assetId: string): void }) {
+  const session = useSession();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function importBackground() {
+    const source = await open({
+      multiple: false,
+      filters: [{ name: t('settings.backgroundTypes'), extensions: BACKGROUND_EXTENSIONS }],
+    });
+    if (typeof source !== 'string') return;
+    setBusy(true);
+    try {
+      const originalName = source.split(/[\\/]/).pop() ?? source;
+      const extension = (originalName.split('.').pop() ?? '').toLowerCase();
+      const id = session.store.newId();
+      const fileName = `${id}.${extension}`;
+      await native.importBackground(source, fileName);
+      await session.addBackground({
+        id,
+        kind: extension === 'mp4' ? 'video' : 'image',
+        fileName,
+        originalName,
+      });
+      props.onImported(id);
+      setError(null);
+    } catch (failure) {
+      setError(t('settings.failed', { error: String(failure) }));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      {/* type="button": the song editor is a form, and this must not save it. */}
+      <button type="button" className="btn" disabled={busy} onClick={() => void importBackground()}>
+        {t('settings.backgroundImport')}
+      </button>
+      {error && <p className="text-xs text-rose-400">{error}</p>}
+    </div>
+  );
+}
 
 /**
  * A solid color, the built-in **Default** background, and the imported images and videos to
@@ -226,6 +277,7 @@ export function SongBackgroundFields(props: {
             onColor={(color) => onChange({ ...value, color })}
             onAsset={(assetId) => onChange({ ...value, assetId })}
           />
+          <ImportBackgroundButton onImported={(assetId) => onChange({ ...value, assetId })} />
         </div>
       )}
     </>

@@ -13,7 +13,11 @@ import {
 import { SCHEMA_VERSION } from '@worship-q/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useApp, useCloud, useQuery, useSession } from '../app/context';
-import { BackgroundPicker, SongBackgroundFields } from '../components/BackgroundPicker';
+import {
+  BackgroundPicker,
+  ImportBackgroundButton,
+  SongBackgroundFields,
+} from '../components/BackgroundPicker';
 import { deviceSettings } from '../app/deviceSettings';
 import { ChurchConnection } from '../components/ChurchConnection';
 import { ConnectedDevices } from '../components/ConnectedDevices';
@@ -32,7 +36,6 @@ import { useScrollMemory } from '../lib/scrollMemory';
 import { native } from '../platform/native';
 import { AudioSettings } from '../components/AudioSettings';
 
-const BACKGROUND_EXTENSIONS = ['jpg', 'jpeg', 'png', 'mp4'];
 const BACKUP_EXTENSION = 'worshipq';
 
 function Section(props: { title: string; hint?: string; children: ReactNode }) {
@@ -250,31 +253,6 @@ export function SettingsPage() {
       days.includes(day) ? days.filter((d) => d !== day) : [...days, day],
     );
 
-  async function importBackground() {
-    const source = await open({
-      multiple: false,
-      filters: [{ name: t('settings.backgroundTypes'), extensions: BACKGROUND_EXTENSIONS }],
-    });
-    if (typeof source !== 'string') return;
-    try {
-      const originalName = source.split(/[\\/]/).pop() ?? source;
-      const extension = (originalName.split('.').pop() ?? '').toLowerCase();
-      const id = session.store.newId();
-      const fileName = `${id}.${extension}`;
-      await native.importBackground(source, fileName);
-      await session.addBackground({
-        id,
-        kind: extension === 'mp4' ? 'video' : 'image',
-        fileName,
-        originalName,
-      });
-      await session.updateOutputProfile({ backgroundAssetId: id });
-      setMessage(null);
-    } catch (error) {
-      setMessage({ text: errorText(error), error: true });
-    }
-  }
-
   async function removeBackground(asset: BackgroundAsset) {
     await session.removeBackground(asset.id);
     await native.removeBackgroundFile(asset.fileName).catch(() => undefined);
@@ -431,9 +409,11 @@ export function SettingsPage() {
                 }
                 onRemove={(asset) => void removeBackground(asset)}
               />
-              <button className="btn" onClick={() => void importBackground()}>
-                {t('settings.backgroundImport')}
-              </button>
+              <ImportBackgroundButton
+                onImported={(backgroundAssetId) =>
+                  void session.updateOutputProfile({ backgroundAssetId })
+                }
+              />
             </div>
           )}
         </Section>

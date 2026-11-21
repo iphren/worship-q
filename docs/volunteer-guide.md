@@ -148,7 +148,8 @@ beside the song search on the Present page (or in the calendar's run sheet edito
   has no such verse (NIVUK has no Revelation 12:18). The screen never shows these notes.
 - Passages have **their own background**: **Settings → Background → Bible** sets one for every
   passage, apart from songs' backgrounds. They are on black until you choose another, or
-  choose **Slideshow background** to use the workspace's.
+  choose **Slideshow background** to use the workspace's. **Add image or video…** there adds a
+  new file and uses it for passages straight away.
 - Passages are **not shown on the subtitle overlay**. To show one on the stream, switch OBS to
   a scene with the slides.
 - New passages need the internet: through your church's server, or without one through the
@@ -193,7 +194,9 @@ When your church shares a library, songs that come from it carry a **Church** ba
 present them as they are. If you edit one, your changes become your workspace's own version:
 the church's version stays as it is for everyone else, and the song now shows **2 versions**. A
 song's background is different: it is your workspace's choice, so changing it never makes a
-version, and the church's later changes to the song still reach you.
+version, and the church's later changes to the song still reach you. To give a song a new
+image or video, open it, choose **This song’s own background** on its **Settings** tab, then
+**Add image or video…**.
 
 Open a song with two versions and you see a switch at the top: **Original version** (the
 church's) and **Our version**. The original version is read-only; ours can be edited, and
