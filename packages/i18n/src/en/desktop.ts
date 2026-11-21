@@ -186,6 +186,8 @@ export const desktop = {
   'present.editor': 'Editor',
   'present.previousContent': 'Previous content',
   'present.previousContentBody': 'Shown until you present from this run sheet.',
+  'present.keptTooLong': 'The run sheet for {date} is still live.',
+  'present.keptTooLongAction': 'Go live with {next}',
   'present.dismiss': 'Dismiss',
   'present.locate': 'Go to current slide',
   'present.noLyrics': 'This song has no lyrics.',

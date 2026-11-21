@@ -786,13 +786,17 @@ describe('ending', () => {
     expect(await shown()).toEqual(['a1']);
   });
 
-  it('never ends by itself once the live date has passed', async () => {
+  it('offers to end once the live date has passed, and never ends by itself', async () => {
+    expect(session.keptTooLong).toBe(false);
     env.advance(DAY);
     await session.heartbeat();
+    expect(session.keptTooLong).toBe(true);
     expect(session.isLive).toBe(true);
     expect(session.liveDate).toBe(SUNDAY);
     expect(await shown()).toEqual(['a1']);
+
     expect(await session.endPresentation()).toBe(NEXT_SUNDAY);
+    expect(session.keptTooLong).toBe(false);
   });
 });
 

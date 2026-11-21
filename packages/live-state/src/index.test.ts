@@ -7,6 +7,7 @@ import {
   createLiveState,
   DEFAULT_EXPIRY_MS,
   isExpired,
+  isKeptTooLong,
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
@@ -469,6 +470,21 @@ describe('expiry and start rules', () => {
     expect(
       resolveStart({ saved, now: later(2000), todayRunSheetId: null, expiryMs: 1000 }).kind,
     ).toBe('none');
+  });
+});
+
+describe('kept too long', () => {
+  it('is offered once the live date is no longer today', () => {
+    const state = createLiveState('rs1', T0);
+    expect(isKeptTooLong(state, '2026-10-11', '2026-10-11')).toBe(false);
+    expect(isKeptTooLong(state, '2026-10-11', '2026-10-12')).toBe(true);
+    // Rehearsing a future date is not "too long".
+    expect(isKeptTooLong(state, '2026-10-18', '2026-10-11')).toBe(false);
+  });
+
+  it('is not offered for an ended state', () => {
+    const ended = apply(createLiveState('rs1', T0), { type: 'end' });
+    expect(isKeptTooLong(ended, '2026-10-04', '2026-10-11')).toBe(false);
   });
 });
 

@@ -177,6 +177,8 @@ export const desktop: Record<DesktopKey, string> = {
   'present.editor': '编辑器',
   'present.previousContent': '之前的内容',
   'present.previousContentBody': '选择这份流程表中的内容后，投影才会切换。',
+  'present.keptTooLong': '{date}的流程表仍在进行中。',
+  'present.keptTooLongAction': '切换到{next}的流程表',
   'present.dismiss': '关闭',
   'present.locate': '定位当前幻灯片',
   'present.noLyrics': '这首诗歌没有歌词。',

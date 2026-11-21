@@ -496,6 +496,8 @@
     "present.editor": "Editor",
     "present.emptyRunSheet": "The live run sheet is empty. Add songs, Bible passages, slides or websites on the left.",
     "present.goLiveWith": "Go live with {date}",
+    "present.keptTooLong": "The run sheet for {date} is still live.",
+    "present.keptTooLongAction": "Go live with {next}",
     "present.lastService": "Last service",
     "present.lastShown": "Last shown",
     "present.liveWhen": "Live {when}",

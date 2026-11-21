@@ -11,6 +11,7 @@ import {
   createLiveState,
   DEFAULT_EXPIRY_MS,
   isExpired,
+  isKeptTooLong,
   isPresentingPreviousContent,
   relocatePresented,
   resolveStart,
@@ -542,6 +543,15 @@ export class Session {
 
   get presentingPreviousContent(): boolean {
     return this.live_ !== null && this.isLive && isPresentingPreviousContent(this.live_);
+  }
+
+  /** True once the live run sheet's date has passed; the operator is offered to end it. */
+  get keptTooLong(): boolean {
+    return (
+      this.live_ !== null &&
+      this.liveDate_ !== null &&
+      isKeptTooLong(this.live_, this.liveDate_, this.today())
+    );
   }
 
   private nowIso(): string {

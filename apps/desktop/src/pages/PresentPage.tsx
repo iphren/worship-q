@@ -1,3 +1,4 @@
+import { nextMeetingDate } from '@worship-q/calendar';
 import type { Presented, Song } from '@worship-q/protocol';
 import { SUBTITLE_BAR_FRACTION } from '@worship-q/renderer';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -14,6 +15,7 @@ import { ItemSlides } from '../components/ItemSlides';
 import { VideoControls } from '../components/VideoStatus';
 import { formatDate, t } from '@worship-q/i18n/desktop';
 import { AudioPanel } from '../components/AudioListen';
+import { ConfirmDialog } from '../components/Dialog';
 import { LiveDateSwitch } from '../components/LiveDateSwitch';
 import {
   presentLayoutFor,
@@ -26,8 +28,12 @@ import {
   scrollToStart,
   span,
 } from '../lib/presentLayout';
+import { switchStep } from '../lib/liveDateSwitch';
 import { useScrollMemory } from '../lib/scrollMemory';
 import { presentAction, runPresentAction, videoKeys } from '../lib/shortcuts';
+
+/** Live dates whose "kept too long" notice was dismissed since the app opened. */
+const dismissedNotices = new Set<string>();
 
 /** A button's name with the key that does the same, for its tooltip. */
 function withKey(label: string, key: string): string {
@@ -92,6 +98,8 @@ function Live(props: { viewOnly?: boolean }) {
   const live = session.isLive ? session.live : null;
   const view = useQuery(() => session.viewLive(), [liveDate]);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [, setDismissed] = useState(0);
+  const [askingNext, setAskingNext] = useState(false);
   const activeRef = useRef<HTMLButtonElement>(null);
   const slidesRef = useRef<HTMLElement>(null);
   const shownItemRef = useRef<string | null>(null);
@@ -145,6 +153,9 @@ function Live(props: { viewOnly?: boolean }) {
   const keyedItemId = viewOnly
     ? null
     : (browsedItemId ?? presented?.itemId ?? entries[0]?.item.id ?? null);
+  const showKeptTooLong =
+    !viewOnly && !!liveDate && session.keptTooLong && !dismissedNotices.has(liveDate);
+  const nextDate = nextMeetingDate(session.today(), session.workspace.meetingDays);
   const blankStyle = live?.blank ? 'border-amber-400 bg-amber-700 hover:bg-amber-600' : '';
   useScrollMemory(slidesRef, `present.slides:${liveDate}:${axis}`, axis);
 
@@ -287,6 +298,32 @@ function Live(props: { viewOnly?: boolean }) {
             onLeave={() => chooseSimpleView(false)}
           />
         )}
+        {showKeptTooLong && (
+          <div className="notice border-amber-500 bg-amber-900/40 text-amber-100">
+            <span className="flex-1">
+              {t('present.keptTooLong', { date: formatDate(liveDate!) })}
+            </span>
+            <button
+              className="btn btn-sm"
+              onClick={() => {
+                const step = switchStep(nextDate, liveDate!, session.live);
+                if (step === 'confirm') setAskingNext(true);
+                else if (step === 'goLive') void session.goLive(nextDate);
+              }}
+            >
+              {t('present.keptTooLongAction', { next: formatDate(nextDate) })}
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                dismissedNotices.add(liveDate!);
+                setDismissed((n) => n + 1);
+              }}
+            >
+              {t('present.dismiss')}
+            </button>
+          </div>
+        )}
         {previous && !viewOnly && (
           <div className="notice border-sky-600 bg-sky-900/40 text-sky-100">
             <strong>{t('present.previousContent')}</strong>
@@ -297,6 +334,20 @@ function Live(props: { viewOnly?: boolean }) {
           </div>
         )}
       </div>
+
+      {/* Outside the spaced banners, which would otherwise space the dialog. */}
+      {askingNext && (
+        <ConfirmDialog
+          title={t('present.switchTitle', { date: formatDate(nextDate) })}
+          body={t('present.switchBody')}
+          confirmLabel={t('calendar.goLive')}
+          onCancel={() => setAskingNext(false)}
+          onConfirm={() => {
+            setAskingNext(false);
+            void session.goLive(nextDate);
+          }}
+        />
+      )}
 
       <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden p-4">
         <aside className="panel flex w-80 shrink-0 flex-col p-3">
