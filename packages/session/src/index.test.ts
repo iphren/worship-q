@@ -920,6 +920,81 @@ describe('meeting days (criterion 19)', () => {
   });
 });
 
+describe('the last service', () => {
+  let a: Awaited<ReturnType<typeof song>>;
+  beforeEach(async () => {
+    a = await song('A', 'a1');
+  });
+
+  it('is null when nothing was planned before today', async () => {
+    expect(await session.lastServiceDate()).toBeNull();
+    // An earlier run sheet without items is not a service.
+    await store.ensureRunSheet(session.workspace.id, LAST_SUNDAY);
+    expect(await session.lastServiceDate()).toBeNull();
+  });
+
+  it('is the latest earlier day with items, also when that was not a meeting day', async () => {
+    await plan(LAST_SUNDAY, [a.id]);
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+    // A Wednesday meeting after it.
+    await plan('2026-10-07', [a.id]);
+    expect(await session.lastServiceDate()).toBe('2026-10-07');
+  });
+
+  it('skips a later run sheet left empty', async () => {
+    await plan(LAST_SUNDAY, [a.id]);
+    await store.ensureRunSheet(session.workspace.id, '2026-10-10');
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+  });
+
+  it('never is today or a later day', async () => {
+    await plan(LAST_SUNDAY, [a.id]);
+    await plan(SUNDAY, [a.id]);
+    await plan(NEXT_SUNDAY, [a.id]);
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+  });
+
+  it('falls back to an earlier service once its items are all removed', async () => {
+    await plan(LAST_SUNDAY, [a.id]);
+    const sheet = await plan('2026-10-07', [a.id]);
+    for (const item of await store.listItems(sheet.id)) await store.removeItem(item.id);
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+  });
+
+  it('becomes today’s run sheet at midnight, and the interface is told the day changed', async () => {
+    await plan(LAST_SUNDAY, [a.id]);
+    await plan(SUNDAY, [a.id]);
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+    const before = session.version;
+    // 09:00 to 23:59 is still the same day.
+    env.advance(15 * HOUR - 60_000);
+    await session.heartbeat();
+    expect(session.today()).toBe(SUNDAY);
+    expect(await session.lastServiceDate()).toBe(LAST_SUNDAY);
+    env.advance(60_000);
+    await session.heartbeat();
+    expect(session.today()).toBe('2026-10-12');
+    expect(session.version).toBeGreaterThan(before);
+    expect(await session.lastServiceDate()).toBe(SUNDAY);
+    // The live run sheet is now yesterday's: nothing moves by itself.
+    expect(session.liveDate).toBe(SUNDAY);
+  });
+
+  it('counts days in the workspace timezone', async () => {
+    driver.close();
+    ({ driver, env, store } = await createTestStore(
+      undefined,
+      createTestEnv('2026-10-10T20:00:00.000Z'),
+    ));
+    ({ session } = await Session.open(store, { now: () => env.date() }, 'Asia/Shanghai'));
+    const b = await song('B', 'b1');
+    // Saturday evening UTC is already Sunday in Shanghai, so Saturday is the last service.
+    await plan('2026-10-10', [b.id]);
+    await plan(SUNDAY, [b.id]);
+    expect(await session.lastServiceDate()).toBe('2026-10-10');
+  });
+});
+
 describe('copying between dates (criterion 20)', () => {
   let a: Awaited<ReturnType<typeof song>>;
   let b: Awaited<ReturnType<typeof song>>;

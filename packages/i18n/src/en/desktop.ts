@@ -169,7 +169,8 @@ export const desktop = {
 
   'present.lastService': 'Last service',
   'present.liveWhen': 'Live {when}',
-  'present.switchAgain': 'Click again to switch',
+  'present.switchBody': 'The slide on screen stays.',
+  'present.switchTitle': 'Go live with {date}?',
   'present.nothingLive': 'Nothing is live',
   'present.nothingLiveBody': 'Go live with a run sheet to present it on the slideshow screen.',
   'present.goLiveWith': 'Go live with {date}',

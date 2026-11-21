@@ -55,6 +55,85 @@ describe('interface text', () => {
   });
 });
 
+describe('how far a day is from today', () => {
+  const when = (date: string, today = '2026-11-21') => formatRelativeDay(date, today);
+
+  it('says the near days in words', () => {
+    expect(when('2026-11-19')).toBe('2 days ago');
+    expect(when('2026-11-20')).toBe('yesterday');
+    expect(when('2026-11-21')).toBe('today');
+    expect(when('2026-11-22')).toBe('tomorrow');
+  });
+
+  it('counts days up to two weeks, then weeks', () => {
+    expect(when('2026-12-04')).toBe('in 13 days');
+    expect(when('2026-12-05')).toBe('in 2 weeks');
+    expect(when('2026-11-08')).toBe('13 days ago');
+    expect(when('2026-11-07')).toBe('2 weeks ago');
+  });
+
+  it('rounds weeks to the nearest', () => {
+    // 17 days is nearer 2 weeks, 18 days nearer 3.
+    expect(when('2026-12-08')).toBe('in 2 weeks');
+    expect(when('2026-12-09')).toBe('in 3 weeks');
+  });
+
+  it('counts weeks up to two months, then months', () => {
+    // 59 and 60 days.
+    expect(when('2027-01-19')).toBe('in 8 weeks');
+    expect(when('2027-01-20')).toBe('in 2 months');
+    expect(when('2026-09-23')).toBe('8 weeks ago');
+    expect(when('2026-09-21')).toBe('2 months ago');
+  });
+
+  it('counts months up to a year, then years, never “next year”', () => {
+    expect(when('2027-10-21')).toBe('in 11 months');
+    expect(when('2027-11-21')).toBe('in 1 year');
+    expect(when('2025-11-21')).toBe('1 year ago');
+    expect(when('2016-11-21')).toBe('10 years ago');
+  });
+
+  it('counts across month ends, year ends and leap days', () => {
+    expect(when('2027-01-01', '2026-12-31')).toBe('tomorrow');
+    expect(when('2026-12-31', '2027-01-01')).toBe('yesterday');
+    expect(when('2028-03-01', '2028-02-28')).toBe('in 2 days');
+    expect(when('2027-03-01', '2027-02-28')).toBe('tomorrow');
+  });
+
+  it('does not shift by the computer timezone or summer time', () => {
+    // The last Sunday of October, when British Summer Time ends, is still one day.
+    expect(when('2026-10-26', '2026-10-25')).toBe('tomorrow');
+    expect(when('2026-03-30', '2026-03-29')).toBe('tomorrow');
+  });
+
+  it('is said in Chinese', () => {
+    const cases: [string, string, string][] = [
+      ['2026-11-19', '前天', '前天'],
+      ['2026-11-23', '后天', '後天'],
+      ['2026-11-27', '6天后', '6 天後'],
+      ['2026-11-15', '6天前', '6 天前'],
+      ['2026-12-12', '3周后', '3 週後'],
+      ['2026-09-21', '2个月前', '2 個月前'],
+      ['2027-11-21', '1年后', '1 年後'],
+    ];
+    for (const [date, hans, hant] of cases) {
+      setLocale('zh-Hans');
+      try {
+        expect(when(date)).toBe(hans);
+      } finally {
+        setLocale('en');
+      }
+      setLocale('zh-Hant');
+      try {
+        expect(when(date)).toBe(hant);
+        expect(t('present.liveWhen', { when: when(date) })).toBe(`${hant}的流程表`);
+      } finally {
+        setLocale('en');
+      }
+    }
+  });
+});
+
 describe('meeting-day labels (criterion 19)', () => {
   it('labels none as Any day and all seven as Every day', () => {
     expect(meetingDaysLabel([])).toBe('Any day');

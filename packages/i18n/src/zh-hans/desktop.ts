@@ -161,7 +161,8 @@ export const desktop: Record<DesktopKey, string> = {
 
   'present.lastService': '上次聚会',
   'present.liveWhen': '{when}的流程表',
-  'present.switchAgain': '再点一下以切换',
+  'present.switchBody': '屏幕上的幻灯片会保留。',
+  'present.switchTitle': '启用{date}的流程表？',
   'present.nothingLive': '尚未启用流程表',
   'present.nothingLiveBody': '请先启用一份流程表，再选择要在投影屏幕上显示的内容。',
   'present.goLiveWith': '启用{date}的流程表',
