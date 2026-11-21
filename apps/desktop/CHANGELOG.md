@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.13.0](https://github.com/iphren/worship-q/compare/v2.12.0...v2.13.0) (2026-11-21)
+
+
+### Features
+
+* **desktop:** add a background image or video from a song or the Bible ([9d0ff87](https://github.com/iphren/worship-q/commit/9d0ff871906764cb0f95f4c48a74674a99d0465a))
+* **desktop:** bring back the still-live run sheet banner ([21d41c9](https://github.com/iphren/worship-q/commit/21d41c9ebe905c691757c3bd28835c4f587ff675))
+* **desktop:** give new workspaces their own folder and allow removing the first ([0ef5ea2](https://github.com/iphren/worship-q/commit/0ef5ea295fbb1763cb159e905bd01a282881d8b2))
+
+
+### Bug Fixes
+
+* **i18n:** label public-server workspaces "Public server" ([353baac](https://github.com/iphren/worship-q/commit/353baac4e7dbd1661519e4cd6c0de7e72905b41a))
+
 ## [2.12.0](https://github.com/iphren/worship-q/compare/v2.11.0...v2.12.0) (2026-11-21)
 
 
