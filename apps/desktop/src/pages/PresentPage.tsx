@@ -13,7 +13,7 @@ import { SlidePreview, SubtitlePreview } from '../components/SlidePreview';
 import { ItemEditDialog } from '../components/ItemEditDialog';
 import { ItemSlides } from '../components/ItemSlides';
 import { VideoControls } from '../components/VideoStatus';
-import { formatDate, t } from '@worship-q/i18n/desktop';
+import { formatDate, formatRelativeDay, t } from '@worship-q/i18n/desktop';
 import { AudioPanel } from '../components/AudioListen';
 import { ConfirmDialog } from '../components/Dialog';
 import { LiveDateSwitch } from '../components/LiveDateSwitch';
@@ -301,7 +301,9 @@ function Live(props: { viewOnly?: boolean }) {
         {showKeptTooLong && (
           <div className="notice border-amber-500 bg-amber-900/40 text-amber-100">
             <span className="flex-1">
-              {t('present.keptTooLong', { date: formatDate(liveDate!) })}
+              {t('present.keptTooLong', {
+                when: formatRelativeDay(liveDate!, session.today()),
+              })}
             </span>
             <button
               className="btn btn-sm"
