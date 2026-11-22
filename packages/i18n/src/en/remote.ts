@@ -57,6 +57,7 @@ export const remote = {
   'video.play': 'Play',
   'video.pause': 'Pause',
   'video.position': 'Video position',
+  'video.captions': 'Captions',
 
   'edit.new': 'New',
   'edit.moveUp': 'Move up',

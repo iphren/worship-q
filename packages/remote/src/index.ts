@@ -232,6 +232,7 @@ export async function buildRemoteView(
             position: live.video.position,
             at: live.video.at,
             durationSeconds: live.video.durationSeconds,
+            ...(live.video.captions !== undefined ? { captions: live.video.captions } : {}),
           }
         : null,
   };

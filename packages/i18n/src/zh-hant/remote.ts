@@ -51,6 +51,7 @@ export const remote: Record<keyof typeof en, string> = {
   'video.play': '播放',
   'video.pause': '暫停',
   'video.position': '播放進度',
+  'video.captions': '字幕',
   'edit.new': '新增',
   'edit.moveUp': '上移',
   'edit.moveDown': '下移',

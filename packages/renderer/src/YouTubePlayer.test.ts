@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { clockJumped, YOUTUBE_SEEK_PAUSE_MS, YT_STATE, youtubeStep } from './YouTubePlayer';
+import {
+  captionTrack,
+  clockJumped,
+  YOUTUBE_SEEK_PAUSE_MS,
+  YT_STATE,
+  youtubeStep,
+} from './YouTubePlayer';
 
 const T0 = Date.parse('2026-11-21T10:00:00.000Z');
 const clock = (playing: boolean, position: number, durationSeconds = 200) => ({
@@ -75,5 +81,21 @@ describe('a YouTube player following the clock (YouTube control D2)', () => {
     expect(clockJumped(clock(true, 0), clock(true, 30), T0)).toBe(true);
     const again = { ...clock(true, 5), at: new Date(T0 + 5000).toISOString() };
     expect(clockJumped(clock(true, 0), again, T0 + 5000)).toBe(false);
+  });
+});
+
+describe('choosing a caption track', () => {
+  const tracks = [{ languageCode: 'en' }, { languageCode: 'zh-Hans' }, { languageCode: 'de' }];
+
+  it('takes the page’s language, by its exact code or its base language', () => {
+    expect(captionTrack(tracks, ['zh-Hans', 'en'])).toEqual({ languageCode: 'zh-Hans' });
+    expect(captionTrack(tracks, ['zh-CN'])).toEqual({ languageCode: 'zh-Hans' });
+    expect(captionTrack(tracks, ['de-AT', 'en'])).toEqual({ languageCode: 'de' });
+  });
+
+  it('falls back to the video’s first track, and to none when it has none', () => {
+    expect(captionTrack(tracks, ['fr'])).toEqual({ languageCode: 'en' });
+    expect(captionTrack([], ['en'])).toBeNull();
+    expect(captionTrack(undefined, ['en'])).toBeNull();
   });
 });

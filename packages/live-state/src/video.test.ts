@@ -516,3 +516,89 @@ describe('a YouTube video, whose length may not be known (YouTube control D4, D5
     expect(state.video).toMatchObject({ durationSeconds: 60, position: 60, playing: false });
   });
 });
+
+describe('a YouTube video’s captions (protocol 11)', () => {
+  const youtube = (captions?: boolean): PlayablePiece[] => [
+    { itemId: 'song', songId: 's1', pieceId: 'a' },
+    {
+      itemId: 'v1',
+      songId: 'yt',
+      pieceId: 'website',
+      video: {
+        durationSeconds: 200,
+        autoplay: true,
+        ...(captions !== undefined ? { captions } : {}),
+      },
+    },
+    { itemId: 'reading', songId: 's2', pieceId: 'r' },
+  ];
+  const enterYoutube: CommandInput = { type: 'playPiece', itemId: 'v1', pieceId: 'website' };
+  const captions = (on: boolean): CommandInput => ({ type: 'videoCaptions', itemId: 'v1', on });
+
+  it('starts with captions off, and turns them on and off', () => {
+    const entered = run(fresh(), [[0, enterYoutube]], youtube(false));
+    expect(entered.video).toMatchObject({ captions: false, playing: true });
+    const on = run(entered, [[5, captions(true)]], youtube(false));
+    expect(on.video).toMatchObject({ captions: true, playing: true });
+    expect(shownAt(on, 10)).toBe(10);
+    expect(run(on, [[6, captions(false)]], youtube(false)).video?.captions).toBe(false);
+  });
+
+  it('keeps captions through play, pause, seek and blanking, and starts off when presented again', () => {
+    const on = run(
+      fresh(),
+      [
+        [0, enterYoutube],
+        [1, captions(true)],
+        [2, pause],
+        [3, seek(50)],
+        [4, { type: 'blank' }],
+        [5, { type: 'unblank' }],
+      ],
+      youtube(false),
+    );
+    expect(on.video?.captions).toBe(true);
+    const back = run(
+      on,
+      [
+        [6, leave],
+        [7, enterYoutube],
+      ],
+      youtube(false),
+    );
+    expect(back.video?.captions).toBe(false);
+  });
+
+  it('ignores captions for an uploaded video, another item, or nothing presented', () => {
+    const video = run(fresh(), [[0, enter()]]);
+    expect(video.video).not.toHaveProperty('captions');
+    const after = applyCommand(
+      video,
+      { id: 'cc1', type: 'videoCaptions', itemId: 'v1', on: true },
+      {
+        now: at(1),
+        sequence: sequence(),
+      },
+    );
+    expect(after.state.video).not.toHaveProperty('captions');
+    const other = run(fresh(), [[0, enterYoutube]], youtube(false));
+    const wrong = applyCommand(
+      other,
+      { id: 'cc2', type: 'videoCaptions', itemId: 'v2', on: true },
+      {
+        now: at(1),
+        sequence: youtube(false),
+      },
+    );
+    expect(wrong.state.video?.captions).toBe(false);
+    const nothing = applyCommand(
+      fresh(),
+      { id: 'cc3', type: 'videoCaptions', itemId: 'v1', on: true },
+      {
+        now: at(1),
+        sequence: youtube(false),
+      },
+    );
+    expect(nothing.state.video).toBeNull();
+  });
+});

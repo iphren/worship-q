@@ -486,6 +486,12 @@ export const LiveVideoSchema = z.object({
    * unblanking plays it; cleared by the operator's own play or pause (U22, U23).
    */
   resumeOnUnblank: z.boolean(),
+  /**
+   * Whether a YouTube video shows its captions (protocol 11). Present only on a YouTube
+   * video's clock, set by a coordinator that knows `videoCaptions`, so its absence means the
+   * control is not offered: an uploaded video, or an older coordinator. Off when presented.
+   */
+  captions: z.boolean().optional(),
 });
 export type LiveVideo = z.infer<typeof LiveVideoSchema>;
 
@@ -547,12 +553,17 @@ export const CommandSchema = z.discriminatedUnion('type', [
     itemId: IdSchema,
     seconds: z.number().finite(),
   }),
+  /** Turns a YouTube video's captions on or off (protocol 11). */
+  z.object({ ...commandBase, type: z.literal('videoCaptions'), itemId: IdSchema, on: z.boolean() }),
 ]);
 export type Command = z.infer<typeof CommandSchema>;
 export type CommandType = Command['type'];
 
-/** The live state's clock for the presented video, as an output follows it. */
-export type OutputClock = Omit<OutputVideo, 'url'>;
+/**
+ * The live state's clock for the presented video, as an output follows it, with whether a
+ * YouTube video shows its captions (absent: as the player chooses, from an older sender).
+ */
+export type OutputClock = Omit<OutputVideo, 'url'> & { captions?: boolean };
 
 /** The presented video as an output plays it. */
 export interface OutputVideo {

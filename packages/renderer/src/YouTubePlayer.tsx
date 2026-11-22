@@ -31,7 +31,43 @@ export interface YouTubeApiPlayer {
   getDuration(): number;
   getPlayerState(): number;
   getVideoData?(): { isLive?: boolean };
+  /** The captions module: loaded shows captions, unloaded hides them (not documented). */
+  loadModule?(module: 'captions'): void;
+  unloadModule?(module: 'captions'): void;
+  getOption?(module: 'captions', option: 'tracklist'): { languageCode: string }[] | undefined;
+  setOption?(module: 'captions', option: 'track', value: { languageCode: string }): void;
   destroy(): void;
+}
+
+/**
+ * The caption track to show: the one in the page's language when the video has it, else
+ * its first. Null when it has none (yet).
+ */
+export function captionTrack(
+  tracks: readonly { languageCode: string }[] | undefined,
+  languages: readonly string[],
+): { languageCode: string } | null {
+  if (!tracks?.length) return null;
+  for (const language of languages) {
+    const base = language.toLowerCase().split('-')[0];
+    const match =
+      tracks.find((track) => track.languageCode.toLowerCase() === language.toLowerCase()) ??
+      tracks.find((track) => track.languageCode.toLowerCase().split('-')[0] === base);
+    if (match) return match;
+  }
+  return tracks[0]!;
+}
+
+/**
+ * Shows or hides a player's captions: YouTube's captions module, which its IFrame API
+ * offers without documenting it (YouTube control captions). With captions on, a track in
+ * the page's language is chosen once the player lists them.
+ */
+function applyCaptions(player: YouTubeApiPlayer, on: boolean): void {
+  if (!on) return void player.unloadModule?.('captions');
+  player.loadModule?.('captions');
+  const track = captionTrack(player.getOption?.('captions', 'tracklist'), navigator.languages);
+  if (track) player.setOption?.('captions', 'track', { languageCode: track.languageCode });
 }
 
 /** YouTube's player states. */
@@ -158,6 +194,9 @@ export function YouTubePlayer(props: {
   // Whether the clock last said to play, for the autoplay check above.
   const clockPlaying = useRef(true);
   clockPlaying.current = clock?.playing ?? true;
+  // Whether captions are wanted; undefined leaves them to the player (an older sender).
+  const captions = useRef<boolean | undefined>(undefined);
+  captions.current = clock?.captions;
 
   useEffect(() => {
     const element = box.current;
@@ -197,6 +236,9 @@ export function YouTubePlayer(props: {
             disablekb: 1,
             iv_load_policy: 3,
             fs: 0,
+            // Captions start off unless the clock says otherwise; an older sender's clock,
+            // without them, leaves them as YouTube chooses.
+            ...(captions.current === true ? { cc_load_policy: 1 } : {}),
             origin: location.origin,
           },
           events: {
@@ -208,6 +250,12 @@ export function YouTubePlayer(props: {
             onStateChange: (event) => {
               if (gone) return;
               tell();
+              // The player loads its captions as the video starts, and they are chosen again
+              // then; the track list is known only once it plays.
+              const p = player.current;
+              if (p && captions.current !== undefined && event.data === YT_STATE.playing) {
+                applyCaptions(p, captions.current);
+              }
               if (event.data === YT_STATE.ended) report.current?.({ kind: 'ended', id });
             },
             onError: (event) => report.current?.({ kind: 'error', id, code: event.data }),
@@ -246,6 +294,17 @@ export function YouTubePlayer(props: {
     if (!sound || blocked) p.mute();
     else p.unMute();
   }, [ready, sound, blocked]);
+
+  const wantCaptions = clock?.captions;
+  useEffect(() => {
+    const p = player.current;
+    if (!ready || !p || wantCaptions === undefined) return;
+    applyCaptions(p, wantCaptions);
+    if (!wantCaptions) return;
+    // The track list may come a moment after the module loads.
+    const timer = window.setTimeout(() => applyCaptions(p, true), 1500);
+    return () => window.clearTimeout(timer);
+  }, [ready, wantCaptions]);
 
   useEffect(() => {
     if (!blocked) return;

@@ -71,3 +71,14 @@ The questions about choosing the audio output on macOS and about device names we
 None remain. Dropping a file on the library while another tab is open was settled as proposed: the file goes to the Media tab, which opens to show the progress (M3.8).
 
 The two U30 questions of 18 November 2026 were settled the same day: a kept video is not offered again for 30 days, and no banner shows under 100 MB.
+
+## 5. Later
+
+### TODO: captions for video items
+
+Not planned yet; noted on 22 November 2026, when YouTube videos got live captions on and off (protocol 11, the `videoCaptions` command and the clock's `captions`). Video items should get the same control.
+
+- **What happens today:** a video item's subtitles built into the file (not burnt in) never show. The slideshow plays a bare `<video>` with no controls and never switches text tracks on. Tested with an MP4 carrying a `mov_text` track: Chrome, and so WebView2 on Windows, browser slideshows in Chrome and OBS, do not expose the track at all (`textTracks` is empty). WebKit, the Mac app's engine, exposes it (an English subtitle track and a forced one it adds) but leaves it disabled.
+- **The dependable way:** a subtitle file (`.srt` or `.vtt`) added to the video item, uploaded and kept like the video (U14, U18), downloaded with its copy (U8), and drawn by the renderer as a `<track>` or as its own captions layer, styled for a projector. Built-in tracks could at most be switched on on Macs and in Safari.
+- **The control:** reuse YouTube's. A video item with a subtitle file would get `captions: false` on its clock when presented (`VideoInfo.captions`), and `videoCaptions` would turn it on and off from the desktop bar and phones with no protocol change beyond 11.
+- **To decide:** whether to read built-in tracks from the file on upload (the server has no ffmpeg today), several languages, and where captions sit when lyrics or a passage are not shown.

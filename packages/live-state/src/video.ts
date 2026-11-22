@@ -18,6 +18,8 @@ export interface VideoInfo {
   autoplay: boolean;
   /** Where it starts the first time it is presented: a YouTube link's `t=` (D5). */
   startSeconds?: number;
+  /** A YouTube video, whose captions can be turned on and off; they start off. */
+  captions?: boolean;
 }
 
 /** Whether a video's length is known: false for 0 (`VideoInfo`). */
@@ -100,6 +102,7 @@ export function followPresentation(
       at: now,
       durationSeconds: duration,
       resumeOnUnblank: presentedVideo.autoplay && after.blank,
+      ...(presentedVideo.captions !== undefined ? { captions: false } : {}),
     };
   }
   return { video, videoPositions: positions };
@@ -127,7 +130,8 @@ export function applyVideoCommand(
   command:
     | { type: 'videoPlay'; itemId: string }
     | { type: 'videoPause'; itemId: string }
-    | { type: 'videoSeek'; itemId: string; seconds: number },
+    | { type: 'videoSeek'; itemId: string; seconds: number }
+    | { type: 'videoCaptions'; itemId: string; on: boolean },
   now: string,
   info?: VideoInfo | null,
 ): LiveVideo | null {
@@ -150,5 +154,8 @@ export function applyVideoCommand(
       const playing = video.playing && (duration <= 0 || position < duration);
       return { ...video, position, playing, at: now };
     }
+    case 'videoCaptions':
+      // Only a YouTube video's clock carries captions.
+      return video.captions === undefined ? null : { ...video, captions: command.on };
   }
 }

@@ -119,7 +119,8 @@ export const WEBSITE_PIECE_ID = 'website';
 
 /**
  * A YouTube video's website piece, to the live state a video (YouTube control D2): its
- * length, or 0 while unknown (D4), playing at once, from the link's start time (D5).
+ * length, or 0 while unknown (D4), playing at once, from the link's start time (D5), with
+ * captions that can be turned on.
  */
 function websiteVideo(song: Pick<Song, 'website'>): { video?: VideoInfo } {
   const youtube = song.website ? youtubeVideo(song.website.url) : null;
@@ -128,6 +129,7 @@ function websiteVideo(song: Pick<Song, 'website'>): { video?: VideoInfo } {
     video: {
       durationSeconds: song.website?.durationSeconds ?? 0,
       autoplay: true,
+      captions: false,
       ...(youtube.startSeconds > 0 ? { startSeconds: youtube.startSeconds } : {}),
     },
   };
@@ -863,6 +865,15 @@ export class Session {
       const itemId = this.video?.itemId;
       if (!itemId) return false;
       return this.apply({ type: playing ? 'videoPlay' : 'videoPause', itemId });
+    });
+  }
+
+  /** Turns the presented YouTube video's captions on or off. */
+  videoCaptions(on: boolean): Promise<boolean> {
+    return this.mutate(async () => {
+      const video = this.video;
+      if (!video || video.captions === undefined) return false;
+      return this.apply({ type: 'videoCaptions', itemId: video.itemId, on });
     });
   }
 
@@ -1923,6 +1934,7 @@ export class Session {
               position: clock.position,
               at: clock.at,
               durationSeconds: clock.durationSeconds,
+              ...(clock.captions !== undefined ? { captions: clock.captions } : {}),
             };
           }
         }
