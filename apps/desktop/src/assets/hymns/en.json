@@ -1,0 +1,887 @@
+{
+  "source": "hymns",
+  "language": "en",
+  "updated": "2026-11-21",
+  "songs": [
+    {
+      "id": "amazing-grace",
+      "version": 1,
+      "title": "Amazing Grace",
+      "author": "John Newton",
+      "copyright": "Public domain",
+      "year": 1779,
+      "writers": [{ "name": "John Newton", "role": "words", "died": 1807 }],
+      "proof": {
+        "source": "Olney Hymns, Book 1, Hymn 41 (1840 edition; first published 1779)",
+        "url": "https://en.wikisource.org/wiki/Olney_Hymns_(1840)/Book_1/Hymn_41"
+      },
+      "stanzas": [
+        [
+          "Amazing grace! how sweet the sound",
+          "That saved a wretch like me!",
+          "I once was lost, but now am found,",
+          "Was blind, but now I see."
+        ],
+        [
+          "'Twas grace that taught my heart to fear,",
+          "And grace my fears relieved;",
+          "How precious did that grace appear",
+          "The hour I first believed!"
+        ],
+        [
+          "Through many dangers, toils, and snares,",
+          "I have already come;",
+          "'Tis grace has brought me safe thus far,",
+          "And grace will lead me home."
+        ],
+        [
+          "The Lord has promised good to me,",
+          "His word my hope secures;",
+          "He will my shield and portion be",
+          "As long as life endures."
+        ],
+        [
+          "Yes, when this flesh and heart shall fail,",
+          "And mortal life shall cease,",
+          "I shall possess, within the veil,",
+          "A life of joy and peace."
+        ],
+        [
+          "The earth shall soon dissolve like snow,",
+          "The sun forbear to shine;",
+          "But God, who called me here below,",
+          "Will be for ever mine."
+        ]
+      ]
+    },
+    {
+      "id": "holy-holy-holy",
+      "version": 1,
+      "title": "Holy, Holy, Holy",
+      "author": "Reginald Heber",
+      "copyright": "Public domain",
+      "year": 1826,
+      "writers": [{ "name": "Reginald Heber", "role": "words", "died": 1826 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Holy,_Holy,_Holy,_Lord_God_Almighty"
+      },
+      "stanzas": [
+        [
+          "Holy, holy, holy! Lord God Almighty!",
+          "Early in the morning our song shall rise to thee;",
+          "Holy, holy, holy! merciful and mighty!",
+          "God in Three Persons, blessèd Trinity!"
+        ],
+        [
+          "Holy, holy, holy! all the saints adore thee,",
+          "Casting down their golden crowns around the glassy sea;",
+          "Cherubim and seraphim falling down before thee,",
+          "Which wert, and art, and evermore shalt be."
+        ],
+        [
+          "Holy, holy, holy! though the darkness hide thee,",
+          "Though the eye of sinful man thy glory may not see,",
+          "Only thou art holy; there is none beside thee,",
+          "Perfect in power, in love, and purity."
+        ],
+        [
+          "Holy, holy, holy! Lord God Almighty!",
+          "All thy works shall praise thy name, in earth, and sky, and sea;",
+          "Holy, holy, holy! merciful and mighty!",
+          "God in Three Persons, blessèd Trinity!"
+        ]
+      ]
+    },
+    {
+      "id": "it-is-well",
+      "version": 1,
+      "title": "It Is Well with My Soul",
+      "author": "Horatio G. Spafford",
+      "copyright": "Public domain",
+      "year": 1876,
+      "writers": [{ "name": "Horatio G. Spafford", "role": "words", "died": 1888 }],
+      "proof": {
+        "source": "The Canadian Soldiers' Song Book (c. 1917), no. 161; first published in Gospel Hymns No. 2 (1876). Three of Spafford's four stanzas, as this source prints them",
+        "url": "https://en.wikisource.org/wiki/The_Canadian_Soldiers%27_Song_Book/When_Peace_Like_a_River"
+      },
+      "stanzas": [
+        [
+          "When peace, like a river, attendeth my way,",
+          "When sorrows like sea-billows roll;",
+          "Whatever my lot, thou hast taught me to say,",
+          "\"It is well, it is well with my soul!\""
+        ],
+        ["It is well with my soul!", "It is well, it is well with my soul!"],
+        [
+          "Though Satan should buffet, though trials should come,",
+          "Let this blest assurance control,",
+          "That Christ hath regarded my helpless estate,",
+          "And hath shed his own blood for my soul!"
+        ],
+        ["It is well with my soul!", "It is well, it is well with my soul!"],
+        [
+          "My sin, oh, the bliss of this glorious thought!",
+          "My sin, not in part, but the whole,",
+          "Is nailed to his cross, and I bear it no more:",
+          "Praise the Lord, praise the Lord, O my soul!"
+        ],
+        ["It is well with my soul!", "It is well, it is well with my soul!"]
+      ]
+    },
+    {
+      "id": "come-thou-fount",
+      "version": 1,
+      "title": "Come, Thou Fount of Every Blessing",
+      "author": "Robert Robinson",
+      "copyright": "Public domain",
+      "year": 1758,
+      "writers": [{ "name": "Robert Robinson", "role": "words", "died": 1790 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920), no. 112",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Come,_Thou_Fount_of_Every_Blessing"
+      },
+      "stanzas": [
+        [
+          "Come, thou fount of every blessing,",
+          "Tune my heart to sing thy grace;",
+          "Streams of mercy, never ceasing,",
+          "Call for songs of loudest praise.",
+          "Teach me some melodious sonnet,",
+          "Sung by flaming tongues above;",
+          "Praise thy mount; I'm fixed upon it,",
+          "Mount of God's unchanging love!"
+        ],
+        [
+          "Here I raise my Ebenezer;",
+          "Hither by thy help I'm come;",
+          "And I hope, by thy good pleasure,",
+          "Safely to arrive at home.",
+          "Jesus sought me when a stranger,",
+          "Wandering from the fold of God;",
+          "He, to rescue me from danger,",
+          "Interposed with precious blood."
+        ],
+        [
+          "O to grace how great a debtor",
+          "Daily I'm constrained to be!",
+          "Let that grace now, like a fetter,",
+          "Bind my wandering heart to thee.",
+          "Prone to wander, Lord, I feel it;",
+          "Prone to leave the God I love;",
+          "Here's my heart; O take and seal it,",
+          "Seal it for thy courts above."
+        ]
+      ]
+    },
+    {
+      "id": "crown-him-with-many-crowns",
+      "version": 1,
+      "title": "Crown Him with Many Crowns",
+      "author": "Matthew Bridges",
+      "copyright": "Public domain",
+      "year": 1851,
+      "writers": [{ "name": "Matthew Bridges", "role": "words", "died": 1894 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Crown_Him_with_Many_Crowns"
+      },
+      "stanzas": [
+        [
+          "Crown him with many crowns,",
+          "The Lamb upon his throne!",
+          "Hark how the heavenly anthem drowns",
+          "All music but its own!",
+          "Awake, my soul, and sing",
+          "Of him who died for thee,",
+          "And hail him as thy matchless King",
+          "Through all eternity."
+        ],
+        [
+          "Crown him the Lord of love!",
+          "Behold his hands and side,",
+          "Rich wounds, yet visible above,",
+          "In beauty glorified.",
+          "No angel in the sky",
+          "Can fully bear that sight,",
+          "But downward bends his burning eye",
+          "At mysteries so bright."
+        ],
+        [
+          "Crown him the Lord of peace,",
+          "Whose power a sceptre sways",
+          "From pole to pole, that wars may cease,",
+          "And all be prayer and praise!",
+          "His reign shall know no end,",
+          "And round his pierced feet",
+          "Fair flowers of Paradise extend",
+          "Their fragrance ever sweet."
+        ]
+      ]
+    },
+    {
+      "id": "blessed-assurance",
+      "version": 1,
+      "title": "Blessed Assurance",
+      "author": "Fanny J. Crosby",
+      "copyright": "Public domain",
+      "year": 1873,
+      "writers": [{ "name": "Fanny J. Crosby", "role": "words", "died": 1915 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920), no. 212",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Blessed_Assurance,_Jesus_Is_Mine"
+      },
+      "stanzas": [
+        [
+          "Blessed assurance, Jesus is mine!",
+          "O what a foretaste of glory divine!",
+          "Heir of salvation, purchased of God,",
+          "Born of his Spirit, washed in his blood."
+        ],
+        [
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long;",
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long."
+        ],
+        [
+          "Perfect submission, perfect delight,",
+          "Visions of rapture now burst on my sight;",
+          "Angels descending bring from above",
+          "Echoes of mercy, whispers of love."
+        ],
+        [
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long;",
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long."
+        ],
+        [
+          "Perfect submission, all is at rest,",
+          "I in my Saviour am happy and blest,",
+          "Watching and waiting, looking above,",
+          "Filled with his goodness, lost in his love."
+        ],
+        [
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long;",
+          "This is my story, this is my song,",
+          "Praising my Saviour all the day long."
+        ]
+      ]
+    },
+    {
+      "id": "what-a-friend",
+      "version": 1,
+      "title": "What a Friend We Have in Jesus",
+      "author": "Joseph Scriven",
+      "copyright": "Public domain",
+      "year": 1855,
+      "writers": [{ "name": "Joseph Scriven", "role": "words", "died": 1886 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920), no. 106",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/What_a_Friend_We_Have_in_Jesus"
+      },
+      "stanzas": [
+        [
+          "What a friend we have in Jesus,",
+          "All our sins and griefs to bear!",
+          "What a privilege to carry",
+          "Everything to God in prayer!",
+          "Oh, what peace we often forfeit,",
+          "Oh, what needless pain we bear,",
+          "All because we do not carry",
+          "Everything to God in prayer!"
+        ],
+        [
+          "Have we trials and temptations?",
+          "Is there trouble anywhere?",
+          "We should never be discouraged;",
+          "Take it to the Lord in prayer.",
+          "Can we find a friend so faithful,",
+          "Who will all our sorrows share?",
+          "Jesus knows our every weakness;",
+          "Take it to the Lord in prayer."
+        ],
+        [
+          "Are we weak and heavy laden,",
+          "Cumbered with a load of care?",
+          "Precious Saviour, still our refuge;",
+          "Take it to the Lord in prayer.",
+          "Do thy friends despise, forsake thee?",
+          "Take it to the Lord in prayer;",
+          "In his arms he'll take and shield thee,",
+          "Thou wilt find a solace there."
+        ]
+      ]
+    },
+    {
+      "id": "when-i-survey",
+      "version": 1,
+      "title": "When I Survey the Wondrous Cross",
+      "author": "Isaac Watts",
+      "copyright": "Public domain",
+      "year": 1707,
+      "writers": [{ "name": "Isaac Watts", "role": "words", "died": 1748 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/When_I_Survey_the_Wondrous_Cross"
+      },
+      "stanzas": [
+        [
+          "When I survey the wondrous cross",
+          "On which the Prince of glory died,",
+          "My richest gain I count but loss,",
+          "And pour contempt on all my pride."
+        ],
+        [
+          "Forbid it, Lord, that I should boast,",
+          "Save in the death of Christ, my God;",
+          "All the vain things that charm me most,",
+          "I sacrifice them to his blood."
+        ],
+        [
+          "See, from his head, his hands, his feet,",
+          "Sorrow and love flow mingled down!",
+          "Did e'er such love and sorrow meet,",
+          "Or thorns compose so rich a crown?"
+        ],
+        [
+          "Were the whole realm of nature mine,",
+          "That were a present far too small;",
+          "Love so amazing, so divine,",
+          "Demands my soul, my life, my all."
+        ]
+      ]
+    },
+    {
+      "id": "all-hail-the-power",
+      "version": 1,
+      "title": "All Hail the Power of Jesus' Name",
+      "author": "Edward Perronet, John Rippon",
+      "copyright": "Public domain",
+      "year": 1780,
+      "writers": [
+        { "name": "Edward Perronet", "role": "words", "died": 1792 },
+        { "name": "John Rippon", "role": "alterations and stanza 3", "died": 1836 }
+      ],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/All_Hail_the_Power_of_Jesus%27_Name"
+      },
+      "stanzas": [
+        [
+          "All hail the power of Jesus' name!",
+          "Let angels prostrate fall;",
+          "Bring forth the royal diadem,",
+          "And crown him Lord of all!",
+          "Bring forth the royal diadem,",
+          "And crown him Lord of all!"
+        ],
+        [
+          "Let every kindred, every tribe,",
+          "On this terrestrial ball,",
+          "To him all majesty ascribe,",
+          "And crown him Lord of all!",
+          "To him all majesty ascribe,",
+          "And crown him Lord of all!"
+        ],
+        [
+          "Oh, that with yonder sacred throng",
+          "We at his feet may fall,",
+          "Join in the everlasting song,",
+          "And crown him Lord of all!",
+          "Join in the everlasting song,",
+          "And crown him Lord of all!"
+        ]
+      ]
+    },
+    {
+      "id": "rock-of-ages",
+      "version": 1,
+      "title": "Rock of Ages",
+      "author": "Augustus M. Toplady",
+      "copyright": "Public domain",
+      "year": 1776,
+      "writers": [{ "name": "Augustus M. Toplady", "role": "words", "died": 1778 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Rock_of_Ages,_Cleft_for_Me"
+      },
+      "stanzas": [
+        [
+          "Rock of Ages, cleft for me,",
+          "Let me hide myself in thee;",
+          "Let the water and the blood,",
+          "From thy riven side which flowed,",
+          "Be of sin the double cure,",
+          "Cleanse me from its guilt and power."
+        ],
+        [
+          "Could my zeal no respite know,",
+          "Could my tears for ever flow,",
+          "All for sin could not atone;",
+          "Thou must save, and thou alone:",
+          "Nothing in my hand I bring,",
+          "Simply to thy cross I cling."
+        ],
+        [
+          "While I draw this fleeting breath,",
+          "When my eyelids close in death,",
+          "When I soar to worlds unknown,",
+          "See thee on thy judgment throne,",
+          "Rock of Ages, cleft for me,",
+          "Let me hide myself in thee."
+        ]
+      ]
+    },
+    {
+      "id": "joy-to-the-world",
+      "version": 1,
+      "title": "Joy to the World",
+      "author": "Isaac Watts",
+      "copyright": "Public domain",
+      "year": 1719,
+      "writers": [{ "name": "Isaac Watts", "role": "words", "died": 1748 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920), which prints three of the four stanzas",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Joy_to_the_World!_the_Lord_Is_Come"
+      },
+      "stanzas": [
+        [
+          "Joy to the world! the Lord is come;",
+          "Let earth receive her King;",
+          "Let every heart prepare him room,",
+          "And heaven and nature sing,",
+          "And heaven and nature sing,",
+          "And heaven and nature sing."
+        ],
+        [
+          "Joy to the world! the Saviour reigns;",
+          "Let men their songs employ;",
+          "While fields and floods, rocks, hills, and plains",
+          "Repeat the sounding joy,",
+          "Repeat the sounding joy,",
+          "Repeat, repeat the sounding joy."
+        ],
+        [
+          "He rules the world with truth and grace,",
+          "And makes the nations prove",
+          "The glories of his righteousness,",
+          "And wonders of his love,",
+          "And wonders of his love,",
+          "And wonders, and wonders of his love."
+        ]
+      ]
+    },
+    {
+      "id": "silent-night",
+      "version": 1,
+      "title": "Silent Night",
+      "author": "Joseph Mohr; tr. John F. Young, Jane M. Campbell",
+      "copyright": "Public domain",
+      "year": 1818,
+      "writers": [
+        { "name": "Joseph Mohr", "role": "German words", "died": 1848 },
+        { "name": "John Freeman Young", "role": "translation, stanza 1", "died": 1885 },
+        { "name": "Jane Montgomery Campbell", "role": "translation, stanzas 2-5", "died": 1878 }
+      ],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Silent_Night,_Holy_Night"
+      },
+      "stanzas": [
+        [
+          "Silent night, holy night,",
+          "All is calm, all is bright",
+          "Round yon Virgin Mother and Child.",
+          "Holy Infant, so tender and mild,",
+          "Sleep in heavenly peace,",
+          "Sleep in heavenly peace."
+        ],
+        [
+          "Silent night, holy night,",
+          "Darkness flies, and all is light;",
+          "Shepherds hear the angels sing:",
+          "\"Alleluia! hail the King!",
+          "Jesus the Saviour is here,",
+          "Jesus the Saviour is here.\""
+        ],
+        [
+          "Holy night, peaceful night,",
+          "Child of heaven, O how bright",
+          "Thou didst smile when thou wast born;",
+          "Blessèd was that happy morn,",
+          "Full of heavenly joy,",
+          "Full of heavenly joy."
+        ],
+        [
+          "Silent night, holy night,",
+          "Guiding Star, O lend thy light;",
+          "See the eastern wise men bring",
+          "Gifts and homage to our King!",
+          "Jesus the Saviour is here,",
+          "Jesus the Saviour is here."
+        ],
+        [
+          "Silent night, holy night,",
+          "Wondrous Star, O lend thy light!",
+          "With the angels let us sing",
+          "Alleluia to our King!",
+          "Jesus our Saviour is here,",
+          "Jesus our Saviour is here."
+        ]
+      ]
+    },
+    {
+      "id": "o-come-all-ye-faithful",
+      "version": 1,
+      "title": "O Come, All Ye Faithful",
+      "author": "Latin, 18th century; tr. Frederick Oakeley",
+      "copyright": "Public domain",
+      "year": 1841,
+      "writers": [
+        { "name": "Anonymous (attr. John Francis Wade)", "role": "Latin words", "died": 1786 },
+        { "name": "Frederick Oakeley", "role": "translation", "died": 1880 }
+      ],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/O_Come,_All_Ye_Faithful"
+      },
+      "stanzas": [
+        [
+          "O come, all ye faithful, joyful and triumphant,",
+          "O come ye, O come ye to Bethlehem;",
+          "Come and behold him, born the King of angels;"
+        ],
+        [
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "Christ the Lord."
+        ],
+        [
+          "Sing, choirs of angels, sing in exultation,",
+          "O sing, all ye bright hosts of heaven above;",
+          "Glory to God, all glory in the highest;"
+        ],
+        [
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "Christ the Lord."
+        ],
+        [
+          "Yea, Lord, we greet thee, born this happy morning;",
+          "Jesus, to thee be all glory given;",
+          "Word of the Father, now in flesh appearing;"
+        ],
+        [
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "O come, let us adore him,",
+          "Christ the Lord."
+        ]
+      ]
+    },
+    {
+      "id": "hark-the-herald",
+      "version": 1,
+      "title": "Hark! the Herald Angels Sing",
+      "author": "Charles Wesley, alt.",
+      "copyright": "Public domain",
+      "year": 1739,
+      "writers": [
+        { "name": "Charles Wesley", "role": "words", "died": 1788 },
+        { "name": "George Whitefield", "role": "alterations", "died": 1770 },
+        { "name": "Martin Madan", "role": "alterations", "died": 1790 }
+      ],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Hark!_the_Herald_Angels_Sing"
+      },
+      "stanzas": [
+        [
+          "Hark! the herald angels sing,",
+          "\"Glory to the new-born King;",
+          "Peace on earth, and mercy mild,",
+          "God and sinners reconciled!\"",
+          "Joyful, all ye nations, rise,",
+          "Join the triumph of the skies;",
+          "With th' angelic host proclaim,",
+          "\"Christ is born in Bethlehem!\"",
+          "Hark! the herald angels sing,",
+          "\"Glory to the new-born King!\""
+        ],
+        [
+          "Christ, by highest heaven adored,",
+          "Christ, the everlasting Lord!",
+          "Come, Desire of nations, come,",
+          "Fix in us thy humble home.",
+          "Veiled in flesh the Godhead see;",
+          "Hail th' incarnate Deity,",
+          "Pleased as man with men to dwell,",
+          "Jesus, our Emmanuel!",
+          "Hark! the herald angels sing,",
+          "\"Glory to the new-born King!\""
+        ],
+        [
+          "Hail, the heaven-born Prince of Peace!",
+          "Hail, the Sun of Righteousness!",
+          "Light and life to all he brings,",
+          "Risen with healing in his wings.",
+          "Mild he lays his glory by,",
+          "Born that man no more may die,",
+          "Born to raise the sons of earth,",
+          "Born to give them second birth.",
+          "Hark! the herald angels sing,",
+          "\"Glory to the new-born King!\""
+        ]
+      ]
+    },
+    {
+      "id": "abide-with-me",
+      "version": 1,
+      "title": "Abide with Me",
+      "author": "Henry F. Lyte",
+      "copyright": "Public domain",
+      "year": 1847,
+      "writers": [{ "name": "Henry Francis Lyte", "role": "words", "died": 1847 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Abide_with_Me!_Fast_Falls_the_Eventide"
+      },
+      "stanzas": [
+        [
+          "Abide with me! fast falls the eventide;",
+          "The darkness deepens; Lord, with me abide!",
+          "When other helpers fail, and comforts flee,",
+          "Help of the helpless, O abide with me!"
+        ],
+        [
+          "Swift to its close ebbs out life's little day;",
+          "Earth's joys grow dim, its glories pass away;",
+          "Change and decay in all around I see;",
+          "O thou who changest not, abide with me!"
+        ],
+        [
+          "I need thy presence every passing hour;",
+          "What but thy grace can foil the tempter's power?",
+          "Who like thyself my guide and stay can be?",
+          "Through cloud and sunshine, O abide with me!"
+        ],
+        [
+          "I fear no foe, with thee at hand to bless;",
+          "Ills have no weight, and tears no bitterness:",
+          "Where is death's sting? where, grave, thy victory?",
+          "I triumph still, if thou abide with me!"
+        ],
+        [
+          "Hold thou thy cross before my closing eyes;",
+          "Shine through the gloom, and point me to the skies:",
+          "Heaven's morning breaks, and earth's vain shadows flee;",
+          "In life and death, O Lord, abide with me!"
+        ]
+      ]
+    },
+    {
+      "id": "a-mighty-fortress",
+      "version": 1,
+      "title": "A Mighty Fortress Is Our God",
+      "author": "Martin Luther; tr. Frederick H. Hedge",
+      "copyright": "Public domain",
+      "year": 1852,
+      "writers": [
+        { "name": "Martin Luther", "role": "German words", "died": 1546 },
+        { "name": "Frederick Henry Hedge", "role": "translation", "died": 1890 }
+      ],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/A_Mighty_Fortress_is_Our_God"
+      },
+      "stanzas": [
+        [
+          "A mighty fortress is our God,",
+          "A bulwark never failing;",
+          "Our helper he, amid the flood",
+          "Of mortal ills prevailing.",
+          "For still our ancient foe",
+          "Doth seek to work us woe;",
+          "His craft and power are great,",
+          "And, armed with cruel hate,",
+          "On earth is not his equal."
+        ],
+        [
+          "Did we in our own strength confide,",
+          "Our striving would be losing;",
+          "Were not the right man on our side,",
+          "The man of God's own choosing.",
+          "Dost ask who that may be?",
+          "Christ Jesus, it is he;",
+          "Lord Sabaoth his name,",
+          "From age to age the same,",
+          "And he must win the battle."
+        ],
+        [
+          "And though this world, with devils filled,",
+          "Should threaten to undo us,",
+          "We will not fear, for God hath willed",
+          "His truth to triumph through us.",
+          "The prince of darkness grim,",
+          "We tremble not for him;",
+          "His rage we can endure,",
+          "For lo! his doom is sure;",
+          "One little word shall fell him."
+        ],
+        [
+          "That word above all earthly powers,",
+          "No thanks to them, abideth;",
+          "The Spirit and the gifts are ours",
+          "Through him who with us sideth.",
+          "Let goods and kindred go,",
+          "This mortal life also;",
+          "The body they may kill:",
+          "God's truth abideth still,",
+          "His kingdom is for ever."
+        ]
+      ]
+    },
+    {
+      "id": "and-can-it-be",
+      "version": 1,
+      "title": "And Can It Be",
+      "author": "Charles Wesley",
+      "copyright": "Public domain",
+      "year": 1738,
+      "writers": [{ "name": "Charles Wesley", "role": "words", "died": 1788 }],
+      "proof": {
+        "source": "Wikisource transcription (marked public domain; published 1738/1739). Stanzas 1-4 and 6 of 6, the usual selection",
+        "url": "https://en.wikisource.org/wiki/And_Can_It_Be_That_I_Should_Gain%3F"
+      },
+      "stanzas": [
+        [
+          "And can it be that I should gain",
+          "An interest in the Saviour's blood?",
+          "Died he for me, who caused his pain?",
+          "For me, who him to death pursued?",
+          "Amazing love! how can it be",
+          "That thou, my God, shouldst die for me?",
+          "Amazing love! how can it be",
+          "That thou, my God, shouldst die for me?"
+        ],
+        [
+          "'Tis mystery all! th' Immortal dies!",
+          "Who can explore his strange design?",
+          "In vain the first-born seraph tries",
+          "To sound the depths of love divine.",
+          "'Tis mercy all! let earth adore,",
+          "Let angel minds inquire no more.",
+          "'Tis mercy all! let earth adore,",
+          "Let angel minds inquire no more."
+        ],
+        [
+          "He left his Father's throne above,",
+          "So free, so infinite his grace;",
+          "Emptied himself of all but love,",
+          "And bled for Adam's helpless race.",
+          "'Tis mercy all, immense and free;",
+          "For, O my God, it found out me!",
+          "'Tis mercy all, immense and free;",
+          "For, O my God, it found out me!"
+        ],
+        [
+          "Long my imprisoned spirit lay",
+          "Fast bound in sin and nature's night;",
+          "Thine eye diffused a quickening ray;",
+          "I woke, the dungeon flamed with light;",
+          "My chains fell off, my heart was free;",
+          "I rose, went forth, and followed thee.",
+          "My chains fell off, my heart was free;",
+          "I rose, went forth, and followed thee."
+        ],
+        [
+          "No condemnation now I dread;",
+          "Jesus, and all in him, is mine!",
+          "Alive in him, my living Head,",
+          "And clothed in righteousness divine,",
+          "Bold I approach th' eternal throne,",
+          "And claim the crown, through Christ my own.",
+          "Bold I approach th' eternal throne,",
+          "And claim the crown, through Christ my own."
+        ]
+      ]
+    },
+    {
+      "id": "o-for-a-thousand-tongues",
+      "version": 1,
+      "title": "O for a Thousand Tongues to Sing",
+      "author": "Charles Wesley",
+      "copyright": "Public domain",
+      "year": 1740,
+      "writers": [{ "name": "Charles Wesley", "role": "words", "died": 1788 }],
+      "proof": {
+        "source": "Wikisource transcription of the 1740 hymn \"Glory to God, and praise and love\". Stanzas 7-12 of 18, the usual selection",
+        "url": "https://en.wikisource.org/wiki/O_for_a_Thousand_Tongues_to_Sing"
+      },
+      "stanzas": [
+        [
+          "O for a thousand tongues to sing",
+          "My great Redeemer's praise,",
+          "The glories of my God and King,",
+          "The triumphs of his grace!"
+        ],
+        [
+          "My gracious Master and my God,",
+          "Assist me to proclaim,",
+          "To spread through all the earth abroad",
+          "The honours of thy name."
+        ],
+        [
+          "Jesus! the name that charms our fears,",
+          "That bids our sorrows cease;",
+          "'Tis music in the sinner's ears,",
+          "'Tis life, and health, and peace."
+        ],
+        [
+          "He breaks the power of cancelled sin,",
+          "He sets the prisoner free;",
+          "His blood can make the foulest clean;",
+          "His blood availed for me."
+        ],
+        [
+          "He speaks, and, listening to his voice,",
+          "New life the dead receive;",
+          "The mournful, broken hearts rejoice;",
+          "The humble poor believe."
+        ],
+        [
+          "Hear him, ye deaf; his praise, ye dumb,",
+          "Your loosened tongues employ;",
+          "Ye blind, behold your Saviour come;",
+          "And leap, ye lame, for joy."
+        ]
+      ]
+    },
+    {
+      "id": "doxology",
+      "version": 1,
+      "title": "Doxology (Praise God, from Whom All Blessings Flow)",
+      "author": "Thomas Ken",
+      "copyright": "Public domain",
+      "year": 1695,
+      "writers": [{ "name": "Thomas Ken", "role": "words", "died": 1711 }],
+      "proof": {
+        "source": "The Army and Navy Hymnal (1920)",
+        "url": "https://en.wikisource.org/wiki/The_Army_and_Navy_Hymnal/Hymns/Praise_God,_from_Whom_All_Blessings_Flow"
+      },
+      "stanzas": [
+        [
+          "Praise God, from whom all blessings flow;",
+          "Praise him, all creatures here below;",
+          "Praise him above, ye heavenly host;",
+          "Praise Father, Son, and Holy Ghost."
+        ]
+      ]
+    }
+  ]
+}

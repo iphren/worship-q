@@ -56,6 +56,12 @@ No phone app exists; a phone is a browser page served by the church server.
 | --- | --- | --- |
 | U5 Pruning deck originals | The Storage page counts what pruning would free (originals of decks not presented for 180 days); nothing removes them. Optional, for when disk becomes a concern | Media plan U5 |
 
+### Song catalogue (parked)
+
+| Item | Source |
+| --- | --- |
+| Built-in public-domain hymns and Stream of Praise songs offered to every workspace; leaving a church flattens the library. Hymns checked and saved, not wired in; Stream of Praise not yet asked | [Song catalogue plan](song-catalogue-plan.md) and [song lyrics discovery](song-lyrics-discovery.md), 21–22 November 2026 |
+
 ### Ideas with no design
 
 | Item | Source |
