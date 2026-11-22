@@ -6,7 +6,7 @@ import { Dialog } from './Dialog';
 import { ScribblingPencil } from './ScribblingPencil';
 import { SongForm, TitleForm, VideoForm } from './SongForm';
 
-/** Songs have lyrics to fix; media and websites only a title (and a video its Autoplay). */
+/** Songs have lyrics to fix; media only a title (a video its Autoplay, a website its address). */
 export function isLyrics(
   song: Pick<Song, 'deck' | 'website' | 'video'> & { passage?: Song['passage'] },
 ): boolean {
@@ -15,9 +15,9 @@ export function isLyrics(
 
 /**
  * A run sheet item's Edit window (U27), over the run sheet: the lyrics editor for a song,
- * the title and Autoplay for a video, the title for slides, PDFs, images and websites, and
- * the Bible window for a passage. Media also has its file actions: Download original, Upload
- * new version… and, for slides and PDFs, Reconvert.
+ * the title and Autoplay for a video, the title and address for a website, the title for
+ * slides, PDFs and images, and the Bible window for a passage. Media also has its file
+ * actions: Download original, Upload new version… and, for slides and PDFs, Reconvert.
  * It edits the song, so the change shows wherever the song is used. Apply saves and stays
  * open; after it, Cancel becomes Close, as what was applied is kept.
  */

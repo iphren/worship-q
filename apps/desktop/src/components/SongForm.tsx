@@ -441,8 +441,8 @@ function WebsiteForm(props: SongFormProps) {
 }
 
 /**
- * The title of a deck or website, for renaming while live, with a deck's file actions
- * (Download original, Upload new version…, Reconvert).
+ * The title of a deck or website, for renaming while live, with a website's address and a
+ * deck's file actions (Download original, Upload new version…, Reconvert).
  */
 export function TitleForm(props: {
   song: Song;
@@ -453,14 +453,24 @@ export function TitleForm(props: {
   const session = useSession();
   const { song } = props;
   const [title, setTitle] = useState(song.title);
+  const [address, setAddress] = useState(song.website?.url ?? '');
   const [saving, setSaving] = useState(false);
-  const canSave = title.trim() !== song.title && title.trim() !== '' && !saving;
+  const url = song.website ? websiteUrl(address) : null;
+  const moved = !!song.website && url !== null && url !== song.website.url;
+  const dirty = title.trim() !== song.title || moved;
+  const valid = title.trim() !== '' && (!song.website || url !== null);
+  const canSave = dirty && valid && !saving;
 
   async function save(close = true) {
     if (!canSave) return;
     setSaving(true);
     try {
-      const result = await session.saveSong(song.id, { title: title.trim() });
+      const result = await session.saveSong(song.id, {
+        title: title.trim(),
+        // A new address of a YouTube video brings its length (YouTube control D3).
+        ...(moved && url ? { website: await websiteFor(url, song.website) } : {}),
+      });
+      setAddress(result.website?.url ?? '');
       if (close) props.onSaved(result);
       else props.onApplied?.(result);
     } finally {
@@ -490,13 +500,28 @@ export function TitleForm(props: {
           autoFocus
         />
       </label>
+      {song.website && (
+        <label>
+          <span className="label">{t('songs.websiteUrl')}</span>
+          <input
+            className="field"
+            type="url"
+            inputMode="url"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="https://"
+            value={address}
+            aria-invalid={url === null}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+          {url === null && (
+            <span className="mt-1 block text-xs text-rose-300">{t('songs.websiteInvalid')}</span>
+          )}
+        </label>
+      )}
       {/* A new version or reconvert keeps the window open, as Apply does. */}
-      <MediaActions
-        song={song}
-        dirty={title.trim() !== song.title}
-        onSaved={props.onApplied ?? props.onSaved}
-        compact
-      />
+      <MediaActions song={song} dirty={dirty} onSaved={props.onApplied ?? props.onSaved} compact />
       <div className="flex items-center justify-end gap-2">
         {props.actions}
         {props.onApplied && <ApplyButton disabled={!canSave} onApply={() => void save(false)} />}

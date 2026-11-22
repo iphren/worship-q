@@ -59,8 +59,8 @@ Other dates are read-only until you choose **Edit** on them.
 Choose **Edit** above the song, correct the text or title and **Save**. The screen updates
 straight away and stays on the same slide.
 
-For slide decks, PDFs, photos and websites, **Edit** only renames the item; a video's also
-has **Autoplay**.
+For slide decks, PDFs and photos, **Edit** only renames the item; a video's also has
+**Autoplay**, and a website's its address.
 
 ## 5. When you finish
 
