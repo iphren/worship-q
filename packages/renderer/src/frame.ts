@@ -7,6 +7,7 @@
 import {
   EMPTY_FRAME,
   builtinBackground,
+  youtubeVideo,
   type BackgroundKind,
   type LiveSnapshot,
   type OutputFrame,
@@ -65,6 +66,16 @@ export function buildFrame(input: FrameInput): OutputFrame {
     frame.pieceId = presented.pieceId;
     if (kind === 'slideshow' && !frame.blank && presented.websiteUrl) {
       frame.website = { url: presented.websiteUrl };
+      // A YouTube video's player follows the live state's clock (YouTube control D2).
+      const clock = snapshot.state.video;
+      if (clock && clock.itemId === presented.itemId && youtubeVideo(presented.websiteUrl)) {
+        frame.website.video = {
+          playing: clock.playing,
+          position: clock.position,
+          at: clock.at,
+          durationSeconds: clock.durationSeconds,
+        };
+      }
     }
     return frame;
   }

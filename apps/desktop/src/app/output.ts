@@ -4,7 +4,13 @@
  */
 import { emitTo, listen } from '@tauri-apps/api/event';
 import { availableMonitors, currentMonitor, type Monitor } from '@tauri-apps/api/window';
-import { EMPTY_FRAME, type MonitorIdentity, type OutputFrame } from '@worship-q/protocol';
+import {
+  EMPTY_FRAME,
+  youtubeVideo,
+  type MonitorIdentity,
+  type OutputFrame,
+} from '@worship-q/protocol';
+import type { YouTubeReport } from '@worship-q/renderer';
 import type { Session } from '@worship-q/session';
 import { decideOutput, type OutputDecision, sameMonitor, selectedMonitor } from '../lib/monitors';
 import { t } from '@worship-q/i18n/desktop';
@@ -24,6 +30,8 @@ export const CLOSE_REQUEST_EVENT = 'output-close-request';
 export const ACTION_EVENT = 'output-action';
 /** Sent to the output window when the audio output is changed in Settings (U24). */
 export const AUDIO_OUTPUT_EVENT = 'output-audio-output';
+/** A YouTube page's report, passed on by the page server (`YOUTUBE_REPORT_EVENT` there). */
+export const YOUTUBE_REPORT_EVENT = 'youtube-report';
 const MONITOR_POLL_MS = 2000;
 
 export interface OutputStatus {
@@ -41,6 +49,10 @@ export interface OutputStatus {
   /** True while the slideshow is an ordinary window instead of covering a screen. */
   windowed: boolean;
   error: string | null;
+  /** YouTube's error code for the presented YouTube video, while it would not play it. */
+  youtubeError: { id: string; code: number } | null;
+  /** The presented YouTube video's identifier, when its player says it is a live stream. */
+  youtubeLive: string | null;
 }
 
 const identity = (monitor: Monitor): MonitorIdentity => ({
@@ -62,6 +74,8 @@ export class OutputController {
     selected: null,
     windowed: false,
     error: null,
+    youtubeError: null,
+    youtubeLive: null,
   };
   /** The monitor the operator picked in the list since the app opened. */
   private picked: MonitorIdentity | null = null;
@@ -95,6 +109,12 @@ export class OutputController {
     this.cleanup.push(await listen(READY_EVENT, () => void this.send()));
     this.cleanup.push(await listen(CLOSE_REQUEST_EVENT, () => void this.close()));
     this.cleanup.push(
+      await listen<YouTubeReport>(
+        YOUTUBE_REPORT_EVENT,
+        (event) => void this.onYouTube(event.payload),
+      ),
+    );
+    this.cleanup.push(
       await listen<KeyPress>(ACTION_EVENT, (event) => {
         if (!this.session.isLive) return;
         // Decided here, as for a key pressed on this window, so both windows agree.
@@ -114,6 +134,29 @@ export class OutputController {
       })
       .catch(() => undefined);
     await this.refresh();
+  }
+
+  /**
+   * What the slideshow window's YouTube player said about the presented video (YouTube
+   * control D3, D7): its length is kept on the website, and an error shown on the controls.
+   * A report about a video no longer presented changes nothing.
+   */
+  private async onYouTube(report: YouTubeReport): Promise<void> {
+    const url = this.status_.frame.website?.url;
+    if (!url || youtubeVideo(url)?.id !== report.id) return;
+    if (report.kind === 'error') {
+      this.update({ youtubeError: { id: report.id, code: report.code } });
+      return;
+    }
+    if (report.kind === 'live') {
+      this.update({ youtubeLive: report.id });
+      return;
+    }
+    if (report.kind === 'length') {
+      const songId = this.session.live?.presented?.songId;
+      if (songId)
+        await this.session.setWebsiteLength(songId, url, report.seconds).catch(console.error);
+    }
   }
 
   stop(): void {
@@ -177,7 +220,11 @@ export class OutputController {
     const subtitle = await this.session.frame(() => '', 'subtitle');
     // A later refresh started meanwhile has the newer frame; this one must not replace it.
     if (this.stopped || request !== this.frameRequest) return;
-    this.update({ frame, subtitle });
+    // An error is about one video, and goes with it.
+    const shown = frame.website ? youtubeVideo(frame.website.url)?.id : undefined;
+    const youtubeError = this.status_.youtubeError?.id === shown ? this.status_.youtubeError : null;
+    const youtubeLive = this.status_.youtubeLive === shown ? this.status_.youtubeLive : null;
+    this.update({ frame, subtitle, youtubeError, youtubeLive });
     await this.send();
     await native.publishOverlay(subtitle).catch(console.error);
     // The localhost slideshow page is an ordinary browser: it fetches files from the app's

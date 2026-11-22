@@ -703,6 +703,9 @@ export const desktop: Record<DesktopKey, string> = {
   'video.back': '后退 10 秒',
   'video.forward': '前进 10 秒',
   'video.position': '位置',
+  'video.liveStream': '直播',
+  'video.youtubeRefused':
+    'YouTube 不允许在这里播放这个视频。视频所有者可能不允许在其他网站播放，或者视频已被删除。',
   'media.addTitle': '添加幻灯片、PDF、图片或视频',
   'media.dialogName': '幻灯片、PDF、图片和视频',
 

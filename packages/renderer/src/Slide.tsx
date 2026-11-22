@@ -10,6 +10,7 @@ import {
 import {
   EMPTY_FRAME,
   type BuiltinBackground as BuiltinName,
+  type OutputClock,
   type OutputFrame,
   type OutputVideo,
 } from '@worship-q/protocol';
@@ -390,9 +391,11 @@ export const VIDEO_DRIFT_SECONDS = 0.5;
  * Where a video should be at `nowMs`, by the live state's clock: its position, moved on by the
  * time since it was taken while it plays, and never past its end.
  */
-export function videoTarget(video: OutputVideo, nowMs: number): number {
+export function videoTarget(video: OutputClock, nowMs: number): number {
   const elapsed = video.playing ? Math.max(0, (nowMs - Date.parse(video.at)) / 1000) : 0;
-  return Math.min(video.durationSeconds, video.position + elapsed);
+  const position = video.position + elapsed;
+  // A length of 0 is not known (a YouTube video, YouTube control D4): no end to stop at.
+  return video.durationSeconds > 0 ? Math.min(video.durationSeconds, position) : position;
 }
 
 /** Whether a player at `current` seconds must be moved to `target`. */

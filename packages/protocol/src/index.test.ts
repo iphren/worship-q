@@ -28,6 +28,8 @@ import {
   typedWebsiteUrl,
   websiteUrl,
   youtubeEmbedUrl,
+  youtubeVideo,
+  WebsiteSchema,
   type LiveSnapshot,
 } from './index';
 
@@ -166,7 +168,7 @@ describe('website addresses', () => {
 });
 
 describe('YouTube links', () => {
-  const embed = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&playsinline=1&rel=0';
+  const embed = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?playsinline=1&rel=0';
 
   it('finds the video in every kind of link', () => {
     expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(embed);
@@ -177,14 +179,25 @@ describe('YouTube links', () => {
     expect(youtubeEmbedUrl('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(embed);
   });
 
-  it('keeps where the link starts', () => {
-    expect(youtubeEmbedUrl('https://youtu.be/dQw4w9WgXcQ?t=90')).toBe(`${embed}&start=90`);
-    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s')).toBe(
-      `${embed}&start=90`,
-    );
-    expect(youtubeEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1h2s')).toBe(
-      `${embed}&start=3602`,
-    );
+  it('keeps where the link starts, for the clock rather than the address', () => {
+    const at = (link: string) => youtubeVideo(link)?.startSeconds;
+    expect(at('https://youtu.be/dQw4w9WgXcQ')).toBe(0);
+    expect(at('https://youtu.be/dQw4w9WgXcQ?t=90')).toBe(90);
+    expect(at('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m30s')).toBe(90);
+    expect(at('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1h2s')).toBe(3602);
+    expect(at('https://www.youtube.com/embed/dQw4w9WgXcQ?start=42')).toBe(42);
+    expect(youtubeEmbedUrl('https://youtu.be/dQw4w9WgXcQ?t=90')).toBe(embed);
+    expect(youtubeVideo('https://youtu.be/dQw4w9WgXcQ?t=90')?.id).toBe('dQw4w9WgXcQ');
+  });
+
+  it('reads a website saved before lengths, and keeps a length', () => {
+    const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    expect(WebsiteSchema.parse({ url })).toEqual({ url });
+    expect(WebsiteSchema.parse({ url, durationSeconds: 213 })).toEqual({
+      url,
+      durationSeconds: 213,
+    });
+    expect(WebsiteSchema.safeParse({ url, durationSeconds: 0 }).success).toBe(false);
   });
 
   it('leaves every other page as it is', () => {
@@ -235,12 +248,13 @@ describe('speaking an older server’s version (D26)', () => {
   });
 
   it('speaks version 3 to a server not yet updated for OBS control', () => {
-    expect(PROTOCOL_VERSION).toBe(9);
+    expect(PROTOCOL_VERSION).toBe(10);
     expect(negotiateProtocol(3)).toBe(3);
     expect(negotiateProtocol(4)).toBe(4);
     expect(negotiateProtocol(5)).toBe(5);
     expect(negotiateProtocol(6)).toBe(6);
     expect(negotiateProtocol(8)).toBe(8);
+    expect(negotiateProtocol(9)).toBe(9);
     expect(negotiateProtocol(3)).toBeLessThan(OBS_PROTOCOL_VERSION);
   });
 });

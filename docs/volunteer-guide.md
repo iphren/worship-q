@@ -120,6 +120,12 @@ this computer**; the app asks once to use the microphone, which it only uses to 
 devices. Browser slideshow pages and OBS play the sound too. A browser may wait until the page
 is clicked: the video then plays silently with **Click for sound**.
 
+**YouTube videos.** A website item with a link to one YouTube video shows the video alone and
+is controlled like a video item: the same bar, keys and phone controls, and it starts at the
+link's time (`?t=90`). Its length is read from YouTube when you add it; until it is known, and
+for a live stream, the bar only plays and pauses. Some videos can't be played outside YouTube,
+and the bar says so.
+
 ## Bible passages
 
 When the speaker reads a passage that is not in the run sheet, click the **book** button

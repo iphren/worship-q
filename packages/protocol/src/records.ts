@@ -103,6 +103,13 @@ export const VIDEO_FILE = /^video-[0-9a-f-]{36}\.(mp4|m4v|mov|webm)$/;
 export const WebsiteSchema = z.object({
   /** An `http` or `https` address; see `websiteUrl`. */
   url: z.string().refine((url) => websiteUrl(url) === url),
+  /**
+   * A YouTube video's length in seconds (YouTube control D3), read when the address is saved
+   * or filled in once the slideshow's player knows it. Absent when unknown, and for a live
+   * stream, which has none. An older desktop saving the website drops it, which only means
+   * it is filled in again.
+   */
+  durationSeconds: z.number().positive().finite().optional(),
 });
 export type Website = z.infer<typeof WebsiteSchema>;
 
@@ -150,12 +157,15 @@ function youtubeStart(value: string | null): number {
   return Number(parts[1] ?? 0) * 3600 + Number(parts[2] ?? 0) * 60 + Number(parts[3] ?? 0);
 }
 
+/** A YouTube video's identifier: eleven letters, digits, `-` or `_`. */
+export const YOUTUBE_ID = /^[\w-]{11}$/;
+
 /**
- * The address that shows only the video of a YouTube link, filling the screen and playing at
- * once, in place of YouTube's page around it. Null when the address is not a YouTube video:
- * a channel, a playlist or any other site is shown as the web page it is.
+ * The YouTube video a link is for, and the second it starts at (`t=` or `start=`). Null when
+ * the address is not a single YouTube video: a channel, a playlist or any other site is
+ * shown as the web page it is (YouTube control D1).
  */
-export function youtubeEmbedUrl(address: string): string | null {
+export function youtubeVideo(address: string): { id: string; startSeconds: number } | null {
   let url: URL;
   try {
     url = new URL(address);
@@ -170,11 +180,21 @@ export function youtubeEmbedUrl(address: string): string | null {
     if (first === 'watch') id = url.searchParams.get('v');
     else if (first === 'embed' || first === 'live' || first === 'shorts') id = second;
   }
-  if (!id || !/^[\w-]{11}$/.test(id)) return null;
-  const start = youtubeStart(url.searchParams.get('t') ?? url.searchParams.get('start'));
-  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0${
-    start > 0 ? `&start=${start}` : ''
-  }`;
+  if (!id || !YOUTUBE_ID.test(id)) return null;
+  return {
+    id,
+    startSeconds: youtubeStart(url.searchParams.get('t') ?? url.searchParams.get('start')),
+  };
+}
+
+/**
+ * The address that shows only the video of a YouTube link, in place of YouTube's page around
+ * it; null when the address is not a YouTube video. It neither plays at once nor starts at
+ * the link's time: the live state's clock decides both (D5).
+ */
+export function youtubeEmbedUrl(address: string): string | null {
+  const video = youtubeVideo(address);
+  return video ? `https://www.youtube-nocookie.com/embed/${video.id}?playsinline=1&rel=0` : null;
 }
 
 export const SongFieldsSchema = z.object({
@@ -531,6 +551,9 @@ export const CommandSchema = z.discriminatedUnion('type', [
 export type Command = z.infer<typeof CommandSchema>;
 export type CommandType = Command['type'];
 
+/** The live state's clock for the presented video, as an output follows it. */
+export type OutputClock = Omit<OutputVideo, 'url'>;
+
 /** The presented video as an output plays it. */
 export interface OutputVideo {
   /** Where to play it from; empty when this computer has no copy yet. */
@@ -566,8 +589,12 @@ export interface OutputFrame {
   pieceId: string | null;
   /** An imported slide, shown whole in place of lyrics. */
   picture: { url: string } | null;
-  /** A web page shown live over the slideshow, by the output window itself. */
-  website: { url: string } | null;
+  /**
+   * A web page shown live over the slideshow, by the output window itself. For a YouTube
+   * video, `video` is the live state's clock, which its player follows (YouTube control D2);
+   * absent from older senders, whose outputs play the video on their own.
+   */
+  website: { url: string; video?: OutputClock | null } | null;
   /**
    * A video item, shown full screen on black in place of lyrics (U14), with the live state's
    * clock for it. Hidden while blank. Never on the subtitle overlay.

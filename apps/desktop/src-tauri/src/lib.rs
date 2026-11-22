@@ -201,6 +201,7 @@ pub fn run() {
             workspaces::switch_workspace,
             workspaces::remove_workspace,
             web::fetch_page_start,
+            web::youtube_length,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Worship Q");

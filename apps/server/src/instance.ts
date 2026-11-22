@@ -12,6 +12,7 @@ import {
   MIN_PROTOCOL_VERSION,
   PROTOCOL_VERSION,
   VIDEO_PROTOCOL_VERSION,
+  WEBSITE_LENGTH_PROTOCOL_VERSION,
   PASSAGE_PROTOCOL_VERSION,
   songBadge,
   OutputKindSchema,
@@ -767,6 +768,30 @@ export class Instance {
           const stored = (existing ?? church)?.data;
           const kept = stored ? (JSON.parse(text(stored)) as Record<string, unknown>)[field] : null;
           if (kept) incoming = { ...incoming, data: { ...incoming.data, [field]: kept } };
+        }
+        // A desktop older than website lengths drops a YouTube video's `durationSeconds` when
+        // it saves the website; the stored length is kept while the address is the same.
+        if (protocol < WEBSITE_LENGTH_PROTOCOL_VERSION && incoming.kind === 'song') {
+          const website = incoming.data.website as { url?: unknown; durationSeconds?: unknown };
+          const stored = (existing ?? church)?.data;
+          const kept = stored
+            ? ((JSON.parse(text(stored)) as Record<string, unknown>).website as
+                { url?: unknown; durationSeconds?: unknown } | null | undefined)
+            : null;
+          if (
+            website &&
+            website.durationSeconds === undefined &&
+            kept?.durationSeconds !== undefined &&
+            kept.url === website.url
+          ) {
+            incoming = {
+              ...incoming,
+              data: {
+                ...incoming.data,
+                website: { ...website, durationSeconds: kept.durationSeconds },
+              },
+            };
+          }
         }
         if (isLibraryKind(incoming.kind)) {
           if (!existing && managed.has(libraryTypeOf(incoming.kind, incoming.data)!)) {

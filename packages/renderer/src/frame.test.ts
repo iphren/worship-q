@@ -368,3 +368,56 @@ describe('passage frames (P6.2)', () => {
     expect(frame('slideshow', true).passage ?? null).toBeNull();
   });
 });
+
+describe('a YouTube video on browser outputs (YouTube control M3.1)', () => {
+  const presented = (websiteUrl: string): LiveSnapshot['presented'] => ({
+    itemId: 'w1',
+    pieceId: 'website',
+    songId: 's1',
+    title: 'Video',
+    kind: 'website',
+    pieces: [{ id: 'website', lines: [websiteUrl] }],
+    background: { color: '#000000', assetId: null },
+    websiteUrl,
+    previous: false,
+  });
+  const clock = {
+    itemId: 'w1',
+    playing: true,
+    position: 30,
+    at: '2026-10-11T09:00:05.000Z',
+    durationSeconds: 0,
+    resumeOnUnblank: false,
+  };
+  const frame = (websiteUrl: string, blank = false) => {
+    const base = snapshot(presented(websiteUrl), blank);
+    return buildFrame({
+      kind: 'slideshow',
+      look,
+      fileUrl,
+      fontAvailable: true,
+      snapshot: { ...base, state: { ...base.state, video: clock } },
+    });
+  };
+
+  it('carries the live state’s clock with a YouTube video', () => {
+    expect(frame('https://youtu.be/dQw4w9WgXcQ').website).toEqual({
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      video: { playing: true, position: 30, at: clock.at, durationSeconds: 0 },
+    });
+  });
+
+  it('gives any other page no clock, and shows nothing while blank', () => {
+    expect(frame('https://example.org/live').website).toEqual({ url: 'https://example.org/live' });
+    expect(frame('https://youtu.be/dQw4w9WgXcQ', true).website).toBeNull();
+  });
+});
+
+describe('the clock’s target with an unknown length (YouTube control D4)', () => {
+  it('runs on past any end while the length is 0', () => {
+    const at = '2026-10-11T09:00:00.000Z';
+    const now = Date.parse(at) + 500_000;
+    expect(videoTarget({ playing: true, position: 0, at, durationSeconds: 0 }, now)).toBe(500);
+    expect(videoTarget({ playing: true, position: 0, at, durationSeconds: 90 }, now)).toBe(90);
+  });
+});

@@ -14,7 +14,7 @@ use crate::media::{checked_video, videos_dir};
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, RawQuery, State as AxumState};
 use axum::http::{header, HeaderMap, StatusCode, Uri};
-use axum::response::{Html, IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use std::io::{Read, SeekFrom, Write};
@@ -22,7 +22,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::{AppHandle, Manager, State, Wry};
+use tauri::{AppHandle, Emitter, Manager, State, Wry};
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tokio::sync::watch;
 
@@ -200,33 +200,28 @@ pub fn youtube_page(overlay: &Overlay, embed: &str) -> Option<String> {
         return None;
     }
     let (id, query) = embed.strip_prefix(YOUTUBE_EMBED)?.split_once('?')?;
-    youtube_frame(id, query)?;
+    if !plain_video(id, query) {
+        return None;
+    }
     Some(format!(
         "http://localhost:{OVERLAY_PORT}/youtube/{id}?{query}"
     ))
 }
 
-/// The page for a video: the video alone, filling it. Nothing unless the video's identifier
-/// and its settings are plain, so the page can hold nothing but a YouTube video.
-fn youtube_frame(id: &str, query: &str) -> Option<String> {
+/// Whether a video's identifier and its settings are plain, so the page can be for nothing
+/// but a YouTube video.
+fn plain_video(id: &str, query: &str) -> bool {
     let plain = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '-';
-    if id.len() != 11 || !id.chars().all(plain) {
-        return None;
-    }
-    if !query.chars().all(|c| plain(c) || c == '=' || c == '&') {
-        return None;
-    }
-    let query = query.replace('&', "&amp;");
-    Some(format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><title>Worship Q Video</title>\
-<style>html,body{{margin:0;height:100%;background:#000;overflow:hidden}}\
-iframe{{position:fixed;inset:0;width:100%;height:100%;border:0}}</style></head>\
-<body><iframe src=\"{YOUTUBE_EMBED}{id}?{query}\" \
-allow=\"autoplay; encrypted-media; fullscreen\"></iframe></body></html>"
-    ))
+    id.len() == 11
+        && id.chars().all(plain)
+        && query.chars().all(|c| plain(c) || c == '=' || c == '&')
 }
 
+/// The page that plays a video, following the slideshow's clock (YouTube control D6): the
+/// built `youtube.html`, which reads the video from the address. In development it comes
+/// from the Vite server, told the video and where this server is.
 async fn youtube(
+    AxumState(state): AxumState<ServerState>,
     Path(id): Path<String>,
     RawQuery(query): RawQuery,
     headers: HeaderMap,
@@ -235,10 +230,14 @@ async fn youtube(
     if let Some(redirect) = to_localhost(&headers, &uri) {
         return redirect;
     }
-    match youtube_frame(&id, query.as_deref().unwrap_or("")) {
-        Some(page) => Html(page).into_response(),
-        None => StatusCode::NOT_FOUND.into_response(),
+    if !plain_video(&id, query.as_deref().unwrap_or("")) {
+        return StatusCode::NOT_FOUND.into_response();
     }
+    if cfg!(dev) {
+        let url = format!("{DEV_URL}/youtube.html?port={OVERLAY_PORT}&v={id}");
+        return Redirect::temporary(&url).into_response();
+    }
+    bundled(&state.app, "youtube.html").unwrap_or_else(|| StatusCode::NOT_FOUND.into_response())
 }
 
 /// A stored background or slide image, for the slideshow page in an ordinary browser.
@@ -376,30 +375,65 @@ async fn asset(AxumState(state): AxumState<ServerState>, Path(file): Path<String
 }
 
 async fn socket(AxumState(state): AxumState<ServerState>, upgrade: WebSocketUpgrade) -> Response {
-    upgrade.on_upgrade(move |ws| follow(ws, state.frames))
+    upgrade.on_upgrade(move |ws| follow(ws, state.frames, None))
 }
 
 async fn slideshow_socket(
     AxumState(state): AxumState<ServerState>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
-    upgrade.on_upgrade(move |ws| follow(ws, state.slideshow_frames))
+    upgrade.on_upgrade(move |ws| follow(ws, state.slideshow_frames, Some(state.app)))
 }
 
-/// Sends the current frame, then every new one, until the page goes away.
-async fn follow(mut ws: WebSocket, mut frames: watch::Receiver<String>) {
+/// The event the interface hears a YouTube page's report on (YouTube control D6, D7).
+pub const YOUTUBE_REPORT_EVENT: &str = "youtube-report";
+
+/// A YouTube page's report, `{"youtube": …}`, passed on as it is: only its shape is checked
+/// here, and the interface reads it.
+fn youtube_report(text: &str) -> Option<serde_json::Value> {
+    if text.len() > 1024 {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let report = value.get("youtube")?;
+    report.get("kind")?.as_str()?;
+    report.get("id")?.as_str()?;
+    Some(report.clone())
+}
+
+/// Sends the current frame, then every new one, until the page goes away. On the slideshow
+/// socket (`app` given) a YouTube page's reports are passed on to the interface.
+async fn follow(
+    mut ws: WebSocket,
+    mut frames: watch::Receiver<String>,
+    app: Option<AppHandle<Wry>>,
+) {
+    let mut send = true;
     loop {
-        let frame = frames.borrow_and_update().clone();
-        if ws.send(Message::Text(frame.into())).await.is_err() {
-            return;
+        if send {
+            let frame = frames.borrow_and_update().clone();
+            if ws.send(Message::Text(frame.into())).await.is_err() {
+                return;
+            }
         }
         tokio::select! {
-            changed = frames.changed() => if changed.is_err() { return },
-            incoming = ws.recv() => match incoming {
-                // The page sends nothing; a closed or failed socket ends here.
-                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => return,
-                _ => {}
-            },
+            changed = frames.changed() => {
+                if changed.is_err() { return }
+                send = true;
+            }
+            incoming = ws.recv() => {
+                send = false;
+                match incoming {
+                    Some(Ok(Message::Text(text))) => {
+                        if let (Some(app), Some(report)) = (&app, youtube_report(&text)) {
+                            let _ = app.emit(YOUTUBE_REPORT_EVENT, report);
+                        }
+                    }
+                    // A closed or failed socket ends here.
+                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => return,
+                    _ => {}
+                }
+            }
         }
     }
 }
@@ -440,14 +474,26 @@ mod tests {
     }
 
     #[test]
-    fn frames_only_a_youtube_video() {
-        let page = youtube_frame("dQw4w9WgXcQ", "autoplay=1&start=90").unwrap();
-        assert!(page.contains(
-            "src=\"https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&amp;start=90\""
-        ));
-        assert!(youtube_frame("short", "").is_none());
-        assert!(youtube_frame("dQw4w9WgXc\"", "").is_none());
-        assert!(youtube_frame("dQw4w9WgXcQ", "a=\"><script>").is_none());
+    fn takes_only_a_plain_youtube_video() {
+        assert!(plain_video("dQw4w9WgXcQ", "playsinline=1&rel=0"));
+        assert!(!plain_video("short", ""));
+        assert!(!plain_video("dQw4w9WgXc\"", ""));
+        assert!(!plain_video("dQw4w9WgXcQ", "a=\"><script>"));
+    }
+
+    #[test]
+    fn passes_on_only_youtube_reports() {
+        let report =
+            youtube_report(r#"{"youtube":{"kind":"length","id":"dQw4w9WgXcQ","seconds":213}}"#);
+        assert_eq!(report.unwrap()["seconds"], 213);
+        assert!(youtube_report(r#"{"youtube":{"id":"dQw4w9WgXcQ"}}"#).is_none());
+        assert!(youtube_report(r#"{"other":1}"#).is_none());
+        assert!(youtube_report("not json").is_none());
+        assert!(youtube_report(&format!(
+            r#"{{"youtube":{{"kind":"{}","id":"x"}}}}"#,
+            "a".repeat(2000)
+        ))
+        .is_none());
     }
 
     #[test]

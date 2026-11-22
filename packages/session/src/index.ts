@@ -21,6 +21,7 @@ import {
   type CommandResult,
   type PlayablePiece,
   type SnapshotBody,
+  type VideoInfo,
   forgetVideoPosition,
   videoPosition,
 } from '@worship-q/live-state';
@@ -35,6 +36,7 @@ import {
   passageReference,
   songBadge,
   typedWebsiteUrl,
+  youtubeVideo,
   type AddPassageCommand,
   type AddWebsiteCommand,
   type Passage,
@@ -114,6 +116,22 @@ export type StartKind =
 
 /** Identifier of a website's one piece, which shows its address as its text. */
 export const WEBSITE_PIECE_ID = 'website';
+
+/**
+ * A YouTube video's website piece, to the live state a video (YouTube control D2): its
+ * length, or 0 while unknown (D4), playing at once, from the link's start time (D5).
+ */
+function websiteVideo(song: Pick<Song, 'website'>): { video?: VideoInfo } {
+  const youtube = song.website ? youtubeVideo(song.website.url) : null;
+  if (!youtube) return {};
+  return {
+    video: {
+      durationSeconds: song.website?.durationSeconds ?? 0,
+      autoplay: true,
+      ...(youtube.startSeconds > 0 ? { startSeconds: youtube.startSeconds } : {}),
+    },
+  };
+}
 /** Identifier of a video item's one piece (U14). */
 export const VIDEO_PIECE_ID = 'video';
 
@@ -786,7 +804,7 @@ export class Session {
                 autoplay: entry.song.video.autoplay,
               },
             }
-          : {}),
+          : websiteVideo(entry.song)),
       })),
     );
   }
@@ -1399,6 +1417,23 @@ export class Session {
   }
 
   /**
+   * Records a YouTube video's length on the website showing it (YouTube control D3), as the
+   * slideshow's player reported it: when the website has none, or one more than a second and
+   * a half out. Nothing changes for a website at another address since, a viewer, or a live
+   * stream, whose player reports a length that only grows. True when it was saved.
+   */
+  async setWebsiteLength(songId: string, url: string, seconds: number): Promise<boolean> {
+    if (this.isViewer || !Number.isFinite(seconds) || seconds <= 0) return false;
+    const song = await this.store.getSong(songId);
+    const website = song?.website;
+    if (!website || website.url !== url || !youtubeVideo(url)) return false;
+    const known = website.durationSeconds;
+    if (known !== undefined && Math.abs(known - seconds) <= 1.5) return false;
+    await this.saveSong(songId, { website: { ...website, durationSeconds: seconds } });
+    return true;
+  }
+
+  /**
    * Saves an edit to a song. If the song is on screen, the output shows the edit and the
    * presented position follows the edited lyrics.
    */
@@ -1876,9 +1911,21 @@ export class Session {
         frame.passage = { columns, headers, page };
       }
     } else if (presented && song?.website) {
-      // The page is shown by the slideshow window only; a subtitle overlay shows nothing.
+      // The page is shown by the slideshow window only; a subtitle overlay shows nothing. A
+      // YouTube video's player follows the live state's clock (YouTube control D2).
       if (presented.pieceId === WEBSITE_PIECE_ID) {
-        if (kind === 'slideshow' && !frame.blank) frame.website = { url: song.website.url };
+        if (kind === 'slideshow' && !frame.blank) {
+          const clock = this.video;
+          frame.website = { url: song.website.url };
+          if (clock && clock.itemId === presented.itemId && youtubeVideo(song.website.url)) {
+            frame.website.video = {
+              playing: clock.playing,
+              position: clock.position,
+              at: clock.at,
+              durationSeconds: clock.durationSeconds,
+            };
+          }
+        }
         frame.pieceId = WEBSITE_PIECE_ID;
       }
     } else if (presented && song?.deck) {

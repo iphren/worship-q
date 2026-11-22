@@ -566,9 +566,11 @@ function clock(seconds: number): string {
 }
 
 /**
- * The phone's control bar while a video item is live (media uploads M6.6), in place of the
- * line of what is on screen: play or pause, 10 s jumps, the video's title and a scrubber, sent
- * to the operator's computer like any other command.
+ * The phone's control bar while a video item or a YouTube video is live (media uploads M6.6,
+ * YouTube control M4.1), in place of the line of what is on screen: play or pause, 10 s jumps,
+ * the video's title and a scrubber, sent to the operator's computer like any other command.
+ * While a YouTube video's length is not known (0), and for a live stream, it only plays and
+ * pauses.
  */
 function VideoBar(props: {
   video: NonNullable<RemoteView['video']>;
@@ -584,21 +586,28 @@ function VideoBar(props: {
     return () => window.clearInterval(timer);
   }, [video.playing]);
   const elapsed = video.playing ? Math.max(0, (now - Date.parse(video.at)) / 1000) : 0;
-  const position = dragging ?? Math.min(video.durationSeconds, video.position + elapsed);
+  const seekable = video.durationSeconds > 0;
+  const position =
+    dragging ??
+    (seekable
+      ? Math.min(video.durationSeconds, video.position + elapsed)
+      : video.position + elapsed);
   const seek = (seconds: number) =>
     connection.send({ type: 'videoSeek', itemId: video.itemId, seconds });
   const button =
     'flex h-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 px-2.5 active:scale-95 disabled:opacity-40';
   return (
     <div className="flex items-center gap-1.5 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50 land:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-      <button
-        className={button}
-        disabled={!connected}
-        aria-label={t('video.back')}
-        onClick={() => seek(position - 10)}
-      >
-        <ControlIcon name="back10" className="h-6 w-6" />
-      </button>
+      {seekable && (
+        <button
+          className={button}
+          disabled={!connected}
+          aria-label={t('video.back')}
+          onClick={() => seek(position - 10)}
+        >
+          <ControlIcon name="back10" className="h-6 w-6" />
+        </button>
+      )}
       <button
         className={`${button} min-w-14 bg-violet-600 text-white`}
         disabled={!connected}
@@ -612,14 +621,16 @@ function VideoBar(props: {
       >
         <ControlIcon name={video.playing ? 'pause' : 'play'} className="h-6 w-6" />
       </button>
-      <button
-        className={button}
-        disabled={!connected}
-        aria-label={t('video.forward')}
-        onClick={() => seek(position + 10)}
-      >
-        <ControlIcon name="forward10" className="h-6 w-6" />
-      </button>
+      {seekable && (
+        <button
+          className={button}
+          disabled={!connected}
+          aria-label={t('video.forward')}
+          onClick={() => seek(position + 10)}
+        >
+          <ControlIcon name="forward10" className="h-6 w-6" />
+        </button>
+      )}
       <div className="ml-1.5 min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[13px] font-medium">
           {view.blank && (
@@ -629,24 +640,26 @@ function VideoBar(props: {
           )}
           <span className="min-w-0 flex-1 truncate">{liveText(view) ?? t('video.title')}</span>
           <span className="shrink-0 text-xs text-violet-200 tabular-nums">
-            {clock(position)} / {clock(video.durationSeconds)}
+            {seekable ? `${clock(position)} / ${clock(video.durationSeconds)}` : clock(position)}
           </span>
         </div>
-        <input
-          type="range"
-          aria-label={t('video.position')}
-          className="block h-5 w-full accent-violet-400"
-          min={0}
-          max={video.durationSeconds || 1}
-          step={0.5}
-          disabled={!connected}
-          value={Math.min(position, video.durationSeconds)}
-          onChange={(event) => setDragging(Number(event.target.value))}
-          onPointerUp={() => {
-            if (dragging !== null) seek(dragging);
-            setDragging(null);
-          }}
-        />
+        {seekable && (
+          <input
+            type="range"
+            aria-label={t('video.position')}
+            className="block h-5 w-full accent-violet-400"
+            min={0}
+            max={video.durationSeconds || 1}
+            step={0.5}
+            disabled={!connected}
+            value={Math.min(position, video.durationSeconds)}
+            onChange={(event) => setDragging(Number(event.target.value))}
+            onPointerUp={() => {
+              if (dragging !== null) seek(dragging);
+              setDragging(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );

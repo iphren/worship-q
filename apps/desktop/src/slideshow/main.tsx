@@ -5,9 +5,9 @@
  * without internet. It runs in an ordinary browser, so nothing here may use the Tauri
  * interface.
  */
-import { EMPTY_FRAME, youtubeEmbedUrl, type OutputFrame } from '@worship-q/protocol';
+import { EMPTY_FRAME, youtubeVideo, type OutputFrame } from '@worship-q/protocol';
 import { applyPreference, t } from '@worship-q/i18n/desktop';
-import { Slide } from '@worship-q/renderer';
+import { Slide, YouTubePlayer } from '@worship-q/renderer';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -54,6 +54,7 @@ function SlideshowApp() {
     };
   }, []);
 
+  const youtube = frame.website ? youtubeVideo(frame.website.url) : null;
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000' }}>
       <Slide
@@ -64,14 +65,25 @@ function SlideshowApp() {
         sound
         soundLabel={t('video.clickForSound')}
       />
-      {frame.website && (
-        <iframe
-          title={t('output.websiteFrame')}
-          // A YouTube link shows its video alone: YouTube's page refuses to be framed.
-          src={youtubeEmbedUrl(frame.website.url) ?? frame.website.url}
-          allow="autoplay; encrypted-media; fullscreen"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+      {youtube && frame.website ? (
+        // A YouTube link shows its video alone, following the live state's clock: YouTube's
+        // page refuses to be framed (YouTube control M3.1). Only the slideshow window reports.
+        <YouTubePlayer
+          id={youtube.id}
+          clock={frame.website.video ?? null}
+          startSeconds={youtube.startSeconds}
+          sound
+          soundLabel={t('video.clickForSound')}
         />
+      ) : (
+        frame.website && (
+          <iframe
+            title={t('output.websiteFrame')}
+            src={frame.website.url}
+            allow="autoplay; encrypted-media; fullscreen"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+          />
+        )
       )}
       {frame.message && (
         <div

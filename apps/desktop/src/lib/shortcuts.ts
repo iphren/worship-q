@@ -142,7 +142,7 @@ export interface PresentControls {
   setBlank(blank: boolean): Promise<unknown>;
   clear(): Promise<unknown>;
   playSlide(slide: number): Promise<unknown>;
-  readonly video: { playing: boolean } | null;
+  readonly video: { playing: boolean; durationSeconds: number } | null;
   videoPlay(playing: boolean): Promise<unknown>;
   videoSeek(to: { by: number }): Promise<unknown>;
 }
@@ -175,9 +175,13 @@ export function runPresentAction(session: PresentControls, action: PresentAction
       return void session.clear();
     case 'video-toggle':
       return void session.videoPlay(!session.video?.playing);
+    // A YouTube video whose length is not known, or a live stream, only plays and pauses
+    // (YouTube control D4).
     case 'video-back':
+      if (!session.video?.durationSeconds) return;
       return void session.videoSeek({ by: -VIDEO_JUMP_SECONDS });
     case 'video-forward':
+      if (!session.video?.durationSeconds) return;
       return void session.videoSeek({ by: VIDEO_JUMP_SECONDS });
   }
 }

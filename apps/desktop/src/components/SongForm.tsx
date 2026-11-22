@@ -17,7 +17,7 @@ import { ConfirmDialog } from './Dialog';
 import { SlideImage } from './SlideImage';
 import { MediaActions } from './MediaActions';
 import { songMediaKind } from '../app/media';
-import { useWebsiteTitle, websiteTitle } from '../app/websiteTitle';
+import { useWebsiteTitle, websiteFor, websiteTitle } from '../app/websiteTitle';
 import { native } from '../platform/native';
 import { formatDuration } from '@worship-q/session';
 import { useSaveShortcut } from '../lib/saveShortcut';
@@ -372,7 +372,7 @@ function WebsiteForm(props: SongFormProps) {
         // An untitled website is named after its page, or else its site. The page's title is
         // waited for when the save comes before it.
         const named = title.trim() || (await websiteTitle(url)) || new URL(url).hostname;
-        const fields = { title: named, website: { url } };
+        const fields = { title: named, website: await websiteFor(url, song?.website) };
         result = song ? await session.saveSong(song.id, fields) : await session.createSong(fields);
       } else {
         result = await props.version!.commit();
