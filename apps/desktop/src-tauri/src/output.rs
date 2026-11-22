@@ -14,10 +14,11 @@ pub const OUTPUT_LABEL: &str = "output";
 /// window is minimized or hidden: the coordinator's heartbeats to the other devices run on
 /// timers, and a presenting computer's main window is often behind the slideshow. WebView2
 /// needs every webview made with the same arguments, so `tauri.conf.json` gives the main
-/// window these too; a test keeps the two alike. The first is wry's default, kept.
+/// window these too; a test keeps the two alike. The first and the last are wry's defaults,
+/// which it leaves out once arguments are given: the last lets the slideshow start sound itself.
 pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
 --disable-background-timer-throttling --disable-renderer-backgrounding \
---disable-backgrounding-occluded-windows";
+--disable-backgrounding-occluded-windows --autoplay-policy=no-user-gesture-required";
 
 /// Has a page of the app carry on as if it were in view while another window covers it. With
 /// one display the slideshow covers the main window, and WebKit then counts the main page as
