@@ -1431,6 +1431,16 @@ describe('YouTube videos in websites (YouTube control)', () => {
     expect((await session.frame(mediaUrl)).website?.video).toMatchObject({ playing: false });
   });
 
+  it('turns a YouTube video’s captions on and off, carried in the frame', async () => {
+    await present({ url, durationSeconds: 213 });
+    expect((await session.frame(mediaUrl)).website?.video).toMatchObject({ captions: false });
+    expect(await session.videoCaptions(true)).toBe(true);
+    expect(session.video).toMatchObject({ captions: true });
+    expect((await session.frame(mediaUrl)).website?.video).toMatchObject({ captions: true });
+    await session.videoCaptions(false);
+    expect((await session.frame(mediaUrl)).website?.video).toMatchObject({ captions: false });
+  });
+
   it('gives a website that is not a YouTube video no clock', async () => {
     await present({ url: 'https://example.org/live' });
     expect(session.video).toBeNull();

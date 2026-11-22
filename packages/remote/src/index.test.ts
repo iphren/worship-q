@@ -399,6 +399,34 @@ describe('videos on phones (media uploads M5.5, M6.6)', () => {
     });
   });
 
+  it('offers captions only for a YouTube video, and applies a phone’s captions (protocol 11)', async () => {
+    const view = () =>
+      (
+        sent.filter((e) => e.message.type === 'view').at(-1)!.message as Extract<
+          HostToRemote,
+          { type: 'view' }
+        >
+      ).view;
+    await presentVideo();
+    await approved('p1');
+    expect(view().video).not.toHaveProperty('captions');
+
+    const youtube = await session.createSong({
+      title: 'Video',
+      website: { url: 'https://youtu.be/dQw4w9WgXcQ', durationSeconds: 213 },
+    });
+    await session.addSong(session.today(), youtube.id);
+    const entry = (await session.viewLive())!.entries.find((e) => e.song.id === youtube.id)!;
+    await session.play(entry.item.id, 'website');
+    await host.message('p1', {
+      type: 'command',
+      id: 'cc1',
+      command: { type: 'videoCaptions', itemId: entry.item.id, on: true },
+    });
+    expect(lastTo('p1')).toEqual({ type: 'ack', id: 'cc1', applied: true });
+    expect(session.video).toMatchObject({ captions: true });
+  });
+
   it('applies a phone’s play, pause and seek, and acknowledges each', async () => {
     const itemId = await presentVideo();
     await approved('p1');

@@ -120,3 +120,13 @@ Throwaway code on a branch that is not merged. Ends in `docs/spikes/youtube-cont
 - Volume, captions and quality control, and sending YouTube's sound to the slideshow's chosen speaker (`sinkId`). The webview plays through the system's default output.
 - A per-item Autoplay setting for YouTube items.
 - Reading lengths through the YouTube Data API, which needs a key.
+
+## 6. Added later: captions on and off
+
+Built on 22 November 2026, after the feature shipped. **CC** on the Present page's video bar and on the phone's turns a YouTube video's captions on and off.
+
+- **Live state:** a YouTube video's clock carries `captions`, off each time it is presented; the `videoCaptions { itemId, on }` command sets it. An uploaded video's clock has no `captions`, and the command does nothing for it.
+- **Protocol 11:** the relay checks commands against the protocol's schemas, so it must know `videoCaptions` before it passes it on. A coordinator that knows the command marks the clock with `captions`, and the controls are offered only then (an older desktop drops the field). A desktop following another through a server older than 11 does not offer it (`captionsSupported`).
+- **Players:** `YouTubePlayer` loads YouTube's captions module to show them and unloads it to hide them (`loadModule`/`unloadModule('captions')`, not documented by YouTube), choosing the track in the page's language when the video has one (`captionTrack`). An older sender's clock, without `captions`, leaves them as YouTube chooses.
+- **Checked** in Chrome with the built page and a stand-in for the app: lines appeared with captions on and went with them off.
+- **Video items:** not yet; see the TODO in the [media uploads plan](media-uploads-plan.md) §5.

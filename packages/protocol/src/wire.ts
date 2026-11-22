@@ -64,8 +64,11 @@ import {
  * on the public server, which keeps no files (public server plan, S7). Version 10 adds a
  * YouTube video's length to a website (`website.durationSeconds`, YouTube control D3), which
  * the instance keeps when an older desktop saves the website at the same address without it.
+ * Version 11 adds `videoCaptions`, turning a YouTube video's captions on or off, which the
+ * relay must know before it passes it on; a coordinator that knows it marks a YouTube video's
+ * clock with `captions`, and the control is offered only then.
  */
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 /** The first protocol version that knows songs' `video` (U20). */
 export const VIDEO_PROTOCOL_VERSION = 5;
 /**
@@ -80,6 +83,8 @@ export const WEBSITE_PROTOCOL_VERSION = 8;
 export const THUMBNAIL_PROTOCOL_VERSION = 9;
 /** The first protocol version that knows a website's `durationSeconds` (YouTube control D3). */
 export const WEBSITE_LENGTH_PROTOCOL_VERSION = 10;
+/** The first protocol version whose relay passes on `videoCaptions`. */
+export const CAPTIONS_PROTOCOL_VERSION = 11;
 /** The oldest protocol this build still accepts from a peer. */
 export const MIN_PROTOCOL_VERSION = 2;
 
@@ -453,6 +458,8 @@ export const RemoteCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('videoPlay'), itemId: z.string() }),
   z.object({ type: z.literal('videoPause'), itemId: z.string() }),
   z.object({ type: z.literal('videoSeek'), itemId: z.string(), seconds: z.number().finite() }),
+  // A YouTube video's captions (protocol 11).
+  z.object({ type: z.literal('videoCaptions'), itemId: z.string(), on: z.boolean() }),
   /**
    * Adds a Bible passage to the live run sheet (protocol version 6, B15, B26): the
    * coordinator makes the item. Without `afterItemId` it goes after the presented item, or
@@ -654,6 +661,8 @@ export interface RemoteView {
     position: number;
     at: string;
     durationSeconds: number;
+    /** A YouTube video's captions (protocol 11): absent where they cannot be turned on. */
+    captions?: boolean;
   } | null;
   /**
    * The live audio broadcast, while a desktop of the workspace broadcasts (protocol version

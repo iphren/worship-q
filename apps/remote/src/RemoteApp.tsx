@@ -631,6 +631,19 @@ function VideoBar(props: {
           <ControlIcon name="forward10" className="h-6 w-6" />
         </button>
       )}
+      {video.captions !== undefined && (
+        <button
+          className={`${button} text-xs font-bold ${video.captions ? 'bg-violet-600 text-white' : ''}`}
+          disabled={!connected}
+          aria-label={t('video.captions')}
+          aria-pressed={video.captions}
+          onClick={() =>
+            connection.send({ type: 'videoCaptions', itemId: video.itemId, on: !video.captions })
+          }
+        >
+          CC
+        </button>
+      )}
       <div className="ml-1.5 min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[13px] font-medium">
           {view.blank && (

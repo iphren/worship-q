@@ -133,6 +133,8 @@ export function VideoControls(props: { file: string | null }) {
   const youtube = output.frame.website ? youtubeVideo(output.frame.website.url)?.id : undefined;
   const live = !!youtube && output.youtubeLive === youtube;
   const seekable = knowsLength(video) && !live;
+  // A YouTube video's clock carries its captions when the coordinator can turn them on.
+  const captions = video.captions !== undefined && cloud.captionsSupported ? video.captions : null;
   return (
     <div
       className="flex flex-wrap items-center gap-2 rounded-lg border border-violet-800 bg-violet-950/80 px-3 py-2"
@@ -201,6 +203,18 @@ export function VideoControls(props: { file: string | null }) {
         <span className="w-full text-xs text-amber-300" role="status">
           {t(cloud.connected ? 'video.notDownloaded' : 'video.goneHere')}
         </span>
+      )}
+      {captions !== null && (
+        <button
+          type="button"
+          className={`btn px-2 text-xs font-semibold ${captions ? 'border-violet-400 bg-violet-700' : ''}`}
+          title={t(captions ? 'video.captionsOff' : 'video.captionsOn')}
+          aria-label={t('video.captions')}
+          aria-pressed={captions}
+          onClick={() => void session.videoCaptions(!captions)}
+        >
+          CC
+        </button>
       )}
       {youtube && output.youtubeError?.id === youtube && (
         <span className="w-full text-xs text-amber-300" role="status">

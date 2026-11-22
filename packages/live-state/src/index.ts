@@ -228,7 +228,8 @@ function reduce(
       return { status: 'ended', presented: null, lastShown: {}, blank: false };
     case 'videoPlay':
     case 'videoPause':
-    case 'videoSeek': {
+    case 'videoSeek':
+    case 'videoCaptions': {
       // One meant for an item no longer presented, as from a slow phone, changes nothing.
       const info = presentedVideo(state, state, context.sequence);
       const video = applyVideoCommand(state, command, context.now, info);
@@ -263,7 +264,12 @@ function withVideo(
   command: Command,
   context: CommandContext,
 ): Partial<LiveState> {
-  if (command.type === 'videoPlay' || command.type === 'videoPause' || command.type === 'videoSeek')
+  if (
+    command.type === 'videoPlay' ||
+    command.type === 'videoPause' ||
+    command.type === 'videoSeek' ||
+    command.type === 'videoCaptions'
+  )
     return {};
   // Ending, or another run sheet going live, forgets where videos were left.
   if (command.type === 'end') return { video: null, videoPositions: {} };

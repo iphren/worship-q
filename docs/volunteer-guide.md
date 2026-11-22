@@ -123,8 +123,10 @@ is clicked: the video then plays silently with **Click for sound**.
 **YouTube videos.** A website item with a link to one YouTube video shows the video alone and
 is controlled like a video item: the same bar, keys and phone controls, and it starts at the
 link's time (`?t=90`). Its length is read from YouTube when you add it; until it is known, and
-for a live stream, the bar only plays and pauses. Some videos can't be played outside YouTube,
-and the bar says so.
+for a live stream, the bar only plays and pauses. **CC** on the bar and on phones turns the
+video's captions on and off, in the interface's language when the video has it; captions
+start off each time the video is presented. Some videos can't be played outside YouTube, and
+the bar says so.
 
 ## Bible passages
 

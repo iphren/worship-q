@@ -15,6 +15,7 @@
 import { getVersion } from '@tauri-apps/api/app';
 import {
   AUDIO_PROTOCOL_VERSION,
+  CAPTIONS_PROTOCOL_VERSION,
   DeckSchema,
   deckLyrics,
   OBS_PROTOCOL_VERSION,
@@ -900,6 +901,14 @@ export class CloudController {
   /** The church server passes a phone's website on: it speaks protocol 8. */
   private websitesSupported(): boolean {
     return this.protocolVersion >= WEBSITE_PROTOCOL_VERSION;
+  }
+
+  /**
+   * Whether the server passes on `videoCaptions` to the coordinating computer (protocol 11);
+   * true without a server, where this computer applies it itself.
+   */
+  get captionsSupported(): boolean {
+    return this.protocolVersion >= CAPTIONS_PROTOCOL_VERSION;
   }
 
   /** The church server relays OBS messages: it speaks protocol 4 (M2.9). */

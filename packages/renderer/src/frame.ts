@@ -74,6 +74,7 @@ export function buildFrame(input: FrameInput): OutputFrame {
           position: clock.position,
           at: clock.at,
           durationSeconds: clock.durationSeconds,
+          ...(clock.captions !== undefined ? { captions: clock.captions } : {}),
         };
       }
     }
