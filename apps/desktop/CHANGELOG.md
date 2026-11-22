@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.14.0](https://github.com/iphren/worship-q/compare/v2.13.0...v2.14.0) (2026-11-22)
+
+
+### Features
+
+* control a presented YouTube video from the desktop and phones ([#50](https://github.com/iphren/worship-q/issues/50)) ([0fc889c](https://github.com/iphren/worship-q/commit/0fc889c03bd0f6f676f95c9d024ff4972a5bb9b9))
+* **desktop:** edit a website's address from the run sheet's Edit window ([002f632](https://github.com/iphren/worship-q/commit/002f632fce1cf0e4095acd312a2dc5e61e256f9e))
+* **desktop:** say how long ago the still-live run sheet is from ([86729c4](https://github.com/iphren/worship-q/commit/86729c447703d6fa70ef5928a4b4ed032644dab0))
+* turn a YouTube video's captions on and off from the desktop and phones (protocol 11) ([#51](https://github.com/iphren/worship-q/issues/51)) ([4287d49](https://github.com/iphren/worship-q/commit/4287d496c310aef6bacb3d346386a2dbea7ba582))
+
+
+### Bug Fixes
+
+* **desktop:** play YouTube music videos that refused to play on the slideshow ([644624e](https://github.com/iphren/worship-q/commit/644624eb600f99ea8291210769a14a15351575ee))
+* **desktop:** send OBS sources saved at 127.0.0.1 to localhost ([99a832f](https://github.com/iphren/worship-q/commit/99a832fce5067b9e20e02f45b7ebca2a2f334b1d))
+
 ## [2.13.0](https://github.com/iphren/worship-q/compare/v2.12.0...v2.13.0) (2026-11-21)
 
 
