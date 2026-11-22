@@ -18,7 +18,7 @@ Identifiers (G15, D33, U5, M6.1 …) are the source document's own.
 
 ### Phones (the phase 2 plan's "Phase 4")
 
-No phone app exists; a phone is a browser page served by the church server. The [native apps discovery](native-apps-discovery.md) (22 November 2026) covers phones and tablets (operator and remote control modes) and the link router; an Apple TV app was looked at and dropped.
+No phone app exists; a phone is a browser page served by the church server. The [native apps plan](native-apps-plan.md) and [discovery](native-apps-discovery.md) (22 November 2026) cover phones and tablets (operator and remote control modes) and the link router; an Apple TV app was looked at and dropped.
 
 | Item | What is missing | Source |
 | --- | --- | --- |
