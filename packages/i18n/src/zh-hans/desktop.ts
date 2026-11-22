@@ -485,9 +485,7 @@ export const desktop: Record<DesktopKey, string> = {
   'remote.banner': '“{name}”请求控制投影 · 代码 {code}',
   'remote.limits':
     '手机可以切换幻灯片、隐藏内容或清屏，并在进行中的流程表上添加、移除诗歌或调整顺序。它们不能编辑诗歌或修改设置。只批准你信得过、可以掌管聚会流程的人。在这里批准的手机，之后可以连接这个工作区的任何一台电脑。',
-  'remote.added': '“{name}”把“{title}”加入了流程表',
   'remote.removed': '“{name}”把“{title}”从流程表中移除',
-  'remote.moved': '“{name}”把“{title}”移到第 {position} 项',
   'remote.undo': '撤销',
 
   'obs.title': 'OBS',

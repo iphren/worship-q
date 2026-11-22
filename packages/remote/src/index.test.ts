@@ -103,7 +103,7 @@ describe('remote run-sheet editing', () => {
     expect((await session.viewLive())!.entries).toHaveLength(1);
   });
 
-  it('shows the operator each edit, and undoes it', async () => {
+  it('shows the operator a removal, and undoes it, but not an addition', async () => {
     await approved('p1', 'Sam');
     const [song] = await session.store.listSongs(session.workspace.id);
     await host.message('p1', {
@@ -112,14 +112,25 @@ describe('remote run-sheet editing', () => {
       command: { type: 'addItem', songId: song!.id },
     });
     expect(lastTo('p1')).toEqual({ type: 'ack', id: 'c1', applied: true });
+    expect(host.notices).toEqual([]);
+    const added = (await session.viewLive())!.entries[1]!.item;
+
+    await host.message('p1', {
+      type: 'command',
+      id: 'c2',
+      command: { type: 'removeItem', itemId: added.id },
+    });
     expect(host.notices).toEqual([
-      expect.objectContaining({ name: 'Sam', change: expect.objectContaining({ kind: 'added' }) }),
+      expect.objectContaining({
+        name: 'Sam',
+        change: expect.objectContaining({ kind: 'removed' }),
+      }),
     ]);
-    expect((await session.viewLive())!.entries).toHaveLength(2);
+    expect((await session.viewLive())!.entries).toHaveLength(1);
 
     expect(await host.undo(host.notices[0]!.id)).toBe(true);
     expect(host.notices).toEqual([]);
-    expect((await session.viewLive())!.entries).toHaveLength(1);
+    expect((await session.viewLive())!.entries).toHaveLength(2);
   });
 
   it('acknowledges an edit that could not be made without a notice', async () => {
@@ -219,10 +230,27 @@ describe('phones on a follower (M2.6, M2.7, D25)', () => {
   it('shows an edit made elsewhere without a way to undo it (D24)', async () => {
     const [song] = await session.store.listSongs(session.workspace.id);
     const item = await session.addSong(session.today(), song!.id);
-    host.notify('Streaming laptop', { kind: 'added', item, title: 'Amazing Grace' }, false);
+    await session.removeItem(item.id);
+    host.notify('Streaming laptop', { kind: 'removed', item, title: 'Amazing Grace' }, false);
     expect(host.notices[0]).toMatchObject({ name: 'Streaming laptop', undoable: false });
     expect(await host.undo(host.notices[0]!.id)).toBe(false);
-    expect((await session.viewLive())!.entries).toHaveLength(2);
+    expect((await session.viewLive())!.entries).toHaveLength(1);
+  });
+
+  it('does not show an addition or a move, which the run sheet itself shows', async () => {
+    const [song] = await session.store.listSongs(session.workspace.id);
+    const item = await session.addSong(session.today(), song!.id);
+    const change = {
+      kind: 'moved',
+      item,
+      title: 'Amazing Grace',
+      fromIndex: 0,
+      toIndex: 1,
+    } as const;
+    host.notify('Anna', change);
+    host.notify('Streaming laptop', change, false);
+    host.notify('Anna', { kind: 'added', item, title: 'Amazing Grace' });
+    expect(host.notices).toEqual([]);
   });
 
   it('puts this device’s identifier in its invitations, so the relay routes scans here', async () => {
@@ -605,7 +633,6 @@ describe('the Bible on phones (P7.1, P7.2, B15, B26)', () => {
     const titles = (await session.viewLive())!.entries.map((entry) => entry.song.title);
     expect(titles).toEqual(['Amazing Grace', 'Mark 15:5', 'B']);
     expect(session.live!.presented!.pieceId).toBe('v15:5');
-    expect(host.notices.map((n) => n.change.title)).toContain('Mark 15:5');
     // The phone sees the passage's slide with its columns.
     await new Promise((resolve) => setTimeout(resolve, 200));
     const fresh = [...sent].reverse().find((s) => s.message.type === 'view')?.message;
@@ -646,7 +673,6 @@ describe('websites added by their address from phones (protocol 8)', () => {
     expect(lastTo('p1')).toEqual({ type: 'ack', id: 'c1', applied: true });
     const titles = (await session.viewLive())!.entries.map((entry) => entry.song.title);
     expect(titles.at(-1)).toBe('Live stream');
-    expect(host.notices.map((n) => n.change.title)).toContain('Live stream');
   });
 });
 

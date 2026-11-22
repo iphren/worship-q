@@ -524,9 +524,7 @@ export const desktop = {
   'remote.banner': '“{name}” wants to control the presentation · code {code}',
   'remote.limits':
     'Phones can move between slides, blank or clear the screen, and add, remove or reorder songs on the live run sheet. They cannot edit songs or change settings. Approve only people you trust with the service order. A phone approved here can later connect to any computer of this workspace.',
-  'remote.added': '“{name}” added “{title}” to the run sheet',
   'remote.removed': '“{name}” removed “{title}” from the run sheet',
-  'remote.moved': '“{name}” moved “{title}” to position {position}',
   'remote.undo': 'Undo',
 
   'obs.title': 'OBS',

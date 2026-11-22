@@ -526,8 +526,12 @@ export class RemoteHost {
     return this.notices_;
   }
 
-  /** Shows an edit to the operator; one made on another computer cannot be undone here. */
+  /**
+   * Shows a removal to the operator; one made on another computer cannot be undone here. Additions
+   * and moves are not shown: the run sheet itself shows them, and a removed item is gone from it.
+   */
   notify(name: string, change: RunSheetChange, undoable = true): void {
+    if (change.kind !== 'removed') return;
     const notice: RemoteNotice = {
       id: randomToken(9),
       name,

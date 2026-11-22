@@ -508,18 +508,25 @@ describe('operators together (M2)', () => {
     expect(a.session.liveDate).toBe('2026-10-18');
   });
 
-  it('shows other operators a live run-sheet edit, with Undo only on the coordinator (D24)', async () => {
+  it('shows other operators a live run-sheet removal, with Undo only on the coordinator (D24)', async () => {
     const { a, b, song } = await venue();
     await b.session.addSong(SUNDAY, song.id);
     await settle();
     expect((await a.session.viewLive())!.entries).toHaveLength(2);
+    expect(b.session.snapshot?.items).toHaveLength(2);
+    // An addition is seen on the run sheet itself.
+    expect(a.host.notices).toEqual([]);
+    expect(b.host.notices).toEqual([]);
+    const added = (await a.session.viewLive())!.entries[1]!.item;
+    await b.session.removeItem(added.id);
+    await settle();
+    expect((await a.session.viewLive())!.entries).toHaveLength(1);
     expect(a.host.notices).toEqual([
       expect.objectContaining({ name: 'Streaming', undoable: true }),
     ]);
     expect(b.host.notices).toEqual([
       expect.objectContaining({ name: 'Streaming', undoable: false }),
     ]);
-    expect(b.session.snapshot?.items).toHaveLength(2);
   });
 
   it('adds a song just made on a follower to the live run sheet, sending the song first', async () => {

@@ -88,7 +88,7 @@ export function RemoteRequestsBanner() {
   );
 }
 
-/** Run-sheet edits made from phones, each with a way to undo it. */
+/** Items removed from the live run sheet by phones or other operators, with Undo where it can be. */
 export function RemoteEditsBanner() {
   const host = useRemoteHost();
   const notices = host.notices;
@@ -100,11 +100,7 @@ export function RemoteEditsBanner() {
         const params = { name: notice.name, title: change.title || t('songs.untitled') };
         return (
           <div key={notice.id} className="flex items-center gap-3 text-sm text-slate-200">
-            <span className="flex-1">
-              {change.kind === 'moved'
-                ? t('remote.moved', { ...params, position: change.toIndex + 1 })
-                : t(change.kind === 'added' ? 'remote.added' : 'remote.removed', params)}
-            </span>
+            <span className="flex-1">{t('remote.removed', params)}</span>
             {notice.undoable && (
               <button className="btn btn-sm" onClick={() => void host.undo(notice.id)}>
                 {t('remote.undo')}
