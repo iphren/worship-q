@@ -159,6 +159,8 @@ export interface AdminAudioView {
     inputName: string | null;
     /** The broadcaster is connected to this server, so an administrator can listen. */
     connected: boolean;
+    /** The server's relay is set up and is not answering. */
+    relayDown?: boolean;
   } | null;
 }
 

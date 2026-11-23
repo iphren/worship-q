@@ -35,6 +35,8 @@ services:
       WORSHIP_Q_STUN: ${WORSHIP_Q_STUN-stun:stun.l.google.com:19302}
       WORSHIP_Q_TURN_URL: ${WORSHIP_Q_TURN_URL:-}
       WORSHIP_Q_TURN_SECRET: ${WORSHIP_Q_TURN_SECRET:-}
+      # Where the server checks that the relay answers.
+      WORSHIP_Q_TURN_LISTEN_IP: ${WORSHIP_Q_TURN_LISTEN_IP:-}
       # No local API: a public server has no run sheets or records to read.
       WORSHIP_Q_LOCAL_PORT: ''
     ports:

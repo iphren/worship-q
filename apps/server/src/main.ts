@@ -7,6 +7,7 @@ import { openDatabase } from './db';
 import { convertDeck, deckTools, deckToolsAvailable } from './decks/convert';
 import { Instance } from './instance';
 import { iceConfigFromEnv } from './ice';
+import { askRelay, RelayHealth, relayTarget } from './relayHealth';
 import { mediaLimitsFromEnv } from './media';
 import { OidcClient, oidcConfigFromEnv } from './oidc';
 import { retentionDaysFromEnv, sweepDeletedFiles } from './retention';
@@ -59,6 +60,10 @@ const ice = iceConfigFromEnv(process.env);
 console.log(
   `Live audio: STUN ${ice.stun.length ? ice.stun.join(', ') : 'none'}, relay ${ice.turn ? 'on' : 'off'}`,
 );
+// Whether the relay really answers: being set up does not mean coturn is running.
+const relayAt = relayTarget(ice, process.env.WORSHIP_Q_TURN_LISTEN_IP);
+const relayHealth = relayAt ? new RelayHealth(() => askRelay(relayAt)) : null;
+await relayHealth?.start();
 const { app, recordings, presentationLog } = await buildServer({
   instance,
   dataDir,
@@ -74,6 +79,7 @@ const { app, recordings, presentationLog } = await buildServer({
   public: publicMode,
   bible,
   ice,
+  relayHealth,
   adminDir: publicMode
     ? undefined
     : (process.env.WORSHIP_Q_ADMIN_DIR ?? new URL('../admin', import.meta.url).pathname),

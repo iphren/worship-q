@@ -77,6 +77,7 @@ import { PAIRING_INTERVAL_MS, type DeviceRow, type Instance } from './instance';
 import { ObsReports } from './obsReports';
 import { AudioReports } from './audioReports';
 import { DEFAULT_STUN, iceServers, type IceConfig } from './ice';
+import type { RelayHealth } from './relayHealth';
 import type { OidcClient } from './oidc';
 import { DEFAULT_RETENTION_DAYS, SWEEP_EVERY_MS, sweepDeletedFiles } from './retention';
 import { DEFAULT_RECORDING_DAYS, Recordings, type RecordingError } from './recordings';
@@ -137,6 +138,8 @@ export interface ServerConfig {
   bible?: Bible;
   /** The ICE servers for live audio (A10); see `iceConfigFromEnv`. The public STUN default. */
   ice?: IceConfig;
+  /** Whether the relay answers; absent with no relay to check, and in most tests. */
+  relayHealth?: Pick<RelayHealth, 'status'> | null;
   /** Days recordings of live audio are kept; 0 for ever (service records R10). */
   recordingDays?: number;
   /**
@@ -486,6 +489,9 @@ export async function buildServer(config: ServerConfig) {
       media: { images: true, videos: true, limits },
       bible: config.bible ? config.bible.offered(bibleChurch()).length > 0 : false,
       audioRelay: ice.turn !== null,
+      ...(config.relayHealth && config.relayHealth.status !== 'checking'
+        ? { audioRelayAnswering: config.relayHealth.status === 'ok' }
+        : {}),
       records: { audio: recordings.enabled(), log: true },
     };
     if (publicMode) {
@@ -1370,6 +1376,7 @@ export async function buildServer(config: ServerConfig) {
     obsReports,
     audioReports,
     ice,
+    relayHealth: config.relayHealth,
     recordings,
     presentationLog,
     recordingDays,

@@ -458,6 +458,8 @@ export const admin = {
   'workspace.connectedDevices': 'Connected devices',
   'workspace.noFollowers': 'No device is following the presentation.',
   'workspace.audio': 'Live audio',
+  'workspace.audioRelayDown':
+    'The live audio relay is not answering, so listeners on mobile data may not be able to connect.',
   'workspace.audioNotConnected':
     'The broadcasting computer is not connected to this server, so you cannot listen from here.',
   'workspace.obsComputer': 'OBS computer',

@@ -74,6 +74,7 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `WORSHIP_Q_TURN_SECRET` | — | The secret shared with the relay; never sent to a device |
 | `WORSHIP_Q_TURN_LISTEN_IP` | — | The relay's own address on the host (`--profile turn` only) |
 | `WORSHIP_Q_TURN_EXTERNAL_IP` | — | The host's public address, or `public/private` behind the provider's NAT |
+| `WORSHIP_Q_TURN_MIN_PORT`, `WORSHIP_Q_TURN_MAX_PORT` | 49160, 49180 | The relay's UDP ports; open a wider range in the firewalls first |
 
 Back up the `worship-q-data` volume like any other server data. It holds the church's
 songs (as synchronized records), the background files, and the last 30 desktop backups
@@ -460,14 +461,21 @@ coturn, beside the server. It is a Compose profile, off by default:
    WORSHIP_Q_TURN_URL=turn:worship.example.org:3478
    WORSHIP_Q_TURN_LISTEN_IP=<this host's own address, as `ip addr` shows it>
    WORSHIP_Q_TURN_EXTERNAL_IP=<the public address>   # or public/private behind NAT
+   WORSHIP_Q_TURN_MIN_PORT=49160
+   WORSHIP_Q_TURN_MAX_PORT=49359
+   COMPOSE_PROFILES=turn   # so that every update keeps the relay running
    ```
 
-2. Open **UDP 3478** and **UDP 49160–49180** to the internet, in the host's firewall and in
-   the hosting provider's. These do not go through the reverse proxy or CloudFront; the
-   relay answers on the server's own address. Each relayed listener uses one of the 21
-   relay ports.
-3. Start it with the server: `docker compose -f apps/server/compose.yaml --profile turn up -d`.
-4. Check it: `/api/v1/info` says `"audioRelay":true`. From outside the venue, run the
+2. Open **UDP 3478** and **UDP 49160–49359** to the internet, in the host's firewall and in
+   the hosting provider's, before starting it. These do not go through the reverse proxy or
+   CloudFront; the relay answers on the server's own address. Each relayed connection can
+   take a port at both ends, and more on a computer with several networks. Without the two
+   port settings the range is 49160–49180, which two busy services can use up.
+3. Start it with the server: `docker compose -f apps/server/compose.yaml up -d`.
+4. Check it: `/api/v1/info` says `"audioRelay":true` and `"audioRelayAnswering":true`. The
+   second is checked every half minute. When it is false, the server's log and the admin
+   app's live audio card say so. It shows that coturn runs, not that the firewall lets the
+   internet reach it. For that, from outside the venue, run the
    Trickle ICE page (webrtc.github.io/samples) with the relay's address and a credential
    from `GET /api/v1/ice` taken with a device token; a `relay` candidate means it works.
 

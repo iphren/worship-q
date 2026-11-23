@@ -693,6 +693,9 @@ function AudioSection({ id }: { id: string }) {
       {audio && !audio.connected && !on && (
         <p className="text-sm text-slate-400">{t('workspace.audioNotConnected')}</p>
       )}
+      {audio?.relayDown && (
+        <p className="mt-1 text-sm text-amber-300">{t('workspace.audioRelayDown')}</p>
+      )}
       {(audio?.connected || on) && (
         <div className="mt-2 flex items-center gap-3">
           <Button

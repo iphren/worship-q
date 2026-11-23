@@ -148,6 +148,11 @@ export interface ServerInfo {
    */
   audioRelay?: boolean;
   /**
+   * Whether that relay answered the server's last check. Missing with no relay, before the
+   * first check, or on a server from before the check.
+   */
+  audioRelayAnswering?: boolean;
+  /**
    * Service records the server takes (service records R3, R12): recordings of the live audio
    * broadcast, while the church records, and the presentation log. Missing on an instance
    * from before them, which takes neither; a desktop then uploads nothing.

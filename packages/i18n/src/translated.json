@@ -1230,6 +1230,7 @@
     "workspace.audioFrom": "From {name}.",
     "workspace.audioLive": "Live · {count} listening",
     "workspace.audioNotConnected": "The broadcasting computer is not connected to this server, so you cannot listen from here.",
+    "workspace.audioRelayDown": "The live audio relay is not answering, so listeners on mobile data may not be able to connect.",
     "workspace.audioWaiting": "Waiting for input",
     "workspace.back": "Back to Workspaces",
     "workspace.blank": "Blank",

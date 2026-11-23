@@ -32,6 +32,8 @@ services:
       WORSHIP_Q_STUN: ${WORSHIP_Q_STUN-stun:stun.l.google.com:19302}
       WORSHIP_Q_TURN_URL: ${WORSHIP_Q_TURN_URL:-}
       WORSHIP_Q_TURN_SECRET: ${WORSHIP_Q_TURN_SECRET:-}
+      # Where the server checks that the relay answers.
+      WORSHIP_Q_TURN_LISTEN_IP: ${WORSHIP_Q_TURN_LISTEN_IP:-}
       # Service records. Days recordings of live audio are kept; 0 keeps them for ever.
       # Recording itself is switched on and off in the admin app's Settings.
       WORSHIP_Q_RECORDING_DAYS: ${WORSHIP_Q_RECORDING_DAYS:-90}
@@ -53,9 +55,12 @@ services:
         max-file: '5'
 
   # The relay for live audio listeners whose network allows no direct path (live audio
-  # plan A10). Off by default; start it with `--profile turn`. UDP only: 3478 and the relay
-  # ports 49160–49180, open in the host's firewall and the provider's, outside the reverse
-  # proxy. It uses the host's network so the relay ports need no mapping.
+  # plan A10). Off by default; `COMPOSE_PROFILES=turn` in `.env` starts it with every update.
+  # UDP only: 3478 and the relay ports, 49160–49180 unless WORSHIP_Q_TURN_MIN_PORT and
+  # WORSHIP_Q_TURN_MAX_PORT say otherwise, open in the host's firewall and the provider's,
+  # outside the reverse proxy. Open a wider range there before setting it here: a port the
+  # firewall blocks fails only the connections given it. Each relayed connection can take a
+  # port at both ends. It uses the host's network so the relay ports need no mapping.
   coturn:
     image: coturn/coturn:4.6.3
     profiles: ['turn']
@@ -72,8 +77,8 @@ services:
       - --listening-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
       - --relay-ip=${WORSHIP_Q_TURN_LISTEN_IP:-}
       - --external-ip=${WORSHIP_Q_TURN_EXTERNAL_IP:-}
-      - --min-port=49160
-      - --max-port=49180
+      - --min-port=${WORSHIP_Q_TURN_MIN_PORT:-49160}
+      - --max-port=${WORSHIP_Q_TURN_MAX_PORT:-49180}
       - --use-auth-secret
       - --static-auth-secret=${WORSHIP_Q_TURN_SECRET:-}
       - --realm=${WORSHIP_Q_TURN_REALM:-worship-q}

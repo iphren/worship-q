@@ -36,6 +36,7 @@ import { formatPairingCode, type AdministratorRow, type Instance } from './insta
 import type { ObsReports } from './obsReports';
 import type { AudioReports } from './audioReports';
 import { iceServers, type IceConfig } from './ice';
+import type { RelayHealth } from './relayHealth';
 import { CALLBACK_PATH, OidcError, type OidcClient } from './oidc';
 import { sendFile } from './ranges';
 import { storageReport } from './storage';
@@ -55,6 +56,8 @@ export interface AdminConfig {
   audioReports: AudioReports;
   /** The ICE servers for live audio (A10). */
   ice: IceConfig;
+  /** Whether the relay answers; absent with no relay to check. */
+  relayHealth?: Pick<RelayHealth, 'status'> | null;
   /** Null when sign-in is not configured; the routes then say so. */
   oidc: OidcClient | null;
   dataDir: string;
@@ -466,6 +469,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
             inputName: report.state.inputName,
             // The admin page can listen only through the broadcaster's own connection here.
             connected: peer?.capabilities?.audio === true,
+            relayDown: config.relayHealth?.status === 'down',
           },
         } satisfies AdminAudioView;
       },

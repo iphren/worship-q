@@ -55,6 +55,7 @@ docker compose -f apps/server/compose.yaml up -d --build
 | `WORSHIP_Q_TURN_SECRET` | — | 與中繼共享的金鑰；從不傳送給任何裝置 |
 | `WORSHIP_Q_TURN_LISTEN_IP` | — | 中繼在主機上的地址（僅用於 `--profile turn`） |
 | `WORSHIP_Q_TURN_EXTERNAL_IP` | — | 主機的公網地址，在服務商的 NAT 之後則寫 `public/private` |
+| `WORSHIP_Q_TURN_MIN_PORT`、`WORSHIP_Q_TURN_MAX_PORT` | 49160、49180 | 中繼的 UDP 連接埠；擴大範圍前先在防火牆中開放 |
 
 請像備份其他伺服器資料一樣備份 `worship-q-data` 卷。其中有教會的詩歌（作為同步的記錄）、背景檔案，以及每個工作區最近 30 份電腦備份。
 
@@ -277,11 +278,14 @@ docker compose -f apps/server/compose.yaml exec worship-q \
    WORSHIP_Q_TURN_URL=turn:worship.example.org:3478
    WORSHIP_Q_TURN_LISTEN_IP=<this host's own address, as `ip addr` shows it>
    WORSHIP_Q_TURN_EXTERNAL_IP=<the public address>   # or public/private behind NAT
+   WORSHIP_Q_TURN_MIN_PORT=49160
+   WORSHIP_Q_TURN_MAX_PORT=49359
+   COMPOSE_PROFILES=turn   # so that every update keeps the relay running
    ```
 
-2. 在主機的防火牆和託管服務商的防火牆中，向網際網路開放 **UDP 3478** 和 **UDP 49160–49180**。這些不經過反向代理或 CloudFront；中繼在伺服器自己的地址上應答。每個經中繼的收聽者使用 21 箇中繼埠中的一個。
-3. 與伺服器一起啟動它：`docker compose -f apps/server/compose.yaml --profile turn up -d`。
-4. 檢查：`/api/v1/info` 顯示 `"audioRelay":true`。在場地之外，用中繼的地址和以裝置令牌從 `GET /api/v1/ice`取得的憑證執行 Trickle ICE 頁面（webrtc.github.io/samples）；出現 `relay` 候選就說明它可以用。
+2. 啟動之前，先在主機的防火牆和託管服務商的防火牆中，向網際網路開放 **UDP 3478** 和 **UDP 49160–49359**。這些不經過反向代理或 CloudFront；中繼在伺服器自己的地址上應答。每個經中繼的連線在兩端都可能各佔一個連接埠，電腦有多個網路時還會更多。不設定這兩個連接埠項時，範圍是 49160–49180，兩場繁忙的聚會就可能用完。
+3. 與伺服器一起啟動它：`docker compose -f apps/server/compose.yaml up -d`。
+4. 檢查：`/api/v1/info` 顯示 `"audioRelay":true` 和 `"audioRelayAnswering":true`。後者每半分鐘檢查一次；為 false 時，伺服器日誌和管理應用的現場音訊卡片會提示。它只說明 coturn 正在執行，不說明防火牆允許網際網路存取它。要確認這一點，在場地之外，用中繼的地址和以裝置令牌從 `GET /api/v1/ice`取得的憑證執行 Trickle ICE 頁面（webrtc.github.io/samples）；出現 `relay` 候選就說明它可以用。
 
 每台裝置在每次建立新連線前都會向伺服器請求憑證；憑證有效十分鐘，由從不離開伺服器的金鑰生成。無法連線的收聽者會被告知教會是否提供中繼。不提供基於 TCP 或 TLS 的 TURN。
 

@@ -424,6 +424,7 @@ export const admin: Record<keyof typeof en, string> = {
   'workspace.connectedDevices': '已連線的裝置',
   'workspace.noFollowers': '沒有裝置正在同步投影。',
   'workspace.audio': '現場音訊',
+  'workspace.audioRelayDown': '現場音訊中繼沒有回應，使用行動數據的收聽者可能無法連線。',
   'workspace.audioNotConnected': '廣播的電腦沒有連線這個伺服器，所以無法在這裡收聽。',
   'workspace.obsComputer': 'OBS 電腦',
   'workspace.notConnected': '· 未連線',

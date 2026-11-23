@@ -439,6 +439,7 @@ export const admin: Record<keyof typeof en, string> = {
   'workspace.connectedDevices': '已连接的设备',
   'workspace.noFollowers': '没有设备正在同步投影。',
   'workspace.audio': '现场音频',
+  'workspace.audioRelayDown': '现场音频中继没有响应，使用移动数据的收听者可能无法连接。',
   'workspace.audioNotConnected': '广播的电脑没有连接这个服务器，所以无法在这里收听。',
   'workspace.obsComputer': 'OBS 电脑',
   'workspace.notConnected': '· 未连接',
