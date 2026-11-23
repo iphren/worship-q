@@ -184,7 +184,7 @@ After the first successful join, remember the church instance, workspace, and a 
 - **Join another presentation** scans another invitation QR. Final labels may use “workspace” or “presentation” rather than introducing a managed Service entity.
 - **Set up as a church device** begins permanent administrator-approved pairing.
 
-**Agreed (amended 22 November 2026), superseding the fresh-approval rule above:** an approval is remembered. The phone keeps its grant and reconnects with it, without a scan and without another approval, until an operator disconnects it, uses **Disconnect all**, or revokes it; this matches the access lifetime above and the code since phase 2 (D25). A phone whose access has ended asks again by scanning. In the native app, **Connect to [workspace name]** is opening the workspace from the device's list, and on phones **Set up as a church device** is replaced by an administrator promoting a remote-control phone to operator in the admin app; computers keep pairing. See the [Native Apps Plan](native-apps-plan.md) (N13, N17, N18).
+**Agreed (amended 22 November 2026), superseding the fresh-approval rule above:** an approval is remembered. The phone keeps its grant and reconnects with it, without a scan and without another approval, until an operator disconnects it, uses **Disconnect all**, or revokes it; this matches the access lifetime above and the code since phase 2 (D25). A phone whose access has ended asks again by scanning. In the native app, **Connect to [workspace name]** is opening the workspace from the device's list, and a phone or tablet requests full access by the same administrator-approved pairing as a computer. See the [Native Apps Plan](native-apps-plan.md) (N5, N13, N17).
 
 If no presentation is active after approval, show **Waiting for presentation**. If the workspace or approving operator cannot be reached, show the reason and retain the QR joining alternative. Offline remembered joining requires an installed app and a reachable local coordinator; the remembered address alone is insufficient.
 
@@ -685,7 +685,7 @@ Website content stays public and generic. Church-specific configuration, credent
 
 ## 16. Native mobile strategy
 
-**Decided 22 November 2026:** native apps for iPhone, iPad, Android phones and Android tablets, built with Tauri 2 mobile from the desktop project, published in both stores by the organisation that publishes the macOS build. One app: a list of workspaces, each with remote-control or operator access; scanning a QR code adds a workspace as a remote control, and an administrator can promote a phone to operator. Remote control ships first. No Apple TV app, because tvOS cannot show websites or YouTube items; an Apple TV is reached by AirPlay. QR codes go through the app.worship-q.com link router. See the [Native Apps Plan](native-apps-plan.md) and its [discovery](native-apps-discovery.md); the text below is the earlier position.
+**Decided 22 November 2026:** native apps for iPhone, iPad, Android phones and Android tablets, built with Tauri 2 mobile from the desktop project, published in both stores by the organisation that publishes the macOS build. One app: a list of workspaces, each with remote-control or operator access; scanning a QR code adds a workspace as a remote control, and a phone or tablet can request operator access by pairing, as a computer does. One public release once every feature is built. No Apple TV app, because tvOS cannot show websites or YouTube items; an Apple TV is reached by AirPlay. QR codes go through the app.worship-q.com link router. See the [Native Apps Plan](native-apps-plan.md) and its [discovery](native-apps-discovery.md); the text below is the earlier position.
 
 **User preference:** native iOS/Android apps, with concern about publishing costs.
 
@@ -753,7 +753,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | Bible passages | Implemented (protocol version 6); see §11 and the [Bible Passages Plan](bible-passages-plan.md) |
 | Uploaded slide decks, PowerPoint/PDF handling | Later; formats/workflow open |
 | Automatic translation | Later, optional |
-| Native mobile applications | Planned: [Native Apps Plan](native-apps-plan.md); remote control first, then operator features |
+| Native mobile applications | Planned: [Native Apps Plan](native-apps-plan.md); one release with remote control and operator features |
 | Semantic verse/chorus structures | Deferred |
 | True mobile external-display presentation | Later/platform-dependent |
 | Automatic coordinator failover | Deferred; not promised for v1 |
