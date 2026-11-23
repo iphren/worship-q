@@ -1,4 +1,5 @@
 import { emitTo } from '@tauri-apps/api/event';
+import { findInput } from '@worship-q/audio';
 import { useEffect, useRef, useState } from 'react';
 import { useApp, useAudio } from '../app/context';
 import {
@@ -106,7 +107,12 @@ export function AudioSettings() {
 
   const picker = (key: PickerKey, label: string, available: AudioDevice[] | undefined) => {
     const chosen = saved[key];
-    const found = available ? findDevice(available, chosen) : chosen;
+    // The input is found as the broadcast finds it, also on another USB port.
+    const found = !available
+      ? chosen
+      : key === 'audioInput'
+        ? chosen && findInput(available, chosen)
+        : findDevice(available, chosen);
     const missing = !!chosen && !!available && !found;
     return (
       <label className="block">
@@ -139,7 +145,7 @@ export function AudioSettings() {
 
   // The built-in microphone warning (A16), also for what **System default** resolves to.
   const inputLabel = saved.audioInput
-    ? ((devices ? findDevice(devices.inputs, saved.audioInput)?.name : null) ??
+    ? ((devices ? findInput(devices.inputs, saved.audioInput)?.name : null) ??
       saved.audioInput.name)
     : (devices?.defaultInput ?? '');
   const builtIn = !!inputLabel && isBuiltInInput(inputLabel);

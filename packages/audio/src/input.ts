@@ -72,13 +72,34 @@ export const MUTE_GRACE_MS = 500;
  */
 export const MUTE_RETRY_MS = [MUTE_GRACE_MS, 2000, 5000, 15_000];
 
-/** The chosen device among those listed: by id, else the first by name. */
+/**
+ * An input's name without the number Windows adds when the same model appears on another USB
+ * port: `Microphone (2- USB Audio CODEC )` is `Microphone (USB Audio CODEC)`. The space after
+ * the hyphen is what sets that number apart from a real name such as `Mic (2-Channel)`.
+ */
+export function portlessInputName(name: string): string {
+  return name
+    .replace(/\(\d+-\s+/, '(')
+    .replace(/^\d+-\s+/, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+\)/g, ')')
+    .trim();
+}
+
+/**
+ * The chosen device among those listed: by id, else the first by name, else the one device
+ * whose name differs only by the USB port's number. With several of those it cannot tell
+ * which is the chosen one, and a wrong input on air is worse than waiting: none is taken.
+ */
 export function findInput(inputs: readonly InputDevice[], chosen: InputDevice): InputDevice | null {
-  return (
+  const exact =
     inputs.find((device) => device.id === chosen.id) ??
-    inputs.find((device) => device.name !== '' && device.name === chosen.name) ??
-    null
-  );
+    inputs.find((device) => device.name !== '' && device.name === chosen.name);
+  if (exact) return exact;
+  const name = portlessInputName(chosen.name);
+  if (name === '') return null;
+  const samePort = inputs.filter((device) => portlessInputName(device.name) === name);
+  return samePort.length === 1 ? samePort[0]! : null;
 }
 
 const REFUSED = new Set(['NotAllowedError', 'SecurityError', 'PermissionDeniedError']);

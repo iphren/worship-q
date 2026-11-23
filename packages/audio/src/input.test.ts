@@ -1,15 +1,55 @@
 import { describe, expect, it } from 'vitest';
 import { FakeClock, settle } from './fakeClock';
 import {
+  findInput,
   InputWatcher,
   LIST_EVERY_MS,
   MUTE_GRACE_MS,
   MUTE_RETRY_MS,
+  portlessInputName,
   REQUEST_RETRY_MS,
   REQUEST_WAIT_MS,
   type CaptureTrack,
   type InputDevice,
 } from './input';
+
+describe('an input on another USB port', () => {
+  const one = { id: 'usb-1', name: 'Microphone (USB Audio CODEC )' };
+  const two = { id: 'usb-2', name: 'Microphone (2- USB Audio CODEC )' };
+  const three = { id: 'usb-3', name: 'Microphone (3- USB Audio CODEC )' };
+
+  it('reads the same with or without the number Windows adds', () => {
+    expect(portlessInputName(one.name)).toBe('Microphone (USB Audio CODEC)');
+    expect(portlessInputName(two.name)).toBe('Microphone (USB Audio CODEC)');
+    expect(portlessInputName('2- USB Audio CODEC')).toBe('USB Audio CODEC');
+  });
+
+  it('keeps numbers that are part of a real name', () => {
+    expect(portlessInputName('Mic (2-Channel)')).toBe('Mic (2-Channel)');
+    expect(portlessInputName('USB Audio 2')).toBe('USB Audio 2');
+    expect(findInput([{ id: 'b', name: 'USB Audio 2' }], { id: 'a', name: 'USB Audio 1' })).toBe(
+      null,
+    );
+  });
+
+  it('is found in either direction', () => {
+    expect(findInput([two], one)).toBe(two);
+    expect(findInput([one], two)).toBe(one);
+  });
+
+  it('prefers the saved id, then the exact name', () => {
+    expect(findInput([two, one], one)).toBe(one);
+    expect(findInput([two, { ...one, id: 'new' }], one)?.id).toBe('new');
+  });
+
+  it('takes none when two others could be it', () => {
+    expect(findInput([two, three], one)).toBeNull();
+  });
+
+  it('never matches an empty name', () => {
+    expect(findInput([{ id: 'x', name: '' }], { id: 'y', name: '' })).toBeNull();
+  });
+});
 
 class FakeTrack implements CaptureTrack {
   muted = false;
@@ -159,6 +199,18 @@ describe('starting (§3.5)', () => {
     other.watcher.setEnabled(true, scarlett);
     await settle();
     expect(other.requests[0]!.deviceId).toBe('sc-9');
+  });
+
+  it('takes the same model on another USB port, and saves it', async () => {
+    const env = setup();
+    const portTwo = { id: 'usb-2', name: 'Microphone (2- USB Audio CODEC )' };
+    env.setInputs([builtIn, portTwo]);
+    env.watcher.setEnabled(true, { id: 'usb-1', name: 'Microphone (USB Audio CODEC )' });
+    await settle();
+    expect(env.requests[0]!.deviceId).toBe('usb-2');
+    env.requests[0]!.resolve(new FakeTrack(portTwo.name, 'usb-2'));
+    await settle();
+    expect(env.moved).toEqual([portTwo]);
   });
 
   it('follows the system default, and asks again when the default changes', async () => {
