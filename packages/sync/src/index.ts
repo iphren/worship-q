@@ -246,13 +246,25 @@ export type JoinMode =
    */
   | 'replace';
 
+/**
+ * How far back a removed deck's run sheet keeps its slides fetched when the app opens; older
+ * ones are fetched only when their record changes.
+ */
+const RECENT_DECK_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 export class SyncClient {
   private running: Promise<void> | null = null;
   private again = false;
   private status_: SyncStatus = { kind: 'disconnected' };
   private readonly listeners = new Set<() => void>();
-  /** Background files were checked against the instance since the app opened. */
+  /**
+   * Background and slide files were all checked against the instance, since the app opened
+   * or since a download last failed.
+   */
   private filesChecked = false;
+  /** Files the instance answered it does not have, since the app opened. */
+  private readonly goneFiles = new Set<string>();
 
   constructor(
     private readonly session: Session,
@@ -399,15 +411,32 @@ export class SyncClient {
     });
     let wanted = changes.backgroundFiles;
     if (!this.filesChecked) {
-      // Fetch anything an earlier run did not manage to.
+      // Fetch anything an earlier run did not manage to: backgrounds, and the slides of a
+      // deck whose download stopped part way, which no later change would bring again.
       const backgrounds = await this.session.store.listBackgrounds(workspaceId);
+      const since = new Date(Date.parse(this.now()) - RECENT_DECK_DAYS * DAY_MS)
+        .toISOString()
+        .slice(0, 10);
+      const slides = await this.session.store.listDeckImages(workspaceId, since);
       wanted = [
-        ...new Set([...wanted, ...backgrounds.map((b: { fileName: string }) => b.fileName)]),
+        ...new Set([
+          ...wanted,
+          ...backgrounds.map((b: { fileName: string }) => b.fileName),
+          ...slides,
+        ]),
       ];
       this.filesChecked = true;
     }
     for (const fileName of await this.files.missing(wanted)) {
-      await this.files.download(fileName).catch((error) => console.warn(fileName, error));
+      if (this.goneFiles.has(fileName)) continue;
+      await this.files.download(fileName).catch((error) => {
+        console.warn(fileName, error);
+        // A public server keeps no file over a day, and a church server sweeps those of
+        // deleted items (D34): one it no longer has is not asked for again while the app
+        // runs. Any other failure is tried again at the next synchronization.
+        if (/\b404\b/.test(String(error))) this.goneFiles.add(fileName);
+        else this.filesChecked = false;
+      });
     }
     await this.sync.setState({ cursor, pulledProtocol: PROTOCOL_VERSION });
   }

@@ -1418,6 +1418,30 @@ export class Store {
     return rows.map(toBackground);
   }
 
+  /**
+   * The slide images of the workspace's decks, the church's versions too: those in the
+   * library, and those removed from it but on a run sheet dated `since` or later, which still
+   * presents them. Older removed decks are left out, as their files may be gone (D34).
+   */
+  async listDeckImages(workspaceId: string, since: string): Promise<string[]> {
+    const used = `(song.removed_at IS NULL OR song.id IN (
+      SELECT i.song_id FROM run_sheet_item i JOIN run_sheet r ON r.id = i.run_sheet_id
+      WHERE r.workspace_id = ? AND r.date >= ?))`;
+    const rows = await this.db.select<Row>(
+      `SELECT song.deck FROM song
+       WHERE song.workspace_id = ? AND song.deck IS NOT NULL AND ${used}
+       UNION ALL
+       SELECT cv.deck FROM church_version cv JOIN song ON song.id = cv.song_id
+       WHERE song.workspace_id = ? AND cv.deck IS NOT NULL AND ${used}`,
+      [workspaceId, workspaceId, since, workspaceId, workspaceId, since],
+    );
+    const images = new Set<string>();
+    for (const row of rows) {
+      for (const page of json<Deck | null>(row.deck, null)?.pages ?? []) images.add(page.image);
+    }
+    return [...images];
+  }
+
   /** Removes a background; an output that had it selected falls back to its solid color. */
   async removeBackground(id: string): Promise<void> {
     const now = this.env.now();

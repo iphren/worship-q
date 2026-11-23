@@ -126,6 +126,8 @@ async function device(
     store,
     client,
     syncStore,
+    /** A new client on the same data, as when the app is opened again. */
+    reopen: () => new SyncClient(session, syncStore, api, files, clock.now),
     /** Enrolls and joins without synchronizing yet. */
     async join(code: string, mode: 'upload' | 'merge' | 'replace') {
       const enrolled = await client.enroll('https://example.org', code, name);
@@ -439,6 +441,101 @@ describe('synchronization between two devices', () => {
     await branch.client.run();
     expect(await branch.store.listSongs(branch.session.workspace.id)).toEqual([]);
     expect(branch.session.workspace.meetingDays).toEqual([3]);
+  });
+
+  it('fetches a deck’s slides whose download stopped part way, without a new change', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance);
+    const id = '0d0d0d0d-0000-4000-8000-000000000001';
+    const images = [1, 2, 3].map((n) => `deck-${id}-00${n}.jpg`);
+    await branch.session.createSong({
+      title: 'Sermon',
+      deck: {
+        source: 'sermon.pptx',
+        width: 1920,
+        height: 1080,
+        pages: images.map((image, i) => ({ image, slide: i + 1, step: 0, text: [] })),
+      },
+    });
+    await branch.connect(code, 'upload');
+
+    // This computer's stored files; the download stops at the second slide, as when the app
+    // is closed or the connection drops while a long deck arrives.
+    const here = new Set<string>();
+    let broken: string | null = images[1]!;
+    const files: FileTransfer = {
+      upload: async () => undefined,
+      download: async (fileName) => {
+        if (fileName === broken) throw new Error('connection reset');
+        here.add(fileName);
+      },
+      missing: async (fileNames) => fileNames.filter((name) => !here.has(name)),
+    };
+    clock.advance();
+    const home = await device('home', clock, instance, 3, files);
+    await home.connect(code, 'replace');
+    expect([...here]).toEqual([images[0], images[2]]);
+
+    // The next synchronization tries again, though nothing changed.
+    broken = images[2]!;
+    here.delete(images[2]!);
+    await home.client.run();
+    expect(here.has(images[1]!)).toBe(true);
+    expect(here.has(images[2]!)).toBe(false);
+
+    // And so does the app opened again.
+    broken = null;
+    await home.reopen().run();
+    expect([...here].sort()).toEqual(images);
+  });
+
+  it('looks again only for slides the server may still have', async () => {
+    const { clock, instance, code } = await setup();
+    const branch = await device('branch', clock, instance);
+    const deck = (id: string) => ({
+      source: `${id}.pptx`,
+      width: 1920,
+      height: 1080,
+      pages: [{ image: `deck-${id}-001.jpg`, slide: 1, step: 0, text: [] }],
+    });
+    const old = await branch.session.createSong({ title: 'Old', deck: deck('old') });
+    const recent = await branch.session.createSong({ title: 'Recent', deck: deck('recent') });
+    await branch.session.createSong({ title: 'Gone', deck: deck('gone') });
+    // Removed from the library, one on a run sheet two months ago and one on this week's.
+    const workspaceId = branch.session.workspace.id;
+    const august = await branch.store.ensureRunSheet(workspaceId, '2026-08-16');
+    await branch.store.addItem(august.id, old.id);
+    await branch.session.addSong(branch.session.openDate, recent.id);
+    await branch.session.removeSong(old.id);
+    await branch.session.removeSong(recent.id);
+    await branch.connect(code, 'upload');
+
+    const asked: string[] = [];
+    const here = new Set<string>();
+    let failing = true;
+    const files: FileTransfer = {
+      upload: async () => undefined,
+      download: async (fileName) => {
+        asked.push(fileName);
+        // The server swept the deleted deck's file; the others fail on the way, once.
+        if (fileName === 'deck-gone-001.jpg') throw 'server answered 404';
+        if (failing) throw new Error('connection reset');
+        here.add(fileName);
+      },
+      missing: async (fileNames) => fileNames.filter((name) => !here.has(name)),
+    };
+    clock.advance();
+    const home = await device('home', clock, instance, 3, files);
+    await home.connect(code, 'replace');
+    expect(asked.sort()).toEqual(['deck-gone-001.jpg', 'deck-old-001.jpg', 'deck-recent-001.jpg']);
+
+    // The next synchronization looks for those that failed on the way, but not for the
+    // one the server no longer has, nor for a removed deck last used long ago.
+    failing = false;
+    asked.length = 0;
+    await home.client.run();
+    expect(asked).toEqual(['deck-recent-001.jpg']);
+    expect(here.has('deck-recent-001.jpg')).toBe(true);
   });
 
   it('stops with a clear status once the device is revoked', async () => {
