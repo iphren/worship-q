@@ -1,7 +1,7 @@
 # Worship Q — Requirements and Architecture
 
 **Consolidated:** 6 October 2026  
-**Updated:** 17 November 2026  
+**Updated:** 22 November 2026  
 **Status:** Open-source project requirements and proposed architecture; implementation design pending.
 
 ## 1. Purpose and decision status
@@ -183,6 +183,8 @@ After the first successful join, remember the church instance, workspace, and a 
 - **Connect to [workspace name]** requests fresh approval without another QR scan.
 - **Join another presentation** scans another invitation QR. Final labels may use “workspace” or “presentation” rather than introducing a managed Service entity.
 - **Set up as a church device** begins permanent administrator-approved pairing.
+
+**Agreed (amended 22 November 2026), superseding the fresh-approval rule above:** an approval is remembered. The phone keeps its grant and reconnects with it, without a scan and without another approval, until an operator disconnects it, uses **Disconnect all**, or revokes it; this matches the access lifetime above and the code since phase 2 (D25). A phone whose access has ended asks again by scanning. In the native app, **Connect to [workspace name]** is opening the workspace from the device's list, and on phones **Set up as a church device** is replaced by an administrator promoting a remote-control phone to operator in the admin app; computers keep pairing. See the [Native Apps Plan](native-apps-plan.md) (N13, N17, N18).
 
 If no presentation is active after approval, show **Waiting for presentation**. If the workspace or approving operator cannot be reached, show the reason and retain the QR joining alternative. Offline remembered joining requires an installed app and a reachable local coordinator; the remembered address alone is insufficient.
 
@@ -455,7 +457,7 @@ User-facing language should emphasize “Start presenting,” “Connect to [wor
 
 ### Proposed architecture: cloud-managed, locally operated
 
-**Agreed:** the coordinator is an operator device and need not be a desktop. A desktop-app coordinator can be reached directly over the LAN; a browser coordinator is reachable only through the church instance backend; whether a native mobile app can serve LAN clients is open. A capable desktop is the recommended coordinator for a venue. Local controllers and outputs communicate with the coordinator directly when reachable. The church-operated instance backend supports authentication, library and plan synchronization, workspace configuration, remote control, and relay fallback. References to cloud services describe this backend, not worship-q.com.
+**Agreed:** the coordinator is an operator device and need not be a desktop. A desktop-app coordinator can be reached directly over the LAN; a browser coordinator is reachable only through the church instance backend; a native mobile app with operator access can coordinate and serve LAN clients (decided 22 November 2026, [Native Apps Plan](native-apps-plan.md) N4), pausing when the app leaves the screen, after which another device can **Carry on here**. A capable desktop is the recommended coordinator for a venue. Local controllers and outputs communicate with the coordinator directly when reachable. The church-operated instance backend supports authentication, library and plan synchronization, workspace configuration, remote control, and relay fallback. References to cloud services describe this backend, not worship-q.com.
 
 ```mermaid
 flowchart TD
@@ -683,6 +685,8 @@ Website content stays public and generic. Church-specific configuration, credent
 
 ## 16. Native mobile strategy
 
+**Decided 22 November 2026:** native apps for iPhone, iPad, Android phones and Android tablets, built with Tauri 2 mobile from the desktop project, published in both stores by the organisation that publishes the macOS build. One app: a list of workspaces, each with remote-control or operator access; scanning a QR code adds a workspace as a remote control, and an administrator can promote a phone to operator. Remote control ships first. No Apple TV app, because tvOS cannot show websites or YouTube items; an Apple TV is reached by AirPlay. QR codes go through the app.worship-q.com link router. See the [Native Apps Plan](native-apps-plan.md) and its [discovery](native-apps-discovery.md); the text below is the earlier position.
+
 **User preference:** native iOS/Android apps, with concern about publishing costs.
 
 **Proposed rollout:** browser/PWA functionality initially, while designing the protocol to support native clients later. This was a recommendation rather than an explicit user agreement to defer native apps. Because browser-only clients require internet (Section 10), phones need internet to control another device's presentation until native apps exist.
@@ -706,7 +710,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | Admin web app with generic OIDC sign-in | Agreed; provider configured per instance; first-administrator designation open; church-hosted packaging recommended |
 | Paired workspace operators and approved remote controllers | Agreed model; replaces shared-password proposal |
 | Multiple authorized workspaces/roles on one device | Agreed direction |
-| Remembered workspace rejoin with fresh approval | Agreed UX |
+| Remembered workspace: reconnects with its approval until disconnected or revoked | Agreed UX (amended 22 November 2026) |
 | Camera or in-app QR scanning; installed-app opening with browser fallback | Agreed UX; platform routing to validate |
 | Remote access survives date/run-sheet changes while connected | Agreed requirement |
 | app.worship-q.com as QR link domain and link router to the church-hosted web client | Agreed direction; not yet deployed |
@@ -749,7 +753,7 @@ The broad first-release scope below was proposed in the discussion. It is not ye
 | Bible passages | Implemented (protocol version 6); see §11 and the [Bible Passages Plan](bible-passages-plan.md) |
 | Uploaded slide decks, PowerPoint/PDF handling | Later; formats/workflow open |
 | Automatic translation | Later, optional |
-| Native mobile applications | User preference; release timing open |
+| Native mobile applications | Planned: [Native Apps Plan](native-apps-plan.md); remote control first, then operator features |
 | Semantic verse/chorus structures | Deferred |
 | True mobile external-display presentation | Later/platform-dependent |
 | Automatic coordinator failover | Deferred; not promised for v1 |
@@ -816,7 +820,7 @@ These make the requirements concrete for later implementation and testing; they 
 14. **Separate build and deployment:** website changes can be built and deployed independently of church-application releases, and a church can deploy the application without building or deploying the public website.
 
 15. **Role limits:** remote controllers navigate and add, remove, or reorder live run-sheet items, but cannot edit songs or backgrounds, edit other dates, go live with another date, change settings, or enroll devices. Normal-workspace edits never alter central songs; privileged-workspace operators can create/edit/delete central content, without granting those rights to remote controllers.
-16. **Passwordless repeat use:** permanent equipment retains authorization; returning temporary clients request fresh approval without rescanning. First approval resolves the request across operator devices.
+16. **Passwordless repeat use:** permanent equipment retains authorization; an approved remote controller reconnects without rescanning or a new approval until its access is disconnected or revoked, after which it asks again by scanning. First approval resolves the request across operator devices.
 17. **Connection lifetime:** remote control persists through live-date changes while connected; explicit disconnect/revocation ends access. Reconnection rules are documented.
 18. **Calendar safety:** alternate-date browsing is read-only; **Edit run sheet** changes another date's plan without altering the live run sheet or output; **Go live** retains the presented snapshot until play/clear. Opening another client does not reset live state.
 19. **Meeting-day labels:** Any day and Every day retain distinct selections while both opening today; selected subsets open the next matching date in the workspace timezone.

@@ -1,6 +1,7 @@
 # Worship Q — Native Apps Plan
 
 **Drafted:** 22 November 2026
+**Updated:** 23 November 2026 (local workspaces, N22–N25)
 **Status:** Plan agreed in discovery with the project owner; nothing is built. Tasks are to be broken down milestone by milestone, starting with the M0 spike.
 **Source:** the [native apps discovery](native-apps-discovery.md) of 22 November 2026 and the owner's answers recorded there and here; the [spec](worship-q-requirements-and-architecture.md) §2 (application distribution, QR entry points), §3 (local-only mode), §4 (devices and roles), §10 (connectivity), §12 (phone-to-TV), §16 (native mobile) and acceptance criteria 5, 9, 10, 11, 16, 23, 24, 32 and 33; the [phase 3 plan](phase-3-plan.md) §7 "Phase 4 — Phones"; the code at version 2.14.0 (protocol version 11).
 
@@ -43,7 +44,7 @@ Native apps for iPhone, Android phones, iPad and Android tablets, and the link r
 The home screen lists the device's workspaces, each with its church (or **On this device**), its access level as a quiet label, and whether it is presenting now. Below the list: **Scan a QR code** and **New local workspace**. The app reopens the workspace last used.
 
 - **Adding by scan.** A camera scan through the link router, or the in-app scanner. The phone asks for a name the first time, sends the request, and shows **Waiting for approval** with the four-digit code, as today. On approval the workspace joins the list as **Remote control**.
-- **Scanning a workspace already in the list** opens it and sends no request. The match is on the server's host and the workspace's server identifier, never the name. If the workspace's access has ended, the scan asks for approval again.
+- **Scanning a workspace already in the list** opens it and sends no request. The match is on the server's host and the workspace's server identifier, or on the permanent identifier for a local workspace (N22), never the name. If the workspace's access has ended, the scan asks for approval again.
 - **New local workspace.** A workspace on this device alone, with no church, where the device is its operator (spec §3).
 - **Removing** a workspace from the list forgets it on this device; an operator removes the device's access from the other side.
 - Each workspace has its own credential: a grant for a remote control, a device token for an operator. Opening one workspace leaves the other, so gestures never reach the wrong one (criterion 23).
@@ -84,6 +85,17 @@ A remote control works only while it reaches the coordinator; an operator keeps 
 - **Removing operator access** ends the device token. The workspace stays in the phone's list with a note, and a scan asks to control it again.
 - **Only with a church server.** A workspace in local mode lives on one computer and is never synchronized to another device, so there is no one to promote and nothing to download. A phone controlling a local desktop stays a remote control; it can have its own local workspace.
 - **Phones do not use pairing codes.** Promotion replaces **Set up as a church device** on phones. Computers keep pairing (D29).
+
+### Local workspaces
+
+A local workspace has one operator, the device that holds it. Remote controls join it as they join any workspace, and their approvals are kept on that device. Four things differ from a church workspace:
+
+- **A permanent identifier (N22).** The device makes it when the workspace is created, with no network. The list and the venue network use it, and invitations carry it. The public server's workspace identifier becomes only a relay address, which can change: the server forgets a workspace after 90 days unseen. After that, a scan updates the same list entry and sends no request, provided the invitation's fingerprint matches the one the phone remembers. If it does not, the phone asks for approval.
+- **Moving to a church (N23).** When a phone with a local workspace is promoted, it offers **Copy my songs from [local workspace]**, using the upload behind **Keep both**. The local workspace stays until the operator removes it.
+- **Backup (N24).** The phone holds the only copy, and the public server stores no content. **Export backup** saves a file through the share sheet, in the desktop's backup format.
+- **When the app leaves the screen (N25).** No other device can carry on. Remote controls show "Waiting for [device] to come back" and reconnect by themselves.
+
+A phone and a computer do not share a local workspace; sharing between devices is what a church server is for. A phone controlling a local desktop stays a remote control.
 
 ### Tablets
 
@@ -139,7 +151,7 @@ Numbers are the discovery's, with N17 onwards added here.
 | N11 | Store name | **Worship Q.** Availability checked at M6. **Agreed.** |
 | N12 | Minimum versions | iOS and iPadOS 17; Android 10 (API 29). **Agreed.** |
 | N13 | Scanning a workspace already on the device | Opens it, whatever its access, and sends no request; if its access ended, asks again. **Agreed.** |
-| N14 | Phone coordinator in the background | The same on iOS and Android: keep the screen awake while presenting, and fall back to **Carry on here** when the app goes to the background. No Android foreground service. **Agreed.** |
+| N14 | Phone coordinator in the background | The same on iOS and Android: keep the screen awake while presenting, and fall back to **Carry on here** when the app goes to the background (for a local workspace, N25). No Android foreground service. **Agreed.** |
 | N15 | Release order | Remote control first (after M2), operator features in a later release. One app. **Agreed.** |
 | N16 | Presenter Mode orientation | Landscape only, turning on its own; the rest of the app turns with the phone. **Agreed.** |
 | N17 | One mode | No separate operator and remote control modes. A workspace list where each workspace has an access level, and one set of screens showing what it allows. **Agreed.** |
@@ -147,6 +159,10 @@ Numbers are the discovery's, with N17 onwards added here.
 | N19 | Shared phone screens | Built once in M2 over a workspace source with remote and operator implementations, porting `apps/remote`'s components. About a third more work in M2, none repeated in M4. **Agreed.** |
 | N20 | Removing operator access | Ends the device token; the workspace stays listed and a scan asks to control it again. **Proposed.** |
 | N21 | Who can promote | Administrators only, in the admin app. Workspace operators cannot, as the spec reserves permanent access for administrators (§4). **Agreed.** |
+| N22 | Local workspace identity | A permanent identifier made on the device, used by the list, the venue network and invitations. The public server's identifier is only a relay address; a new one needs a scan but no new approval, if the fingerprint matches. **Agreed.** |
+| N23 | A phone's local content moving to a church | Offered on promotion: **Copy my songs from [local workspace]**, using the **Keep both** upload. **Agreed.** |
+| N24 | Backup of a phone's local workspace | **Export backup** through the share sheet, in the desktop's format. **Agreed.** |
+| N25 | Local workspace in the background | No **Carry on here**, as there is no other operator. Remote controls wait and reconnect by themselves. **Agreed.** |
 
 ## 6. Open questions
 
@@ -186,24 +202,26 @@ Throwaway code on an iPhone, an iPad and an Android phone:
 
 ### M3 — Desktop: venue network in local mode (M)
 
-- `LanHost` for public-server workspaces, grants checked on the coordinator, mDNS with a local workspace identifier, LAN addresses in the invitation.
+- The permanent local workspace identifier (N22), given to existing local workspaces on update; approvals kept when the public server's identifier changes.
+- `LanHost` for public-server workspaces, grants checked on the coordinator, mDNS with the permanent identifier, LAN addresses and the identifier in the invitation.
 - Thumbnails to phones over the LAN.
 
-**Done when:** M2's checks pass against a computer with no church server.
+**Done when:** M2's checks pass against a computer with no church server, and after the public server forgets the workspace, a scan reopens the same list entry with no new approval.
 
 ### M4 — Operator features, local workspace (L)
 
 - The operator implementation of the workspace source over the desktop's session and store.
 - The operator parts of the screens: calendar, run sheets, songs, settings.
-- Local workspaces, Presenter Mode, the external display plugin, public server features.
+- Local workspaces with their permanent identifier, Presenter Mode, the external display plugin, public server features.
+- **Export backup** (N24), and the waiting message on remote controls (N25).
 
-**Done when:** a phone with no account creates a workspace, adds songs and presents while mirrored and on an external display; it also controls another workspace as a remote control, with separate permissions. G17 closed; criteria 10, 23 and 33.
+**Done when:** a phone with no account creates a workspace, adds songs and presents while mirrored and on an external display; it also controls another workspace as a remote control, with separate permissions; a workspace made with no internet invites a phone on the venue Wi-Fi; an exported backup restores on a desktop. G17 closed; criteria 10, 23 and 33.
 
 ### M5 — Promotion and coordinating (L)
 
 - Server: grants kept while valid; **Make operator** and the waiting enrolment; `GET /api/v1/promotion`; **Remove operator**.
 - Admin app: the workspace's phones and tablets, **Make operator**, operator phones listed with the computers.
-- App: picking up the promotion, pulling the workspace, switching the workspace's source; synchronization; approving phones with its own invitation; serving the venue network; live-state backup.
+- App: picking up the promotion, pulling the workspace, switching the workspace's source; **Copy my songs from [local workspace]** (N23); synchronization; approving phones with its own invitation; serving the venue network; live-state backup.
 - The fall-back to **Carry on here** when the app goes to the background; the `mobile` capability and "presenting phone" wording on every device.
 
 **Done when:** a phone added by scan is made an operator in the admin app and gains the operator features without a new scan; a tablet promoted the same way coordinates a service with a desktop in viewer mode and two phones on the venue Wi-Fi with no internet; when the tablet goes to the background, the desktop carries on. Criteria 9 and 32 with a mobile coordinator; criterion 16 for a promoted phone.
@@ -218,7 +236,7 @@ Throwaway code on an iPhone, an iPad and an Android phone:
 
 ### M7 — Acceptance pass (S)
 
-A walkthrough at a rehearsal recorded in `docs/acceptance/native-apps.md`: remote control on iPhone and Android with and without internet; a camera scan with and without the app; promotion in the admin app and removing it; Presenter Mode mirrored and on an external display, including AirPlay to an Apple TV; a tablet as coordinator with the background hand-over; a phone with a local workspace and a remote-control workspace.
+A walkthrough at a rehearsal recorded in `docs/acceptance/native-apps.md`: remote control on iPhone and Android with and without internet; a camera scan with and without the app; promotion in the admin app and removing it; Presenter Mode mirrored and on an external display, including AirPlay to an Apple TV; a tablet as coordinator with the background hand-over; a phone with a local workspace and a remote-control workspace; that local workspace invited on the venue Wi-Fi with no internet, left in the background, backed up, and copied into a church workspace on promotion.
 
 ## 8. Order and dependencies
 
