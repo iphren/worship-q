@@ -38,6 +38,7 @@ import {
   UPDATE_NEEDED,
   VIDEO_FILE,
   WorkspaceGrantSchema,
+  backgroundLimit,
   type Deck,
   type MediaLimits,
   type LibraryType,
@@ -1003,7 +1004,7 @@ export async function buildServer(config: ServerConfig) {
       const { workspaceId } = request.device!;
       const dir = uploadDir(workspaceId, deckImage || video ? 'slides' : 'backgrounds');
       mkdirSync(dir, { recursive: true });
-      const limit = video ? limits.video : deckImage ? limits.image : MAX_FILE_BYTES;
+      const limit = video ? limits.video : deckImage ? limits.image : backgroundLimit(name);
       try {
         await receive(request, join(dir, name), limit);
       } catch (error) {

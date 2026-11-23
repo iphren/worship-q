@@ -250,6 +250,8 @@ export const desktop: Record<DesktopKey, string> = {
   'settings.restoreConfirm': '全部替换',
   'settings.restoreNotBackup': '这个文件不是 Worship Q 的备份。',
   'settings.restoreTooNew': '这个备份由更新版本的 Worship Q 制作。请先更新应用再恢复。',
+  'settings.backgroundTooBig':
+    '这个{kind}有 {size} MB；背景最多可以是 {limit} MB。请导出一个较小的版本后再试。',
   'settings.failed': '操作未成功：{error}',
   'settings.about': '关于',
   'settings.version': '版本 {version}',

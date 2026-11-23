@@ -364,7 +364,13 @@ export class SyncClient {
     for (const record of records) {
       if (record.kind === 'background' && !record.data.removedAt) {
         const fileName = String(record.data.fileName);
-        if ((await this.files.missing([fileName])).length === 0) await this.files.upload(fileName);
+        if ((await this.files.missing([fileName])).length > 0) continue;
+        await this.files.upload(fileName).catch((error) => {
+          // A background over the size limit, added before there was one or by an older
+          // app, is kept on this computer only: the others fall back to its color.
+          if (/\b413\b/.test(String(error))) console.warn('Too large to share', fileName);
+          else throw error;
+        });
       }
     }
     for (let start = 0; start < records.length; start += PUSH_BATCH) {

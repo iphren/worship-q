@@ -96,6 +96,17 @@ export const VideoSchema = z.object({
 });
 export type Video = z.infer<typeof VideoSchema>;
 
+/**
+ * The largest background file, by kind: far beyond what a screen needs, but short of an
+ * unedited camera photo or a long recording, which every computer would have to download.
+ */
+export const BACKGROUND_LIMITS = { image: 10 * 1024 * 1024, video: 100 * 1024 * 1024 };
+
+/** The largest a background file of this name may be: an `.mp4` is a video, else an image. */
+export function backgroundLimit(fileName: string): number {
+  return /\.mp4$/i.test(fileName) ? BACKGROUND_LIMITS.video : BACKGROUND_LIMITS.image;
+}
+
 /** A stored video file's name, as the server makes it. */
 export const VIDEO_FILE = /^video-[0-9a-f-]{36}\.(mp4|m4v|mov|webm)$/;
 

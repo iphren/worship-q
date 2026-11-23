@@ -1,6 +1,7 @@
 import type { ServerInfo } from '@worship-q/protocol';
 import { describe, expect, it } from 'vitest';
 import {
+  backgroundSizeProblem,
   dialogExtensions,
   isHeic,
   mediaKindOf,
@@ -90,6 +91,23 @@ describe('sizes (U1, U2, U7)', () => {
   it('rounds the size and the limit the same way, never showing them equal', () => {
     expect(megabytes(640 * MB, 200 * MB)).toEqual(['640', '200']);
     expect(megabytes(200.2 * MB, 200 * MB)).toEqual(['200.2', '200.0']);
+  });
+});
+
+describe('background sizes', () => {
+  it('takes an image up to 10 MB and a video up to 100 MB, and refuses one byte more', () => {
+    expect(backgroundSizeProblem('Wheat.jpg', 10 * MB)).toBeNull();
+    expect(backgroundSizeProblem('Wheat.PNG', 10 * MB + 1)).toBe(
+      'This image is 10.0 MB; a background can be up to 10.0 MB. Export a smaller version and try again.',
+    );
+    expect(backgroundSizeProblem('Stars.mp4', 100 * MB)).toBeNull();
+    expect(backgroundSizeProblem('Stars.MP4', 640 * MB)).toBe(
+      'This video is 640 MB; a background can be up to 100 MB. Export a smaller version and try again.',
+    );
+  });
+
+  it('refuses an empty file', () => {
+    expect(backgroundSizeProblem('Wheat.jpg', 0)).toBe('This file is empty.');
   });
 });
 

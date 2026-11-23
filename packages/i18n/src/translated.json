@@ -572,6 +572,7 @@
     "settings.backgroundMissing": "File missing",
     "settings.backgroundNone": "Color only",
     "settings.backgroundSelected": "Selected",
+    "settings.backgroundTooBig": "This {kind} is {size} MB; a background can be up to {limit} MB. Export a smaller version and try again.",
     "settings.backgroundTypes": "Backgrounds",
     "settings.backgroundWorkspace": "Workspace",
     "settings.backgroundWorkspaceHint": "Shown behind every song that has no background of its own.",

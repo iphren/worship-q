@@ -2,7 +2,13 @@
  * What kind of media a file is, and whether this server takes it at its size (media uploads
  * plan, U1, U2, U7, U19, U25). One table of formats serves the checks and the file dialogs.
  */
-import type { MediaKind, MediaLimits, ServerInfo } from '@worship-q/protocol';
+import {
+  BACKGROUND_LIMITS,
+  backgroundLimit,
+  type MediaKind,
+  type MediaLimits,
+  type ServerInfo,
+} from '@worship-q/protocol';
 import { t } from '@worship-q/i18n/desktop';
 
 export { songMediaKind, type MediaKind } from '@worship-q/protocol';
@@ -81,6 +87,16 @@ export function sizeProblem(kind: MediaKind, bytes: number, limits: MediaLimits)
   if (bytes <= limit) return null;
   const [size, max] = megabytes(bytes, limit);
   return t('media.tooBig', { kind: kindNoun(kind), size, limit: max });
+}
+
+/** Why a file of this size cannot be a background, or null when it can. */
+export function backgroundSizeProblem(fileName: string, bytes: number): string | null {
+  if (bytes === 0) return t('media.empty');
+  const limit = backgroundLimit(fileName);
+  if (bytes <= limit) return null;
+  const [size, max] = megabytes(bytes, limit);
+  const kind = limit === BACKGROUND_LIMITS.video ? 'video' : 'image';
+  return t('settings.backgroundTooBig', { kind: kindNoun(kind), size, limit: max });
 }
 
 /** What the server takes (U19): from `info.media`, or slide decks only from an older one. */

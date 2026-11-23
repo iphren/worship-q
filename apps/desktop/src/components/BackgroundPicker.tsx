@@ -7,6 +7,7 @@ import {
 import { BuiltinBackgroundCanvas } from '@worship-q/renderer';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useSession } from '../app/context';
+import { backgroundSizeProblem } from '../app/media';
 import { t } from '@worship-q/i18n/desktop';
 import { native } from '../platform/native';
 
@@ -30,6 +31,12 @@ export function ImportBackgroundButton(props: { onImported(assetId: string): voi
     setBusy(true);
     try {
       const originalName = source.split(/[\\/]/).pop() ?? source;
+      // Refused before it is copied: every computer of the workspace would download it.
+      const problem = backgroundSizeProblem(originalName, await native.fileSize(source));
+      if (problem) {
+        setError(problem);
+        return;
+      }
       const extension = (originalName.split('.').pop() ?? '').toLowerCase();
       const id = session.store.newId();
       const fileName = `${id}.${extension}`;

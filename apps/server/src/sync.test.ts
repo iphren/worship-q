@@ -538,6 +538,31 @@ describe('synchronization between two devices', () => {
     expect(here.has('deck-recent-001.jpg')).toBe(true);
   });
 
+  it('shares a device’s backgrounds, keeping one over the size limit to itself', async () => {
+    const { clock, instance, code } = await setup();
+    const uploaded: string[] = [];
+    const files: FileTransfer = {
+      upload: async (fileName) => {
+        if (fileName === 'huge.jpg') throw 'server answered 413';
+        uploaded.push(fileName);
+      },
+      download: async () => undefined,
+      missing: async () => [],
+    };
+    const branch = await device('branch', clock, instance, 3, files);
+    for (const name of ['huge', 'small']) {
+      await branch.session.addBackground({
+        id: name,
+        kind: 'image',
+        fileName: `${name}.jpg`,
+        originalName: `${name}.jpg`,
+      });
+    }
+    await branch.connect(code, 'upload');
+    expect(uploaded).toEqual(['small.jpg']);
+    expect(branch.client.status.kind).toBe('idle');
+  });
+
   it('stops with a clear status once the device is revoked', async () => {
     const { clock, instance, code } = await setup();
     const branch = await device('branch', clock, instance);

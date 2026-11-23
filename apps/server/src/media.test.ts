@@ -174,6 +174,29 @@ describe('limits (U1, U2, U19)', () => {
   });
 });
 
+describe('background files', () => {
+  it('takes an image up to 10 MB and a video up to 100 MB, refusing one byte more', async () => {
+    const { app, headers } = await setup();
+    const put = (name: string, bytes: number) =>
+      app.inject({
+        method: 'PUT',
+        url: `/api/v1/files/${name}`,
+        headers,
+        payload: Buffer.alloc(bytes, 1),
+      });
+    const MB = 1024 * 1024;
+    expect((await put('bg-1.jpg', 10 * MB)).statusCode).toBe(200);
+    const image = await put('bg-2.png', 10 * MB + 1);
+    expect(image.statusCode).toBe(413);
+    expect(image.json()).toEqual({ error: 'too-large', limitBytes: 10 * MB });
+    expect((await put('bg-3.mp4', 10 * MB + 1)).statusCode).toBe(200);
+    expect((await put('bg-4.MP4', 100 * MB + 1)).json()).toEqual({
+      error: 'too-large',
+      limitBytes: 100 * MB,
+    });
+  });
+});
+
 describe('images (U13)', () => {
   const upload = async (
     context: Awaited<ReturnType<typeof setup>>,
