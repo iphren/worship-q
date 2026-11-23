@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.15.0](https://github.com/iphren/worship-q/compare/v2.14.0...v2.15.0) (2026-11-23)
+
+
+### Features
+
+* **desktop:** confirm before removing a background ([d734e0e](https://github.com/iphren/worship-q/commit/d734e0e5ef37cb874775d2250add5464c53df0f2))
+* **desktop:** only tell the operator about removed run sheet items ([b0f6578](https://github.com/iphren/worship-q/commit/b0f65783fed13086386513fc764453572e287356))
+* **desktop:** recognise the same audio input on another USB port ([ed1c446](https://github.com/iphren/worship-q/commit/ed1c4468d9f65f60fffd125b8901d1d1e580ce69))
+* limit background files to 10 MB for images and 100 MB for videos ([2c474dc](https://github.com/iphren/worship-q/commit/2c474dc4896954bd09efabf12faa2388d59a7024))
+* **server:** report when the live audio relay stops answering ([06c4eca](https://github.com/iphren/worship-q/commit/06c4eca3117aafa5ca09122cf0c6dbca320d6663))
+
+
+### Bug Fixes
+
+* **desktop:** let the slideshow window start video sound on Windows ([8c6a510](https://github.com/iphren/worship-q/commit/8c6a510e7ba9ea0caa7802c240dc6fd13c215df7))
+* **sync:** fetch deck slides whose download stopped part way ([db572ae](https://github.com/iphren/worship-q/commit/db572ae681c7142e2771d7fa35e0a5bce1bed8e1))
+
 ## [2.14.0](https://github.com/iphren/worship-q/compare/v2.13.0...v2.14.0) (2026-11-22)
 
 
