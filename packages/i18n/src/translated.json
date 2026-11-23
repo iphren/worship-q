@@ -571,6 +571,8 @@
     "settings.backgroundInUse": "In use on screen now",
     "settings.backgroundMissing": "File missing",
     "settings.backgroundNone": "Color only",
+    "settings.backgroundRemoveBody": "It will be removed from this workspace on all its computers. Anywhere it is used will show a solid color instead. This cannot be undone.",
+    "settings.backgroundRemoveTitle": "Remove “{name}”?",
     "settings.backgroundSelected": "Selected",
     "settings.backgroundTooBig": "This {kind} is {size} MB; a background can be up to {limit} MB. Export a smaller version and try again.",
     "settings.backgroundTypes": "Backgrounds",

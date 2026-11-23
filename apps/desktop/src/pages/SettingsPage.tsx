@@ -162,6 +162,7 @@ export function SettingsPage() {
   const [version, setVersion] = useState('');
   const [missing, setMissing] = useState('');
   const [restoreFrom, setRestoreFrom] = useState<string | null>(null);
+  const [removingBackground, setRemovingBackground] = useState<BackgroundAsset | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [chosenBackgroundTab, setBackgroundTab] = useState<'workspace' | 'bible' | 'song'>(
     'workspace',
@@ -407,7 +408,7 @@ export function SettingsPage() {
                 onAsset={(backgroundAssetId) =>
                   void session.updateOutputProfile({ backgroundAssetId })
                 }
-                onRemove={(asset) => void removeBackground(asset)}
+                onRemove={setRemovingBackground}
               />
               <ImportBackgroundButton
                 onImported={(backgroundAssetId) =>
@@ -755,6 +756,20 @@ export function SettingsPage() {
 
       {viewerChange !== null && (
         <ViewerModeDialog viewer={viewerChange} onCancel={() => setViewerChange(null)} />
+      )}
+      {removingBackground && (
+        <ConfirmDialog
+          title={t('settings.backgroundRemoveTitle', { name: removingBackground.originalName })}
+          body={t('settings.backgroundRemoveBody')}
+          confirmLabel={t('common.remove')}
+          danger
+          focusCancel
+          onCancel={() => setRemovingBackground(null)}
+          onConfirm={() => {
+            void removeBackground(removingBackground);
+            setRemovingBackground(null);
+          }}
+        />
       )}
       {restoreFrom && (
         <ConfirmDialog

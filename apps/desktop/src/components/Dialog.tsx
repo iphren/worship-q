@@ -73,6 +73,8 @@ export function ConfirmDialog(props: {
   body: ReactNode;
   confirmLabel: string;
   danger?: boolean;
+  /** Opens with Cancel focused, so Enter or Space cannot confirm by accident. */
+  focusCancel?: boolean;
   onConfirm(): void;
   onCancel(): void;
 }) {
@@ -82,13 +84,13 @@ export function ConfirmDialog(props: {
       onClose={props.onCancel}
       actions={
         <>
-          <button className="btn" onClick={props.onCancel}>
+          <button className="btn" onClick={props.onCancel} autoFocus={props.focusCancel}>
             {t('common.cancel')}
           </button>
           <button
             className={`btn ${props.danger ? 'btn-danger' : 'btn-primary'}`}
             onClick={props.onConfirm}
-            autoFocus
+            autoFocus={!props.focusCancel}
           >
             {props.confirmLabel}
           </button>

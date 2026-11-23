@@ -250,6 +250,9 @@ export const desktop: Record<DesktopKey, string> = {
   'settings.restoreConfirm': '全部替换',
   'settings.restoreNotBackup': '这个文件不是 Worship Q 的备份。',
   'settings.restoreTooNew': '这个备份由更新版本的 Worship Q 制作。请先更新应用再恢复。',
+  'settings.backgroundRemoveTitle': '移除“{name}”？',
+  'settings.backgroundRemoveBody':
+    '它将从这个工作区的所有电脑上移除。使用它的地方会改为显示纯色。此操作无法撤销。',
   'settings.backgroundTooBig':
     '这个{kind}有 {size} MB；背景最多可以是 {limit} MB。请导出一个较小的版本后再试。',
   'settings.failed': '操作未成功：{error}',

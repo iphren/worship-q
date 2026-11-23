@@ -269,6 +269,9 @@ export const desktop = {
   'settings.restoreNotBackup': 'That file is not a Worship Q backup.',
   'settings.restoreTooNew':
     'That backup was made by a newer version of Worship Q. Update the app to restore it.',
+  'settings.backgroundRemoveTitle': 'Remove “{name}”?',
+  'settings.backgroundRemoveBody':
+    'It will be removed from this workspace on all its computers. Anywhere it is used will show a solid color instead. This cannot be undone.',
   'settings.backgroundTooBig':
     'This {kind} is {size} MB; a background can be up to {limit} MB. Export a smaller version and try again.',
   'settings.failed': 'That did not work: {error}',
