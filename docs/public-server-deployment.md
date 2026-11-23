@@ -117,7 +117,9 @@ CloudFront passes WebSockets through without extra settings; the server's pings 
 seconds keep idle ones open.
 
 **UDP 3478 and the relay ports** open in the host's firewall and the provider's, outside
-CloudFront and nginx. Each relayed listener uses one port.
+CloudFront and nginx. The whole range must be open, as a blocked port fails only the
+connections given it. Each relayed connection can take a port at both ends, and more on a
+computer with several networks.
 
 Check it from outside:
 
@@ -184,7 +186,9 @@ follows; change it with any of these.
 - **Conversions:** `503 busy` answers in the log mean the queue is full too often.
 - **Limits:** `Refused for a limit` lines by address; one address with many means abuse or a
   large church that should run its own server.
-- **Relay:** coturn's log; allocations near `WORSHIP_Q_TURN_TOTAL`.
+- **Relay:** `GET /api/v1/info` has `"audioRelayAnswering":true`, checked every half minute,
+  and the server's log warns when it stops. This shows coturn runs, not that the firewall lets
+  the internet reach it. In coturn's log, watch for allocations near `WORSHIP_Q_TURN_TOTAL`.
 
 ## Updating
 

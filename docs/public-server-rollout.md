@@ -69,6 +69,7 @@ missing container is fine at this point), and the origin name without the secret
 | The server log after the sixth | One `Refused for a limit` line, `limit: "join"`, your own address | Wrong address: the hop count |
 | `curl --resolve public.worship-q.com:443:<host address> …/api/v1/info` | `403` | nginx's origin secret rule |
 | `/api/v1/info` | `"audioRelay":true` | `WORSHIP_Q_TURN_URL` or `WORSHIP_Q_TURN_SECRET` unset |
+| `/api/v1/info` | `"audioRelayAnswering":true` | coturn is not running, or `WORSHIP_Q_TURN_LISTEN_IP` is wrong |
 | [Trickle ICE](https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/) with `turn:turn.worship-q.com:3478` and a credential from `GET /api/v1/ice`, using a `deviceToken` from one of the joins | A `relay` candidate | Firewall, or the TURN addresses |
 
 The six joins leave five empty workspaces; they are forgotten after 90 days unseen.
