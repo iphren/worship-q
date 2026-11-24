@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.worship_q.app",
+      "sha256_cert_fingerprints": [
+        "F9:DE:D5:C4:67:6D:D9:64:99:72:35:14:6F:E9:91:66:6F:1F:3E:8C:8C:2A:77:A4:91:C3:A2:E8:EF:7F:F3:B5"
+      ]
+    }
+  }
+]

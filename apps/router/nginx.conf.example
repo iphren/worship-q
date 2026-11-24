@@ -1,0 +1,63 @@
+# The link router's origin, on the public server's host, behind its own CloudFront distribution.
+# Replace <router root> and <router origin secret>, and the origin name if you chose another.
+# Keep the real secret out of the repository.
+
+# Port 80: certificate challenges only.
+server {
+    listen 80;
+    server_name origin.app.worship-q.com;
+
+    access_log off;
+    server_tokens off;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 404;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name origin.app.worship-q.com;
+
+    ssl_certificate     /etc/letsencrypt/live/origin.app.worship-q.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/origin.app.worship-q.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+
+    root <router root>;
+
+    # The router keeps no record of who opens an invitation.
+    access_log off;
+    server_tokens off;
+
+    # Only CloudFront knows this value.
+    if ($http_x_origin_verify != "<router origin secret>") { return 403; }
+
+    add_header Cache-Control "public, max-age=300" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
+
+    # Apple's CDN needs JSON at this exact path, with no redirect.
+    location = /.well-known/apple-app-site-association {
+        default_type application/json;
+        try_files /.well-known/apple-app-site-association =404;
+    }
+
+    location = /.well-known/assetlinks.json {
+        default_type application/json;
+        try_files /.well-known/assetlinks.json =404;
+    }
+
+    location = /j {
+        default_type text/html;
+        try_files /j/index.html =404;
+    }
+
+    location / {
+        return 404;
+    }
+}

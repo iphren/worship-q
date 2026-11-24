@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["D975SHTTJQ.com.worship-q.app"],
+        "components": [{ "/": "/j", "comment": "An invitation; its details stay in the fragment" }]
+      }
+    ]
+  }
+}
