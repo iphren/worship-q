@@ -179,6 +179,31 @@ describe('YouTube links', () => {
     expect(youtubeEmbedUrl('https://www.youtube.com/embed/dQw4w9WgXcQ')).toBe(embed);
   });
 
+  it('takes a Mix as the video it was made from', () => {
+    expect(
+      youtubeEmbedUrl('https://youtube.com/playlist?list=RDdQw4w9WgXcQ&playnext=1&si=abc'),
+    ).toBe(embed);
+    expect(youtubeEmbedUrl('https://www.youtube.com/watch?list=RDdQw4w9WgXcQ')).toBe(embed);
+    expect(youtubeEmbedUrl('https://music.youtube.com/playlist?list=RDdQw4w9WgXcQ')).toBe(embed);
+    // The video in the link wins over the Mix it is playing in.
+    expect(youtubeVideo('https://www.youtube.com/watch?v=IKGazOdWmH4&list=RDdQw4w9WgXcQ')?.id).toBe(
+      'IKGazOdWmH4',
+    );
+  });
+
+  it('leaves other playlists and Mixes it cannot read as web pages', () => {
+    expect(
+      youtubeEmbedUrl('https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG'),
+    ).toBeNull();
+    expect(youtubeEmbedUrl('https://www.youtube.com/playlist?list=RDMMdQw4w9WgXcQ')).toBeNull();
+    expect(
+      youtubeEmbedUrl(
+        'https://www.youtube.com/playlist?list=RDCLAK5uy_kmPRjHDECIcuVwnKsx2Ng7fyNgFKWNJFs',
+      ),
+    ).toBeNull();
+    expect(youtubeEmbedUrl('https://www.youtube.com/playlist')).toBeNull();
+  });
+
   it('keeps where the link starts, for the clock rather than the address', () => {
     const at = (link: string) => youtubeVideo(link)?.startSeconds;
     expect(at('https://youtu.be/dQw4w9WgXcQ')).toBe(0);

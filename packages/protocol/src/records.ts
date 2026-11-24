@@ -171,10 +171,14 @@ function youtubeStart(value: string | null): number {
 /** A YouTube video's identifier: eleven letters, digits, `-` or `_`. */
 export const YOUTUBE_ID = /^[\w-]{11}$/;
 
+/** A Mix's playlist: `RD` and the video it was made from, which the Share button links to. */
+const YOUTUBE_MIX = /^RD([\w-]{11})$/;
+
 /**
  * The YouTube video a link is for, and the second it starts at (`t=` or `start=`). Null when
  * the address is not a single YouTube video: a channel, a playlist or any other site is
- * shown as the web page it is (YouTube control D1).
+ * shown as the web page it is (YouTube control D1). A Mix's own link names no video, so it
+ * is taken as the video the Mix was made from, which is where it starts.
  */
 export function youtubeVideo(address: string): { id: string; startSeconds: number } | null {
   let url: URL;
@@ -190,6 +194,9 @@ export function youtubeVideo(address: string): { id: string; startSeconds: numbe
   else if (host === 'youtube.com' || host === 'youtube-nocookie.com') {
     if (first === 'watch') id = url.searchParams.get('v');
     else if (first === 'embed' || first === 'live' || first === 'shorts') id = second;
+    if (!id && (first === 'watch' || first === 'playlist')) {
+      id = YOUTUBE_MIX.exec(url.searchParams.get('list') ?? '')?.[1];
+    }
   }
   if (!id || !YOUTUBE_ID.test(id)) return null;
   return {
