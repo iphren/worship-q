@@ -30,7 +30,7 @@ Native apps for iPhone, Android phones, iPad and Android tablets, and the link r
 - **Scanning a QR code adds the workspace,** shown by a desktop or another phone or tablet, as a remote control after an operator approves. Scanning one already in the list opens it.
 - **A phone or tablet requests full access as a desktop does,** by pairing with the church server and an administrator's approval. There is no separate promotion mechanism.
 - **An operator phone or tablet can coordinate for other devices**: phones, desktops in viewer mode and other operators.
-- **Presenter Mode is landscape only.**
+- **Presenter Mode turns with the device** (N16, revised).
 - **No Apple TV app.** A native tvOS app cannot show websites or YouTube items, and an app that cannot show everything is not built. An Apple TV shows the slideshow by AirPlay from a phone, tablet or Mac.
 - **No list of workspaces found on the venue Wi-Fi.** A workspace is added by a scan only.
 - **Published by the same organisation, under the same legal name,** as the existing Apple Developer membership, in both stores. The app is called **Worship Q**.
@@ -73,7 +73,7 @@ A remote control works only while it reaches the coordinator; an operator keeps 
 ### Operator features
 
 - **Prepare** as on the desktop: calendar, run sheets, songs with the lyrics editor, backgrounds, Bible passages, slide decks and photos, videos, websites. Settings are a reduced set.
-- **Present on this device.** Presenter Mode: clean slides full screen, always landscape, swipe to move, tap to show controls for a few seconds (spec §12; criteria 10, 33). Websites and YouTube items show here too.
+- **Present on this device.** Presenter Mode: clean slides full screen, turning with the device, swipe to move (as a clicker's Page Down and Page Up), tap to show controls for a few seconds; a presented website or video takes no touches, so a tap never pauses it (spec §12; criteria 10, 33). Websites and YouTube items show here too.
 - **External display.** The slideshow on a projector or TV, with the controls on the device. iPhone and iPad: by cable or AirPlay, including to an Apple TV. Android: by cable. Everything the desktop slideshow shows, websites and YouTube included.
 - **Coordinate.** Hold the live state; show a rotating invitation QR code and approve phones (D25); serve the venue network to phones, desktops and other operators; back up the live state to the church server; **Use this device** and **Carry on here** as on the desktop.
 - **Broadcast live audio (N28).** From the device's microphone or a connected USB input, with the desktop's input picker, level meter and built-in microphone warning. It runs only while the app is on screen. If the system interrupts it, the broadcast status says so and listeners see it stop.
@@ -159,7 +159,7 @@ Numbers are the discovery's, with N17 onwards added here.
 | N13 | Scanning a workspace already on the device | Opens it, whatever its access, and sends no request; if its access ended, asks again. **Agreed.** |
 | N14 | Phone coordinator in the background | The same on iOS and Android: keep the screen awake while presenting, and fall back to **Carry on here** when the app goes to the background (for a local workspace, N25). No Android foreground service. **Agreed.** |
 | N15 | Release order | One public release after M0–M5. The milestones still build remote control first. **Agreed 23 November 2026.** |
-| N16 | Presenter Mode orientation | Landscape only, turning on its own; the rest of the app turns with the phone. **Agreed.** |
+| N16 | Presenter Mode orientation | Turns with the device, like the rest of the app; no orientation is forced. Landscape only was meant to stop slides flipping when a device is moved during a service, but a service that matters shows on an external display, which does not turn. M0 also found that iPadOS 26 no longer lets an app force landscape, only lock the orientation it is in. **Agreed,** revised 24 November 2026. |
 | N17 | One mode | No separate operator and remote control modes. A workspace list where each workspace has an access level, and one set of screens showing what it allows. **Agreed.** |
 | N18 | Promotion | **Withdrawn 23 November 2026.** No **Make operator**, promotion route or grants kept on the server. See N5. |
 | N19 | Shared phone screens | Built once in M2 over a workspace source with remote and operator implementations, porting `apps/remote`'s components. About a third more work in M2, none repeated in M4. **Agreed.** |
