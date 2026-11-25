@@ -204,6 +204,8 @@ First, register the app identifiers (N32) and put the two association files on `
 
 **Done when:** each item works, or the gap and its workaround are written down. A failure named in N34 reopens N1 before any other work.
 
+Results: [the native apps spike](spikes/native-apps.md).
+
 ### M1 — Link router (S)
 
 - The page with the `l` field and the no-`s` message; the final association files; hosting on the public server's host.
