@@ -826,4 +826,8 @@ export const desktop: Record<DesktopKey, string> = {
   'cleanup.needed': '有 {count} 个已保留，因为现在有流程表在使用它。',
   'cleanup.gb': '{size} GB',
   'cleanup.mb': '{size} MB',
+  // The phone and tablet app (native apps plan).
+  'mobile.workspaces': '工作区',
+  'mobile.empty': '扫描正在运行演示的电脑上的二维码，即可在这里控制演示。',
+  'mobile.scan': '扫描二维码',
 };

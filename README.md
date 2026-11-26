@@ -39,6 +39,29 @@ pnpm lint
 pnpm format
 ```
 
+### Phones and tablets
+
+The iPhone, iPad and Android app is the same Tauri project as the desktop
+([native apps plan](docs/native-apps-plan.md)). Its Xcode and Android Studio projects are in
+`apps/desktop/src-tauri/gen`; `tauri.ios.conf.json` and `tauri.android.conf.json` change the
+desktop's settings for each.
+
+- **iOS:** Xcode, with `sudo xcode-select -s /Applications/Xcode.app`, and a device registered
+  to the team.
+- **Android:** Android Studio's SDK and NDK, with `ANDROID_HOME`, `NDK_HOME` and `JAVA_HOME`
+  set. The built-in OpenSSL needs the NDK's tools by the names it expects:
+
+  ```sh
+  export AR_aarch64_linux_android=$NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar
+  export RANLIB_aarch64_linux_android=$NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib
+  ```
+
+```sh
+cd apps/desktop
+pnpm tauri ios build --debug --target aarch64           # or: pnpm tauri ios dev
+pnpm tauri android build --debug --target aarch64 --apk # or: pnpm tauri android dev
+```
+
 ### Church server
 
 ```sh
@@ -99,13 +122,14 @@ playwright install chromium`.
 ## Layout
 
 ```text
-apps/desktop/          Desktop app: React interface and the Tauri (Rust) core
+apps/desktop/          Desktop app: React interface and the Tauri (Rust) core; also the phone and tablet app
 apps/server/           Church server: sync, backups, church defaults, relay, live-state backup; the public server in public mode
 apps/remote/           Phone remote-control page, served by the church server
 apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
 apps/admin/            Admin web app for the church's administrators, served by the church server at /admin/
 apps/website/          worship-q.com download page, on GitHub Pages
 apps/screenshots/      Renders the website's screenshots from the desktop app's code
+apps/router/           app.worship-q.com: invitation links and the apps' association files
 
 packages/protocol/     Shared record schemas, wire messages and the protocol version
 packages/lyrics/       Lyrics parsing, pieces and piece identity

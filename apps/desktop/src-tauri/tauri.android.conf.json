@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "com.worship-q.app",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Worship Q",
+        "backgroundThrottling": "disabled"
+      }
+    ]
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 29
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        { "scheme": ["https"], "host": "app.worship-q.com", "pathPrefix": ["/j"], "appLink": true }
+      ]
+    }
+  }
+}

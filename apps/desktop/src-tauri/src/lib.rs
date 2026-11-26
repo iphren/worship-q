@@ -1,9 +1,15 @@
-//! Native core of the Worship Q desktop app.
+//! Native core of the Worship Q desktop app, and of its phone and tablet builds.
 //!
 //! Kept deliberately small (decision D12): windows, files, fonts, the database, file
 //! transfers, the localhost overlay page, venue-network connections and the OBS link. All presentation, planning and
 //! synchronization logic lives in the shared TypeScript packages.
+//!
+//! The phone and tablet builds (native apps plan) leave out what only a computer has: the
+//! slideshow window, the overlay page, OBS, remembered window places and the updater.
 
+// iOS's mDNS; also compiled for tests on macOS, which has the same calls.
+#[cfg(any(target_os = "ios", all(test, target_os = "macos")))]
+mod bonjour;
 mod cloud;
 mod db;
 mod files;
@@ -12,8 +18,11 @@ mod instances;
 mod keychain;
 mod lan;
 mod media;
+#[cfg(desktop)]
 mod obs;
+#[cfg(desktop)]
 mod output;
+#[cfg(desktop)]
 mod overlay;
 mod power;
 mod web;
@@ -21,23 +30,30 @@ mod workspaces;
 
 use std::fs;
 use tauri::webview::PageLoadEvent;
-use tauri::{Emitter, LogicalSize, Manager, WindowEvent};
+#[cfg(desktop)]
+use tauri::{Emitter, LogicalSize};
+use tauri::{Manager, WindowEvent};
+#[cfg(desktop)]
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
 /// Names the app on its own requests to a server (uploads, downloads, backups). Firewalls in
 /// front of a server, such as AWS WAF's managed rules, block requests without a user agent.
 pub(crate) const USER_AGENT: &str = concat!("WorshipQ/", env!("CARGO_PKG_VERSION"));
 
+#[cfg(desktop)]
 const WINDOW_STATE_FLAGS: StateFlags = StateFlags::SIZE
     .union(StateFlags::POSITION)
     .union(StateFlags::MAXIMIZED)
     .union(StateFlags::FULLSCREEN);
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init());
+    #[cfg(desktop)]
+    let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         // The operator window opens where it was left. The output is placed on a chosen
         // monitor each time, so it is left out. The operator window is restored in `setup`
         // so its size can be checked against the minimum afterwards.
@@ -47,8 +63,13 @@ pub fn run() {
                 .with_denylist(&[output::OUTPUT_LABEL])
                 .skip_initial_state("main")
                 .build(),
-        )
+        );
+    // Invitation links (app.worship-q.com/j) open the app instead of the router page.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_deep_link::init());
+    builder
         .setup(|app| {
+            #[cfg(desktop)]
             if let Some(window) = app.get_webview_window("main") {
                 restore_main_window(&window);
                 // Presenting carries on at full speed behind a slideshow on the same screen.
@@ -69,10 +90,13 @@ pub fn run() {
             app.asset_protocol_scope()
                 .allow_directory(dir.join(media::VIDEOS_DIR), true)?;
             app.manage(db::AppData::open(dir)?);
-            app.manage(overlay::Overlay::new());
-            overlay::start(app.handle());
+            #[cfg(desktop)]
+            {
+                app.manage(overlay::Overlay::new());
+                overlay::start(app.handle());
+                app.manage(obs::Obs::new(app.handle().clone()));
+            }
             app.manage(lan::Lan::new(app.handle().clone()));
-            app.manage(obs::Obs::new(app.handle().clone()));
             app.manage(media::Transfers::default());
             app.manage(power::Power::new());
             Ok(())
@@ -81,7 +105,7 @@ pub fn run() {
         // own prompt, and macOS shows only the system's, once. Everything else as usual.
         // Presented websites are left to the default.
         .on_permission_request(|webview, kind| {
-            let own = matches!(webview.label(), "main" | output::OUTPUT_LABEL);
+            let own = matches!(webview.label(), "main" | OUTPUT_LABEL);
             match kind {
                 tauri::webview::PermissionKind::Microphone if own => {
                     tauri::webview::PermissionResponse::Allow
@@ -96,6 +120,7 @@ pub fn run() {
                 if let Some(lan) = webview.try_state::<lan::Lan>() {
                     lan.reset();
                 }
+                #[cfg(desktop)]
                 if let Some(obs) = webview.try_state::<obs::Obs>() {
                     obs.reset();
                 }
@@ -117,6 +142,7 @@ pub fn run() {
                     }
                     // The restored size can arrive in another display's pixels, and the
                     // scale factor is only settled once the window is on its display.
+                    #[cfg(desktop)]
                     WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
                         grow_to_minimum(window);
                     }
@@ -125,6 +151,7 @@ pub fn run() {
             }
             // Closing the output from the system closes the slideshow like the interface does,
             // so it stays closed instead of being opened again.
+            #[cfg(desktop)]
             if window.label() == output::OUTPUT_LABEL {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -141,15 +168,25 @@ pub fn run() {
             open_website,
             open_guide,
             open_privacy,
+            #[cfg(desktop)]
             output::open_output,
+            #[cfg(desktop)]
             output::close_output,
+            #[cfg(desktop)]
             output::window_output,
+            #[cfg(desktop)]
             output::output_monitor,
+            #[cfg(desktop)]
             output::output_mode,
+            #[cfg(desktop)]
             output::drag_output,
+            #[cfg(desktop)]
             output::output_website,
+            #[cfg(desktop)]
             output::monitor_labels,
+            #[cfg(desktop)]
             output::output_audio_sink,
+            #[cfg(desktop)]
             output::monitor_audio_sink,
             power::keep_display_awake,
             files::import_background,
@@ -176,7 +213,9 @@ pub fn run() {
             media::convert_heic,
             media::remove_converted,
             media::allow_media_file,
+            #[cfg(desktop)]
             overlay::overlay_publish,
+            #[cfg(desktop)]
             overlay::overlay_status,
             keychain::keychain_set,
             keychain::keychain_get,
@@ -191,10 +230,15 @@ pub fn run() {
             lan::lan_browse,
             lan::lan_connect,
             lan::lan_disconnect,
+            #[cfg(desktop)]
             obs::obs_connect,
+            #[cfg(desktop)]
             obs::obs_disconnect,
+            #[cfg(desktop)]
             obs::obs_request,
+            #[cfg(desktop)]
             obs::obs_status,
+            #[cfg(desktop)]
             obs::obs_read_config,
             workspaces::list_workspaces,
             workspaces::add_workspace,
@@ -255,18 +299,26 @@ fn open_in_browser(url: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The slideshow window's label. Mobile builds have none yet (native apps plan M4).
+#[cfg(desktop)]
+const OUTPUT_LABEL: &str = output::OUTPUT_LABEL;
+#[cfg(mobile)]
+const OUTPUT_LABEL: &str = "output";
+
 /// Restores the operator window where it was left, then grows it back to the minimum size.
 ///
 /// The saved size is in physical pixels, so a window saved on a standard display and reopened
 /// on a high-density one comes back at a fraction of its size, and macOS does not apply the
 /// minimum size to sizes set by the app. The check is repeated on resizes and scale changes
 /// (`on_window_event`), because during setup the scale factor can still be the old display's.
+#[cfg(desktop)]
 fn restore_main_window(window: &tauri::WebviewWindow) {
     let _ = window.restore_state(WINDOW_STATE_FLAGS);
     grow_to_minimum(&window.as_ref().window());
 }
 
 /// Grows the operator window to its configured minimum size if it is smaller.
+#[cfg(desktop)]
 fn grow_to_minimum(window: &tauri::Window) {
     if window.is_maximized().unwrap_or(false) || window.is_fullscreen().unwrap_or(false) {
         return;

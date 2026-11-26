@@ -7,14 +7,17 @@ import { startAppMenu } from './app/appMenu';
 import { startLanguage } from './app/language';
 import { OUTPUT_WINDOW } from './app/output';
 import { unlockAudioDeviceNames } from './components/AudioSettings';
+import { MobileApp } from './mobile/MobileApp';
 import { OutputApp } from './output/OutputApp';
+import { IS_MOBILE } from './platform/mobile';
 import './styles.css';
 
 startLanguage();
 
-// The same bundle serves both windows; the slideshow window only draws frames.
-const isOutput = getCurrentWebviewWindow().label === OUTPUT_WINDOW;
-if (!isOutput) {
+// The same bundle serves both windows; the slideshow window only draws frames. The phone and
+// tablet app has its own shell, with no menu bar (native apps plan).
+const isOutput = !IS_MOBILE && getCurrentWebviewWindow().label === OUTPUT_WINDOW;
+if (!isOutput && !IS_MOBILE) {
   void unlockAudioDeviceNames();
   startAppMenu();
 }
@@ -25,6 +28,7 @@ if (!isOutput) {
  */
 function Root() {
   useLocale();
+  if (IS_MOBILE) return <MobileApp />;
   return isOutput ? <OutputApp /> : <App />;
 }
 

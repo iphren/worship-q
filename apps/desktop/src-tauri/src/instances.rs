@@ -11,13 +11,16 @@
 //! releases the lock when the process ends, however it ends, so a file that can be locked
 //! was left by a copy that is gone.
 
+#[cfg(desktop)]
 use crate::overlay::Overlay;
 use std::fs::{self, File, TryLockError};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter, Manager, State, Wry};
+#[cfg(desktop)]
+use tauri::Manager;
+use tauri::{AppHandle, Emitter, State, Wry};
 
 const INSTANCES_DIR: &str = "instances";
 pub const CHANGED_EVENT: &str = "instances-changed";
@@ -51,9 +54,11 @@ impl Instances {
         let count = others.clone();
         std::thread::spawn(move || loop {
             std::thread::sleep(CHECK_EVERY);
+            #[cfg_attr(mobile, allow(unused_mut))]
             let mut now = count_others(&dir, &name);
             // A version from before this file existed holds no lock, but it does hold the
-            // overlay address if it was opened first.
+            // overlay address if it was opened first. Phones and tablets have no overlay.
+            #[cfg(desktop)]
             if now == 0
                 && app
                     .try_state::<Overlay>()

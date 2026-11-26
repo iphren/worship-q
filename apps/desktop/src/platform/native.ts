@@ -204,9 +204,17 @@ export const native = {
   /** Looks for the workspace's coordinator on the LAN for a few seconds. */
   lanBrowse: (workspace: string, seconds: number) =>
     invoke<LanFound[]>('lan_browse', { workspace, seconds }),
-  /** Connects to a coordinator, checking its certificate fingerprint first. */
-  lanConnect: (address: string, port: number, fingerprint: string, token: string, hello: unknown) =>
-    invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
+  /**
+   * Connects to a coordinator, checking its certificate fingerprint first. A phone has no
+   * device token (null) and proves itself with the invitation or grant in `hello`.
+   */
+  lanConnect: (
+    address: string,
+    port: number,
+    fingerprint: string,
+    token: string | null,
+    hello: unknown,
+  ) => invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
   lanDisconnect: (id: string) => invoke<void>('lan_disconnect', { id }),
   /** Events from LAN connections, accepted or made. */
   onLan: (handlers: {

@@ -891,6 +891,11 @@ export const desktop = {
   'cleanup.needed': '{count} kept, as a run sheet now uses it.',
   'cleanup.gb': '{size} GB',
   'cleanup.mb': '{size} MB',
+  // The phone and tablet app (native apps plan).
+  'mobile.workspaces': 'Workspaces',
+  'mobile.empty':
+    'Scan the QR code on the computer running the presentation to control it from here.',
+  'mobile.scan': 'Scan a QR code',
 } as const;
 
 export type DesktopKey = keyof typeof desktop;

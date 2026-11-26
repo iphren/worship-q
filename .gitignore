@@ -1,7 +1,7 @@
 node_modules/
 dist/
 target/
-apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/gen/schemas/
 *.log
 .DS_Store
 apps/server/data/

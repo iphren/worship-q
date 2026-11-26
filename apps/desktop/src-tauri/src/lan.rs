@@ -499,6 +499,20 @@ pub fn lan_advertise(
     on: bool,
 ) -> Result<(), String> {
     let fingerprint = lan.identity(&data)?;
+    // iOS lets an app advertise only through the system's Bonjour.
+    #[cfg(target_os = "ios")]
+    return crate::bonjour::advertise(
+        on,
+        &device_id,
+        LAN_PORT,
+        &[
+            ("ws", &workspace),
+            ("dev", &device_id),
+            ("fp", &fingerprint),
+            ("name", &name),
+        ],
+    );
+    #[allow(unreachable_code)]
     let mut inner = lan.inner.lock().map_err(err)?;
     let daemon = Lan::daemon(&mut inner)?;
     if let Some(fullname) = inner.advertised.take() {
@@ -542,6 +556,34 @@ pub async fn lan_browse(
     workspace: String,
     seconds: u64,
 ) -> Result<Vec<Found>, String> {
+    // iOS lets an app look only through the system's Bonjour.
+    #[cfg(target_os = "ios")]
+    {
+        let _ = &lan;
+        let seconds = seconds.clamp(1, 30);
+        let services = tokio::task::spawn_blocking(move || crate::bonjour::browse(seconds))
+            .await
+            .map_err(err)??;
+        let mut found: HashMap<String, Found> = HashMap::new();
+        for service in services {
+            let value = |key: &str| service.txt.get(key).cloned().unwrap_or_default();
+            if value("ws") != workspace || value("dev").is_empty() {
+                continue;
+            }
+            found.insert(
+                value("dev"),
+                Found {
+                    device_id: value("dev"),
+                    name: value("name"),
+                    fingerprint: value("fp"),
+                    addresses: service.addresses.clone(),
+                    port: service.port,
+                },
+            );
+        }
+        return Ok(found.into_values().collect());
+    }
+    #[allow(unreachable_code)]
     let daemon = {
         let mut inner = lan.inner.lock().map_err(err)?;
         Lan::daemon(&mut inner)?
@@ -594,16 +636,28 @@ pub async fn lan_browse(
     Ok(found.into_values().collect())
 }
 
+/// The first message on a connection: the hello, with the device token when there is one.
+fn with_token(mut hello: Value, token: Option<String>) -> Value {
+    if let (Some(object), Some(token)) = (hello.as_object_mut(), token) {
+        object.insert("token".to_string(), Value::String(token));
+    }
+    hello
+}
+
 /// Connects to a coordinator on the LAN, checking its certificate against `fingerprint`
 /// before anything is sent (plan M5.5). `hello` is sent first, with the device token added,
 /// so the coordinator can prove who is connecting. Returns the connection's identifier.
+///
+/// A phone controlling a workspace (native apps plan M2) has no device token: it connects
+/// with `token` null and proves itself with the invitation or grant in its hello, as the
+/// coordinator's relay logic expects of a phone.
 #[tauri::command(async)]
 pub async fn lan_connect(
     lan: State<'_, Lan>,
     address: String,
     port: u16,
     fingerprint: String,
-    token: String,
+    token: Option<String>,
     hello: Value,
 ) -> Result<String, String> {
     let config = ClientConfig::builder_with_provider(provider())
@@ -630,10 +684,7 @@ pub async fn lan_connect(
         .await
         .map_err(err)?;
     let (mut sink, mut stream) = ws.split();
-    let mut first = hello;
-    if let Some(object) = first.as_object_mut() {
-        object.insert("token".to_string(), Value::String(token));
-    }
+    let first = with_token(hello, token);
     sink.send(Message::Text(first.to_string().into()))
         .await
         .map_err(err)?;
@@ -717,6 +768,17 @@ mod tests {
         let third = load_identity(&dir).unwrap();
         assert_ne!(first.fingerprint, third.fingerprint);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sends_a_device_token_only_when_there_is_one() {
+        let hello = serde_json::json!({ "type": "hello", "invite": "d.s" });
+        assert_eq!(
+            super::with_token(hello.clone(), Some("t".into())),
+            serde_json::json!({ "type": "hello", "invite": "d.s", "token": "t" })
+        );
+        // A phone has none, so the coordinator takes it for a phone (`kind: remote`).
+        assert_eq!(super::with_token(hello.clone(), None), hello);
     }
 
     #[test]

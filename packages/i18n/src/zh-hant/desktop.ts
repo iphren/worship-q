@@ -807,4 +807,8 @@ export const desktop: Record<DesktopKey, string> = {
   'cleanup.needed': '有 {count} 個已保留，因為現在有流程表在使用它。',
   'cleanup.gb': '{size} GB',
   'cleanup.mb': '{size} MB',
+  // The phone and tablet app (native apps plan).
+  'mobile.workspaces': '工作區',
+  'mobile.empty': '掃描正在執行簡報的電腦上的 QR 碼，即可在這裡控制簡報。',
+  'mobile.scan': '掃描 QR 碼',
 };
