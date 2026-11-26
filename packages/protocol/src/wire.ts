@@ -681,9 +681,29 @@ export interface RemoteView {
   websites?: boolean;
   /**
    * Slide thumbnails come from the desktop, asked for with `thumbnail` (protocol version 9),
-   * not from the server; set on the public server, which keeps no files (S7).
+   * not from the server; set on the public server, which keeps no files (S7), and for a phone
+   * on the venue network (native apps plan M2.8).
    */
   thumbnailVia?: 'host';
+  /**
+   * The workspace's operator devices this desktop knows on the venue network, itself
+   * included (native apps plan N30). The app trusts only these certificates there, replacing
+   * its list with each view, and looks for them when the presentation moves to another
+   * device. mDNS only says where a device is; it never adds one. Absent from older desktops;
+   * the phone page ignores it.
+   */
+  devices?: RemoteDevice[];
+}
+
+/** An operator device a phone may reach on the venue network (N30). */
+export interface RemoteDevice {
+  deviceId: string;
+  name: string;
+  /** Its certificate's SHA-256 fingerprint, which a connection to it must match. */
+  fingerprint: string;
+  /** Where it was last seen. */
+  addresses: string[];
+  port: number;
 }
 
 /** From the desktop to a remote controller. */
