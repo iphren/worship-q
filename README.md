@@ -124,7 +124,7 @@ playwright install chromium`.
 ```text
 apps/desktop/          Desktop app: React interface and the Tauri (Rust) core; also the phone and tablet app
 apps/server/           Church server: sync, backups, church defaults, relay, live-state backup; the public server in public mode
-apps/remote/           Phone remote-control page, served by the church server
+apps/remote/           Phone remote-control page, served by the church server (screens in packages/phone)
 apps/output/           Browser slideshow and subtitle overlay pages, served by the church server
 apps/admin/            Admin web app for the church's administrators, served by the church server at /admin/
 apps/website/          worship-q.com download page, on GitHub Pages
@@ -141,6 +141,7 @@ packages/session/      One operator device's session, tying the above together
 packages/renderer/     Slideshow and subtitle fitting, wrapping and drawing
 packages/sync/         Content synchronization with a church server
 packages/remote/       Remote control on every operator computer: approvals and commands
+packages/phone/        A phone's remote-control screens and connection: the phone page and the app
 packages/relay/        Relay between a workspace's devices, run by the server and on the LAN
 ```
 

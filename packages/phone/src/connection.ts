@@ -1,5 +1,8 @@
 /**
- * The phone's connection to an operator device, through the church instance's relay.
+ * A phone's connection to an operator device, shared by the phone page (`apps/remote`) and
+ * the phone and tablet app (native apps plan M2.5). Where it connects, and where it keeps
+ * its name and grant, come from its `PhoneLink`: the page uses the church instance's relay
+ * and browser storage; the app also uses the venue network, and the keychain.
  *
  * The invitation from the QR code requests access from the computer that showed it; after
  * an operator approves, the grant it returns is kept on this phone and used to reconnect,
@@ -25,6 +28,44 @@ import {
   type RemoteView,
 } from '@worship-q/protocol';
 
+/** One connection attempt, as a browser WebSocket gives it. */
+export interface PhoneSocket {
+  /** True while open: messages can be sent. */
+  readonly open: boolean;
+  /** How it reaches the operator device. */
+  readonly via: 'lan' | 'relay';
+  send(data: string): void;
+  close(): void;
+  onopen: (() => void) | null;
+  onmessage: ((data: string) => void) | null;
+  onclose: ((info: { code?: number; reason?: string; wasClean?: boolean }) => void) | null;
+}
+
+/** Where a phone keeps its name and its grant for one workspace. */
+export interface PhoneStore {
+  name(): string;
+  setName(name: string): void;
+  grant(): string | null;
+  setGrant(grant: string | null): void;
+}
+
+/** What a phone connects with, and to. */
+export interface PhoneLink {
+  /** The workspace's identifier on the church or public server. */
+  workspace: string;
+  /** The invitation from the QR code, until it is used. */
+  invite: string | null;
+  /** The coordinator's address on the venue network, from the invitation, if any (M5.6). */
+  lan: { addresses: string[]; port: number; fingerprint: string } | null;
+  /** Starts a connection attempt. */
+  connect(): PhoneSocket;
+  store: PhoneStore;
+  /** A file the server keeps, such as a slide thumbnail, as an address the phone can load. */
+  fileUrl(name: string): string;
+  /** The invitation was used: it should not be offered again. */
+  inviteUsed?(): void;
+}
+
 export type RemoteState =
   | { kind: 'name' }
   | { kind: 'connecting' }
@@ -49,19 +90,8 @@ const THUMBNAILS_IN_FLIGHT = 4;
 /** The relay is pinged this often; a ping left unanswered means the connection is gone. */
 const PING_MS = 15_000;
 
-function storage(key: string, value?: string | null): string | null {
-  try {
-    if (value === undefined) return localStorage.getItem(key);
-    if (value === null) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
-  } catch {
-    // Private browsing: the phone is asked again next time.
-  }
-  return value ?? null;
-}
-
 export class RemoteConnection {
-  private socket: WebSocket | null = null;
+  private socket: PhoneSocket | null = null;
   private attempt = 0;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private stopped = false;
@@ -75,6 +105,7 @@ export class RemoteConnection {
   readonly lan: { addresses: string[]; port: number; fingerprint: string } | null;
   /** How the phone is connected: on the venue network, or through the church server. */
   via: 'lan' | 'relay' = 'relay';
+  private readonly store: PhoneStore;
   /**
    * The version said in the hello. The page comes with the server, so it can be newer than
    * the desktop it reaches, which then asks it to update; it steps down while the desktop
@@ -103,16 +134,11 @@ export class RemoteConnection {
   private readonly thumbnailQueue: string[] = [];
   private readonly thumbnailsInFlight = new Set<string>();
 
-  constructor(location: Location) {
-    const query = new URLSearchParams(location.search);
-    const hash = new URLSearchParams(location.hash.slice(1));
-    this.workspace = query.get('w') ?? '';
-    this.invite = hash.get('i');
-    const fingerprint = hash.get('f');
-    const addresses = (hash.get('a') ?? '').split(',').filter(Boolean);
-    const port = Number(hash.get('p') ?? 0);
-    this.lan =
-      fingerprint && addresses.length > 0 && port > 0 ? { addresses, port, fingerprint } : null;
+  constructor(private readonly link: PhoneLink) {
+    this.workspace = link.workspace;
+    this.invite = link.invite;
+    this.lan = link.lan;
+    this.store = link.store;
     this.state_ = this.name ? { kind: 'connecting' } : { kind: 'name' };
   }
 
@@ -121,11 +147,12 @@ export class RemoteConnection {
   }
 
   get name(): string {
-    return storage('wq.remote.name') ?? '';
+    return this.store.name();
   }
 
-  private get grantKey(): string {
-    return `wq.remote.grant.${this.workspace}`;
+  /** A server file, such as a slide thumbnail, as an address this phone can load. */
+  fileUrl(name: string): string {
+    return this.link.fileUrl(name);
   }
 
   subscribe = (listener: () => void) => {
@@ -139,10 +166,10 @@ export class RemoteConnection {
   }
 
   start(name?: string): void {
-    if (name !== undefined) storage('wq.remote.name', name.trim().slice(0, 40));
+    if (name !== undefined) this.store.setName(name.trim().slice(0, 40));
     if (!this.name) return this.set({ kind: 'name' });
     if (!this.workspace) return this.set({ kind: 'no-workspace' });
-    if (!this.invite && !storage(this.grantKey)) {
+    if (!this.invite && !this.store.grant()) {
       return this.set({ kind: 'denied', reason: 'no-invite' });
     }
     this.stopped = false;
@@ -157,17 +184,18 @@ export class RemoteConnection {
 
   private open(): void {
     if (this.state_.kind !== 'live') this.set({ kind: 'connecting' });
-    const url = `${location.origin.replace(/^http/, 'ws')}/api/v1/remote`;
-    const socket = new WebSocket(url);
+    const socket = this.link.connect();
     this.socket = socket;
     socket.onopen = () => {
+      if (this.socket !== socket) return;
+      this.via = socket.via;
       socket.send(
         JSON.stringify({
           type: 'hello',
           protocolVersion: this.helloVersion,
           workspace: this.workspace,
           name: this.name,
-          grant: storage(this.grantKey) ?? undefined,
+          grant: this.store.grant() ?? undefined,
           invite: this.invite ?? undefined,
         }),
       );
@@ -193,12 +221,12 @@ export class RemoteConnection {
         return lost();
       }
       answered = false;
-      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
+      if (socket.open) socket.send(JSON.stringify({ type: 'ping' }));
     }, PING_MS);
-    socket.onmessage = (event) => {
+    socket.onmessage = (data) => {
       if (this.socket !== socket) return;
       lastMessageAt = Date.now();
-      const message = JSON.parse(String(event.data)) as HostToRemote | RelayToRemote;
+      const message = JSON.parse(data) as HostToRemote | RelayToRemote;
       if (message.type === 'pong') {
         answered = answers = true;
         return;
@@ -226,6 +254,7 @@ export class RemoteConnection {
     };
     socket.onclose = (event) => {
       console.warn('[remote] Connection closed', {
+        via: socket.via,
         code: event.code,
         reason: event.reason,
         wasClean: event.wasClean,
@@ -266,10 +295,10 @@ export class RemoteConnection {
       case 'pending':
         return this.set({ kind: 'pending', code: message.code });
       case 'approved':
-        storage(this.grantKey, message.grant);
-        // The invitation is used up; reloading the page uses the grant instead.
+        this.store.setGrant(message.grant);
+        // The invitation is used up; reconnecting, or reloading the page, uses the grant.
         this.invite = null;
-        history.replaceState(null, '', location.pathname + location.search);
+        this.link.inviteUsed?.();
         this.attempt = 0;
         if (this.obsWatching)
           this.socket?.send(JSON.stringify({ type: 'obsWatch', watching: true }));
@@ -282,7 +311,7 @@ export class RemoteConnection {
         this.resumeThumbnails();
         return;
       case 'denied':
-        if (message.reason === 'revoked') storage(this.grantKey, null);
+        if (message.reason === 'revoked') this.store.setGrant(null);
         return this.set({ kind: 'denied', reason: message.reason });
       case 'view':
         this.attempt = 0;
@@ -342,7 +371,7 @@ export class RemoteConnection {
   }
 
   private askThumbnails(): void {
-    if (this.socket?.readyState !== WebSocket.OPEN || this.state_.kind !== 'live') return;
+    if (!this.socket?.open || this.state_.kind !== 'live') return;
     while (this.thumbnailsInFlight.size < THUMBNAILS_IN_FLIGHT && this.thumbnailQueue.length) {
       const name = this.thumbnailQueue.shift()!;
       this.thumbnailsInFlight.add(name);
@@ -387,7 +416,7 @@ export class RemoteConnection {
 
   /** A live audio signal for the broadcaster; dropped while not connected (it asks again). */
   sendAudio(signal: AudioSignal): void {
-    if (this.socket?.readyState !== WebSocket.OPEN || this.state_.kind !== 'live') return;
+    if (!this.socket?.open || this.state_.kind !== 'live') return;
     this.socket.send(JSON.stringify({ type: 'audioSignal', signal }));
   }
 
@@ -477,17 +506,13 @@ export class RemoteConnection {
   obsWatch(watching: boolean): void {
     this.obsWatching = watching;
     if (!watching) this.obsImage_ = null;
-    if (this.socket?.readyState === WebSocket.OPEN) {
+    if (this.socket?.open) {
       this.socket.send(JSON.stringify({ type: 'obsWatch', watching }));
     }
   }
 
   get connected(): boolean {
-    return (
-      this.socket?.readyState === WebSocket.OPEN &&
-      this.state_.kind === 'live' &&
-      !this.state_.reconnecting
-    );
+    return this.socket?.open === true && this.state_.kind === 'live' && !this.state_.reconnecting;
   }
 
   private newId(): string {
@@ -516,7 +541,7 @@ export class RemoteConnection {
 
   /** Forget the approval on this phone, for example before handing it on. */
   leave(): void {
-    storage(this.grantKey, null);
+    this.store.setGrant(null);
     this.stop();
     this.set({ kind: 'denied', reason: 'no-invite' });
   }

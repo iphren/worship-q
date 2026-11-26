@@ -18,7 +18,7 @@ import {
   type ListenStatus,
 } from '@worship-q/audio';
 import type { IceServer, RemoteAudioView } from '@worship-q/protocol';
-import type { RemoteConnection } from './connection';
+import type { WorkspaceSource } from './source';
 import { t } from '@worship-q/i18n/remote';
 
 export type PhoneListenState = ListenState;
@@ -45,7 +45,7 @@ export class PhoneListen {
   private readonly player: ListenPlayer<MediaStream>;
 
   constructor(
-    connection: Pick<RemoteConnection, 'sendAudio' | 'onAudioSignal' | 'onRejoin'>,
+    connection: Pick<WorkspaceSource, 'sendAudio' | 'onAudioSignal' | 'onRejoin'>,
     deps: PhoneListenDeps = {},
   ) {
     this.player = new ListenPlayer<MediaStream>({

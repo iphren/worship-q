@@ -209,6 +209,9 @@ importers:
       '@worship-q/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@worship-q/phone':
+        specifier: workspace:*
+        version: link:../../packages/phone
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -407,6 +410,28 @@ importers:
         version: link:../protocol
 
   packages/lyrics: {}
+
+  packages/phone:
+    dependencies:
+      '@worship-q/audio':
+        specifier: workspace:*
+        version: link:../audio
+      '@worship-q/i18n':
+        specifier: workspace:*
+        version: link:../i18n
+      '@worship-q/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@worship-q/ui':
+        specifier: workspace:*
+        version: link:../ui
+      react:
+        specifier: ^19.0.0
+        version: 19.3.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
 
   packages/protocol:
     dependencies:

@@ -20,20 +20,22 @@ import {
 import { ControlIcon, ItemBadgeMark, Marquee } from '@worship-q/ui';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { PassageColumns, PhoneBible } from './Bible';
-import { PhoneListen, phoneDelayText, phoneListenText } from './audio';
-import { RemoteConnection } from './connection';
+import { phoneDelayText, phoneListenText } from './audio';
+import { usePhone } from './context';
 import { LanguageButton } from './Language';
 import { formatDate, t, type MessageKey } from '@worship-q/i18n/remote';
 
-const connection = new RemoteConnection(window.location);
-const listen = new PhoneListen(connection);
-
-export function RemoteApp() {
+/**
+ * A phone's screens for one workspace, from asking its name to the live run sheet, over the
+ * connection its `PhoneProvider` gives.
+ */
+export function PhoneApp() {
+  const { connection } = usePhone();
   const state = useSyncExternalStore(connection.subscribe, () => connection.state);
   useEffect(() => {
     connection.start();
     return () => connection.stop();
-  }, []);
+  }, [connection]);
 
   switch (state.kind) {
     case 'name':
@@ -89,6 +91,7 @@ export function RemoteApp() {
  * on screen, holding its space meanwhile; the slide's text when the desktop has none.
  */
 function HostThumbnail(props: { name: string; alt: string; fallback: string[] }) {
+  const { connection } = usePhone();
   const holder = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState<string | null | undefined>(undefined);
   useEffect(() => {
@@ -114,7 +117,7 @@ function HostThumbnail(props: { name: string; alt: string; fallback: string[] })
       cancelled = true;
       observer.disconnect();
     };
-  }, [props.name]);
+  }, [connection, props.name]);
   if (url === null) {
     return (
       <div className="px-2 py-1">
@@ -141,6 +144,7 @@ function Message(props: { title: string; children?: ReactNode }) {
 }
 
 function NameForm() {
+  const { connection } = usePhone();
   const [name, setName] = useState('');
   return (
     <main className="flex h-full flex-col items-center justify-center p-8">
@@ -173,6 +177,7 @@ function NameForm() {
 }
 
 function Live({ view }: { view: RemoteView | null }) {
+  const { connection } = usePhone();
   const activeRef = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   // Until when a change of the presented slide counts as this phone's Prev or Next, so the
@@ -349,7 +354,7 @@ function Live({ view }: { view: RemoteView | null }) {
                                 />
                               ) : piece.thumbnail ? (
                                 <img
-                                  src={`/api/v1/remote/files/${encodeURIComponent(connection.workspace)}/${encodeURIComponent(piece.thumbnail)}`}
+                                  src={connection.fileUrl(piece.thumbnail)}
                                   alt={piece.lines.join(' ')}
                                   loading="lazy"
                                   // Hold the slide's space before the image loads, so a scroll to the
@@ -577,6 +582,7 @@ function VideoBar(props: {
   connected: boolean;
   view: RemoteView;
 }) {
+  const { connection } = usePhone();
   const { video, connected, view } = props;
   const [now, setNow] = useState(() => Date.now());
   const [dragging, setDragging] = useState<number | null>(null);
@@ -710,6 +716,7 @@ function EditRunSheet(props: {
   onAdd(): void;
   onBible(): void;
 }) {
+  const { connection } = usePhone();
   const { view, connected, before } = props;
   const firstNewRef = useRef<HTMLLIElement>(null);
   // A remove waits for a second tap, so a slip of the finger does not take a song out.
@@ -852,6 +859,7 @@ function AddSongs(props: {
   /** Opens the Bible screen on a reference typed here (B9). */
   onOpenBible(text: string): void;
 }) {
+  const { connection } = usePhone();
   const { view, connected } = props;
   const [query, setQuery] = useState('');
   // A reference typed into the search, found on the phone alone; songs are still listed.
@@ -875,7 +883,7 @@ function AddSongs(props: {
       current = false;
       clearTimeout(timer);
     };
-  }, [query, connected]);
+  }, [connection, query, connected]);
 
   // Results for an earlier query stay shown, dimmed, until the answer for this one comes.
   const searching = query.trim() !== '' && results?.query !== query.trim();
@@ -1081,6 +1089,7 @@ function ObsDot({ obs }: { obs: RemoteObsView }) {
 
 /** Runs one OBS command at a time, keeping its failure to show for a while. */
 function useObsCommand() {
+  const { connection } = usePhone();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (command: ObsCommand) => {
@@ -1116,6 +1125,7 @@ function AudioRow({
   audio: NonNullable<RemoteView['audio']> | null;
   beside: boolean;
 }) {
+  const { listen } = usePhone();
   const state = useSyncExternalStore(listen.subscribe, () => listen.state);
   const key = audio ? `${audio.ownerId}|${audio.activatedAt}|${audio.status}` : '';
   useEffect(() => listen.follow(audio), [key]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1252,6 +1262,7 @@ function outputText(output: ObsOutput, elapsed: number | null): string {
 
 /** The OBS screen (M4.2): the live monitor, the scenes and the outputs. */
 function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
+  const { connection } = usePhone();
   const { obs } = props;
   const command = useObsCommand();
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -1264,7 +1275,7 @@ function ObsScreen(props: { obs: RemoteObsView; connected: boolean }) {
   useEffect(() => {
     connection.obsWatch(true);
     return () => connection.obsWatch(false);
-  }, []);
+  }, [connection]);
 
   useEffect(() => {
     if (!confirming) return;

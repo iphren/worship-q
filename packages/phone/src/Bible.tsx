@@ -23,7 +23,7 @@ import {
 } from '@worship-q/protocol';
 import { useEffect, useMemo, useState } from 'react';
 import { baseLocale, t, type MessageKey } from '@worship-q/i18n/remote';
-import type { RemoteConnection } from './connection';
+import type { WorkspaceSource } from './source';
 
 const {
   backTo,
@@ -57,7 +57,7 @@ function warningText(warning: AlignWarning, book: string): string {
 }
 
 export function PhoneBible(props: {
-  connection: RemoteConnection;
+  connection: WorkspaceSource;
   connected: boolean;
   /** Text to open on, such as a reference typed into the library search. */
   initial?: string;

@@ -1,0 +1,32 @@
+/*
+ * The phone screens' Tailwind setup, imported by each app's stylesheet after Tailwind.
+ *
+ * A phone on its side: too short for the portrait column, so the slides take the left and
+ * the controls a rail on the right. Tablets and computers are taller and keep the column.
+ */
+@source '.';
+@source '../../ui/src';
+
+@custom-variant land (@media (orientation: landscape) and (max-height: 500px));
+
+/*
+ * Slides a bar a third as wide as its holder in from beyond the left edge and out beyond the
+ * right one over its animation duration, for the OBS monitor's next image. Starting and ending
+ * out of sight, it never seems to jump back.
+ */
+.monitor-refresh {
+  animation-name: monitor-refresh;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes monitor-refresh {
+  /* In its own widths: just beyond the left edge, then just beyond the right edge of a holder
+     three times as wide. */
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}

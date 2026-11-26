@@ -1,35 +1,53 @@
-import { invitationLink, routerView } from '@worship-q/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RemoteConnection } from './connection';
+import { RemoteConnection, type PhoneLink, type PhoneSocket } from './connection';
 
-/** A WebSocket the test drives: what the phone sent, and answers from the relay. */
-class FakeSocket {
-  static OPEN = 1;
+/** A connection the test drives: what the phone sent, and answers from the relay. */
+class FakeSocket implements PhoneSocket {
   static all: FakeSocket[] = [];
-  readyState = 0;
+  open = false;
   sent: Record<string, unknown>[] = [];
   onopen: (() => void) | null = null;
-  onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: ((event: { code: number; reason: string; wasClean: boolean }) => void) | null = null;
-  constructor(readonly url: string) {
+  onmessage: ((data: string) => void) | null = null;
+  onclose: PhoneSocket['onclose'] = null;
+  constructor(readonly via: 'lan' | 'relay') {
     FakeSocket.all.push(this);
   }
   send(data: string) {
     this.sent.push(JSON.parse(data) as Record<string, unknown>);
   }
   close() {
-    this.readyState = 3;
+    this.open = false;
   }
-  open() {
-    this.readyState = FakeSocket.OPEN;
+  opened() {
+    this.open = true;
     this.onopen?.();
   }
   receive(message: unknown) {
-    this.onmessage?.({ data: JSON.stringify(message) });
+    this.onmessage?.(JSON.stringify(message));
   }
   asked(): string[] {
     return this.sent.filter((m) => m.type === 'thumbnail').map((m) => String(m.name));
   }
+}
+
+/** A phone named Sam, invited to `ws-1`, keeping its grant in memory. */
+function fakeLink(changes: Partial<PhoneLink> = {}): PhoneLink & { grant: string | null } {
+  const link: PhoneLink & { grant: string | null } = {
+    grant: null,
+    workspace: 'ws-1',
+    invite: 'dev.secret',
+    lan: null,
+    connect: () => new FakeSocket('relay'),
+    store: {
+      name: () => 'Sam',
+      setName: () => undefined,
+      grant: () => link.grant,
+      setGrant: (grant) => void (link.grant = grant),
+    },
+    fileUrl: (name: string) => `/files/${name}`,
+    ...changes,
+  };
+  return link;
 }
 
 const name = (n: number) =>
@@ -37,15 +55,6 @@ const name = (n: number) =>
 
 beforeEach(() => {
   FakeSocket.all = [];
-  const kept = new Map<string, string>([['wq.remote.name', 'Sam']]);
-  vi.stubGlobal('WebSocket', FakeSocket);
-  vi.stubGlobal('location', { origin: 'https://public.worship-q.com', pathname: '/remote/' });
-  vi.stubGlobal('history', { replaceState: () => undefined });
-  vi.stubGlobal('localStorage', {
-    getItem: (key: string) => kept.get(key) ?? null,
-    setItem: (key: string, value: string) => void kept.set(key, value),
-    removeItem: (key: string) => void kept.delete(key),
-  });
   let urls = 0;
   vi.stubGlobal('URL', { ...URL, createObjectURL: () => `blob:${++urls}` });
 });
@@ -54,23 +63,20 @@ afterEach(() => {
 });
 
 function connect() {
-  const connection = new RemoteConnection({
-    search: '?w=ws-1',
-    hash: '#i=dev.secret',
-  } as Location);
+  const connection = new RemoteConnection(fakeLink());
   connection.start();
   const socket = FakeSocket.all.at(-1)!;
-  socket.open();
+  socket.opened();
   socket.receive({ type: 'approved', grant: 'g.1' });
   return { connection, socket };
 }
 
 describe('the phone when the workspace is full (S3)', () => {
   it('says how many phones the public server allows', () => {
-    const connection = new RemoteConnection({ search: '?w=ws-1', hash: '#i=d.s' } as Location);
+    const connection = new RemoteConnection(fakeLink());
     connection.start();
     const socket = FakeSocket.all.at(-1)!;
-    socket.open();
+    socket.opened();
     socket.receive({ type: 'unavailable', reason: 'full', limit: 2 });
     expect(connection.state).toEqual({ kind: 'full', limit: 2 });
     connection.stop();
@@ -118,37 +124,64 @@ describe('thumbnails from the desktop (S7, S8)', () => {
   });
 });
 
-/** The real URL class, kept before the tests stub it for object URLs. */
-const RealURL = URL;
-
-describe('opened from the link router (native apps M1)', () => {
-  it('reads the workspace, the invitation and the venue network from Continue', () => {
-    const link = invitationLink({
-      server: 'church.example.org',
-      workspace: 'ws 1',
-      invite: 'dev-1.secret',
-      lan: { fingerprint: 'AB:CD', addresses: ['10.0.0.2', '10.0.0.3'], port: 47311 },
-    });
-    const view = routerView(new RealURL(link).hash);
-    if (view.kind !== 'continue') throw new Error(`router page shows ${view.kind}`);
-    const continued = new RealURL(view.href);
-    expect(continued.origin + continued.pathname).toBe('https://church.example.org/remote/');
-
-    const connection = new RemoteConnection(continued as unknown as Location);
-    expect(connection.workspace).toBe('ws 1');
-    expect(connection.lan).toEqual({
-      fingerprint: 'AB:CD',
-      addresses: ['10.0.0.2', '10.0.0.3'],
-      port: 47311,
-    });
+describe('what the link decides (native apps M2.5)', () => {
+  it('keeps the grant where the link keeps it, and says the invitation was used', () => {
+    const inviteUsed = vi.fn();
+    const link = fakeLink({ inviteUsed });
+    const connection = new RemoteConnection(link);
     connection.start();
     const socket = FakeSocket.all.at(-1)!;
-    socket.open();
+    socket.opened();
     expect(socket.sent[0]).toMatchObject({
       type: 'hello',
-      workspace: 'ws 1',
-      invite: 'dev-1.secret',
+      workspace: 'ws-1',
+      invite: 'dev.secret',
     });
+    socket.receive({ type: 'approved', grant: 'g.1' });
+    expect(link.grant).toBe('g.1');
+    expect(inviteUsed).toHaveBeenCalledOnce();
     connection.stop();
+  });
+
+  it('comes back with the grant, not the used invitation', () => {
+    const link = fakeLink();
+    const first = new RemoteConnection(link);
+    first.start();
+    FakeSocket.all.at(-1)!.opened();
+    FakeSocket.all.at(-1)!.receive({ type: 'approved', grant: 'g.1' });
+    first.stop();
+    const again = new RemoteConnection({ ...link, invite: null });
+    again.start();
+    const socket = FakeSocket.all.at(-1)!;
+    socket.opened();
+    expect(socket.sent[0]).toMatchObject({ grant: 'g.1' });
+    expect(socket.sent[0]).not.toHaveProperty('invite');
+    again.stop();
+  });
+
+  it('forgets a revoked grant', () => {
+    const link = fakeLink();
+    link.grant = 'g.1';
+    const connection = new RemoteConnection({ ...link, invite: null });
+    connection.start();
+    const socket = FakeSocket.all.at(-1)!;
+    socket.opened();
+    socket.receive({ type: 'denied', reason: 'revoked' });
+    expect(link.grant).toBeNull();
+    expect(connection.state).toEqual({ kind: 'denied', reason: 'revoked' });
+    connection.stop();
+  });
+
+  it('says whether it reached the coordinator on the venue network', () => {
+    const connection = new RemoteConnection(fakeLink({ connect: () => new FakeSocket('lan') }));
+    expect(connection.via).toBe('relay');
+    connection.start();
+    FakeSocket.all.at(-1)!.opened();
+    expect(connection.via).toBe('lan');
+    connection.stop();
+  });
+
+  it('loads server files at the address the link gives', () => {
+    expect(new RemoteConnection(fakeLink()).fileUrl('a.jpg')).toBe('/files/a.jpg');
   });
 });
