@@ -637,11 +637,16 @@ pub async fn lan_browse(
 }
 
 /// The first message on a connection: the hello, with the device token when there is one.
-fn with_token(mut hello: Value, token: Option<String>) -> Value {
+/// None when there is neither: the caller sends its hello itself once it chose this
+/// connection, as the app does when it tries the LAN and the relay together.
+fn with_token(mut hello: Value, token: Option<String>) -> Option<Value> {
+    if hello.is_null() && token.is_none() {
+        return None;
+    }
     if let (Some(object), Some(token)) = (hello.as_object_mut(), token) {
         object.insert("token".to_string(), Value::String(token));
     }
-    hello
+    Some(hello)
 }
 
 /// Connects to a coordinator on the LAN, checking its certificate against `fingerprint`
@@ -650,7 +655,8 @@ fn with_token(mut hello: Value, token: Option<String>) -> Value {
 ///
 /// A phone controlling a workspace (native apps plan M2) has no device token: it connects
 /// with `token` null and proves itself with the invitation or grant in its hello, as the
-/// coordinator's relay logic expects of a phone.
+/// coordinator's relay logic expects of a phone. With `hello` null too, nothing is sent: the
+/// phone sends its hello with `lan_send` once it has chosen this connection.
 #[tauri::command(async)]
 pub async fn lan_connect(
     lan: State<'_, Lan>,
@@ -684,10 +690,11 @@ pub async fn lan_connect(
         .await
         .map_err(err)?;
     let (mut sink, mut stream) = ws.split();
-    let first = with_token(hello, token);
-    sink.send(Message::Text(first.to_string().into()))
-        .await
-        .map_err(err)?;
+    if let Some(first) = with_token(hello, token) {
+        sink.send(Message::Text(first.to_string().into()))
+            .await
+            .map_err(err)?;
+    }
     let id = lan.next_id("lan-out");
     let (tx, mut rx) = mpsc::unbounded_channel::<Option<String>>();
     {
@@ -775,10 +782,12 @@ mod tests {
         let hello = serde_json::json!({ "type": "hello", "invite": "d.s" });
         assert_eq!(
             super::with_token(hello.clone(), Some("t".into())),
-            serde_json::json!({ "type": "hello", "invite": "d.s", "token": "t" })
+            Some(serde_json::json!({ "type": "hello", "invite": "d.s", "token": "t" }))
         );
         // A phone has none, so the coordinator takes it for a phone (`kind: remote`).
-        assert_eq!(super::with_token(hello.clone(), None), hello);
+        assert_eq!(super::with_token(hello.clone(), None), Some(hello));
+        // A phone trying several ways at once says hello only on the one it keeps.
+        assert_eq!(super::with_token(serde_json::Value::Null, None), None);
     }
 
     #[test]

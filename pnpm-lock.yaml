@@ -111,6 +111,9 @@ importers:
       '@worship-q/lyrics':
         specifier: workspace:*
         version: link:../../packages/lyrics
+      '@worship-q/phone':
+        specifier: workspace:*
+        version: link:../../packages/phone
       '@worship-q/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

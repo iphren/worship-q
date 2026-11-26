@@ -19,6 +19,7 @@
     "@worship-q/i18n": "workspace:*",
     "@worship-q/live-state": "workspace:*",
     "@worship-q/lyrics": "workspace:*",
+    "@worship-q/phone": "workspace:*",
     "@worship-q/protocol": "workspace:*",
     "@worship-q/relay": "workspace:*",
     "@worship-q/remote": "workspace:*",
