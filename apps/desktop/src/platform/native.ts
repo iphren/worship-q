@@ -216,6 +216,10 @@ export const native = {
     hello: unknown,
   ) => invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
   lanDisconnect: (id: string) => invoke<void>('lan_disconnect', { id }),
+
+  // ── The phone and tablet app's workspace list (native apps plan M2.10) ───
+  remoteListRead: () => invoke<string | null>('remote_list_read'),
+  remoteListWrite: (json: string) => invoke<void>('remote_list_write', { json }),
   /** Events from LAN connections, accepted or made. */
   onLan: (handlers: {
     open(event: LanOpened): void;

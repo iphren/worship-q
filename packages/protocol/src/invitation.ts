@@ -128,3 +128,55 @@ export function routerView(fragment: string): RouterView {
   if (invitation.server && href) return { kind: 'continue', server: invitation.server, href };
   return { kind: 'app-only' };
 }
+
+/** An invitation the app can open, with the server's address as a phone page link has it. */
+export interface ScannedInvitation extends Invitation {
+  /**
+   * The church or public server's address with its scheme, and its path for a server under
+   * one (N31): `https://church.example.org`, `http://192.168.1.10:8080/wq`. Absent for a
+   * local workspace with no internet.
+   */
+  serverUrl?: string;
+}
+
+/**
+ * Reads what a camera scan or a link gives the app (native apps plan M2.11): an invitation
+ * through the router, or a direct link to a church server's phone page, which servers the
+ * router does not carry keep (N31). Null for anything else.
+ */
+export function readScanned(text: string): ScannedInvitation | null {
+  let url: URL;
+  try {
+    url = new URL(text.trim());
+  } catch {
+    return null;
+  }
+  if (url.origin === ROUTER_ORIGIN && url.pathname.replace(/\/$/, '') === ROUTER_PATH) {
+    const invitation = readInvitation(url.hash);
+    if (!invitation) return null;
+    return invitation.server
+      ? { ...invitation, serverUrl: `https://${invitation.server}` }
+      : invitation;
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return null;
+  if (url.username || url.password) return null;
+  const page = /^(.*)\/remote\/?$/.exec(url.pathname);
+  const workspace = url.searchParams.get('w')?.trim();
+  const fields = new URLSearchParams(url.hash.slice(1));
+  const invite = fields.get('i')?.trim();
+  if (!page || !workspace || !invite) return null;
+  const scanned: ScannedInvitation = {
+    serverUrl: `${url.origin}${page[1]}`,
+    workspace,
+    invite,
+  };
+  const host = routerServer(scanned.serverUrl!);
+  if (host) scanned.server = host;
+  const fingerprint = fields.get('f')?.trim();
+  const addresses = (fields.get('a') ?? '').split(',').filter(Boolean);
+  const port = Number(fields.get('p') ?? 0);
+  if (fingerprint && addresses.length > 0 && Number.isInteger(port) && port > 0 && port < 65536) {
+    scanned.lan = { fingerprint, addresses, port };
+  }
+  return scanned;
+}

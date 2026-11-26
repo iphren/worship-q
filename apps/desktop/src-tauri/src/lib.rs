@@ -25,6 +25,7 @@ mod output;
 #[cfg(desktop)]
 mod overlay;
 mod power;
+mod remote_list;
 mod web;
 mod workspaces;
 
@@ -64,9 +65,12 @@ pub fn run() {
                 .skip_initial_state("main")
                 .build(),
         );
-    // Invitation links (app.worship-q.com/j) open the app instead of the router page.
+    // Invitation links (app.worship-q.com/j) open the app instead of the router page, and
+    // the camera scans an invitation's QR code.
     #[cfg(mobile)]
-    let builder = builder.plugin(tauri_plugin_deep_link::init());
+    let builder = builder
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_barcode_scanner::init());
     builder
         .setup(|app| {
             #[cfg(desktop)]
@@ -240,6 +244,8 @@ pub fn run() {
             obs::obs_status,
             #[cfg(desktop)]
             obs::obs_read_config,
+            remote_list::remote_list_read,
+            remote_list::remote_list_write,
             workspaces::list_workspaces,
             workspaces::add_workspace,
             workspaces::switch_workspace,

@@ -54,9 +54,11 @@ keyring = { version = "3", features = ["apple-native", "windows-native"] }
 tauri-plugin-window-state = "2"
 tauri-plugin-updater = "2"
 
-# Phones and tablets: invitation links (app.worship-q.com/j) open the app.
+# Phones and tablets: invitation links (app.worship-q.com/j) open the app, and the camera
+# scans an invitation's QR code (native apps plan M2.11).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-deep-link = "2"
+tauri-plugin-barcode-scanner = "2"
 
 # Android has no system OpenSSL for reqwest's native TLS, so it is built in. Secrets are
 # encrypted with a key in the Android Keystore.
