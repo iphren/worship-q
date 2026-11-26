@@ -1,7 +1,7 @@
 # Worship Q — Native Apps Task Breakdown
 
 **Drafted:** 26 November 2026
-**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 broken down below and being implemented;** later milestones are broken down when M2 is done.
+**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.12 done, M2.13–M2.15 need devices; later milestones are broken down when M2 is done.
 **Source:** the [native apps plan](native-apps-plan.md), the [spike results](spikes/native-apps.md), and the code at version 2.15.0 (protocol version 11).
 
 ## 1. How to read this
@@ -48,6 +48,14 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 | A7 | **P.** No custom `worship-q://` scheme in M2. The plan gave the router page an **Open in Worship Q** button using one, but iOS already shows its own banner for this on the router page (seen in M1), and Android opens App Links directly. Revisit if testers ask for it. |
 | A8 | The app's mDNS on iOS uses the system's Bonjour (`bonjour.rs` from the spike, made production code); Android keeps `mdns-sd`, to be checked on the test phone. |
 | A9 | The app uses Tauri's official barcode scanner plugin for the in-app scanner. |
+
+**Changed while building (26 November 2026):**
+
+- **A2.** The app does not switch between the LAN and the relay on a live connection, as the desktop's `TransportSwitch` does. Each connection attempt tries both at once and keeps the LAN if it answers within 2.5 seconds; when a connection drops, the next attempt chooses again. Nothing is said on any connection before one is chosen, so a first scan never shows as two approval requests. A phone that connected through the relay moves to the LAN only when its connection next drops.
+- **M2.8 went further.** The desktop received phones only while it reached the church server, so a coordinator with no internet could not answer phones on the LAN at all. It now receives them either way, and forgets only the relay's phones when the server goes away. Church desktops now download slide thumbnails, as public-server ones did.
+- **The scanner** runs the camera behind the page (`windowed`), because the plugin's full-screen camera has no way to cancel. The page draws the frame and **Cancel**.
+- **Android keychain:** `android-native-keyring-store`, from the maintainers of `keyring`, rather than a Keystore plugin of our own.
+- **Android OpenSSL:** the vendored OpenSSL stays (M2.2). reqwest's `rustls` on Android needs Java-side set-up for the system's certificates.
 
 ## 3. M2 — The app with remote control (L)
 
