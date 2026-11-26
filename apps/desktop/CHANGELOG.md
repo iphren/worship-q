@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.15.1](https://github.com/iphren/worship-q/compare/v2.15.0...v2.15.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* play a shared YouTube Mix as its first video ([769c3b2](https://github.com/iphren/worship-q/commit/769c3b28f3dd195a969c00eb1586031e1c531f72))
+* **router:** keep the invitation page from scrolling in iOS Safari ([146c1a4](https://github.com/iphren/worship-q/commit/146c1a4a2ff27e0bbdf1846c5ca892f2a34c9c92))
+
 ## [2.15.0](https://github.com/iphren/worship-q/compare/v2.14.0...v2.15.0) (2026-11-23)
 
 
