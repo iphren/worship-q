@@ -1,12 +1,24 @@
 # Worship Q link router
 
-Static files for `app.worship-q.com`. This first version is for the [native apps](../../docs/native-apps-plan.md) M0 spike: the two association files and a holding page at `/j`. The invitation page itself is M1.
+Static files for `app.worship-q.com` ([native apps plan](../../docs/native-apps-plan.md), "The link router"): the two association files and the invitation page at `/j`.
 
-No QR code points here yet.
+An invitation link is `https://app.worship-q.com/j#s=…&w=…&l=…&i=…&f=…&a=…&p=…`. Everything is in the fragment, which browsers never send, so the server never sees church data. With the app installed, the link opens it. Without, the page shows which church the invitation is for and offers **Continue to** that church's phone page, or says the presentation needs the app when the invitation names no server. It never forwards on its own, and it loads nothing. Building and reading links is `packages/protocol/src/invitation.ts`; the page's words are in `src/j/words.ts`, with the store links, empty until the apps are published.
+
+No QR code points here yet: the desktop's router links stay switched off (`ROUTER_LINKS` in `apps/desktop/src/app/inviteLink.ts`) until the apps are in the stores.
+
+## Build
+
+```bash
+pnpm --filter @worship-q/router build
+```
+
+This writes `dist/`: the files in `public/`, and `j/index.html` with its script inside, because the page's Content-Security-Policy allows only inline scripts. `pnpm --filter @worship-q/router dev` serves the page locally; open `/j/#s=church.example.org&w=1&i=1`.
 
 ## Before the public release
 
-`assetlinks.json` holds the fingerprint of **one development computer's Android debug key**. Before release, replace it with the **app signing key certificate** from Play Console (Test and release, App signing), and add the upload key's only if testers install builds signed with it.
+- `assetlinks.json` holds the fingerprint of **one development computer's Android debug key**. Before release, replace it with the **app signing key certificate** from Play Console (Test and release, App signing), which exists once the first build is uploaded, and add the upload key's only if testers install builds signed with it.
+- Fill in the store links in `src/j/words.ts`.
+- `apple-app-site-association` is final: it names the release app identifier.
 
 ## Deploy
 
@@ -21,10 +33,11 @@ In the commands below, `<host>` is the server's SSH login and `<router root>` is
    openssl rand -base64 36
    ```
 
-3. **Files.** From the repository root, copy the contents of `public/`, including the hidden `.well-known` folder. Add `--rsync-path="sudo rsync"` if `<router root>` needs root to write.
+3. **Files.** From the repository root, build, then copy the contents of `dist/`, including the hidden `.well-known` folder. Add `--rsync-path="sudo rsync"` if `<router root>` needs root to write.
 
    ```bash
-   rsync -av --delete apps/router/public/ <host>:<router root>/
+   pnpm --filter @worship-q/router build
+   rsync -av --delete apps/router/dist/ <host>:<router root>/
    ```
 
    nginx must be able to read the files. If `<router root>` is inside a home folder, which recent Ubuntu makes `750`, let nginx pass through the folders above it, then check:
@@ -69,7 +82,7 @@ curl -sS -o /dev/null -w '%{http_code} %{content_type} redirects=%{num_redirects
 curl -sS -o /dev/null -w '%{http_code} %{content_type} redirects=%{num_redirects}\n' https://app.worship-q.com/.well-known/assetlinks.json
 ```
 
-The holding page should answer `200` with `text/html`:
+The invitation page should answer `200` with `text/html`. Open `https://app.worship-q.com/j#s=church.example.org&w=1&i=1` in a phone browser without the app: it should name `church.example.org` and offer to continue.
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code} %{content_type}\n' https://app.worship-q.com/j

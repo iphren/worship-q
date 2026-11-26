@@ -26,6 +26,8 @@
     "apps/output/src",
     "apps/website/src",
     "apps/screenshots/src",
+    "apps/router/src",
+    "apps/router/vite.config.ts",
     "apps/website/vite.config.ts",
     "apps/desktop/vite.config.ts",
     "vitest.config.ts"
