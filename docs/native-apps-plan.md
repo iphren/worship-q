@@ -228,8 +228,9 @@ Results: [the native apps spike](spikes/native-apps.md).
 - The permanent local workspace identifier (N22), given to existing local workspaces on update; approvals kept when the public server's identifier changes.
 - `LanHost` for public-server workspaces, grants checked on the coordinator, mDNS with the permanent identifier, LAN addresses and the identifier in the invitation.
 - Invitations from a workspace with no internet (N29).
+- **The Windows firewall** ([spike](spikes/native-apps.md)). Windows' first-run prompt allows the app only on the network type the computer is on then, and never asks again, so a laptop allowed at home is silently blocked at the venue. The desktop checks whether an inbound rule covers it for the current network type and, if not, says so with a button that allows it on Private and Public networks through one administrator prompt; it restarts its LAN server after that and when the network changes. Phones and following desktops try every advertised address, merge entries with the same device, and say when a computer was found but could not be reached.
 
-**Done when:** M2's checks pass against a computer with no church server, a computer with no internet invites a phone with the app, and after the public server forgets the workspace, a scan reopens the same list entry with no new approval.
+**Done when:** M2's checks pass against a computer with no church server, a computer with no internet invites a phone with the app, and after the public server forgets the workspace, a scan reopens the same list entry with no new approval. A Windows computer first allowed on a Public network, then moved to a Private one, shows the warning, and after the button a phone connects to it.
 
 ### M4 — Operator features, local workspace (L)
 
