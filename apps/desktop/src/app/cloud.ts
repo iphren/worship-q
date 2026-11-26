@@ -82,6 +82,7 @@ import { audioSwitchStore } from './audioSettings';
 import { AudioShare } from './audioShare';
 import { deviceSettings } from './deviceSettings';
 import { IceServers } from './iceServers';
+import { inviteLink } from './inviteLink';
 import { LiveLink, type LiveBackupApi, type LiveStatus } from './liveLink';
 import { ObsLink, obsKeychainAccount, obsSettingsStore, type ObsNative } from './obs';
 import { ObsReporter } from './obsReport';
@@ -1399,14 +1400,19 @@ export class CloudController {
   remoteLink(): string | null {
     const { server, workspaceServerId } = this.state ?? {};
     if (!server || !workspaceServerId) return null;
-    let hints = '';
     const coordinator = this.coordinatorLan();
-    if (coordinator) {
-      hints =
-        `&f=${encodeURIComponent(coordinator.fingerprint)}` +
-        `&a=${encodeURIComponent(coordinator.addresses.join(','))}&p=${coordinator.port}`;
-    }
-    return `${server}/remote/?w=${encodeURIComponent(workspaceServerId)}#i=${this.host.invite()}${hints}`;
+    return inviteLink({
+      server,
+      workspace: workspaceServerId,
+      invite: this.host.invite(),
+      lan: coordinator
+        ? {
+            fingerprint: coordinator.fingerprint,
+            addresses: coordinator.addresses,
+            port: coordinator.port,
+          }
+        : null,
+    });
   }
 
   /** Where the coordinator can be reached on the venue network, if known. */

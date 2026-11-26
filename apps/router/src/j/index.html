@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Worship Q</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f8fafc;
+        --text: #0f172a;
+        --muted: #475569;
+        --button: #0f172a;
+        --button-text: #f8fafc;
+        --line: #cbd5e1;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --text: #f1f5f9;
+          --muted: #94a3b8;
+          --button: #f1f5f9;
+          --button-text: #0f172a;
+          --line: #334155;
+        }
+      }
+      body {
+        min-height: 100vh;
+        margin: 0;
+        padding: 16px;
+        box-sizing: border-box;
+        display: grid;
+        place-content: center;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          system-ui,
+          -apple-system,
+          'PingFang SC',
+          'Microsoft YaHei',
+          sans-serif;
+        text-align: center;
+      }
+      main {
+        max-width: 28rem;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 1.5rem;
+      }
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      strong {
+        color: var(--text);
+        overflow-wrap: anywhere;
+      }
+      .continue {
+        display: block;
+        margin: 0 0 24px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        background: var(--button);
+        color: var(--button-text);
+        font-weight: 600;
+        text-decoration: none;
+        overflow-wrap: anywhere;
+      }
+      .stores {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+      .stores a {
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--text);
+        text-decoration: none;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Worship Q</h1>
+      <p id="message"></p>
+      <a id="continue" class="continue" rel="noreferrer" hidden></a>
+      <p id="get-app" hidden></p>
+      <div id="stores" class="stores" hidden></div>
+    </main>
+    <noscript>
+      <p>Open this link on a phone with the Worship Q app, or ask for the church's direct link.</p>
+    </noscript>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

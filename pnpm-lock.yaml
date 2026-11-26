@@ -241,6 +241,16 @@ importers:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
 
+  apps/router:
+    dependencies:
+      '@worship-q/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+    devDependencies:
+      vite:
+        specifier: ^8.3.4
+        version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
   apps/screenshots:
     dependencies:
       '@worship-q/bible':

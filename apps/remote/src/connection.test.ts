@@ -1,3 +1,4 @@
+import { invitationLink, routerView } from '@worship-q/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteConnection } from './connection';
 
@@ -113,6 +114,41 @@ describe('thumbnails from the desktop (S7, S8)', () => {
     socket.receive({ type: 'approved', grant: 'g.1' });
     // The answer never came; being let in again asks once more.
     expect(socket.asked()).toEqual([name(1), name(1)]);
+    connection.stop();
+  });
+});
+
+/** The real URL class, kept before the tests stub it for object URLs. */
+const RealURL = URL;
+
+describe('opened from the link router (native apps M1)', () => {
+  it('reads the workspace, the invitation and the venue network from Continue', () => {
+    const link = invitationLink({
+      server: 'church.example.org',
+      workspace: 'ws 1',
+      invite: 'dev-1.secret',
+      lan: { fingerprint: 'AB:CD', addresses: ['10.0.0.2', '10.0.0.3'], port: 47311 },
+    });
+    const view = routerView(new RealURL(link).hash);
+    if (view.kind !== 'continue') throw new Error(`router page shows ${view.kind}`);
+    const continued = new RealURL(view.href);
+    expect(continued.origin + continued.pathname).toBe('https://church.example.org/remote/');
+
+    const connection = new RemoteConnection(continued as unknown as Location);
+    expect(connection.workspace).toBe('ws 1');
+    expect(connection.lan).toEqual({
+      fingerprint: 'AB:CD',
+      addresses: ['10.0.0.2', '10.0.0.3'],
+      port: 47311,
+    });
+    connection.start();
+    const socket = FakeSocket.all.at(-1)!;
+    socket.open();
+    expect(socket.sent[0]).toMatchObject({
+      type: 'hello',
+      workspace: 'ws 1',
+      invite: 'dev-1.secret',
+    });
     connection.stop();
   });
 });
