@@ -28,7 +28,18 @@ describe('routerServer', () => {
     expect(routerServer('https://[fd00::1]')).toBeNull();
     expect(routerServer('https://example.org/worship')).toBeNull();
     expect(routerServer('https://user:pw@example.org')).toBeNull();
+    expect(routerServer('https://example.org/?x=1')).toBeNull();
+    expect(routerServer('https://example.org/#x')).toBeNull();
     expect(routerServer('not a url')).toBeNull();
+  });
+
+  it('leaves names without a dot, which only a church network knows', () => {
+    expect(routerServer('https://localhost')).toBeNull();
+    expect(routerServer('https://worship:8443')).toBeNull();
+  });
+
+  it('carries an international domain name in its ASCII form', () => {
+    expect(routerServer('https://bücher.example')).toBe('xn--bcher-kva.example');
   });
 });
 
@@ -57,6 +68,19 @@ describe('invitationLink and readInvitation', () => {
     expect(readInvitation(new URL(link).hash)).toEqual(invitation);
   });
 
+  it('round-trips a local workspace online, which also names its church server (N29)', () => {
+    const invitation: Invitation = {
+      server: 'public.worship-q.com',
+      workspace: 'ws-1',
+      local: 'loc-1',
+      invite: 'x',
+      lan: LAN,
+    };
+    const link = invitationLink(invitation);
+    expect(link).toContain('#s=public.worship-q.com&w=ws-1&l=loc-1&i=x&');
+    expect(readInvitation(new URL(link).hash)).toEqual(invitation);
+  });
+
   it('encodes values that would break the fragment', () => {
     const link = invitationLink({ server: 'a.org', workspace: 'w&x=1', invite: 'i#2' });
     expect(readInvitation(new URL(link).hash)).toMatchObject({ workspace: 'w&x=1', invite: 'i#2' });
@@ -70,11 +94,70 @@ describe('invitationLink and readInvitation', () => {
     expect(readInvitation('#s=10.0.0.1&w=1&i=1')).toBeNull();
     expect(readInvitation('#s=evil.org/path&w=1&i=1')).toBeNull();
     expect(readInvitation('#s=a.org:99999&w=1&i=1')).toBeNull();
+    expect(readInvitation('#s=a.org&l=loc-1&i=1')).toBeNull();
+    expect(readInvitation('#s=a.org&w=%20&i=1')).toBeNull();
   });
 
-  it('drops venue network hints that are incomplete', () => {
+  it('refuses servers that would send the phone somewhere else', () => {
+    for (const server of [
+      'a.org%2Fevil',
+      'a.org%3Fx',
+      'a.org%23x',
+      'a.org@evil.org',
+      'a.org%40evil.org',
+      'javascript:alert(1)',
+      'http://evil.org',
+      '//evil.org',
+      'a.org.',
+      '-a.org',
+      'a-.org',
+      '_a.org',
+      'a..org',
+      'localhost',
+      'localhost:8080',
+      '[fd00::1]',
+      'a.org:0',
+      'a.org:',
+      `${'a'.repeat(64)}.org`,
+      `${'a.'.repeat(127)}org`,
+    ]) {
+      expect(readInvitation(`#s=${server}&w=1&i=1`), server).toBeNull();
+    }
+  });
+
+  it('tidies the server it carries', () => {
+    expect(readInvitation('#s=%20Church.Example.ORG%20&w=1&i=1')?.server).toBe(
+      'church.example.org',
+    );
+    expect(readInvitation('#s=church.example.org:443&w=1&i=1')?.server).toBe('church.example.org');
+  });
+
+  it('takes the first server when one is given twice, as the page shows it', () => {
+    expect(routerView('#s=good.org&s=evil.org&w=1&i=1')).toMatchObject({ server: 'good.org' });
+  });
+
+  it('drops venue network hints that are incomplete or out of range', () => {
     expect(readInvitation('#s=a.org&w=1&i=1&f=ab&p=47311')?.lan).toBeUndefined();
     expect(readInvitation('#s=a.org&w=1&i=1&f=ab&a=10.0.0.2&p=0')?.lan).toBeUndefined();
+    expect(readInvitation('#s=a.org&w=1&i=1&f=ab&a=10.0.0.2&p=70000')?.lan).toBeUndefined();
+    expect(readInvitation('#s=a.org&w=1&i=1&f=ab&a=10.0.0.2&p=473.5')?.lan).toBeUndefined();
+    expect(readInvitation('#s=a.org&w=1&i=1&a=10.0.0.2&p=47311')?.lan).toBeUndefined();
+  });
+
+  it('keeps the invitation when its hints are dropped', () => {
+    expect(readInvitation('#s=a.org&w=1&i=1&f=ab&a=10.0.0.2&p=70000')).toEqual({
+      server: 'a.org',
+      workspace: '1',
+      invite: '1',
+    });
+  });
+
+  it('skips empty entries in the address list', () => {
+    expect(readInvitation('#s=a.org&w=1&i=1&f=ab&a=,10.0.0.2,,10.0.0.3,&p=1')?.lan).toEqual({
+      fingerprint: 'ab',
+      addresses: ['10.0.0.2', '10.0.0.3'],
+      port: 1,
+    });
   });
 });
 
@@ -95,6 +178,24 @@ describe('phonePageLink', () => {
 
   it('needs a server and a workspace', () => {
     expect(phonePageLink({ local: 'l', invite: 'i' })).toBeNull();
+    expect(phonePageLink({ server: 'a.org', local: 'l', invite: 'i' })).toBeNull();
+  });
+
+  it('cannot be steered by what the hints contain', () => {
+    const link = phonePageLink({
+      server: 'a.org',
+      workspace: 'w',
+      invite: 'i&w=other',
+      lan: { fingerprint: 'a&s=evil.org', addresses: ['x#y'], port: 1 },
+    })!;
+    const url = new URL(link);
+    expect(url.origin).toBe('https://a.org');
+    expect(url.pathname).toBe('/remote/');
+    expect(url.searchParams.get('w')).toBe('w');
+    const hash = new URLSearchParams(url.hash.slice(1));
+    expect(hash.get('i')).toBe('i&w=other');
+    expect(hash.get('f')).toBe('a&s=evil.org');
+    expect(hash.get('a')).toBe('x#y');
   });
 });
 

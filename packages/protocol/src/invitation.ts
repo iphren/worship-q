@@ -38,7 +38,10 @@ function cleanHost(value: string): string | null {
   const port = match?.[2];
   if (!host) return null;
   if (host.length > 253 || /^[\d.]+$/.test(host)) return null;
-  if (!host.split('.').every((label) => LABEL.test(label))) return null;
+  // A name with at least one dot: `localhost` and names only a church's own network knows
+  // keep a direct link, as the router could not help a phone reach them.
+  const labels = host.split('.');
+  if (labels.length < 2 || !labels.every((label) => LABEL.test(label))) return null;
   if (port !== undefined && !validPort(port)) return null;
   return port === undefined || port === '443' ? host : `${host}:${port}`;
 }

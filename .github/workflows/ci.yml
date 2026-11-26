@@ -21,6 +21,13 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # The router page must carry its script inline; the build fails if it would load a file.
+      - name: Build the link router
+        run: |
+          pnpm --filter @worship-q/router build
+          grep -q '<script type="module">' apps/router/dist/j/index.html
+          test -f apps/router/dist/.well-known/apple-app-site-association
+          test -f apps/router/dist/.well-known/assetlinks.json
 
   # Unsigned, to catch build breaks before merging; releases are built by release.yml.
   build:
