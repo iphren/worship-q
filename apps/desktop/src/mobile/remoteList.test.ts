@@ -128,6 +128,7 @@ describe('the workspace list (native apps M2.10, M2.11)', () => {
     );
     const local = openInvitation(EMPTY_LIST, scan('https://app.worship-q.com/j#l=l&i=x'), newId);
     expect(relayUrl(local.entry)).toBeNull();
+    expect(fileUrl(local.entry, 'a.jpg')).toBeNull();
   });
 
   it('starts afresh from a list it cannot read', () => {

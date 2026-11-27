@@ -144,9 +144,10 @@ export function relayUrl(entry: RemoteEntry): string | null {
   return entry.serverUrl ? `${entry.serverUrl.replace(/^http/, 'ws')}/api/v1/remote` : null;
 }
 
-/** A file the entry's server keeps, such as a slide thumbnail. */
-export function fileUrl(entry: RemoteEntry, name: string): string {
-  return `${entry.serverUrl ?? ''}/api/v1/remote/files/${encodeURIComponent(entry.workspace ?? '')}/${encodeURIComponent(name)}`;
+/** A file the entry's server keeps, such as a slide thumbnail; null with no server. */
+export function fileUrl(entry: RemoteEntry, name: string): string | null {
+  if (!entry.serverUrl) return null;
+  return `${entry.serverUrl}/api/v1/remote/files/${encodeURIComponent(entry.workspace ?? '')}/${encodeURIComponent(name)}`;
 }
 
 /** The keychain account of the entry's grant. */

@@ -1,7 +1,7 @@
 # Worship Q — Native Apps Task Breakdown
 
 **Drafted:** 26 November 2026
-**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.12 done, M2.13–M2.15 need devices; later milestones are broken down when M2 is done.
+**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.12 done and first tested on an iPhone, M2.16 to do, M2.13–M2.15 need devices; later milestones are broken down when M2 is done.
 **Source:** the [native apps plan](native-apps-plan.md), the [spike results](spikes/native-apps.md), and the code at version 2.15.0 (protocol version 11).
 
 ## 1. How to read this
@@ -53,6 +53,7 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 
 - **A2.** The app does not switch between the LAN and the relay on a live connection, as the desktop's `TransportSwitch` does. Each connection attempt tries both at once and keeps the LAN if it answers within 2.5 seconds; when a connection drops, the next attempt chooses again. Nothing is said on any connection before one is chosen, so a first scan never shows as two approval requests. A phone that connected through the relay moves to the LAN only when its connection next drops.
 - **M2.8 went further.** The desktop received phones only while it reached the church server, so a coordinator with no internet could not answer phones on the LAN at all. It now receives them either way, and forgets only the relay's phones when the server goes away. Church desktops now download slide thumbnails, as public-server ones did.
+- **Thumbnails a desktop lacks (27 November 2026).** On the first iPhone test, every deck showed its slides' text. A desktop sends phones on the LAN thumbnails from its own files, but decks it downloaded before M2.8 have only the full images (1,395 full images and 9 thumbnails on the test Mac). The phone now loads a thumbnail the desktop lacks from the church server, as the phone page does, and shows the text only when that fails too. With no internet that still leaves the text, so M2.16 was added.
 - **The scanner** runs the camera behind the page (`windowed`), because the plugin's full-screen camera has no way to cancel. The page draws the frame and **Cancel**.
 - **Android keychain:** `android-native-keyring-store`, from the maintainers of `keyring`, rather than a Keystore plugin of our own.
 - **Android OpenSSL:** the vendored OpenSSL stays (M2.2). reqwest's `rustls` on Android needs Java-side set-up for the system's certificates.
@@ -89,6 +90,7 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 | M2.12 | **Remote control in the app.** The shared screens over the app's connection, with the approval steps (name, **Waiting for approval** with the four-digit code, denied, revoked) and the grant kept in the keychain (G16). Leaving a workspace closes its connection, so gestures never reach another (criterion 23). | M | M2.6, M2.7, M2.11 |
 | M2.13 | **Listening with the screen locked.** The phone page's listening over the app's connection, with the audio background mode on iOS; on Android, whatever keeps the web view playing with the screen off, decided on the test phone. Says when the system interrupts it. | M | M2.12 |
 | M2.14 | **Phone and tablet layouts.** Touch targets of at least 44 points, no hover-only controls, the tablet showing run sheet and slide side by side. In English, Simplified and Traditional Chinese. | M | M2.12 |
+| M2.16 | **Thumbnails the desktop lacks.** When a phone on the LAN asks for a thumbnail the desktop does not have, the desktop makes it from the slide's full image, which it always has for a deck in the run sheet, and keeps it; it downloads it instead only if making it is not possible. A deck downloaded before M2.8 then shows its pictures with no internet. The same size and quality as the server's thumbnails. Rust tests for the resize; a `RemoteHost` test that a missing thumbnail is made rather than refused. | S | M2.8 |
 
 ### Checks
 
@@ -98,6 +100,6 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 
 ### Order
 
-M2.1 → M2.2, M2.3, M2.4 in parallel. M2.5 and M2.6 can start at once, beside the build work, because they change only TypeScript. M2.7 needs both lines. M2.8 and M2.9 are independent of the app and can land on their own. Then M2.10 → M2.11 → M2.12 → M2.13, M2.14, and M2.15 last.
+M2.1 → M2.2, M2.3, M2.4 in parallel. M2.5 and M2.6 can start at once, beside the build work, because they change only TypeScript. M2.7 needs both lines. M2.8 and M2.9 are independent of the app and can land on their own. Then M2.10 → M2.11 → M2.12 → M2.13, M2.14, M2.16, and M2.15 last.
 
 Each task, or a few small ones together, is a pull request. The desktop and the phone page keep working after every one.

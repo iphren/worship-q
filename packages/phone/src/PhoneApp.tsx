@@ -88,12 +88,15 @@ export function PhoneApp() {
 
 /**
  * A slide's small image sent by the desktop (public server S7): asked for only once it is
- * on screen, holding its space meanwhile; the slide's text when the desktop has none.
+ * on screen, holding its space meanwhile. A desktop without the file leaves it to the server
+ * the phone knows, if any (a desktop on the venue network may lack it; native apps M2.8),
+ * and the slide's text is shown when neither has it.
  */
 function HostThumbnail(props: { name: string; alt: string; fallback: string[] }) {
   const { connection } = usePhone();
   const holder = useRef<HTMLDivElement>(null);
   const [url, setUrl] = useState<string | null | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     const element = holder.current;
     if (!element) return;
@@ -118,7 +121,7 @@ function HostThumbnail(props: { name: string; alt: string; fallback: string[] })
       observer.disconnect();
     };
   }, [connection, props.name]);
-  if (url === null) {
+  if (url === null || failed) {
     return (
       <div className="px-2 py-1">
         {props.fallback.map((line, index) => (
@@ -129,7 +132,14 @@ function HostThumbnail(props: { name: string; alt: string; fallback: string[] })
   }
   return (
     <div ref={holder} className="block aspect-video w-full rounded">
-      {url && <img src={url} alt={props.alt} className="h-full w-full rounded object-contain" />}
+      {url && (
+        <img
+          src={url}
+          alt={props.alt}
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded object-contain"
+        />
+      )}
     </div>
   );
 }
@@ -352,9 +362,9 @@ function Live({ view }: { view: RemoteView | null }) {
                                   alt={piece.lines.join(' ')}
                                   fallback={piece.lines}
                                 />
-                              ) : piece.thumbnail ? (
+                              ) : piece.thumbnail && connection.fileUrl(piece.thumbnail) ? (
                                 <img
-                                  src={connection.fileUrl(piece.thumbnail)}
+                                  src={connection.fileUrl(piece.thumbnail)!}
                                   alt={piece.lines.join(' ')}
                                   loading="lazy"
                                   // Hold the slide's space before the image loads, so a scroll to the

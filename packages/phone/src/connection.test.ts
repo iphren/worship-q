@@ -62,8 +62,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function connect() {
-  const connection = new RemoteConnection(fakeLink());
+function connect(changes: Partial<PhoneLink> = {}) {
+  const connection = new RemoteConnection(fakeLink(changes));
   connection.start();
   const socket = FakeSocket.all.at(-1)!;
   socket.opened();
@@ -106,8 +106,16 @@ describe('thumbnails from the desktop (S7, S8)', () => {
     connection.stop();
   });
 
-  it('gives null for a slide the desktop does not have', async () => {
+  it('loads a slide the desktop does not have from the server (native apps M2.8)', async () => {
     const { connection, socket } = connect();
+    const answer = connection.thumbnail(name(1));
+    socket.receive({ type: 'thumbnail', name: name(1), missing: true });
+    expect(await answer).toBe(`/files/${name(1)}`);
+    connection.stop();
+  });
+
+  it('gives null when neither the desktop nor a server has it', async () => {
+    const { connection, socket } = connect({ fileUrl: () => null });
     const answer = connection.thumbnail(name(1));
     socket.receive({ type: 'thumbnail', name: name(1), missing: true });
     expect(await answer).toBeNull();

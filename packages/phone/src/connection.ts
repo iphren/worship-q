@@ -60,8 +60,11 @@ export interface PhoneLink {
   /** Starts a connection attempt. */
   connect(): PhoneSocket;
   store: PhoneStore;
-  /** A file the server keeps, such as a slide thumbnail, as an address the phone can load. */
-  fileUrl(name: string): string;
+  /**
+   * A file the server keeps, such as a slide thumbnail, as an address the phone can load;
+   * null when the phone knows no server, as for a workspace kept on the venue network only.
+   */
+  fileUrl(name: string): string | null;
   /** The invitation was used: it should not be offered again. */
   inviteUsed?(): void;
 }
@@ -151,7 +154,7 @@ export class RemoteConnection {
   }
 
   /** A server file, such as a slide thumbnail, as an address this phone can load. */
-  fileUrl(name: string): string {
+  fileUrl(name: string): string | null {
     return this.link.fileUrl(name);
   }
 
@@ -354,11 +357,19 @@ export class RemoteConnection {
   }
 
   /**
-   * A slide's small image from the desktop (public server S7, S8), as an object URL; null
-   * when the desktop has none. Asked once per page load, a few at a time; asked again only
-   * when the connection was lost before the answer came.
+   * A slide's small image from the desktop (public server S7, S8), as an object URL. A
+   * desktop without the file leaves it to the server the phone knows, if any: a desktop on
+   * the venue network may lack it (native apps M2.8). Null when neither has an address.
    */
-  thumbnail(name: string): Promise<string | null> {
+  async thumbnail(name: string): Promise<string | null> {
+    return (await this.hostThumbnail(name)) ?? this.fileUrl(name);
+  }
+
+  /**
+   * Asked of the desktop once per page load, a few at a time; asked again only when the
+   * connection was lost before the answer came.
+   */
+  private hostThumbnail(name: string): Promise<string | null> {
     const kept = this.thumbnails.get(name);
     if (kept) return Promise.resolve(kept);
     return new Promise((resolve) => {
