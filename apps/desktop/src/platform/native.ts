@@ -48,6 +48,11 @@ export const native = {
   /** Sends this computer's copy of a video to the church server (public server M8). */
   uploadVideoCopy: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_video_copy', { server, token, fileName }),
+  /**
+   * Makes a slide's small copy from its image when this computer lacks it (native apps
+   * M2.16); true when the copy is there afterwards.
+   */
+  makeThumbnail: (fileName: string) => invoke<boolean>('make_thumbnail', { fileName }),
   uploadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>

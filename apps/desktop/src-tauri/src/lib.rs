@@ -196,6 +196,7 @@ pub fn run() {
             files::import_background,
             files::remove_background_file,
             files::background_path,
+            files::make_thumbnail,
             files::export_backup,
             files::restore_backup,
             cloud::upload_background,

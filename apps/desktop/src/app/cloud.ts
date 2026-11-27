@@ -1633,7 +1633,13 @@ export class CloudController {
    */
   private async readThumbnail(name: string): Promise<string | null> {
     if (!THUMBNAIL_NAME.test(name)) return null;
-    const url = await native.backgroundUrl(name);
+    // Decks downloaded before M2.8 came without small copies: made here from the slide's
+    // image, so a phone on the venue network sees it with no internet (M2.16).
+    const url =
+      (await native.backgroundUrl(name)) ??
+      ((await native.makeThumbnail(name).catch(() => false))
+        ? await native.backgroundUrl(name)
+        : null);
     if (!url) return null;
     const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
     if (bytes.length === 0 || bytes.length > THUMBNAIL_MAX_BYTES) return null;

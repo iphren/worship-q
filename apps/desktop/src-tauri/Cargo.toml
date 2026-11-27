@@ -42,6 +42,9 @@ sha2 = "0.10"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # OBS control: the obs-websocket authentication string (OBS control plan, M1.1).
 base64 = "0.22"
+# A slide's small copy for phones, made from its image when the desktop lacks it (native
+# apps M2.16). JPEG only: deck images are always JPEG.
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
 
 # Phase 2. The system keychain for the device token (decision D23): Keychain on macOS and
 # iOS, Credential Manager on Windows. Android's is below.
