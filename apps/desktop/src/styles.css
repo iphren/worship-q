@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* The phone screens, for the phone and tablet app (native apps plan M2.5). */
+@import '@worship-q/phone/theme.css';
 
 @source '../../../packages/renderer/src';
 @source '../../../packages/ui/src';
@@ -30,6 +32,12 @@ body {
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
+}
+
+/* While the phone and tablet app scans a QR code, the camera shows through the page. */
+html.scanning,
+html.scanning body {
+  background: transparent;
 }
 
 /* Pictures and videos are part of the interface, not something to drag out of it. */

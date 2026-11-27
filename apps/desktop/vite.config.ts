@@ -16,13 +16,20 @@ const reloadOnLogicChange: Plugin = {
   },
 };
 
+/** Set by `tauri ios dev` and `tauri android dev`: where a phone reaches this computer. */
+const devHost = process.env.TAURI_DEV_HOST;
+
 // Port and options expected by the Tauri CLI.
 export default defineConfig({
   plugins: [react(), tailwindcss(), reloadOnLogicChange],
   clearScreen: false,
+  // `TAURI_ENV_PLATFORM` tells the interface whether it is the phone and tablet app.
+  envPrefix: ['VITE_', 'TAURI_ENV_'],
   server: {
     port: 1420,
     strictPort: true,
+    host: devHost || false,
+    hmr: devHost ? { protocol: 'ws', host: devHost, port: 1421 } : undefined,
     watch: { ignored: ['**/src-tauri/**'] },
   },
   build: {

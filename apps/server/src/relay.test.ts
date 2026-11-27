@@ -1426,7 +1426,7 @@ describe('slide thumbnails through the relay (public server S7)', () => {
   it('carries a phone’s ask to the desktop and its answer back', async () => {
     const { host, desktop, phone } = await setup();
     desktop('Laptop');
-    host.setThumbnails({ read: async () => null });
+    host.setThumbnails({ read: async () => null, everyone: true });
     const remote = phone({ invite: host.invite() });
     await settle();
     await host.approve(host.pending[0]!.connection);
@@ -1440,7 +1440,7 @@ describe('slide thumbnails through the relay (public server S7)', () => {
   it('drops an ask for anything but a thumbnail’s name', async () => {
     const { host, desktop, phone } = await setup();
     const laptop = desktop('Laptop');
-    host.setThumbnails({ read: async () => 'x' });
+    host.setThumbnails({ read: async () => 'x', everyone: true });
     const remote = phone({ invite: host.invite() });
     await settle();
     const before = laptop.socket.received.length;

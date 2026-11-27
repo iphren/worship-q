@@ -48,6 +48,16 @@ export const native = {
   /** Sends this computer's copy of a video to the church server (public server M8). */
   uploadVideoCopy: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_video_copy', { server, token, fileName }),
+  /**
+   * Makes a slide's small copy from its image when this computer lacks it (native apps
+   * M2.16); true when the copy is there afterwards.
+   */
+  makeThumbnail: (fileName: string) => invoke<boolean>('make_thumbnail', { fileName }),
+  /**
+   * The phone's or tablet's own name, to offer when it first joins (native apps M2.17); null
+   * on iOS without Apple's entitlement, and on desktops.
+   */
+  deviceName: () => invoke<string | null>('device_name'),
   uploadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>
@@ -204,10 +214,22 @@ export const native = {
   /** Looks for the workspace's coordinator on the LAN for a few seconds. */
   lanBrowse: (workspace: string, seconds: number) =>
     invoke<LanFound[]>('lan_browse', { workspace, seconds }),
-  /** Connects to a coordinator, checking its certificate fingerprint first. */
-  lanConnect: (address: string, port: number, fingerprint: string, token: string, hello: unknown) =>
-    invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
+  /**
+   * Connects to a coordinator, checking its certificate fingerprint first. A phone has no
+   * device token (null) and proves itself with the invitation or grant in `hello`.
+   */
+  lanConnect: (
+    address: string,
+    port: number,
+    fingerprint: string,
+    token: string | null,
+    hello: unknown,
+  ) => invoke<string>('lan_connect', { address, port, fingerprint, token, hello }),
   lanDisconnect: (id: string) => invoke<void>('lan_disconnect', { id }),
+
+  // ── The phone and tablet app's workspace list (native apps plan M2.10) ───
+  remoteListRead: () => invoke<string | null>('remote_list_read'),
+  remoteListWrite: (json: string) => invoke<void>('remote_list_write', { json }),
   /** Events from LAN connections, accepted or made. */
   onLan: (handlers: {
     open(event: LanOpened): void;

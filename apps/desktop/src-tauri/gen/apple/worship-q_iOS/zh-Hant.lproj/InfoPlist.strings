@@ -1,0 +1,4 @@
+/* 權限提示（原生應用程式 M2.14）。 */
+"NSLocalNetworkUsageDescription" = "Worship Q 需要取用區域網路，才能連線到同一網路中負責聚會投影的電腦。";
+"NSCameraUsageDescription" = "Worship Q 需要使用相機掃描邀請 QR 碼，以便連線到投影電腦。";
+"NSMicrophoneUsageDescription" = "Worship Q 使用麥克風權限，將你選擇的音源即時播放給聽眾，並在教會開啟錄音時錄製。";

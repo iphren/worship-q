@@ -1,0 +1,518 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0D56D9C8420E6DA87A31AAC3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 913B73BB42548B5BAE2729A0 /* InfoPlist.strings */; };
+		224C638B68F9511959976310 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B8F6DE7C4FECBA7251EFDC7A /* libapp.a */; };
+		3C3D158A2BDBDBE972A4EBBB /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2829BB1DA767A0EB966B47 /* Metal.framework */; };
+		48CD303A3764865745B888AE /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59ECA2887BC806E77A3F7576 /* MetalKit.framework */; };
+		499D422418E60887B8CA9592 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6508B369D6B82EF6426EBA4 /* UIKit.framework */; };
+		5F65943D5E4322CB6DD61A46 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 01396B8E8A020D8524C1FED6 /* assets */; };
+		686DA8D119308FB1F854CDC4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BD0CCFFCAC79B34D2C7735B0 /* LaunchScreen.storyboard */; };
+		899DFFC5E3DB7F0DA06BAD70 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6D660635D5AC3EC23CB96CD /* WebKit.framework */; };
+		A4574E6E9F3F8B785C064D4A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF0FED7075C73A56586D2761 /* Assets.xcassets */; };
+		B03060F3CDDE35D0BDA98476 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F053958882B783A749F5B0BE /* CoreGraphics.framework */; };
+		BD4FB2B108B17C84E15C0017 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = DF3872457BF9ED9BE717D791 /* main.mm */; };
+		D2E09D3FA016DCD86EC7B59B /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A20BC02D48FB69D2940E281 /* QuartzCore.framework */; };
+		E1482B760546CC1BE4D3891A /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F49C14933F460EB8F8BE94E /* Security.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		01396B8E8A020D8524C1FED6 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		01BF1F37379303104617A944 /* cloud.rs */ = {isa = PBXFileReference; path = cloud.rs; sourceTree = "<group>"; };
+		10D11A762BF52AE8E14F67A3 /* web.rs */ = {isa = PBXFileReference; path = web.rs; sourceTree = "<group>"; };
+		18D0C5A897937E2518618702 /* files.rs */ = {isa = PBXFileReference; path = files.rs; sourceTree = "<group>"; };
+		2B0FD0B52529CA051F067CF6 /* bonjour.rs */ = {isa = PBXFileReference; path = bonjour.rs; sourceTree = "<group>"; };
+		398C4DC77276508F8F070EB7 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		41072E5A142E0E40F012911C /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		4FAB04574130BD1261DC3366 /* instances.rs */ = {isa = PBXFileReference; path = instances.rs; sourceTree = "<group>"; };
+		588387B42FAAE7F999047896 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		59ECA2887BC806E77A3F7576 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		5F49C14933F460EB8F8BE94E /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		6056CC28711E3E4A4BAB9301 /* obs.rs */ = {isa = PBXFileReference; path = obs.rs; sourceTree = "<group>"; };
+		64621F92A770E447E98E4960 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6A20BC02D48FB69D2940E281 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		782D77D006E4F4E7CAEBAA8D /* power.rs */ = {isa = PBXFileReference; path = power.rs; sourceTree = "<group>"; };
+		88FC8F84867D31B5184CADE2 /* overlay.rs */ = {isa = PBXFileReference; path = overlay.rs; sourceTree = "<group>"; };
+		89ABE8613070845830DE2BAE /* fonts.rs */ = {isa = PBXFileReference; path = fonts.rs; sourceTree = "<group>"; };
+		8EF342A7A81BA431E23C5216 /* lan.rs */ = {isa = PBXFileReference; path = lan.rs; sourceTree = "<group>"; };
+		9321C4BB7F43849AA27F0CE3 /* worship-q_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "worship-q_iOS.entitlements"; sourceTree = "<group>"; };
+		9F2B840E8CB6A515032705CC /* output.rs */ = {isa = PBXFileReference; path = output.rs; sourceTree = "<group>"; };
+		A582AC02C5988EA05A40A394 /* media.rs */ = {isa = PBXFileReference; path = media.rs; sourceTree = "<group>"; };
+		AA852CD3666181640C3407BD /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		ACC0C137977863E535F12E19 /* db.rs */ = {isa = PBXFileReference; path = db.rs; sourceTree = "<group>"; };
+		B38FF0A982DDA0C89365E9C7 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		B6508B369D6B82EF6426EBA4 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		B8F6DE7C4FECBA7251EFDC7A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		BD0CCFFCAC79B34D2C7735B0 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		D10E0FB14A389465FC354535 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		DD37780542CB9E3317422772 /* keychain.rs */ = {isa = PBXFileReference; path = keychain.rs; sourceTree = "<group>"; };
+		DF0FED7075C73A56586D2761 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DF3872457BF9ED9BE717D791 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		E11AEC2B7D6319B0436A6084 /* workspaces.rs */ = {isa = PBXFileReference; path = workspaces.rs; sourceTree = "<group>"; };
+		EB2829BB1DA767A0EB966B47 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		EBFDF15ECA3A1AA9F8D20442 /* remote_list.rs */ = {isa = PBXFileReference; path = remote_list.rs; sourceTree = "<group>"; };
+		F0386452B70C39923D69B548 /* worship-q_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "worship-q_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F053958882B783A749F5B0BE /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		F6D660635D5AC3EC23CB96CD /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		50904477177D60C5944B9AA0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				224C638B68F9511959976310 /* libapp.a in Frameworks */,
+				B03060F3CDDE35D0BDA98476 /* CoreGraphics.framework in Frameworks */,
+				3C3D158A2BDBDBE972A4EBBB /* Metal.framework in Frameworks */,
+				48CD303A3764865745B888AE /* MetalKit.framework in Frameworks */,
+				D2E09D3FA016DCD86EC7B59B /* QuartzCore.framework in Frameworks */,
+				E1482B760546CC1BE4D3891A /* Security.framework in Frameworks */,
+				499D422418E60887B8CA9592 /* UIKit.framework in Frameworks */,
+				899DFFC5E3DB7F0DA06BAD70 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		022CBD93BDF09955333D733F = {
+			isa = PBXGroup;
+			children = (
+				01396B8E8A020D8524C1FED6 /* assets */,
+				DF0FED7075C73A56586D2761 /* Assets.xcassets */,
+				BD0CCFFCAC79B34D2C7735B0 /* LaunchScreen.storyboard */,
+				0660628C3BB8BB6D29683253 /* Externals */,
+				F09EB8209F8694ED1EC5C648 /* Sources */,
+				372F74C253D9158C98A834E5 /* src */,
+				953DD4AC8FB81D51D70CFE46 /* worship-q_iOS */,
+				F2801AD79F7B764084D50E40 /* Frameworks */,
+				AC65842D3556F2F524D2ABF3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0660628C3BB8BB6D29683253 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		372F74C253D9158C98A834E5 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				2B0FD0B52529CA051F067CF6 /* bonjour.rs */,
+				01BF1F37379303104617A944 /* cloud.rs */,
+				ACC0C137977863E535F12E19 /* db.rs */,
+				18D0C5A897937E2518618702 /* files.rs */,
+				89ABE8613070845830DE2BAE /* fonts.rs */,
+				4FAB04574130BD1261DC3366 /* instances.rs */,
+				DD37780542CB9E3317422772 /* keychain.rs */,
+				8EF342A7A81BA431E23C5216 /* lan.rs */,
+				588387B42FAAE7F999047896 /* lib.rs */,
+				B38FF0A982DDA0C89365E9C7 /* main.rs */,
+				A582AC02C5988EA05A40A394 /* media.rs */,
+				6056CC28711E3E4A4BAB9301 /* obs.rs */,
+				9F2B840E8CB6A515032705CC /* output.rs */,
+				88FC8F84867D31B5184CADE2 /* overlay.rs */,
+				782D77D006E4F4E7CAEBAA8D /* power.rs */,
+				EBFDF15ECA3A1AA9F8D20442 /* remote_list.rs */,
+				10D11A762BF52AE8E14F67A3 /* web.rs */,
+				E11AEC2B7D6319B0436A6084 /* workspaces.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		77E27396300135359B39D279 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				398C4DC77276508F8F070EB7 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		953DD4AC8FB81D51D70CFE46 /* worship-q_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				64621F92A770E447E98E4960 /* Info.plist */,
+				9321C4BB7F43849AA27F0CE3 /* worship-q_iOS.entitlements */,
+				913B73BB42548B5BAE2729A0 /* InfoPlist.strings */,
+			);
+			path = "worship-q_iOS";
+			sourceTree = "<group>";
+		};
+		AC65842D3556F2F524D2ABF3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F0386452B70C39923D69B548 /* worship-q_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D85F0DF170D7B4C987A8739E /* worship-q */ = {
+			isa = PBXGroup;
+			children = (
+				DF3872457BF9ED9BE717D791 /* main.mm */,
+				77E27396300135359B39D279 /* bindings */,
+			);
+			path = "worship-q";
+			sourceTree = "<group>";
+		};
+		F09EB8209F8694ED1EC5C648 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				D85F0DF170D7B4C987A8739E /* worship-q */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		F2801AD79F7B764084D50E40 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F053958882B783A749F5B0BE /* CoreGraphics.framework */,
+				B8F6DE7C4FECBA7251EFDC7A /* libapp.a */,
+				EB2829BB1DA767A0EB966B47 /* Metal.framework */,
+				59ECA2887BC806E77A3F7576 /* MetalKit.framework */,
+				6A20BC02D48FB69D2940E281 /* QuartzCore.framework */,
+				5F49C14933F460EB8F8BE94E /* Security.framework */,
+				B6508B369D6B82EF6426EBA4 /* UIKit.framework */,
+				F6D660635D5AC3EC23CB96CD /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CBEDAA52862A6F925EEE803D /* worship-q_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3AE475425D3DA1B2E472E32C /* Build configuration list for PBXNativeTarget "worship-q_iOS" */;
+			buildPhases = (
+				ABA76F717903C830F4DC9D6B /* Build Rust Code */,
+				60B67E8EE77CC2C807511C27 /* Sources */,
+				5AED4DD3ADE8C4FD0898F2A1 /* Resources */,
+				50904477177D60C5944B9AA0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "worship-q_iOS";
+			packageProductDependencies = (
+			);
+			productName = "worship-q_iOS";
+			productReference = F0386452B70C39923D69B548 /* worship-q_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3BFF4C668109A6015277BF73 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					CBEDAA52862A6F925EEE803D = {
+						DevelopmentTeam = D975SHTTJQ;
+					};
+				};
+			};
+			buildConfigurationList = 2761FF2822D63EB89EAFDC66 /* Build configuration list for PBXProject "worship-q" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				"zh-Hans",
+				"zh-Hant",
+			);
+			mainGroup = 022CBD93BDF09955333D733F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = AC65842D3556F2F524D2ABF3 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CBEDAA52862A6F925EEE803D /* worship-q_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5AED4DD3ADE8C4FD0898F2A1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A4574E6E9F3F8B785C064D4A /* Assets.xcassets in Resources */,
+				0D56D9C8420E6DA87A31AAC3 /* InfoPlist.strings in Resources */,
+				686DA8D119308FB1F854CDC4 /* LaunchScreen.storyboard in Resources */,
+				5F65943D5E4322CB6DD61A46 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		ABA76F717903C830F4DC9D6B /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "pnpm tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		60B67E8EE77CC2C807511C27 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD4FB2B108B17C84E15C0017 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		913B73BB42548B5BAE2729A0 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D10E0FB14A389465FC354535 /* en */,
+				AA852CD3666181640C3407BD /* zh-Hans */,
+				41072E5A142E0E40F012911C /* zh-Hant */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		0F0FEC90EDD716E25219591C /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "worship-q_iOS/worship-q_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "D975SHTTJQ";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "worship-q_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.worship-q.app;
+				PRODUCT_NAME = "Worship Q";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		165226174D69C5B615BAE2BC /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+		2B42490C2D04DD3A52BF6CA2 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		6218AA48D80C5DC68898686D /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "worship-q_iOS/worship-q_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "D975SHTTJQ";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "worship-q_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.worship-q.app;
+				PRODUCT_NAME = "Worship Q";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2761FF2822D63EB89EAFDC66 /* Build configuration list for PBXProject "worship-q" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B42490C2D04DD3A52BF6CA2 /* debug */,
+				165226174D69C5B615BAE2BC /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		3AE475425D3DA1B2E472E32C /* Build configuration list for PBXNativeTarget "worship-q_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6218AA48D80C5DC68898686D /* debug */,
+				0F0FEC90EDD716E25219591C /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 3BFF4C668109A6015277BF73 /* Project object */;
+}

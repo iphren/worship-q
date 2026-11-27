@@ -72,6 +72,65 @@ pub fn background_path(data: State<'_, AppData>, file_name: String) -> Option<St
         .then(|| target.to_string_lossy().into_owned())
 }
 
+/// The bounds and quality of a slide's small copy, as the server makes it.
+const THUMBNAIL_WIDTH: u32 = 320;
+const THUMBNAIL_HEIGHT: u32 = 240;
+const THUMBNAIL_QUALITY: u8 = 75;
+
+/// The slide image a thumbnail is made from: `deck-<uuid>-<page>-t.jpg` from
+/// `deck-<uuid>-<page>.jpg`. Nothing for any other name.
+fn thumbnail_source(thumbnail: &str) -> Option<String> {
+    let middle = thumbnail.strip_prefix("deck-")?.strip_suffix("-t.jpg")?;
+    let (id, page) = middle.split_at_checked(36)?;
+    let page = page.strip_prefix('-')?;
+    let id_ok = id.bytes().all(|b| b.is_ascii_hexdigit() || b == b'-');
+    let page_ok = page.len() >= 3 && page.bytes().all(|b| b.is_ascii_digit());
+    (id_ok && page_ok).then(|| format!("deck-{middle}.jpg"))
+}
+
+/// Makes `thumbnail` from its slide image in `dir`: fitted within 320 × 240, never enlarged,
+/// written beside it and renamed into place. False when the slide image is not there.
+fn make_thumbnail_in(dir: &Path, thumbnail: &str) -> Result<bool, String> {
+    let Some(source) = thumbnail_source(thumbnail) else {
+        return Err(format!("not a thumbnail name: {thumbnail}"));
+    };
+    let source = dir.join(source);
+    if !source.is_file() {
+        return Ok(false);
+    }
+    let image = image::open(&source).map_err(err)?;
+    let small = if image.width() > THUMBNAIL_WIDTH || image.height() > THUMBNAIL_HEIGHT {
+        image.resize(
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT,
+            image::imageops::FilterType::Triangle,
+        )
+    } else {
+        image
+    };
+    let partial = dir.join(format!("{thumbnail}.partial"));
+    let mut out = io::BufWriter::new(File::create(&partial).map_err(err)?);
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, THUMBNAIL_QUALITY)
+        .encode_image(&small.to_rgb8())
+        .map_err(err)?;
+    out.flush().map_err(err)?;
+    drop(out);
+    fs::rename(&partial, dir.join(thumbnail)).map_err(err)?;
+    Ok(true)
+}
+
+/// Makes a slide's small copy for phones from its image, when this computer has the image
+/// but not the copy (native apps M2.16): decks downloaded before M2.8 came without them.
+/// True when the copy is there afterwards.
+#[tauri::command(async)]
+pub fn make_thumbnail(data: State<'_, AppData>, file_name: String) -> Result<bool, String> {
+    let dir = backgrounds_dir(&data);
+    if dir.join(checked_name(&file_name)?).is_file() {
+        return Ok(true);
+    }
+    make_thumbnail_in(&dir, &file_name)
+}
+
 /// Writes the whole local workspace, database and backgrounds, to one backup file.
 #[tauri::command(async)]
 pub fn export_backup(data: State<'_, AppData>, destination: String) -> Result<(), String> {
@@ -207,4 +266,62 @@ fn swap_in(data: &AppData, staging: &Path) -> Result<(), String> {
     })();
     *conn = open_connection(&data.db_path()).map_err(err)?;
     replaced.map_err(err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{make_thumbnail_in, thumbnail_source};
+
+    const ID: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+    #[test]
+    fn finds_a_thumbnails_slide_image() {
+        assert_eq!(
+            thumbnail_source(&format!("deck-{ID}-001-t.jpg")),
+            Some(format!("deck-{ID}-001.jpg"))
+        );
+        assert_eq!(
+            thumbnail_source(&format!("deck-{ID}-1234-t.jpg")),
+            Some(format!("deck-{ID}-1234.jpg"))
+        );
+        for name in [
+            format!("deck-{ID}-001.jpg"),
+            format!("deck-{ID}-01-t.jpg"),
+            format!("deck-{ID}-0a1-t.jpg"),
+            format!("deck-../{ID}-001-t.jpg"),
+            "deck-x-001-t.jpg".to_string(),
+            "background.jpg".to_string(),
+        ] {
+            assert_eq!(thumbnail_source(&name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn makes_a_small_copy_as_the_server_does() {
+        let dir = std::env::temp_dir().join(format!("wq-thumbnail-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let thumbnail = format!("deck-{ID}-001-t.jpg");
+        // No slide image yet: nothing is made.
+        assert!(!make_thumbnail_in(&dir, &thumbnail).unwrap());
+
+        image::RgbImage::from_pixel(1920, 1080, image::Rgb([200, 30, 30]))
+            .save(dir.join(format!("deck-{ID}-001.jpg")))
+            .unwrap();
+        assert!(make_thumbnail_in(&dir, &thumbnail).unwrap());
+        let small = image::open(dir.join(&thumbnail)).unwrap();
+        assert_eq!((small.width(), small.height()), (320, 180));
+        assert!(std::fs::metadata(dir.join(&thumbnail)).unwrap().len() < 256 * 1024);
+        assert!(!dir.join(format!("{thumbnail}.partial")).exists());
+
+        // A slide smaller than the bounds is not enlarged.
+        image::RgbImage::from_pixel(200, 100, image::Rgb([0, 0, 0]))
+            .save(dir.join(format!("deck-{ID}-002.jpg")))
+            .unwrap();
+        assert!(make_thumbnail_in(&dir, &format!("deck-{ID}-002-t.jpg")).unwrap());
+        let kept = image::open(dir.join(format!("deck-{ID}-002-t.jpg"))).unwrap();
+        assert_eq!((kept.width(), kept.height()), (200, 100));
+
+        assert!(make_thumbnail_in(&dir, "background.jpg").is_err());
+        let _ = std::fs::remove_dir_all(dir);
+    }
 }

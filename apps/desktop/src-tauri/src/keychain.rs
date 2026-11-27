@@ -1,5 +1,7 @@
-//! The system keychain, for the church device token (decision D23): Keychain on macOS,
-//! Credential Manager on Windows. Each workspace on this computer has its own entry.
+//! The system keychain, for the church device token (decision D23): Keychain on macOS and
+//! iOS, Credential Manager on Windows, and on Android secrets encrypted with a key in the
+//! Android Keystore. Each workspace on this device has its own entry; a phone's grants for
+//! the workspaces it controls are kept here too (native apps plan, G16).
 //!
 //! On Windows, debug builds (`pnpm dev`) always share the release build's entries:
 //! Credential Manager keys them by name only, not by the program that wrote them.
@@ -25,11 +27,16 @@ fn check(account: &str) -> Result<(), String> {
     Ok(())
 }
 
-mod system {
-    use super::err;
-    use keyring::Entry;
+/// The keychain service the entries are kept under: the app's own identifier.
+#[cfg(desktop)]
+const SERVICE: &str = "com.worship-q.desktop";
+#[cfg(mobile)]
+const SERVICE: &str = "com.worship-q.app";
 
-    const SERVICE: &str = "com.worship-q.desktop";
+#[cfg(not(target_os = "android"))]
+mod system {
+    use super::{err, SERVICE};
+    use keyring::Entry;
 
     fn entry(account: &str) -> Result<Entry, String> {
         Entry::new(SERVICE, account).map_err(err)
@@ -55,6 +62,48 @@ mod system {
     }
 }
 
+/// Android: `keyring-core` with the store that encrypts each secret with a key in the Android
+/// Keystore and keeps it in the app's own preferences. Tauri sets up what it needs.
+#[cfg(target_os = "android")]
+mod system {
+    use super::{err, SERVICE};
+    use keyring_core::{CredentialStore, Entry, Error};
+    use std::sync::{Arc, OnceLock};
+
+    fn store() -> Result<Arc<CredentialStore>, String> {
+        static STORE: OnceLock<Arc<CredentialStore>> = OnceLock::new();
+        if let Some(store) = STORE.get() {
+            return Ok(store.clone());
+        }
+        let store: Arc<CredentialStore> =
+            android_native_keyring_store::Store::new().map_err(err)?;
+        Ok(STORE.get_or_init(|| store).clone())
+    }
+
+    fn entry(account: &str) -> Result<Entry, String> {
+        Entry::new_in_store(&store()?, SERVICE, account).map_err(err)
+    }
+
+    pub fn set(account: &str, secret: &str) -> Result<(), String> {
+        entry(account)?.set_password(secret).map_err(err)
+    }
+
+    pub fn get(account: &str) -> Result<Option<String>, String> {
+        match entry(account)?.get_password() {
+            Ok(secret) => Ok(Some(secret)),
+            Err(Error::NoEntry) => Ok(None),
+            Err(e) => Err(err(e)),
+        }
+    }
+
+    pub fn delete(account: &str) -> Result<(), String> {
+        match entry(account)?.delete_credential() {
+            Ok(()) | Err(Error::NoEntry) => Ok(()),
+            Err(e) => Err(err(e)),
+        }
+    }
+}
+
 #[cfg(debug_assertions)]
 mod file {
     use super::err;
@@ -73,10 +122,11 @@ mod file {
     type Secrets = BTreeMap<String, String>;
 
     /// Whether this run uses the system keychain: always on Windows, where Credential
-    /// Manager does not tie entries to the binary that wrote them; elsewhere only when
-    /// the dev runner signed it.
+    /// Manager does not tie entries to the binary that wrote them, and on phones and
+    /// tablets, whose debug builds are signed for the team too; on macOS only when the dev
+    /// runner signed it.
     pub fn bypassed() -> bool {
-        cfg!(windows) || std::env::var_os("WORSHIPQ_SYSTEM_KEYCHAIN").is_some()
+        cfg!(windows) || cfg!(mobile) || std::env::var_os("WORSHIPQ_SYSTEM_KEYCHAIN").is_some()
     }
 
     fn path(app: &AppHandle) -> Result<PathBuf, String> {

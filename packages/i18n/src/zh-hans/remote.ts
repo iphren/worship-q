@@ -6,12 +6,12 @@ export const remote: Record<keyof typeof en, string> = {
 
   'connect.connecting': '正在连接…',
   'connect.pendingTitle': '等待批准',
-  'connect.pending': '操作员会在电脑上看到以下代码，请等待批准：',
+  'connect.pending': '请联系负责投影的同工，把下面的代码告诉对方，请对方批准连接。',
   'connect.offlineTitle': '等待投影电脑连接',
   'connect.offline': '负责投影的电脑目前未连接。连接恢复后，本页面会自动重试。',
   'connect.deniedTitle': '未获批准',
-  'connect.denied': '操作员没有批准这部手机。',
-  'connect.revoked': '操作员已断开这部手机的连接。',
+  'connect.denied': '这台设备的连接请求未获批准。',
+  'connect.revoked': '负责投影的人已断开这台设备的连接。',
   'connect.expiredTitle': '请重新扫描二维码',
   'connect.expired': '此链接已失效或已使用。请重新扫描投影电脑上的二维码。',
   'connect.notFoundTitle': '找不到投影会话',
@@ -20,7 +20,7 @@ export const remote: Record<keyof typeof en, string> = {
   'connect.update': '投影电脑的 Worship Q 版本与当前页面不同。请更新电脑端并刷新此页面。',
 
   'name.title': '遥控',
-  'name.hint': '请输入你的名字，方便操作员识别并批准这台手机。',
+  'name.hint': '负责投影的人会在连接请求中看到这个名称。',
   'name.placeholder': '你的名字',
   'name.continue': '继续',
 

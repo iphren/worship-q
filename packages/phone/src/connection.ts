@@ -1,0 +1,569 @@
+/**
+ * A phone's connection to an operator device, shared by the phone page (`apps/remote`) and
+ * the phone and tablet app (native apps plan M2.5). Where it connects, and where it keeps
+ * its name and grant, come from its `PhoneLink`: the page uses the church instance's relay
+ * and browser storage; the app also uses the venue network, and the keychain.
+ *
+ * The invitation from the QR code requests access from the computer that showed it; after
+ * an operator approves, the grant it returns is kept on this phone and used to reconnect,
+ * also after the page is reloaded. The grant belongs to the workspace (decision D25): when
+ * the computer this phone was connected to goes away, the relay says so and the phone comes
+ * back with its grant to whichever computer holds the presentation.
+ *
+ * On the venue Wi-Fi the invitation may also carry the coordinator's own address (plan
+ * M5.6). A phone browser usually refuses a self-signed certificate, so that address is only
+ * tried when the browser has accepted it; otherwise the relay is used and the page says so.
+ */
+import {
+  type AudioSignal,
+  MIN_PROTOCOL_VERSION,
+  PROTOCOL_VERSION,
+  type HostToRemote,
+  type ObsCommand,
+  type ObsResult,
+  type ObsSnapshot,
+  type RelayToRemote,
+  type RemoteCommand,
+  type RemoteSongResult,
+  type RemoteView,
+} from '@worship-q/protocol';
+
+/** One connection attempt, as a browser WebSocket gives it. */
+export interface PhoneSocket {
+  /** True while open: messages can be sent. */
+  readonly open: boolean;
+  /** How it reaches the operator device. */
+  readonly via: 'lan' | 'relay';
+  send(data: string): void;
+  close(): void;
+  onopen: (() => void) | null;
+  onmessage: ((data: string) => void) | null;
+  onclose: ((info: { code?: number; reason?: string; wasClean?: boolean }) => void) | null;
+}
+
+/** Where a phone keeps its name and its grant for one workspace. */
+export interface PhoneStore {
+  name(): string;
+  setName(name: string): void;
+  grant(): string | null;
+  setGrant(grant: string | null): void;
+}
+
+/** What a phone connects with, and to. */
+export interface PhoneLink {
+  /** The workspace's identifier on the church or public server. */
+  workspace: string;
+  /** The invitation from the QR code, until it is used. */
+  invite: string | null;
+  /** The coordinator's address on the venue network, from the invitation, if any (M5.6). */
+  lan: { addresses: string[]; port: number; fingerprint: string } | null;
+  /** Starts a connection attempt. */
+  connect(): PhoneSocket;
+  store: PhoneStore;
+  /**
+   * A file the server keeps, such as a slide thumbnail, as an address the phone can load;
+   * null when the phone knows no server, as for a workspace kept on the venue network only.
+   */
+  fileUrl(name: string): string | null;
+  /** The invitation was used: it should not be offered again. */
+  inviteUsed?(): void;
+  /**
+   * The device's own name, offered in the name box (native apps M2.17). The app asks the
+   * system; a browser cannot know it.
+   */
+  suggestedName?(): Promise<string | null>;
+}
+
+export type RemoteState =
+  | { kind: 'name' }
+  | { kind: 'connecting' }
+  | { kind: 'pending'; code: string }
+  /** `reconnecting`: the computer this phone used went away; another is being reached. */
+  | { kind: 'live'; view: RemoteView | null; reconnecting?: boolean }
+  | { kind: 'offline' }
+  | { kind: 'denied'; reason: 'denied' | 'invalid-invite' | 'revoked' | 'no-invite' }
+  | { kind: 'no-workspace' }
+  | { kind: 'update-needed' }
+  /** The public server's workspace has as many phones as it allows (S3); tried again. */
+  | { kind: 'full'; limit: number };
+
+type BibleAnswer = Extract<
+  HostToRemote,
+  { type: 'bibleVersions' | 'bibleToc' | 'biblePassage' | 'bibleSearch' }
+>;
+
+const RETRY_MS = [1000, 2000, 4000, 8000, 15000];
+/** Thumbnails asked of the desktop at once (S8). */
+const THUMBNAILS_IN_FLIGHT = 4;
+/** The relay is pinged this often; a ping left unanswered means the connection is gone. */
+const PING_MS = 15_000;
+
+export class RemoteConnection {
+  private socket: PhoneSocket | null = null;
+  private attempt = 0;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  private stopped = false;
+  private state_: RemoteState;
+  private readonly listeners = new Set<() => void>();
+  private counter = 0;
+  private readonly searches = new Map<string, (songs: RemoteSongResult[]) => void>();
+  readonly workspace: string;
+  private invite: string | null;
+  /** The coordinator's address on the venue network, from the invitation, if any (M5.6). */
+  readonly lan: { addresses: string[]; port: number; fingerprint: string } | null;
+  /** How the phone is connected: on the venue network, or through the church server. */
+  via: 'lan' | 'relay' = 'relay';
+  private readonly store: PhoneStore;
+  /**
+   * The version said in the hello. The page comes with the server, so it can be newer than
+   * the desktop it reaches, which then asks it to update; it steps down while the desktop
+   * still accepts what it needs, as desktops do with servers (D26).
+   */
+  private helloVersion = PROTOCOL_VERSION;
+  private readonly obsAsks = new Map<string, (result: ObsResult) => void>();
+  /** Bible requests waiting for the desktop's answer (B26). */
+  private readonly bibleAsks = new Map<string, (answer: BibleAnswer | null) => void>();
+  private obsImage_: (ObsSnapshot & { receivedAt: number }) | null = null;
+  /** The OBS screen is open; said again on every connection, as desktops forget it. */
+  private obsWatching = false;
+  /** When the last view arrived, for OBS timers, which it gives as of sending. */
+  viewReceivedAt = 0;
+  private readonly imageListeners = new Set<() => void>();
+  /** Live audio signals from the broadcaster, for this phone's **Listen** (M4.4). */
+  private readonly audioListeners = new Set<(signal: AudioSignal) => void>();
+  /** Told when this phone is let in again after its connection was lost. */
+  private readonly rejoinListeners = new Set<() => void>();
+  /** A desktop has let this phone in at least once since the page loaded. */
+  private joined = false;
+  /** Thumbnails the desktop sent, as object URLs, kept for the page's life (S8). */
+  private readonly thumbnails = new Map<string, string>();
+  /** Thumbnails asked for, waiting their turn or their answer. */
+  private readonly thumbnailWaits = new Map<string, ((url: string | null) => void)[]>();
+  private readonly thumbnailQueue: string[] = [];
+  private readonly thumbnailsInFlight = new Set<string>();
+
+  constructor(private readonly link: PhoneLink) {
+    this.workspace = link.workspace;
+    this.invite = link.invite;
+    this.lan = link.lan;
+    this.store = link.store;
+    this.state_ = this.name ? { kind: 'connecting' } : { kind: 'name' };
+  }
+
+  get state(): RemoteState {
+    return this.state_;
+  }
+
+  get name(): string {
+    return this.store.name();
+  }
+
+  /** A server file, such as a slide thumbnail, as an address this phone can load. */
+  fileUrl(name: string): string | null {
+    return this.link.fileUrl(name);
+  }
+
+  /** A name to offer in the name box, if the device has one. */
+  async suggestedName(): Promise<string | null> {
+    return (await this.link.suggestedName?.().catch(() => null)) ?? null;
+  }
+
+  subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  private set(state: RemoteState): void {
+    this.state_ = state;
+    for (const listener of [...this.listeners]) listener();
+  }
+
+  start(name?: string): void {
+    if (name !== undefined) this.store.setName(name.trim().slice(0, 40));
+    if (!this.name) return this.set({ kind: 'name' });
+    if (!this.workspace) return this.set({ kind: 'no-workspace' });
+    if (!this.invite && !this.store.grant()) {
+      return this.set({ kind: 'denied', reason: 'no-invite' });
+    }
+    this.stopped = false;
+    this.open();
+  }
+
+  stop(): void {
+    this.stopped = true;
+    clearTimeout(this.timer);
+    this.socket?.close();
+  }
+
+  private open(): void {
+    if (this.state_.kind !== 'live') this.set({ kind: 'connecting' });
+    const socket = this.link.connect();
+    this.socket = socket;
+    socket.onopen = () => {
+      if (this.socket !== socket) return;
+      this.via = socket.via;
+      socket.send(
+        JSON.stringify({
+          type: 'hello',
+          protocolVersion: this.helloVersion,
+          workspace: this.workspace,
+          name: this.name,
+          grant: this.store.grant() ?? undefined,
+          invite: this.invite ?? undefined,
+        }),
+      );
+    };
+    // A connection the instance dropped while the phone was locked still looks open here.
+    let answered = true;
+    let answers = false;
+    let ticked = Date.now();
+    const openedAt = ticked;
+    let lastMessageAt = ticked;
+    const heartbeat = setInterval(() => {
+      const now = Date.now();
+      // A late timer means the phone slept for long enough to be dropped.
+      const slept = now - ticked > PING_MS * 2;
+      ticked = now;
+      // Instances that never answer pings predate them and are not held to it.
+      if (slept || (answers && !answered)) {
+        console.warn('[remote] Gave up on the connection', {
+          cause: slept ? 'slept' : 'unanswered ping',
+          openForMs: now - openedAt,
+          sinceLastMessageMs: now - lastMessageAt,
+        });
+        return lost();
+      }
+      answered = false;
+      if (socket.open) socket.send(JSON.stringify({ type: 'ping' }));
+    }, PING_MS);
+    socket.onmessage = (data) => {
+      if (this.socket !== socket) return;
+      lastMessageAt = Date.now();
+      const message = JSON.parse(data) as HostToRemote | RelayToRemote;
+      if (message.type === 'pong') {
+        answered = answers = true;
+        return;
+      }
+      this.receive(message);
+    };
+    const lost = () => {
+      clearInterval(heartbeat);
+      if (this.socket !== socket) return;
+      this.socket = null;
+      for (const resolve of this.searches.values()) resolve([]);
+      this.searches.clear();
+      for (const resolve of this.obsAsks.values()) resolve({ ok: false, error: 'not-connected' });
+      this.obsAsks.clear();
+      for (const resolve of this.bibleAsks.values()) resolve(null);
+      this.bibleAsks.clear();
+      // Closing a dead connection can take long to finish, so this does not wait for it.
+      socket.close();
+      if (this.stopped) return;
+      const final = ['denied', 'update-needed', 'no-workspace'].includes(this.state_.kind);
+      if (final) return;
+      if (this.state_.kind === 'live') this.set({ kind: 'live', view: this.state_.view });
+      const delay = RETRY_MS[Math.min(this.attempt++, RETRY_MS.length - 1)]!;
+      this.timer = setTimeout(() => this.open(), delay);
+    };
+    socket.onclose = (event) => {
+      console.warn('[remote] Connection closed', {
+        via: socket.via,
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean,
+        afterGivingUp: this.socket !== socket,
+        openForMs: Date.now() - openedAt,
+        sinceLastMessageMs: Date.now() - lastMessageAt,
+      });
+      lost();
+    };
+  }
+
+  private receive(message: HostToRemote | RelayToRemote): void {
+    switch (message.type) {
+      case 'update-needed':
+        if (this.helloVersion > MIN_PROTOCOL_VERSION && this.socket) {
+          this.helloVersion--;
+          this.attempt = 0;
+          // Says hello again at the older version; `lost` reconnects straight away.
+          const socket = this.socket;
+          socket.close();
+          return;
+        }
+        return this.set({ kind: 'update-needed' });
+      case 'unavailable':
+        if (message.reason === 'reconnect') {
+          console.warn('[remote] The computer this phone used left the server');
+          // The computer this phone used went away; the grant is accepted elsewhere (M2.8).
+          if (this.state_.kind === 'live') {
+            this.set({ kind: 'live', view: this.state_.view, reconnecting: true });
+          }
+          this.attempt = 0;
+          return;
+        }
+        if (message.reason === 'full') return this.set({ kind: 'full', limit: message.limit });
+        return this.set(
+          message.reason === 'no-workspace' ? { kind: 'no-workspace' } : { kind: 'offline' },
+        );
+      case 'pending':
+        return this.set({ kind: 'pending', code: message.code });
+      case 'approved':
+        this.store.setGrant(message.grant);
+        // The invitation is used up; reconnecting, or reloading the page, uses the grant.
+        this.invite = null;
+        this.link.inviteUsed?.();
+        this.attempt = 0;
+        if (this.obsWatching)
+          this.socket?.send(JSON.stringify({ type: 'obsWatch', watching: true }));
+        this.set({
+          kind: 'live',
+          view: this.state_.kind === 'live' ? this.state_.view : null,
+        });
+        if (this.joined) for (const listener of [...this.rejoinListeners]) listener();
+        this.joined = true;
+        this.resumeThumbnails();
+        return;
+      case 'denied':
+        if (message.reason === 'revoked') this.store.setGrant(null);
+        return this.set({ kind: 'denied', reason: message.reason });
+      case 'view':
+        this.attempt = 0;
+        this.viewReceivedAt = Date.now();
+        return this.set({ kind: 'live', view: message.view });
+      case 'searchResults':
+        this.searches.get(message.id)?.(message.songs);
+        this.searches.delete(message.id);
+        return;
+      case 'obsAck': {
+        const resolve = this.obsAsks.get(message.id);
+        this.obsAsks.delete(message.id);
+        resolve?.({
+          ok: message.ok,
+          ...(message.code !== undefined ? { code: message.code } : {}),
+          ...(message.error !== undefined ? { error: message.error } : {}),
+        });
+        return;
+      }
+      case 'obsSnapshot':
+        this.obsImage_ = { image: message.image, takenAt: message.takenAt, receivedAt: Date.now() };
+        for (const listener of [...this.imageListeners]) listener();
+        return;
+      case 'bibleVersions':
+      case 'bibleToc':
+      case 'biblePassage':
+      case 'bibleSearch':
+        this.bibleAsks.get(message.id)?.(message);
+        this.bibleAsks.delete(message.id);
+        return;
+      case 'audioSignal':
+        for (const listener of [...this.audioListeners]) listener(message.signal);
+        return;
+      case 'thumbnail':
+        return this.thumbnailArrived(message.name, message.data ?? null);
+      case 'ack':
+      case 'pong':
+        return;
+    }
+  }
+
+  /**
+   * A slide's small image from the desktop (public server S7, S8), as an object URL. A
+   * desktop without the file leaves it to the server the phone knows, if any: a desktop on
+   * the venue network may lack it (native apps M2.8). Null when neither has an address.
+   */
+  async thumbnail(name: string): Promise<string | null> {
+    return (await this.hostThumbnail(name)) ?? this.fileUrl(name);
+  }
+
+  /**
+   * Asked of the desktop once per page load, a few at a time; asked again only when the
+   * connection was lost before the answer came.
+   */
+  private hostThumbnail(name: string): Promise<string | null> {
+    const kept = this.thumbnails.get(name);
+    if (kept) return Promise.resolve(kept);
+    return new Promise((resolve) => {
+      const waits = this.thumbnailWaits.get(name);
+      if (waits) return void waits.push(resolve);
+      this.thumbnailWaits.set(name, [resolve]);
+      this.thumbnailQueue.push(name);
+      this.askThumbnails();
+    });
+  }
+
+  private askThumbnails(): void {
+    if (!this.socket?.open || this.state_.kind !== 'live') return;
+    while (this.thumbnailsInFlight.size < THUMBNAILS_IN_FLIGHT && this.thumbnailQueue.length) {
+      const name = this.thumbnailQueue.shift()!;
+      this.thumbnailsInFlight.add(name);
+      this.socket.send(JSON.stringify({ type: 'thumbnail', name }));
+    }
+  }
+
+  private thumbnailArrived(name: string, data: string | null): void {
+    this.thumbnailsInFlight.delete(name);
+    let url: string | null = null;
+    if (data) {
+      const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+      this.thumbnails.set(name, url);
+    }
+    for (const resolve of this.thumbnailWaits.get(name) ?? []) resolve(url);
+    this.thumbnailWaits.delete(name);
+    this.askThumbnails();
+  }
+
+  /** Asks again for thumbnails whose answer the lost connection took with it. */
+  private resumeThumbnails(): void {
+    this.thumbnailQueue.unshift(...this.thumbnailsInFlight);
+    this.thumbnailsInFlight.clear();
+    this.askThumbnails();
+  }
+
+  /** Live audio signals from the broadcaster, through the desktop this phone uses. */
+  onAudioSignal(listener: (signal: AudioSignal) => void): () => void {
+    this.audioListeners.add(listener);
+    return () => this.audioListeners.delete(listener);
+  }
+
+  /**
+   * This phone was let in again after losing its connection, by the same desktop or by
+   * another: what it had set up through the old connection may need asking for again.
+   */
+  onRejoin(listener: () => void): () => void {
+    this.rejoinListeners.add(listener);
+    return () => this.rejoinListeners.delete(listener);
+  }
+
+  /** A live audio signal for the broadcaster; dropped while not connected (it asks again). */
+  sendAudio(signal: AudioSignal): void {
+    if (!this.socket?.open || this.state_.kind !== 'live') return;
+    this.socket.send(JSON.stringify({ type: 'audioSignal', signal }));
+  }
+
+  /**
+   * Asks the desktop about the Bible; resolves with its answer, or null when the connection
+   * is lost or no answer comes within fifteen seconds.
+   */
+  private ask(request: Record<string, unknown>): Promise<BibleAnswer | null> {
+    if (!this.connected) return Promise.resolve(null);
+    const id = this.newId();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.bibleAsks.delete(id);
+        resolve(null);
+      }, 15_000);
+      this.bibleAsks.set(id, (answer) => {
+        clearTimeout(timer);
+        resolve(answer);
+      });
+      this.socket!.send(JSON.stringify({ ...request, id }));
+    });
+  }
+
+  async bibleVersions(): Promise<Extract<BibleAnswer, { type: 'bibleVersions' }> | null> {
+    const answer = await this.ask({ type: 'bibleVersions' });
+    return answer?.type === 'bibleVersions' ? answer : null;
+  }
+
+  async bibleToc(
+    version: string,
+    chapter?: { book: string; chapter: number },
+  ): Promise<Extract<BibleAnswer, { type: 'bibleToc' }> | null> {
+    const answer = await this.ask({ type: 'bibleToc', version, ...chapter });
+    return answer?.type === 'bibleToc' ? answer : null;
+  }
+
+  async biblePassage(
+    reference: string,
+    versions: string[],
+  ): Promise<Extract<BibleAnswer, { type: 'biblePassage' }> | null> {
+    const answer = await this.ask({ type: 'biblePassage', reference, versions });
+    return answer?.type === 'biblePassage' ? answer : null;
+  }
+
+  async bibleSearch(
+    version: string,
+    query: string,
+  ): Promise<Extract<BibleAnswer, { type: 'bibleSearch' }> | null> {
+    const answer = await this.ask({ type: 'bibleSearch', version, query });
+    return answer?.type === 'bibleSearch' ? answer : null;
+  }
+
+  /** Changes the workspace's Bible versions, as the desktop's chips do (B4). */
+  setBibleVersions(versions: string[]): void {
+    if (!this.connected) return;
+    this.socket!.send(JSON.stringify({ type: 'bibleSetVersions', versions }));
+  }
+
+  /** The latest live monitor image, while the OBS screen is open (M4.2, M5.2). */
+  get obsImage(): (ObsSnapshot & { receivedAt: number }) | null {
+    return this.obsImage_;
+  }
+
+  subscribeImage = (listener: () => void) => {
+    this.imageListeners.add(listener);
+    return () => this.imageListeners.delete(listener);
+  };
+
+  /** Sends a command for OBS; resolves with the answer, or a failure after ten seconds. */
+  obsCommand(command: ObsCommand): Promise<ObsResult> {
+    if (!this.connected) return Promise.resolve({ ok: false, error: 'not-connected' });
+    const id = this.newId();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.obsAsks.delete(id);
+        resolve({ ok: false, error: 'timeout' });
+      }, 10_000);
+      this.obsAsks.set(id, (result) => {
+        clearTimeout(timer);
+        resolve(result);
+      });
+      this.socket!.send(JSON.stringify({ type: 'obsCommand', id, command }));
+    });
+  }
+
+  /** The OBS screen opened or closed: images are sent while it is open (M5.1). */
+  obsWatch(watching: boolean): void {
+    this.obsWatching = watching;
+    if (!watching) this.obsImage_ = null;
+    if (this.socket?.open) {
+      this.socket.send(JSON.stringify({ type: 'obsWatch', watching }));
+    }
+  }
+
+  get connected(): boolean {
+    return this.socket?.open === true && this.state_.kind === 'live' && !this.state_.reconnecting;
+  }
+
+  private newId(): string {
+    return `${Date.now().toString(36)}-${++this.counter}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  send(command: RemoteCommand): void {
+    if (!this.connected) return;
+    this.socket!.send(JSON.stringify({ type: 'command', id: this.newId(), command }));
+  }
+
+  /**
+   * Searches the library for songs to add. Resolves with nothing when the connection is lost
+   * before the answer comes, or when a later search replaces this one.
+   */
+  search(query: string): Promise<RemoteSongResult[]> {
+    for (const resolve of this.searches.values()) resolve([]);
+    this.searches.clear();
+    if (!this.connected || !query.trim()) return Promise.resolve([]);
+    const id = this.newId();
+    return new Promise((resolve) => {
+      this.searches.set(id, resolve);
+      this.socket!.send(JSON.stringify({ type: 'search', id, query }));
+    });
+  }
+
+  /** Forget the approval on this phone, for example before handing it on. */
+  leave(): void {
+    this.store.setGrant(null);
+    this.stop();
+    this.set({ kind: 'denied', reason: 'no-invite' });
+  }
+}

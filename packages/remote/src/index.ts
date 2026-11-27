@@ -29,6 +29,7 @@ import {
   type ObsSnapshot,
   type RemoteObsView,
   type RemoteCommand,
+  type RemoteDevice,
   type RemoteSongResult,
   type RemoteView,
   type RemoteToHost,
@@ -69,11 +70,16 @@ function bibleError(error: unknown): BibleAnswerError {
     : 'unavailable';
 }
 
-/** How the host reaches remote connections: through the instance relay. */
+/** How the host reaches remote connections: through the instance relay, or the venue network. */
 export interface RemoteLink {
   /** Sends to one connection, or to every connection when `to` is omitted. */
   send(to: string | undefined, message: HostToRemote): void;
   drop(to: string): void;
+  /**
+   * True for a phone that reached this device directly on the venue network (native apps
+   * plan M2.8), which may have no internet to load files from the server.
+   */
+  local?(to: string): boolean;
 }
 
 export interface RemoteRequest {
@@ -266,11 +272,15 @@ export interface RemoteWebsites {
 }
 
 /**
- * Slide thumbnails sent from this desktop (public server S7), for a server that keeps no
- * files. `read` gives a thumbnail's bytes as base64, or null when this computer lacks it.
+ * Slide thumbnails sent from this desktop: to every phone of a server that keeps no files
+ * (public server S7), and to phones on the venue network, which may not reach the server
+ * (native apps plan M2.8). `read` gives a thumbnail's bytes as base64, or null when this
+ * computer lacks it.
  */
 export interface RemoteThumbnails {
   read(name: string): Promise<string | null>;
+  /** Every phone is sent them, as the server keeps none; otherwise only local phones. */
+  everyone: boolean;
 }
 
 /** How long a phone's website waits for its page's title before it is named by its host. */
@@ -297,6 +307,7 @@ export class RemoteHost {
   private bible: RemoteBible | null = null;
   private websites: RemoteWebsites | null = null;
   private thumbnails: RemoteThumbnails | null = null;
+  private devices: (() => RemoteDevice[]) | null = null;
   /** Phones showing the live monitor, by connection. */
   private readonly obsWatchers = new Set<string>();
 
@@ -320,9 +331,15 @@ export class RemoteHost {
   }
 
   /**
-   * Sends phones slide thumbnails from this desktop rather than the server (S7); null when the
-   * server serves them, as a church server does.
+   * Gives phones the workspace's operator devices on the venue network (N30), which the app
+   * keeps as the certificates it trusts there; null to give none.
    */
+  setDevices(devices: (() => RemoteDevice[]) | null): void {
+    this.devices = devices;
+    this.scheduleView();
+  }
+
+  /** Sends phones slide thumbnails from this desktop rather than the server (S7, M2.8). */
   setThumbnails(thumbnails: RemoteThumbnails | null): void {
     if (this.thumbnails === thumbnails) return;
     this.thumbnails = thumbnails;
@@ -563,7 +580,7 @@ export class RemoteHost {
     return this.session.undoRemoteEdit(notice.change);
   }
 
-  /** True while the instance relay is connected and this device receives phones. */
+  /** True while this device receives phones: through the relay, or on the venue network. */
   get available(): boolean {
     return this.link !== null;
   }
@@ -578,23 +595,32 @@ export class RemoteHost {
     for (const listener of [...this.listeners]) listener();
   }
 
-  /** Starts receiving phones through the relay. */
+  /** Starts receiving phones: through the relay, and on the venue network. */
   attach(link: RemoteLink): void {
     this.link = link;
     this.unsubscribe ??= this.session.subscribe(() => this.scheduleView());
     this.changed();
   }
 
-  /** The relay went away; phones reconnect with their grants when it is back. */
+  /** Stops receiving phones; they reconnect with their grants when it is back. */
   detach(): void {
     this.link = null;
-    this.requests.clear();
-    const grants = [...this.controllers.values()].map((c) => c.grantId);
-    this.controllers.clear();
-    for (const grantId of grants) this.audioLeft(grantId);
-    if (this.obsWatchers.size > 0) {
-      this.obsWatchers.clear();
-      this.obs?.watching(false);
+    this.forget(() => true);
+  }
+
+  /**
+   * The phones `which` picks lost their way here, as when the relay went away while phones
+   * on the venue network stay (M2.8). They reconnect with their grants when they can.
+   */
+  forget(which: (connection: string) => boolean): void {
+    for (const connection of [...this.requests.keys()]) {
+      if (which(connection)) this.requests.delete(connection);
+    }
+    for (const [connection, controller] of [...this.controllers]) {
+      if (!which(connection)) continue;
+      this.controllers.delete(connection);
+      this.audioLeft(controller.grantId);
+      this.setObsWatching(connection, false);
     }
     this.reportPhones();
     this.changed();
@@ -668,7 +694,7 @@ export class RemoteHost {
           this.reportPhones();
           this.changed();
           link.send(from, { type: 'approved', grant: message.grant });
-          link.send(from, { type: 'view', view: await this.view() });
+          link.send(from, { type: 'view', view: this.viewFor(await this.view(), from) });
           return;
         }
         if (!message.invite) return link.send(from, { type: 'denied', reason: 'revoked' });
@@ -829,7 +855,7 @@ export class RemoteHost {
     this.reportPhones();
     this.changed();
     this.link.send(connection, { type: 'approved', grant: `${grantId}.${secret}` });
-    this.link.send(connection, { type: 'view', view: await this.view() });
+    this.link.send(connection, { type: 'view', view: this.viewFor(await this.view(), connection) });
   }
 
   deny(connection: string): void {
@@ -889,8 +915,15 @@ export class RemoteHost {
       obs: this.obs?.view() ?? null,
       ...(this.audio ? { audio: this.audio.view() } : {}),
       websites: this.websites?.available() ?? false,
-      ...(this.thumbnails ? { thumbnailVia: 'host' as const } : {}),
+      ...(this.devices ? { devices: this.devices() } : {}),
     };
+  }
+
+  /** The view as one phone is sent it: thumbnails from here for a phone that needs them. */
+  private viewFor(view: RemoteView, connection: string): RemoteView {
+    const fromHere =
+      this.thumbnails && (this.thumbnails.everyone || this.link?.local?.(connection) === true);
+    return fromHere ? { ...view, thumbnailVia: 'host' } : view;
   }
 
   private scheduleView(): void {
@@ -910,7 +943,7 @@ export class RemoteHost {
     this.viewSentAt = this.clock();
     const view = await this.view();
     for (const connection of this.controllers.keys()) {
-      this.link?.send(connection, { type: 'view', view });
+      this.link?.send(connection, { type: 'view', view: this.viewFor(view, connection) });
     }
   }
 }

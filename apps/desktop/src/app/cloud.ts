@@ -39,6 +39,7 @@ import {
   type PairingStartResponse,
   type PublicJoinResponse,
   type RelayToDesktop,
+  type RemoteDevice,
   type ServerInfo,
   type Song,
   type WorkspaceGrant,
@@ -1229,14 +1230,12 @@ export class CloudController {
         await native.cancelTransfer(id);
       },
       fetchDeckImages: async ({ server, token }, deck) => {
-        // The public server keeps nothing, so the small copies phones are shown come too,
-        // and are sent to phones from here (S7).
-        const thumbnails = this.service?.kind === 'public';
+        // The small copies phones are shown come too: a public server keeps nothing, and a
+        // phone on the venue network may not reach a church server, so both are sent them
+        // from here (S7; native apps plan M2.8).
         for (const page of deck.pages) {
           await native.downloadBackground(server, token, page.image);
-          if (thumbnails && page.thumbnail) {
-            await native.downloadBackground(server, token, page.thumbnail);
-          }
+          if (page.thumbnail) await native.downloadBackground(server, token, page.thumbnail);
         }
         this.output.forgetFiles();
       },
@@ -1431,6 +1430,27 @@ export class CloudController {
     return this.knownPeers().find((peer) => peer.deviceId === status.coordinatorId) ?? null;
   }
 
+  /**
+   * The workspace's operator devices a phone may reach on the venue network (N30): this one
+   * while it serves it, and those whose fingerprints the server gave.
+   */
+  private lanDevices(): RemoteDevice[] {
+    const own: RemoteDevice[] =
+      this.lanHost && this.lan && this.lan.addresses.length > 0
+        ? [
+            {
+              deviceId: this.state?.deviceId ?? '',
+              name: this.state?.deviceName ?? t('app.thisComputer'),
+              fingerprint: this.lan.fingerprint,
+              addresses: this.lan.addresses,
+              port: this.lan.port,
+            },
+          ]
+        : [];
+    const ids = new Set(own.map((device) => device.deviceId));
+    return [...own, ...this.knownPeers().filter((peer) => !ids.has(peer.deviceId))];
+  }
+
   /** Devices whose LAN fingerprints the server gave, now or earlier (D19). */
   private knownPeers(): KnownPeer[] {
     const fromRelay: KnownPeer[] = (this.link?.status.peers ?? []).flatMap((peer) =>
@@ -1608,11 +1628,18 @@ export class CloudController {
 
   /**
    * A slide's small image from this computer's files, as base64, for a phone of a public
-   * workspace (S7): only a thumbnail's name, and nothing over the size phones are sent.
+   * workspace or on the venue network (S7, M2.8): only a thumbnail's name, and nothing over
+   * the size phones are sent.
    */
   private async readThumbnail(name: string): Promise<string | null> {
     if (!THUMBNAIL_NAME.test(name)) return null;
-    const url = await native.backgroundUrl(name);
+    // Decks downloaded before M2.8 came without small copies: made here from the slide's
+    // image, so a phone on the venue network sees it with no internet (M2.16).
+    const url =
+      (await native.backgroundUrl(name)) ??
+      ((await native.makeThumbnail(name).catch(() => false))
+        ? await native.backgroundUrl(name)
+        : null);
     if (!url) return null;
     const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
     if (bytes.length === 0 || bytes.length > THUMBNAIL_MAX_BYTES) return null;
@@ -1624,8 +1651,18 @@ export class CloudController {
   }
 
   private async wireLive(isPublic: boolean, backup: LiveBackupApi | null): Promise<void> {
-    // The public server keeps no files: phones are sent thumbnails from here (S7).
-    this.host.setThumbnails(isPublic ? { read: (name) => this.readThumbnail(name) } : null);
+    // The public server keeps no files, so every phone is sent thumbnails from here (S7); a
+    // church server's phones load them from it, except phones on the venue network (M2.8).
+    this.host.setThumbnails({ read: (name) => this.readThumbnail(name), everyone: isPublic });
+    // Phones come through the church server, and on the venue network, with or without the
+    // internet (native apps plan M2.8).
+    this.host.attach({
+      send: (to, data) => this.sendToPhone(to, data),
+      drop: (to) => this.dropPhone(to),
+      local: (to) => this.lanPhones.has(to),
+    });
+    // The devices the app may trust on the venue network (N30).
+    this.host.setDevices(() => this.lanDevices());
     const hello = (): Extract<DesktopToRelay, { type: 'hello' }> => ({
       type: 'hello',
       protocolVersion: this.protocolVersion,
@@ -1746,11 +1783,6 @@ export class CloudController {
       events: {
         ...transportEvents,
         open: (kind) => {
-          // Phones always come through the church server, whatever carries the live state.
-          this.host.attach({
-            send: (to, data) => this.sendToPhone(to, data),
-            drop: (to) => this.dropPhone(to),
-          });
           // Back online after presenting alone. The hello said so, and the server has
           // settled the role already: back to this device, or to an older live state (D14).
           this.offlineCoordinator = false;
@@ -1758,7 +1790,9 @@ export class CloudController {
           void this.recheckProtocol();
         },
         close: (kind) => {
-          this.host.detach();
+          // Phones on the venue network stay; those that came through the server come back
+          // with their grants when it is reachable again.
+          this.host.forget((connection) => !this.lanPhones.has(connection));
           this.transports?.closed(kind);
           this.considerOffline();
         },

@@ -842,7 +842,7 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
 
   it('marks the view, and answers a thumbnail of the live run sheet with its bytes', async () => {
     const read: string[] = [];
-    host.setThumbnails({ read: async (name) => (read.push(name), 'aGVsbG8=') });
+    host.setThumbnails({ read: async (name) => (read.push(name), 'aGVsbG8='), everyone: true });
     await deckLive();
     await approved('p1');
     const view = sent.filter((e) => e.message.type === 'view').at(-1)?.message;
@@ -854,7 +854,7 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
 
   it('answers missing for a slide not in the live run sheet, never reading it', async () => {
     const read: string[] = [];
-    host.setThumbnails({ read: async (name) => (read.push(name), 'x') });
+    host.setThumbnails({ read: async (name) => (read.push(name), 'x'), everyone: true });
     await deckLive();
     await approved('p1');
     const other = `deck-${ID.replace('0f', '1f')}-001-t.jpg`;
@@ -864,7 +864,7 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
   });
 
   it('ignores a name that is not a thumbnail’s, as the phone’s messages are checked', async () => {
-    host.setThumbnails({ read: async () => 'x' });
+    host.setThumbnails({ read: async () => 'x', everyone: true });
     await deckLive();
     await approved('p1');
     const before = sent.length;
@@ -873,7 +873,7 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
   });
 
   it('answers missing when this computer lacks the file', async () => {
-    host.setThumbnails({ read: async () => null });
+    host.setThumbnails({ read: async () => null, everyone: true });
     await deckLive();
     await approved('p1');
     await host.message('p1', { type: 'thumbnail', name: thumb });
@@ -881,7 +881,7 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
   });
 
   it('answers a phone without approval nothing', async () => {
-    host.setThumbnails({ read: async () => 'x' });
+    host.setThumbnails({ read: async () => 'x', everyone: true });
     await deckLive();
     await host.message('p9', { type: 'thumbnail', name: thumb });
     expect(sent.filter((e) => e.to === 'p9')).toEqual([]);
@@ -894,5 +894,73 @@ describe('slide thumbnails from this desktop (public server S7)', () => {
       view: { thumbnailVia?: string };
     };
     expect(view.view.thumbnailVia).toBeUndefined();
+  });
+  it('sends them from here only to phones on the venue network, on a church server (M2.8)', async () => {
+    host.attach({
+      send: (to, message) => sent.push({ to, message }),
+      drop: () => undefined,
+      local: (to) => to === 'lan-1',
+    });
+    host.setThumbnails({ read: async () => 'aGk=', everyone: false });
+    await deckLive();
+    await approved('lan-1');
+    await approved('relay-1');
+    const viewOf = (to: string) =>
+      (
+        sent.filter((e) => e.to === to && e.message.type === 'view').at(-1)?.message as {
+          view: { thumbnailVia?: string };
+        }
+      ).view;
+    expect(viewOf('lan-1').thumbnailVia).toBe('host');
+    expect(viewOf('relay-1').thumbnailVia).toBeUndefined();
+    await host.message('lan-1', { type: 'thumbnail', name: thumb });
+    expect(lastTo('lan-1')).toEqual({ type: 'thumbnail', name: thumb, data: 'aGk=' });
+  });
+});
+
+describe('phones on the venue network when the relay goes away (native apps M2.8)', () => {
+  it('forgets only the phones that came through the relay', async () => {
+    await approved('lan-1', 'Ana');
+    await approved('relay-1', 'Ben');
+    host.forget((connection) => connection !== 'lan-1');
+    expect(host.connected.map((c) => c.name)).toEqual(['Ana']);
+    expect(host.available).toBe(true);
+    const before = sent.length;
+    await host.message('lan-1', { type: 'command', id: 'c1', command: { type: 'next' } });
+    expect(sent.length).toBeGreaterThan(before);
+  });
+
+  it('forgets a request waiting for approval that came through the relay', async () => {
+    await host.message('relay-2', {
+      type: 'hello',
+      protocolVersion: PROTOCOL_VERSION,
+      name: 'Cy',
+      invite: host.invite(),
+    });
+    expect(host.pending.map((r) => r.connection)).toEqual(['relay-2']);
+    host.forget(() => true);
+    expect(host.pending).toEqual([]);
+  });
+});
+
+describe('the operator devices phones may trust on the venue network (N30)', () => {
+  const desk = {
+    deviceId: 'd1',
+    name: 'Main',
+    fingerprint: 'AB:CD',
+    addresses: ['10.0.0.2'],
+    port: 47311,
+  };
+
+  it('gives phones the devices with each view', async () => {
+    host.setDevices(() => [desk]);
+    await approved('p1');
+    expect(lastTo('p1')).toMatchObject({ type: 'view', view: { devices: [desk] } });
+  });
+
+  it('gives none unless the desktop says which', async () => {
+    await approved('p1');
+    const view = lastTo('p1') as { view: { devices?: unknown } };
+    expect(view.view).not.toHaveProperty('devices');
   });
 });

@@ -1,0 +1,4 @@
+/* 权限提示（原生应用 M2.14）。 */
+"NSLocalNetworkUsageDescription" = "Worship Q 需要访问本地网络，才能连接同一网络中负责聚会投影的电脑。";
+"NSCameraUsageDescription" = "Worship Q 需要使用相机扫描邀请二维码，以便连接投影电脑。";
+"NSMicrophoneUsageDescription" = "Worship Q 使用麦克风权限，将你选定的音源实时播放给听众，并在教会开启录音时录制。";

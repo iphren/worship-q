@@ -891,6 +891,22 @@ export const desktop = {
   'cleanup.needed': '{count} kept, as a run sheet now uses it.',
   'cleanup.gb': '{size} GB',
   'cleanup.mb': '{size} MB',
+  // The phone and tablet app (native apps plan).
+  'mobile.workspaces': 'Workspaces',
+  'mobile.empty':
+    'Scan the QR code on the computer running the presentation to control it from here.',
+  'mobile.scan': 'Scan a QR code',
+  'mobile.back': 'Workspaces',
+  'mobile.edit': 'Edit',
+  'mobile.done': 'Done',
+  'mobile.removeConfirm': 'Remove {name} from this phone? Scan its QR code again to control it.',
+  'mobile.remoteControl': 'Remote control',
+  'mobile.presenting': 'Presenting',
+  'mobile.venueOnly': 'On the venue network',
+  'mobile.scanHint': 'Point the camera at the QR code on the computer running the presentation.',
+  'mobile.notInvitation': 'This QR code is not a Worship Q invitation.',
+  'mobile.noCamera': 'Worship Q needs the camera to scan QR codes. Allow it in Settings.',
+  'mobile.openSettings': 'Open Settings',
 } as const;
 
 export type DesktopKey = keyof typeof desktop;

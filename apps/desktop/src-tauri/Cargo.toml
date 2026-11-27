@@ -23,16 +23,12 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 fontdb = "0.23"
 ttf-parser = "0.25"
 zip = { version = "2", default-features = false, features = ["deflate"] }
-tauri-plugin-window-state = "2"
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "ws"] }
 tokio = { version = "1", features = ["net", "sync", "macros", "fs", "time", "rt"] }
 # The platform's own TLS: Security framework on macOS, SChannel on Windows.
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "native-tls", "http2"] }
-# Automatic updates, from the latest GitHub Release, and restarting into them.
-tauri-plugin-updater = "2"
+# Restarting into an update.
 tauri-plugin-process = "2"
-# Phase 2. The system keychain for the device token (decision D23).
-keyring = { version = "3", features = ["apple-native", "windows-native"] }
 # Connections on the venue network (decision D19): TLS with a self-signed certificate per
 # computer, checked by fingerprint, over WebSockets; found by mDNS (decision D20).
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
@@ -46,6 +42,47 @@ sha2 = "0.10"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 # OBS control: the obs-websocket authentication string (OBS control plan, M1.1).
 base64 = "0.22"
+# A slide's small copy for phones, made from its image when the desktop lacks it (native
+# apps M2.16). JPEG only: deck images are always JPEG.
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+
+# Phase 2. The system keychain for the device token (decision D23): Keychain on macOS and
+# iOS, Credential Manager on Windows. Android's is below.
+[target.'cfg(not(target_os = "android"))'.dependencies]
+keyring = { version = "3", features = ["apple-native", "windows-native"] }
+
+# Desktop only: windows that remember their place, and updates from the latest GitHub Release.
+# The phone and tablet apps update through the stores (native apps plan).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-window-state = "2"
+tauri-plugin-updater = "2"
+
+# Phones and tablets: invitation links (app.worship-q.com/j) open the app, and the camera
+# scans an invitation's QR code (native apps plan M2.11).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-deep-link = "2"
+tauri-plugin-barcode-scanner = "2"
+
+# Android has no system OpenSSL for reqwest's native TLS, so it is built in. Secrets are
+# encrypted with a key in the Android Keystore.
+[target.'cfg(target_os = "android")'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["native-tls-vendored"] }
+keyring-core = "1"
+android-native-keyring-store = "1"
+# The phone's name from its settings (device_name.rs), through the context tao sets up.
+jni = "0.21"
+ndk-context = "0.1"
+
+# iOS's mDNS through the system's Bonjour (bonjour.rs), which waits on poll().
+[target.'cfg(target_os = "ios")'.dependencies]
+libc = "0.2"
+# The device's name from UIKit (device_name.rs).
+objc2 = "0.6"
+objc2-foundation = "0.3"
+
+# bonjour.rs's tests run on macOS, which has the same calls.
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

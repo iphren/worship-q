@@ -3,6 +3,7 @@ import {
   invitationLink,
   phonePageLink,
   readInvitation,
+  readScanned,
   routerServer,
   routerView,
   type Invitation,
@@ -215,5 +216,60 @@ describe('routerView', () => {
   it('reports a link it cannot read', () => {
     expect(routerView('')).toEqual({ kind: 'invalid' });
     expect(routerView('#s=http://evil.org&w=1&i=1')).toEqual({ kind: 'invalid' });
+  });
+});
+
+describe('readScanned (native apps M2.11)', () => {
+  it('reads a router invitation, with the server’s address', () => {
+    expect(
+      readScanned('https://app.worship-q.com/j#s=church.example.org:8443&w=ws-1&i=d.s'),
+    ).toEqual({
+      server: 'church.example.org:8443',
+      serverUrl: 'https://church.example.org:8443',
+      workspace: 'ws-1',
+      invite: 'd.s',
+    });
+  });
+
+  it('reads a local workspace’s invitation with no server', () => {
+    expect(readScanned('https://app.worship-q.com/j#l=loc-1&i=x')).toEqual({
+      local: 'loc-1',
+      invite: 'x',
+    });
+  });
+
+  it('reads a direct link to a church server’s phone page (N31)', () => {
+    expect(
+      readScanned('http://192.168.1.10:8080/wq/remote/?w=ws%201#i=d.s&f=AB:CD&a=10.0.0.2&p=47311'),
+    ).toEqual({
+      serverUrl: 'http://192.168.1.10:8080/wq',
+      workspace: 'ws 1',
+      invite: 'd.s',
+      lan: { fingerprint: 'AB:CD', addresses: ['10.0.0.2'], port: 47311 },
+    });
+  });
+
+  it('gives a router link and a direct link to the same workspace the same address', () => {
+    const routed = readScanned('https://app.worship-q.com/j#s=church.example.org&w=ws-1&i=a');
+    const direct = readScanned('https://church.example.org/remote/?w=ws-1#i=b');
+    expect(routed?.serverUrl).toBe(direct?.serverUrl);
+    expect(direct?.server).toBe('church.example.org');
+  });
+
+  it('turns down anything else', () => {
+    for (const text of [
+      '',
+      'hello',
+      'https://example.org/',
+      'https://church.example.org/remote/?w=ws-1',
+      'https://church.example.org/remote/#i=d.s',
+      'https://church.example.org/admin/?w=ws-1#i=d.s',
+      'https://user:pw@church.example.org/remote/?w=1#i=1',
+      'ftp://church.example.org/remote/?w=1#i=1',
+      'https://app.worship-q.com/j#s=evil.org/x&w=1&i=1',
+      'https://app.worship-q.com/other#s=a.org&w=1&i=1',
+    ]) {
+      expect(readScanned(text), text).toBeNull();
+    }
   });
 });
