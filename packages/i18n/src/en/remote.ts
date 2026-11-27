@@ -4,13 +4,13 @@ export const remote = {
 
   'connect.connecting': 'Connecting…',
   'connect.pendingTitle': 'Waiting for approval',
-  'connect.pending': 'Ask the operator to approve this phone. They will see this code:',
+  'connect.pending': 'Ask the operator to approve this device. They will see this code:',
   'connect.offlineTitle': 'Waiting for presentation',
   'connect.offline':
     'The presenting computer is not connected right now. This page reconnects by itself.',
   'connect.deniedTitle': 'Not approved',
-  'connect.denied': 'The operator did not approve this phone.',
-  'connect.revoked': 'This phone was disconnected by the operator.',
+  'connect.denied': 'The operator did not approve this device.',
+  'connect.revoked': 'This device was disconnected by the operator.',
   'connect.expiredTitle': 'Scan the QR code again',
   'connect.expired':
     'This link has expired or was already used. Scan the QR code shown on the presenting computer.',
