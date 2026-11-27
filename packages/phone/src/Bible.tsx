@@ -158,7 +158,8 @@ export function PhoneBible(props: {
     props.onDone(formatReference(reference, language));
   }
 
-  const cell = 'min-w-10 rounded-lg px-2 py-2 text-center text-[15px] tabular-nums active:scale-95';
+  const cell =
+    'min-h-11 min-w-11 rounded-lg px-2 py-2 text-center text-[15px] tabular-nums active:scale-95';
   const offeredIds = offered?.map((v) => v.id) ?? [];
   const credit = (id: string) => offered?.find((v) => v.id === id)?.credit ?? id;
 
@@ -176,13 +177,13 @@ export function PhoneBible(props: {
             autoCapitalize="off"
             autoComplete="off"
             spellCheck={false}
-            className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
             placeholder={t('bible.placeholder')}
             value={state.input}
             onChange={(event) => setState(typed(event.target.value, toc))}
           />
           <button
-            className="rounded-lg bg-slate-800 px-3 text-sm font-semibold"
+            className="min-h-11 rounded-lg bg-slate-800 px-3 text-sm font-semibold"
             onClick={() => props.onDone(null)}
           >
             {t('add.back')}
@@ -277,7 +278,7 @@ export function PhoneBible(props: {
                 return (
                   <li key={ref}>
                     <button
-                      className="w-full rounded-lg bg-slate-900 px-3 py-2 text-left"
+                      className="min-h-11 w-full rounded-lg bg-slate-900 px-3 py-2 text-left"
                       onClick={() => setState(typed(formatReference(parsed, language), toc))}
                     >
                       📖 {formatReference(parsed, language)}
@@ -331,7 +332,7 @@ export function PhoneBible(props: {
               </div>
               {toc && canContinue(state, toc) && (
                 <button
-                  className="mt-2 text-sm text-sky-300"
+                  className="mt-1 min-h-11 text-sm text-sky-300"
                   onClick={() => setState(continueToNextChapter(state, toc, language))}
                 >
                   {t('bible.continueChapter', { chapter: state.chapter + 1 })}
@@ -381,14 +382,14 @@ export function PhoneBible(props: {
 
       <div className="flex gap-2 border-t border-slate-800 p-3 land:col-start-2 land:row-start-3 land:py-2">
         <button
-          className="flex-1 rounded-lg bg-slate-700 py-3 text-[15px] font-semibold whitespace-nowrap land:py-2.5 land:text-sm text-white active:scale-[0.98] disabled:opacity-40"
+          className="min-h-11 flex-1 rounded-lg bg-slate-700 py-3 text-[15px] font-semibold whitespace-nowrap land:py-2.5 land:text-sm text-white active:scale-[0.98] disabled:opacity-40"
           disabled={!connected || !ready}
           onClick={() => add(false)}
         >
           {t('bible.add')}
         </button>
         <button
-          className="flex-1 rounded-lg bg-sky-600 py-3 text-[15px] font-semibold whitespace-nowrap land:py-2.5 land:text-sm text-white active:scale-[0.98] disabled:opacity-40"
+          className="min-h-11 flex-1 rounded-lg bg-sky-600 py-3 text-[15px] font-semibold whitespace-nowrap land:py-2.5 land:text-sm text-white active:scale-[0.98] disabled:opacity-40"
           disabled={!connected || !ready}
           onClick={() => add(true)}
         >

@@ -66,6 +66,25 @@ describe('the phone and tablet builds', () => {
     expect(plist).toMatch(/<key>NSBonjourServices<\/key>\s*<array>\s*<string>_worship-q\._tcp/);
   });
 
+  it('ask in English and Chinese, with the English the same as Info.ios.plist (M2.14)', () => {
+    const plist = read('Info.ios.plist');
+    const said = (text: string, key: string) =>
+      new RegExp(`"${key}" = "([^"]+)";`).exec(text)?.[1] ??
+      new RegExp(`<key>${key}</key>\\s*<string>([^<]+)</string>`).exec(text)?.[1];
+    const keys = [
+      'NSLocalNetworkUsageDescription',
+      'NSCameraUsageDescription',
+      'NSMicrophoneUsageDescription',
+    ];
+    for (const language of ['en', 'zh-Hans', 'zh-Hant']) {
+      const strings = read(`gen/apple/worship-q_iOS/${language}.lproj/InfoPlist.strings`);
+      for (const key of keys) {
+        expect(said(strings, key), `${language} ${key}`).toBeTruthy();
+        if (language === 'en') expect(said(strings, key)).toBe(said(plist, key));
+      }
+    }
+  });
+
   it('ask Android for the venue network, the camera and the microphone', () => {
     const manifest = read('gen/android/app/src/main/AndroidManifest.xml');
     for (const permission of [

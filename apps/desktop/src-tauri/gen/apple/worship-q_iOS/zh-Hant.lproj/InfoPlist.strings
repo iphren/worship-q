@@ -1,0 +1,4 @@
+/* 權限提示（原生應用程式 M2.14）。 */
+"NSLocalNetworkUsageDescription" = "Worship Q 需要連接這個網路中正在執行聚會的電腦。";
+"NSCameraUsageDescription" = "Worship Q 使用相機掃描邀請你控制簡報的 QR 碼。";
+"NSMicrophoneUsageDescription" = "Worship Q 把你選擇的音訊輸入直播給收聽的人；如果教會需要，也會錄音。";

@@ -1,0 +1,4 @@
+/* The permission prompts (native apps M2.14). Kept the same as Info.ios.plist. */
+"NSLocalNetworkUsageDescription" = "Worship Q connects to the computers running your service on this network.";
+"NSCameraUsageDescription" = "Worship Q scans the QR code that invites you to a presentation.";
+"NSMicrophoneUsageDescription" = "Worship Q broadcasts the audio input you choose to listeners, and records it when your church does.";

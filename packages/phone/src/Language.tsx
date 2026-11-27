@@ -15,7 +15,7 @@ export function LanguageButton() {
   return (
     <>
       <button
-        className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-slate-200 active:scale-95"
+        className="relative after:absolute after:-inset-1.5 after:content-[''] flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-slate-200 active:scale-95"
         title={t('language.label')}
         aria-label={t('language.label')}
         aria-expanded={open}

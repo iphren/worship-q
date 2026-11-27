@@ -462,7 +462,7 @@ function Live({ view }: { view: RemoteView | null }) {
             {/* Disabled while the OBS screen covers the run sheet; it closes from the OBS button. */}
             {(canEdit || editing) && (
               <button
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40 ${
+                className={`relative after:absolute after:-inset-1.5 after:content-[''] rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-40 ${
                   editing ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-200'
                 }`}
                 disabled={obsOpen}
@@ -611,7 +611,7 @@ function VideoBar(props: {
   const seek = (seconds: number) =>
     connection.send({ type: 'videoSeek', itemId: video.itemId, seconds });
   const button =
-    'flex h-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 px-2.5 active:scale-95 disabled:opacity-40';
+    'flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg bg-slate-800 px-2.5 active:scale-95 disabled:opacity-40';
   return (
     <div className="flex items-center gap-1.5 border-t border-violet-800 bg-violet-950 px-3 py-2 text-violet-50 land:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
       {seekable && (
@@ -745,7 +745,7 @@ function EditRunSheet(props: {
     if (firstNew) firstNewRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [firstNew]);
   const button =
-    'h-10 w-10 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
+    'h-11 w-11 shrink-0 rounded-lg bg-slate-800 text-lg active:scale-95 disabled:opacity-30';
 
   return (
     <main className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-indigo-950 px-3 py-4 land:py-3">
@@ -805,7 +805,7 @@ function EditRunSheet(props: {
             </button>
             {removing === item.itemId ? (
               <button
-                className="h-10 shrink-0 rounded-lg bg-red-700 px-3 text-sm font-semibold text-white active:scale-95"
+                className="h-11 shrink-0 rounded-lg bg-red-700 px-3 text-sm font-semibold text-white active:scale-95"
                 disabled={!connected}
                 onClick={() => {
                   setRemoving(null);
@@ -927,13 +927,13 @@ function AddSongs(props: {
           autoCapitalize="off"
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-base"
           placeholder={t('add.placeholder')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
         <button
-          className="rounded-lg bg-slate-800 px-3 text-sm font-semibold"
+          className="min-h-11 rounded-lg bg-slate-800 px-3 text-sm font-semibold"
           onClick={props.onDone}
         >
           {t('add.back')}
@@ -1029,7 +1029,7 @@ function AddSongs(props: {
               )}
               <div className="flex gap-2">
                 <button
-                  className="flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
+                  className="min-h-11 flex-1 rounded-lg bg-sky-600 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
                   disabled={!connected}
                   onClick={() => add(song, false)}
                 >
@@ -1037,7 +1037,7 @@ function AddSongs(props: {
                 </button>
                 {presented && (
                   <button
-                    className="flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
+                    className="min-h-11 flex-1 rounded-lg bg-slate-700 py-2 text-sm font-semibold whitespace-nowrap text-white active:scale-[0.98] disabled:opacity-40 land:text-[13px]"
                     disabled={!connected}
                     onClick={() => add(song, true)}
                   >
@@ -1210,7 +1210,7 @@ function ObsRow(props: {
     >
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <button
-          className="flex min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
+          className="flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg bg-yellow-800 py-1.5 text-sm font-semibold text-yellow-50 active:scale-[0.98] disabled:opacity-40"
           disabled={!usable || !target || command.pending || locked}
           onClick={() => target && void command.run({ type: 'setScene', scene: target })}
         >
@@ -1225,7 +1225,7 @@ function ObsRow(props: {
           </span>
         </button>
         <button
-          className={`rounded-lg px-4 py-1.5 text-sm font-semibold active:scale-[0.98] ${
+          className={`min-h-11 rounded-lg px-4 py-1.5 text-sm font-semibold active:scale-[0.98] ${
             props.open ? 'bg-sky-600 text-white' : 'bg-slate-800'
           }`}
           onClick={props.onToggle}

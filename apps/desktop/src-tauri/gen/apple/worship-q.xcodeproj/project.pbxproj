@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0D56D9C8420E6DA87A31AAC3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 913B73BB42548B5BAE2729A0 /* InfoPlist.strings */; };
 		224C638B68F9511959976310 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B8F6DE7C4FECBA7251EFDC7A /* libapp.a */; };
 		3C3D158A2BDBDBE972A4EBBB /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2829BB1DA767A0EB966B47 /* Metal.framework */; };
 		48CD303A3764865745B888AE /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 59ECA2887BC806E77A3F7576 /* MetalKit.framework */; };
@@ -26,7 +27,9 @@
 		01BF1F37379303104617A944 /* cloud.rs */ = {isa = PBXFileReference; path = cloud.rs; sourceTree = "<group>"; };
 		10D11A762BF52AE8E14F67A3 /* web.rs */ = {isa = PBXFileReference; path = web.rs; sourceTree = "<group>"; };
 		18D0C5A897937E2518618702 /* files.rs */ = {isa = PBXFileReference; path = files.rs; sourceTree = "<group>"; };
+		2B0FD0B52529CA051F067CF6 /* bonjour.rs */ = {isa = PBXFileReference; path = bonjour.rs; sourceTree = "<group>"; };
 		398C4DC77276508F8F070EB7 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		41072E5A142E0E40F012911C /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		4FAB04574130BD1261DC3366 /* instances.rs */ = {isa = PBXFileReference; path = instances.rs; sourceTree = "<group>"; };
 		588387B42FAAE7F999047896 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		59ECA2887BC806E77A3F7576 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
@@ -41,16 +44,19 @@
 		9321C4BB7F43849AA27F0CE3 /* worship-q_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "worship-q_iOS.entitlements"; sourceTree = "<group>"; };
 		9F2B840E8CB6A515032705CC /* output.rs */ = {isa = PBXFileReference; path = output.rs; sourceTree = "<group>"; };
 		A582AC02C5988EA05A40A394 /* media.rs */ = {isa = PBXFileReference; path = media.rs; sourceTree = "<group>"; };
+		AA852CD3666181640C3407BD /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		ACC0C137977863E535F12E19 /* db.rs */ = {isa = PBXFileReference; path = db.rs; sourceTree = "<group>"; };
 		B38FF0A982DDA0C89365E9C7 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		B6508B369D6B82EF6426EBA4 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		B8F6DE7C4FECBA7251EFDC7A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		BD0CCFFCAC79B34D2C7735B0 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		D10E0FB14A389465FC354535 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		DD37780542CB9E3317422772 /* keychain.rs */ = {isa = PBXFileReference; path = keychain.rs; sourceTree = "<group>"; };
 		DF0FED7075C73A56586D2761 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DF3872457BF9ED9BE717D791 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		E11AEC2B7D6319B0436A6084 /* workspaces.rs */ = {isa = PBXFileReference; path = workspaces.rs; sourceTree = "<group>"; };
 		EB2829BB1DA767A0EB966B47 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		EBFDF15ECA3A1AA9F8D20442 /* remote_list.rs */ = {isa = PBXFileReference; path = remote_list.rs; sourceTree = "<group>"; };
 		F0386452B70C39923D69B548 /* worship-q_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "worship-q_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F053958882B783A749F5B0BE /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		F6D660635D5AC3EC23CB96CD /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
@@ -100,6 +106,7 @@
 		372F74C253D9158C98A834E5 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				2B0FD0B52529CA051F067CF6 /* bonjour.rs */,
 				01BF1F37379303104617A944 /* cloud.rs */,
 				ACC0C137977863E535F12E19 /* db.rs */,
 				18D0C5A897937E2518618702 /* files.rs */,
@@ -114,6 +121,7 @@
 				9F2B840E8CB6A515032705CC /* output.rs */,
 				88FC8F84867D31B5184CADE2 /* overlay.rs */,
 				782D77D006E4F4E7CAEBAA8D /* power.rs */,
+				EBFDF15ECA3A1AA9F8D20442 /* remote_list.rs */,
 				10D11A762BF52AE8E14F67A3 /* web.rs */,
 				E11AEC2B7D6319B0436A6084 /* workspaces.rs */,
 			);
@@ -134,6 +142,7 @@
 			children = (
 				64621F92A770E447E98E4960 /* Info.plist */,
 				9321C4BB7F43849AA27F0CE3 /* worship-q_iOS.entitlements */,
+				913B73BB42548B5BAE2729A0 /* InfoPlist.strings */,
 			);
 			path = "worship-q_iOS";
 			sourceTree = "<group>";
@@ -221,6 +230,8 @@
 			knownRegions = (
 				Base,
 				en,
+				"zh-Hans",
+				"zh-Hant",
 			);
 			mainGroup = 022CBD93BDF09955333D733F;
 			minimizedProjectReferenceProxies = 1;
@@ -240,6 +251,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A4574E6E9F3F8B785C064D4A /* Assets.xcassets in Resources */,
+				0D56D9C8420E6DA87A31AAC3 /* InfoPlist.strings in Resources */,
 				686DA8D119308FB1F854CDC4 /* LaunchScreen.storyboard in Resources */,
 				5F65943D5E4322CB6DD61A46 /* assets in Resources */,
 			);
@@ -281,6 +293,19 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		913B73BB42548B5BAE2729A0 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				D10E0FB14A389465FC354535 /* en */,
+				AA852CD3666181640C3407BD /* zh-Hans */,
+				41072E5A142E0E40F012911C /* zh-Hant */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		0F0FEC90EDD716E25219591C /* release */ = {
