@@ -1,7 +1,7 @@
 # Worship Q — Native Apps Task Breakdown
 
 **Drafted:** 26 November 2026
-**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.12 done and first tested on an iPhone, M2.16 to do, M2.13–M2.15 need devices; later milestones are broken down when M2 is done.
+**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.13 done and tested on an iPhone, M2.14 and M2.16 to do, M2.15 needs devices; later milestones are broken down when M2 is done.
 **Source:** the [native apps plan](native-apps-plan.md), the [spike results](spikes/native-apps.md), and the code at version 2.15.0 (protocol version 11).
 
 ## 1. How to read this
@@ -97,6 +97,8 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 | Task | What | Size | Needs |
 | --- | --- | --- | --- |
 | M2.15 | **The "done when" on devices**, recorded in the spike results: on an iPhone and an iPad, and on the Android phone when it arrives. The venue Wi-Fi with no internet: slides, thumbnails, adding a song, listening locked; restart; a second scan; the coordinator moving to another desktop. | S | all |
+
+**On devices so far (27 November 2026, iPhone 13 Pro Max, iOS 27.2.1, against the first church's server and a desktop from this branch):** scanning the Remote control QR code with the in-app scanner added the workspace, the name prompt and approval worked, and the app reached the desktop on the LAN. Slides moved both ways. Thumbnails were missing until the fix above. Listening kept playing with the screen locked (M2.13).
 
 ### Order
 
