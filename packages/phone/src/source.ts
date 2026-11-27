@@ -16,6 +16,7 @@ export type WorkspaceSource = Pick<
   | 'connected'
   | 'via'
   | 'name'
+  | 'suggestedName'
   // The live run sheet and slide.
   | 'send'
   | 'search'

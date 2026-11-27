@@ -21,7 +21,7 @@ export const remote = {
     'The presenting computer runs a different version of Worship Q. Update it, then reload.',
 
   'name.title': 'Remote control',
-  'name.hint': 'Enter your name. The operator sees it when approving this phone.',
+  'name.hint': 'The operator sees this name when approving this device.',
   'name.placeholder': 'Your name',
   'name.continue': 'Continue',
 

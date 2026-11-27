@@ -867,7 +867,7 @@
     "live.viaServer": "Connected through the church server",
     "live.video": "Video · {title}",
     "name.continue": "Continue",
-    "name.hint": "Enter your name. The operator sees it when approving this phone.",
+    "name.hint": "The operator sees this name when approving this device.",
     "name.placeholder": "Your name",
     "name.title": "Remote control",
     "obs.camera": "Camera",

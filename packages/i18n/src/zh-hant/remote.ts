@@ -18,7 +18,7 @@ export const remote: Record<keyof typeof en, string> = {
   'connect.updateTitle': '需要更新',
   'connect.update': '投影電腦的 Worship Q 版本與目前頁面不同。請更新電腦端並重新整理此頁面。',
   'name.title': '遙控',
-  'name.hint': '請輸入你的名字，方便操作員識別並批准這支手機。',
+  'name.hint': '操作員批准這台裝置時會看到這個名字。',
   'name.placeholder': '你的名字',
   'name.continue': '繼續',
   'live.previousContent': '投影仍在顯示之前的內容。請選擇一張投影片以切換。',

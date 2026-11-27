@@ -12,6 +12,7 @@
 mod bonjour;
 mod cloud;
 mod db;
+mod device_name;
 mod files;
 mod fonts;
 mod instances;
@@ -245,6 +246,7 @@ pub fn run() {
             obs::obs_status,
             #[cfg(desktop)]
             obs::obs_read_config,
+            device_name::device_name,
             remote_list::remote_list_read,
             remote_list::remote_list_write,
             workspaces::list_workspaces,

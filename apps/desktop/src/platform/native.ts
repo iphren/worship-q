@@ -53,6 +53,11 @@ export const native = {
    * M2.16); true when the copy is there afterwards.
    */
   makeThumbnail: (fileName: string) => invoke<boolean>('make_thumbnail', { fileName }),
+  /**
+   * The phone's or tablet's own name, to offer when it first joins (native apps M2.17); null
+   * on iOS without Apple's entitlement, and on desktops.
+   */
+  deviceName: () => invoke<string | null>('device_name'),
   uploadBackground: (server: string, token: string, fileName: string) =>
     invoke<void>('upload_background', { server, token, fileName }),
   downloadBackground: (server: string, token: string, fileName: string) =>

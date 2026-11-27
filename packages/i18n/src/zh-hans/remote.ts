@@ -20,7 +20,7 @@ export const remote: Record<keyof typeof en, string> = {
   'connect.update': '投影电脑的 Worship Q 版本与当前页面不同。请更新电脑端并刷新此页面。',
 
   'name.title': '遥控',
-  'name.hint': '请输入你的名字，方便操作员识别并批准这台手机。',
+  'name.hint': '操作员批准这台设备时会看到这个名字。',
   'name.placeholder': '你的名字',
   'name.continue': '继续',
 

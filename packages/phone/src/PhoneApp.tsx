@@ -156,6 +156,17 @@ function Message(props: { title: string; children?: ReactNode }) {
 function NameForm() {
   const { connection } = usePhone();
   const [name, setName] = useState('');
+  // The device's own name, offered unless something was typed first (native apps M2.17).
+  const typed = useRef(false);
+  useEffect(() => {
+    let active = true;
+    void connection.suggestedName().then((suggested) => {
+      if (active && suggested && !typed.current) setName(suggested);
+    });
+    return () => {
+      active = false;
+    };
+  }, [connection]);
   return (
     <main className="flex h-full flex-col items-center justify-center p-8">
       <form
@@ -173,7 +184,10 @@ function NameForm() {
           value={name}
           maxLength={40}
           placeholder={t('name.placeholder')}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            typed.current = true;
+            setName(event.target.value);
+          }}
         />
         <button
           className="w-full rounded-lg bg-sky-600 py-3 text-lg font-semibold text-white disabled:opacity-40"

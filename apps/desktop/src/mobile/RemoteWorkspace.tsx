@@ -54,6 +54,7 @@ async function connect(entry: RemoteEntry): Promise<RemoteConnection> {
     },
     fileUrl: (name) => fileUrl(current(entry), name),
     inviteUsed: () => listStore.update(entry.id, (e) => ({ ...e, invite: null })),
+    suggestedName: () => native.deviceName(),
   };
   return new RemoteConnection(link);
 }

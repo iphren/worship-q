@@ -67,6 +67,11 @@ export interface PhoneLink {
   fileUrl(name: string): string | null;
   /** The invitation was used: it should not be offered again. */
   inviteUsed?(): void;
+  /**
+   * The device's own name, offered in the name box (native apps M2.17). The app asks the
+   * system; a browser cannot know it.
+   */
+  suggestedName?(): Promise<string | null>;
 }
 
 export type RemoteState =
@@ -156,6 +161,11 @@ export class RemoteConnection {
   /** A server file, such as a slide thumbnail, as an address this phone can load. */
   fileUrl(name: string): string | null {
     return this.link.fileUrl(name);
+  }
+
+  /** A name to offer in the name box, if the device has one. */
+  async suggestedName(): Promise<string | null> {
+    return (await this.link.suggestedName?.().catch(() => null)) ?? null;
   }
 
   subscribe = (listener: () => void) => {

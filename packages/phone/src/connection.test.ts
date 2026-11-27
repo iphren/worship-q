@@ -193,3 +193,20 @@ describe('what the link decides (native apps M2.5)', () => {
     expect(new RemoteConnection(fakeLink()).fileUrl('a.jpg')).toBe('/files/a.jpg');
   });
 });
+
+describe('the name offered when a device first joins (native apps M2.17)', () => {
+  it('offers the name the app found', async () => {
+    const connection = new RemoteConnection(
+      fakeLink({ suggestedName: () => Promise.resolve('Sound desk iPad') }),
+    );
+    expect(await connection.suggestedName()).toBe('Sound desk iPad');
+  });
+
+  it('offers none in a browser, or when asking fails', async () => {
+    expect(await new RemoteConnection(fakeLink()).suggestedName()).toBeNull();
+    const failing = new RemoteConnection(
+      fakeLink({ suggestedName: () => Promise.reject(new Error('no command')) }),
+    );
+    expect(await failing.suggestedName()).toBeNull();
+  });
+});

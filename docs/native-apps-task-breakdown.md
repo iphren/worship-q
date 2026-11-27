@@ -1,7 +1,7 @@
 # Worship Q — Native Apps Task Breakdown
 
 **Drafted:** 26 November 2026
-**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.14 and M2.16 done, M2.1–M2.13 tested on an iPhone; M2.15, the device checks, remains; later milestones are broken down when M2 is done.
+**Status:** M0 done for Apple devices and Windows discovery, Android waiting for a device ([spike](spikes/native-apps.md)). M1 done: the router page is live and the desktop's router links are switched off until release. **M2 being implemented** on the `m2-mobile-build` branch: M2.1–M2.14, M2.16 and M2.17 done, M2.1–M2.13 tested on an iPhone; M2.15, the device checks, remains; later milestones are broken down when M2 is done.
 **Source:** the [native apps plan](native-apps-plan.md), the [spike results](spikes/native-apps.md), and the code at version 2.15.0 (protocol version 11).
 
 ## 1. How to read this
@@ -55,6 +55,7 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 - **M2.8 went further.** The desktop received phones only while it reached the church server, so a coordinator with no internet could not answer phones on the LAN at all. It now receives them either way, and forgets only the relay's phones when the server goes away. Church desktops now download slide thumbnails, as public-server ones did.
 - **Thumbnails a desktop lacks (27 November 2026).** On the first iPhone test, every deck showed its slides' text. A desktop sends phones on the LAN thumbnails from its own files, but decks it downloaded before M2.8 have only the full images (1,395 full images and 9 thumbnails on the test Mac). The phone now loads a thumbnail the desktop lacks from the church server, as the phone page does, and shows the text only when that fails too. With no internet that still leaves the text, so M2.16 was added.
 - **M2.16** makes the thumbnail in the Rust core (`make_thumbnail`, the `image` crate with JPEG only), fitted within 320 × 240 at quality 75 as the server makes them, and keeps it beside the slide image. It does not download: making it always works when the slide image is there, and it is not there for a deck the desktop cannot present. The making is in the desktop's thumbnail reader, not in `RemoteHost`, so it is tested in Rust only.
+- **M2.17, the device's name (27 November 2026).** Added after the first test: the name box, shown on a device's first join, now starts with the device's own name. iOS gives it only with Apple's user-assigned-device-name entitlement, requested with screenshots in `docs/native-apps/device-name/`; until then, the name it gives is the model ("iPhone"), which is left out, so the box stays empty. Once the entitlement is granted, it goes in `worship-q_iOS.entitlements` and the box fills by itself. Android gives the name from its settings. The hint now says the operator sees the name when approving "this device", since it may be a tablet.
 - **M2.14: tablets use the phone's side-by-side layout.** The phone page already had one for a phone on its side (`land`): slides on the left, controls in a rail on the right. It now applies to any screen in landscape, so a tablet on its side shows the run sheet and controls side by side, and so does the phone page in a wide browser window. Upright, a tablet keeps the column, which the rail squeezed on an iPad mini. Every control is at least 44 points, measured in each screen, upright and on its side; the language and **Edit** buttons keep their size and take taps from a wider area around them. The iOS permission prompts are in English, Simplified and Traditional Chinese (`InfoPlist.strings`); Android's prompts are the system's own.
 - **The scanner** runs the camera behind the page (`windowed`), because the plugin's full-screen camera has no way to cancel. The page draws the frame and **Cancel**.
 - **Android keychain:** `android-native-keyring-store`, from the maintainers of `keyring`, rather than a Keystore plugin of our own.
@@ -93,6 +94,7 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 | M2.13 | **Listening with the screen locked.** The phone page's listening over the app's connection, with the audio background mode on iOS; on Android, whatever keeps the web view playing with the screen off, decided on the test phone. Says when the system interrupts it. | M | M2.12 |
 | M2.14 | **Phone and tablet layouts.** Touch targets of at least 44 points, no hover-only controls, the tablet showing run sheet and slide side by side. In English, Simplified and Traditional Chinese. | M | M2.12 |
 | M2.16 | **Thumbnails the desktop lacks.** When a phone on the LAN asks for a thumbnail the desktop does not have, the desktop makes it from the slide's full image, which it always has for a deck in the run sheet, and keeps it; a deck downloaded before M2.8 then shows its pictures with no internet. The same size and quality as the server's thumbnails. Rust tests for the name check and the resize. | S | M2.8 |
+| M2.17 | **The device's name in the name box.** `device_name` reads it from UIKit or Android's settings; the box offers it, editable, and typing first wins. Empty on iOS until Apple grants the entitlement, and in a browser. | S | M2.12 |
 
 ### Checks
 
@@ -104,6 +106,6 @@ These follow from the plan and the spike. Those marked **P** were proposed here 
 
 ### Order
 
-M2.1 → M2.2, M2.3, M2.4 in parallel. M2.5 and M2.6 can start at once, beside the build work, because they change only TypeScript. M2.7 needs both lines. M2.8 and M2.9 are independent of the app and can land on their own. Then M2.10 → M2.11 → M2.12 → M2.13, M2.14, M2.16, and M2.15 last.
+M2.1 → M2.2, M2.3, M2.4 in parallel. M2.5 and M2.6 can start at once, beside the build work, because they change only TypeScript. M2.7 needs both lines. M2.8 and M2.9 are independent of the app and can land on their own. Then M2.10 → M2.11 → M2.12 → M2.13, M2.14, M2.16, M2.17, and M2.15 last.
 
 Each task, or a few small ones together, is a pull request. The desktop and the phone page keep working after every one.
