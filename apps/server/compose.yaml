@@ -15,6 +15,8 @@ services:
       WORSHIP_Q_PUBLIC_URL: ${WORSHIP_Q_PUBLIC_URL:-}
       # E-mail addresses made administrators at start, comma-separated.
       WORSHIP_Q_ADMINS: ${WORSHIP_Q_ADMINS:-}
+      # AI assistants (ChatGPT, Claude) connect at /mcp when sign-in is set up; 0 turns it off.
+      WORSHIP_Q_MCP: ${WORSHIP_Q_MCP:-1}
       # Days a deleted song's or background's files are kept.
       WORSHIP_Q_RETENTION_DAYS: ${WORSHIP_Q_RETENTION_DAYS:-90}
       # Upload limits in MB, per kind of media. The reverse proxy's body limit must be at
