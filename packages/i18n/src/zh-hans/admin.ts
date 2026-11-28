@@ -122,6 +122,38 @@ export const admin: Record<keyof typeof en, string> = {
   'admins.removeText': '{email}将不能再登录这些页面。他们的设备和工作区不受影响。',
   'admins.removeSelf': '这是你自己的账号：你将被退出登录。',
 
+  'nav.mcpUsers': 'MCP 用户',
+  'mcpUsers.title': 'MCP 用户',
+  'mcpUsers.intro':
+    '这个列表上的人可以把自己的 ChatGPT 或 Claude 连接到这台服务器，让它查看和更新流程表与诗歌：例如把聊天消息里的诗歌加入周六的流程表。他们用教会账号登录。管理员身份不包括这项权限；如果管理员也需要，请把他们加到这里。',
+  'mcpUsers.connectTitle': '如何连接',
+  'mcpUsers.connectHint':
+    '在 ChatGPT 或 Claude 中添加自定义连接器（也叫应用或 MCP 服务器），填入这个地址，然后按提示登录：',
+  'mcpUsers.copy': '复制',
+  'mcpUsers.copied': '已复制',
+  'mcpUsers.disabled':
+    'AI 助手现在无法连接到这台服务器：它以 WORSHIP_Q_MCP=0 启动。你仍可以先选好开启后谁可以连接。',
+  'mcpUsers.addTitle': '添加成员',
+  'mcpUsers.addHint': '输入此人在教会登录服务中的账号电子邮件地址，并选择其助手可以访问的工作区。',
+  'mcpUsers.workspaces': '工作区',
+  'mcpUsers.allWorkspaces': '所有工作区，包括新建的',
+  'mcpUsers.noWorkspacesChosen': '未选择工作区：在你选择之前，其助手无法访问任何内容。',
+  'mcpUsers.none': '还没有人可以连接 AI 助手。',
+  'mcpUsers.reachesAll': '所有工作区',
+  'mcpUsers.reachesNone': '没有工作区',
+  'mcpUsers.lastUsed': '助手上次使用于 {when}',
+  'mcpUsers.neverUsed': '助手从未使用',
+  'mcpUsers.connections.one': '已连接 {count} 个助手',
+  'mcpUsers.connections.other': '已连接 {count} 个助手',
+  'mcpUsers.edit': '更改工作区',
+  'mcpUsers.signOut': '退出助手登录',
+  'mcpUsers.signedOut': '其助手已退出登录，可以重新连接。',
+  'mcpUsers.removeTitle': '移除 {name}？',
+  'mcpUsers.removeText':
+    '{email} 将不能再连接 AI 助手，已连接的助手也会退出登录。已做的更改会保留。',
+  'error.already-added': '这个地址已经在列表上。',
+  'error.unknown-workspace': '所选的某个工作区已不存在。请重新加载页面。',
+
   'workspaces.new': '新建工作区',
   'workspaces.nameLabel': '新工作区的名称',
   'workspaces.namePlaceholder': '主堂',

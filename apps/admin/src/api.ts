@@ -6,6 +6,7 @@
 import {
   ADMIN_HEADER,
   type AdminAdministrator,
+  type AdminMcpUser,
   type AdminDevice,
   type AdminLibraryContent,
   type AdminLibraryItem,
@@ -183,6 +184,16 @@ export const api = {
     request<{ administrator: AdminAdministrator }>('POST', `${ADMIN}/administrators`, { email }),
   removeAdministrator: (id: string) =>
     request<{ removed: boolean }>('DELETE', `${ADMIN}/administrators/${encode(id)}`),
+
+  mcpUsers: () => request<{ mcpUsers: AdminMcpUser[] }>('GET', `${ADMIN}/mcp-users`),
+  addMcpUser: (email: string, access: { allWorkspaces: boolean; workspaceIds: string[] }) =>
+    request<{ mcpUser: AdminMcpUser }>('POST', `${ADMIN}/mcp-users`, { email, ...access }),
+  updateMcpUser: (id: string, access: { allWorkspaces: boolean; workspaceIds: string[] }) =>
+    request<{ mcpUser: AdminMcpUser }>('PATCH', `${ADMIN}/mcp-users/${encode(id)}`, access),
+  removeMcpUser: (id: string) =>
+    request<{ removed: boolean }>('DELETE', `${ADMIN}/mcp-users/${encode(id)}`),
+  signOutMcpUser: (id: string) =>
+    request<{ mcpUser: AdminMcpUser }>('POST', `${ADMIN}/mcp-users/${encode(id)}/sign-out`),
 
   settings: () =>
     request<{ settings: ChurchSettings; keys: string[]; recordingDays?: number }>(

@@ -260,7 +260,7 @@ export class McpContent {
     if (reachable.length === 0) {
       throw new McpToolError(
         'no-workspaces',
-        'You have no workspaces. Ask an administrator to give you access on the MCP users page.',
+        'You have no workspaces. Ask an administrator to give you access on the MCP users page of the admin app.',
       );
     }
     const wanted = (ref ?? '').trim();

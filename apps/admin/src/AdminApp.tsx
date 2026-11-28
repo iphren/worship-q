@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, describeError, onSignedOut } from './api';
 import { errorText, routePath, type Route } from './format';
 import { AdministratorsPage } from './pages/Administrators';
+import { McpUsersPage } from './pages/McpUsers';
 import { DevicesPage } from './pages/Devices';
 import { LibraryPage } from './pages/Library';
 import { SettingsPage } from './pages/Settings';
@@ -139,6 +140,7 @@ const NAV: { route: Route; label: MessageKey }[] = [
   { route: { page: 'devices', pairCode: null }, label: 'nav.devices' },
   { route: { page: 'library' }, label: 'nav.library' },
   { route: { page: 'administrators' }, label: 'nav.administrators' },
+  { route: { page: 'mcp-users' }, label: 'nav.mcpUsers' },
   { route: { page: 'settings' }, label: 'nav.settings' },
   { route: { page: 'storage' }, label: 'nav.storage' },
 ];
@@ -260,6 +262,8 @@ function Page({ route }: { route: Route }) {
       return <LibraryPage />;
     case 'administrators':
       return <AdministratorsPage />;
+    case 'mcp-users':
+      return <McpUsersPage />;
     case 'settings':
       return <SettingsPage />;
     case 'storage':

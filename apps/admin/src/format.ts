@@ -57,6 +57,8 @@ export type Route =
   | { page: 'devices'; pairCode: string | null }
   | { page: 'library' }
   | { page: 'administrators' }
+  /** Who may connect an AI assistant (MCP plan). */
+  | { page: 'mcp-users' }
   | { page: 'settings' }
   | { page: 'storage' }
   | { page: 'not-found' };
@@ -82,6 +84,7 @@ export function parseRoute(pathname: string, search = ''): Route {
         : { page: 'not-found' };
     case 'library':
     case 'administrators':
+    case 'mcp-users':
     case 'settings':
     case 'storage':
       return second === undefined ? { page: first } : { page: 'not-found' };
@@ -289,6 +292,8 @@ const ERROR_CODES = new Set([
   'merge-choice-required',
   'invalid-email',
   'last-administrator',
+  'already-added',
+  'unknown-workspace',
   'not-pending',
   'files-removed',
   'not-deleted',

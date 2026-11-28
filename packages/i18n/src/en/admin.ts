@@ -125,6 +125,40 @@ export const admin = {
     '{email} can no longer sign in to these pages. Their devices and workspaces are not affected.',
   'admins.removeSelf': 'This is your own account: you will be signed out.',
 
+  'nav.mcpUsers': 'MCP users',
+  'mcpUsers.title': 'MCP users',
+  'mcpUsers.intro':
+    'People on this list can connect their own ChatGPT or Claude to this server, and ask it to read and update run sheets and songs: for example, to add the songs from a chat message to Saturday’s run sheet. They sign in with their church account. Being an administrator does not include this; add administrators here too if they should have it.',
+  'mcpUsers.connectTitle': 'How to connect',
+  'mcpUsers.connectHint':
+    'In ChatGPT or Claude, add a custom connector (also called an app or MCP server) with this address, then sign in when asked:',
+  'mcpUsers.copy': 'Copy',
+  'mcpUsers.copied': 'Copied',
+  'mcpUsers.disabled':
+    'AI assistants cannot connect to this server right now: it was started with WORSHIP_Q_MCP=0. You can still choose who may connect once it is turned on.',
+  'mcpUsers.addTitle': 'Add a person',
+  'mcpUsers.addHint':
+    'Enter the e-mail address of their account with the church’s sign-in provider, and choose the workspaces their assistant may reach.',
+  'mcpUsers.workspaces': 'Workspaces',
+  'mcpUsers.allWorkspaces': 'All workspaces, including new ones',
+  'mcpUsers.noWorkspacesChosen':
+    'No workspace chosen: their assistant will reach nothing until you choose one.',
+  'mcpUsers.none': 'Nobody can connect an AI assistant yet.',
+  'mcpUsers.reachesAll': 'All workspaces',
+  'mcpUsers.reachesNone': 'No workspaces',
+  'mcpUsers.lastUsed': 'Assistant last used {when}',
+  'mcpUsers.neverUsed': 'Assistant never used',
+  'mcpUsers.connections.one': '{count} assistant connected',
+  'mcpUsers.connections.other': '{count} assistants connected',
+  'mcpUsers.edit': 'Change workspaces',
+  'mcpUsers.signOut': 'Sign out assistants',
+  'mcpUsers.signedOut': 'Their assistants were signed out. They can connect again.',
+  'mcpUsers.removeTitle': 'Remove {name}?',
+  'mcpUsers.removeText':
+    '{email} can no longer connect an AI assistant, and assistants already connected are signed out. What they changed stays.',
+  'error.already-added': 'That address is already on the list.',
+  'error.unknown-workspace': 'One of the chosen workspaces no longer exists. Reload the page.',
+
   'workspaces.new': 'New workspace',
   'workspaces.nameLabel': 'Name of the new workspace',
   'workspaces.namePlaceholder': 'Main hall',
