@@ -62,6 +62,7 @@ proxy at it. TLS is expected in front of it: phones and desktops must reach it o
 | `WORSHIP_Q_OIDC_CLIENT_ID` | — | The application registered with the provider |
 | `WORSHIP_Q_OIDC_CLIENT_SECRET` | — | Its secret, when the provider requires one (both Microsoft and Google do) |
 | `WORSHIP_Q_ADMINS` | — | E-mail addresses made administrators at start, comma-separated |
+| `WORSHIP_Q_MCP` | on | `0` stops AI assistants from connecting; see **AI assistants (MCP)** |
 | `WORSHIP_Q_RETENTION_DAYS` | `90` | How long a deleted song's or background's files are kept before the daily sweep removes them |
 | `WORSHIP_Q_MAX_IMAGE_MB` | `25` | Largest image a desktop may upload, in MB |
 | `WORSHIP_Q_MAX_DECK_MB` | `200` | Largest slide deck or PDF a desktop may upload, in MB |
@@ -88,6 +89,8 @@ The server needs, end to end:
 - The `Authorization`, `x-worship-q-protocol` and `x-worship-q-admin` request headers passed
   through, and cookies both ways for `/auth/*` and `/api/v1/admin/*`.
 - No caching of `/api/*` or `/auth/*`.
+- For AI assistants: `/mcp`, `/oauth/*` and `/.well-known/oauth-*` passed through uncached,
+  with the `Authorization` header, and the `WWW-Authenticate` response header kept.
 - Uploads of large files (videos) with `PUT` and `POST`, with a request body limit at least
   as large as the largest media limit above (200 MB by default). nginx allows only 1 MB
   unless told otherwise; without the setting below, every larger upload fails with a 413
@@ -182,6 +185,8 @@ Administrators do the following in the admin app:
   use one, delete one, and bring a deleted one back.
 - **Administrators**, **Church defaults** and **Storage** (how much space the server uses,
   by kind of file and by workspace, with the free space left).
+- **MCP users:** who may connect an AI assistant, and to which workspaces; see **AI
+  assistants (MCP)**.
 - **Live:** a workspace's page shows what the server last heard of its presentation: who
   holds it, the run sheet, what is on screen and which devices follow. It is a view only;
   presenting stays with the operator computers.
@@ -198,6 +203,9 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 | `admin add <email>` | Makes an e-mail address an administrator |
 | `admin list` | Lists administrators |
 | `admin remove <email>` | Removes one; the last cannot be removed |
+| `mcp-user add <email> all\|<workspace-id>[,…]` | Lets someone connect an AI assistant, to every workspace or the ones named |
+| `mcp-user list` | Lists who may connect an AI assistant |
+| `mcp-user remove <email>` | Removes one, and signs out their assistants |
 | `workspace create <name>` | Creates a workspace and prints its connection code |
 | `workspace list` | Lists workspaces |
 | `workspace code <id>` | Replaces a workspace's connection code; enrolled devices keep working |
@@ -219,6 +227,33 @@ the server has an administrator; from then on it works only for a workspace whos
 administrator turned on, and new computers normally join by approval instead (see
 **Connecting a desktop**). Give a code only to people who may prepare that workspace's
 content, and replace it with `workspace code` if it leaks.
+
+## AI assistants (MCP)
+
+Coworkers can connect their own ChatGPT or Claude to the server and ask it to update run
+sheets: paste a screenshot of the week's songs from a chat, say which date, and the assistant
+finds each song, adds the ones the library lacks, and puts them on the run sheet. It can also
+add Bible passages and websites, and copy items such as announcements from another week. It
+cannot delete songs from the library.
+
+It needs **Administrator sign-in** set up, because people prove who they are with the same
+church account. Then:
+
+1. In the admin app, open **MCP users** and add the person's e-mail address with the
+   workspaces their assistant may reach. Administrators are not MCP users unless added here
+   too.
+2. They add a custom connector in their assistant with the address shown on that page,
+   `https://<server>/mcp`. In Claude: **Settings → Connectors → Add custom connector**. In
+   ChatGPT: **Settings → Apps & Connectors**, with developer mode on, **Create**. The
+   assistant registers itself; the server needs nothing else.
+3. The assistant sends them to the church's sign-in, then to a page on the server that names
+   the assistant, their account and the workspaces. **Allow** connects it.
+
+What an assistant changes reaches the workspace's computers within seconds, as an edit on
+another computer would. Changing a person's workspaces applies to their very next request;
+removing them, or **Sign out assistants**, ends their assistants' access at once. The
+assistant's provider sees what it reads, such as lyrics and run sheets, as with anything else
+pasted into it.
 
 ## The Church Library
 

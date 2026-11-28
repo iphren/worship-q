@@ -84,6 +84,7 @@ describe('sign-in (D27, D28)', () => {
       hasAdministrators: true,
       admin: { id: expect.any(String), email: 'pat@example.org', name: 'Pat Admin' },
       name: 'Test Church',
+      mcp: { enabled: true, url: 'https://worship.example.org/mcp' },
     });
     expect(instance.findAdministrator('pat@example.org')?.subject).toBe('sub-pat@example.org');
   });
@@ -1730,5 +1731,173 @@ describe('run sheets for the admin app', () => {
     expect((await get('nope/run-sheets')).statusCode).toBe(404);
     expect((await get(`${workspace.id}/run-sheets/soon`)).statusCode).toBe(400);
     expect((await get(`${workspace.id}/run-sheets`, { [ADMIN_HEADER]: '1' })).statusCode).toBe(401);
+  });
+});
+
+describe('MCP users (MCP plan, C1)', () => {
+  it('are separate from administrators: an administrator is not one until added', async () => {
+    const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const list = await app.inject({ method: 'GET', url: '/api/v1/admin/mcp-users', headers });
+    expect(list.json()).toEqual({ mcpUsers: [] });
+    expect(instance.mcp.findUser('pat@example.org')).toBeNull();
+    // Adding an MCP user grants nothing in the admin app.
+    instance.mcp.addUser('sam@example.org', { allWorkspaces: true, workspaceIds: [] }, null);
+    const { callback } = await signIn('sam@example.org');
+    expect(callback.headers.location).toBe('/admin/?error=not-administrator');
+  });
+
+  it('adds, changes and removes MCP users with their workspaces', async () => {
+    const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const north = instance.createWorkspace('North').workspace;
+    const south = instance.createWorkspace('South').workspace;
+    const added = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/mcp-users',
+      headers,
+      payload: { email: ' Sam@Example.org ', workspaceIds: [north.id, north.id] },
+    });
+    expect(added.statusCode).toBe(200);
+    const user = added.json().mcpUser;
+    expect(user).toMatchObject({
+      email: 'sam@example.org',
+      allWorkspaces: false,
+      workspaceIds: [north.id],
+      addedBy: 'pat@example.org',
+      lastSignInAt: null,
+      connections: 0,
+    });
+    const changed = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/mcp-users/${user.id}`,
+      headers,
+      payload: { workspaceIds: [south.id] },
+    });
+    expect(changed.json().mcpUser.workspaceIds).toEqual([south.id]);
+    const all = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/admin/mcp-users/${user.id}`,
+      headers,
+      payload: { allWorkspaces: true, workspaceIds: [south.id] },
+    });
+    // “All workspaces” keeps no list.
+    expect(all.json().mcpUser).toMatchObject({ allWorkspaces: true, workspaceIds: [] });
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/admin/mcp-users/${user.id}`,
+      headers,
+    });
+    expect(removed.json()).toEqual({ removed: true });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/v1/admin/mcp-users', headers })).json()
+        .mcpUsers,
+    ).toEqual([]);
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/v1/admin/mcp-users/${user.id}`, headers }))
+        .statusCode,
+    ).toBe(404);
+    // Added again after removal, they start afresh.
+    const again = await app.inject({
+      method: 'POST',
+      url: '/api/v1/admin/mcp-users',
+      headers,
+      payload: { email: 'sam@example.org' },
+    });
+    expect(again.statusCode).toBe(200);
+    expect(again.json().mcpUser.id).not.toBe(user.id);
+  });
+
+  it('refuses bad addresses, the same address twice, and unknown workspaces', async () => {
+    const { app, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const post = (payload: Record<string, unknown>) =>
+      app.inject({ method: 'POST', url: '/api/v1/admin/mcp-users', headers, payload });
+    expect((await post({ email: 'not-an-address' })).json()).toEqual({ error: 'invalid-email' });
+    expect((await post({ email: 'sam@example.org', workspaceIds: ['nope'] })).json()).toEqual({
+      error: 'unknown-workspace',
+    });
+    expect((await post({ email: 'sam@example.org', allWorkspaces: 'yes' })).json()).toEqual({
+      error: 'invalid-value',
+    });
+    expect((await post({ email: 'sam@example.org' })).statusCode).toBe(200);
+    const twice = await post({ email: 'SAM@example.org' });
+    expect(twice.statusCode).toBe(409);
+    expect(twice.json()).toEqual({ error: 'already-added' });
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: '/api/v1/admin/mcp-users/nope',
+          headers,
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
+  it('need a signed-in administrator', async () => {
+    const { app, admin } = await setup({ administrators: ['pat@example.org'] });
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/v1/admin/mcp-users', headers: admin }))
+        .statusCode,
+    ).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/api/v1/admin/mcp-users' })).statusCode).toBe(
+      403,
+    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/v1/admin/mcp-users',
+          headers: admin,
+          payload: { email: 'x@y.org' },
+        })
+      ).statusCode,
+    ).toBe(401);
+  });
+
+  it('signs out a user’s assistants, and says where assistants connect', async () => {
+    const { app, instance, signIn } = await setup({ administrators: ['pat@example.org'] });
+    const { headers } = await signIn('pat@example.org');
+    const user = instance.mcp.addUser(
+      'sam@example.org',
+      { allWorkspaces: true, workspaceIds: [] },
+      null,
+    );
+    const client = instance.mcp.registerClient({
+      name: 'A',
+      redirectUris: ['https://a.example/cb'],
+      authMethod: 'none',
+    });
+    const id = instance.mcp.startAuthorization({
+      clientId: client.client.id,
+      redirectUri: 'https://a.example/cb',
+      codeChallenge: 'x'.repeat(43),
+      clientState: null,
+      resource: null,
+    });
+    const consent = instance.mcp.attachUser(id, user.id)!;
+    instance.mcp.decide(id, consent, true);
+    // Tokens issued straight through the store, as the token route would.
+    const tokens = instance.mcp['issue'](user.id, client.client.id, id) as { accessToken: string };
+    expect(instance.mcp.connections(user.id)).toBe(1);
+    const listed = await app.inject({ method: 'GET', url: '/api/v1/admin/mcp-users', headers });
+    expect(listed.json().mcpUsers[0].connections).toBe(1);
+    const out = await app.inject({
+      method: 'POST',
+      url: `/api/v1/admin/mcp-users/${user.id}/sign-out`,
+      headers,
+    });
+    expect(out.json().mcpUser.connections).toBe(0);
+    expect(instance.mcp.authenticate(tokens.accessToken)).toBeNull();
+    const me = await app.inject({ method: 'GET', url: '/api/v1/admin/me', headers });
+    expect(me.json().mcp).toEqual({ enabled: true, url: 'https://worship.example.org/mcp' });
+  });
+
+  it('say assistants cannot connect without sign-in', async () => {
+    const { app, admin } = await setup({ oidc: false });
+    const me = await app.inject({ method: 'GET', url: '/api/v1/admin/me', headers: admin });
+    expect(me.json().mcp).toEqual({ enabled: false, url: null });
   });
 });

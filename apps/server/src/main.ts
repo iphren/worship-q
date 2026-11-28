@@ -70,6 +70,8 @@ const { app, recordings, presentationLog } = await buildServer({
   oidc: oidcConfig ? new OidcClient(oidcConfig) : null,
   publicUrl: process.env.WORSHIP_Q_PUBLIC_URL?.replace(/\/+$/, ''),
   administrators: (process.env.WORSHIP_Q_ADMINS ?? '').split(',').filter((e) => e.trim()),
+  // AI assistants connect when sign-in is configured, unless turned off (MCP plan).
+  mcp: process.env.WORSHIP_Q_MCP !== '0',
   retentionDays,
   recordingDays,
   // A public server's limits are its own unless set (videos are never taken there).

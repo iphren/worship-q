@@ -43,6 +43,7 @@ docker compose -f apps/server/compose.yaml up -d --build
 | `WORSHIP_Q_OIDC_CLIENT_ID` | — | 在提供方注册的应用 |
 | `WORSHIP_Q_OIDC_CLIENT_SECRET` | — | 它的密钥，提供方要求时填写（Microsoft 和 Google 都要求） |
 | `WORSHIP_Q_ADMINS` | — | 启动时设为管理员的电子邮件地址，用逗号分隔 |
+| `WORSHIP_Q_MCP` | 开启 | 设为 `0` 时 AI 助手不能连接；见 **AI 助手（MCP）** |
 | `WORSHIP_Q_RETENTION_DAYS` | `90` | 已删除的诗歌或背景的文件保留多久，之后由每日清理删除 |
 | `WORSHIP_Q_MAX_IMAGE_MB` | `25` | 电脑可上传的最大图片，单位 MB |
 | `WORSHIP_Q_MAX_DECK_MB` | `200` | 电脑可上传的最大幻灯片或 PDF，单位 MB |
@@ -66,6 +67,7 @@ docker compose -f apps/server/compose.yaml up -d --build
 - `/api/v1/coordinator`、`/api/v1/remote` 和 `/api/v1/output` 上的 WebSocket。
 - 原样传递 `Authorization`、`x-worship-q-protocol` 和 `x-worship-q-admin` 请求头，并且 `/auth/*`和 `/api/v1/admin/*` 的 Cookie 双向传递。
 - 不缓存 `/api/*` 或 `/auth/*`。
+- 为 AI 助手：原样传递 `/mcp`、`/oauth/*` 和 `/.well-known/oauth-*`，不缓存，带上 `Authorization` 请求头，并保留 `WWW-Authenticate` 响应头。
 - 用 `PUT` 和 `POST` 上传大文件（视频），请求体上限至少与上面最大的媒体上限一样大（默认 200 MB）。nginx 默认只允许 1 MB；没有下面的设置，每个更大的上传都会以 413 错误失败，电脑会报告为代理拒绝了文件：
 
   ```nginx
@@ -131,6 +133,7 @@ WORSHIP_Q_ADMINS=pat@example.org
 - **设备：** 批准请求加入的电脑（见 **连接电脑**），为它们命名，查看每台设备上次在线的时间和是否已连接，以及撤销设备，撤销会立即断开它。
 - **教会资源库：** 查看教会的诗歌和背景、哪些工作区的流程表在使用、删除某一项，以及恢复已删除的项。
 - **管理员**、**教会默认设置** 和 **存储空间**（服务器使用了多少空间，按文件类型和按工作区，以及剩余的可用空间）。
+- **MCP 用户：** 谁可以连接 AI 助手，以及连接到哪些工作区；见 **AI 助手（MCP）**。
 - **实时：** 工作区的页面显示服务器最后了解到的投影状态：谁在主控、流程表、屏幕上的内容，以及哪些设备在跟随。这里只能查看；投影仍由操作电脑控制。
 
 同样的操作也可以在容器中用命令完成；当登录不可用或最后一位管理员不在了，这仍是进入的途径：
@@ -144,6 +147,9 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 | `admin add <email>` | 把一个电子邮件地址设为管理员 |
 | `admin list` | 列出管理员 |
 | `admin remove <email>` | 移除一位管理员；最后一位不能移除 |
+| `mcp-user add <email> all\|<workspace-id>[,…]` | 让某人可以连接 AI 助手，连接到所有工作区或列出的工作区 |
+| `mcp-user list` | 列出可以连接 AI 助手的人 |
+| `mcp-user remove <email>` | 移除一人，并让其助手退出登录 |
 | `workspace create <name>` | 创建工作区并显示它的连接码 |
 | `workspace list` | 列出工作区 |
 | `workspace code <id>` | 更换工作区的连接码；已注册的设备继续有效 |
@@ -158,6 +164,18 @@ docker compose -f apps/server/compose.yaml exec worship-q node dist/cli.js <comm
 教会默认设置：`linesPerPiece`（1–8）、`wrapLongLines`（true/false）、`slideshowFontFamily` 和`subtitleFontFamily`（加引号的字体名称，例如 `'"Noto Sans SC"'`）。在“设置”中自行设定了值的工作区会保留它；“使用教会默认”会改回教会的值。
 
 连接码让任何电脑都能加入工作区。在服务器有管理员之前，所有工作区的连接码都有效；之后，只有管理员打开了连接码的工作区才有效，新电脑通常改为经批准加入（见 **连接电脑**）。只把连接码交给可以为这个工作区准备内容的人；如果外泄，请用 `workspace code` 更换。
+
+## AI 助手（MCP）
+
+同工可以把自己的 ChatGPT 或 Claude 连接到服务器，请它更新流程表：贴上聊天中本周诗歌的截图，说明日期，助手就会找到每首诗歌，把资源库中没有的加进去，再放进流程表。它也可以添加经文和网站，以及从另一周复制项目（例如报告事项）。它不能从资源库中删除诗歌。
+
+这需要先设置好 **管理员登录**，因为大家用同一个教会账号证明身份。然后：
+
+1. 在管理后台打开 **MCP 用户**，添加此人的电子邮件地址，并选择其助手可以访问的工作区。管理员不会自动成为 MCP 用户，除非也加到这里。
+2. 此人在自己的助手中添加自定义连接器，地址就是该页面显示的 `https://<server>/mcp`。在 Claude 中：**设置 → 连接器 → 添加自定义连接器**。在 ChatGPT 中：打开开发者模式后，**设置 → 应用与连接器 → 创建**。助手会自行注册，服务器不需要其他设置。
+3. 助手会把此人带到教会的登录页面，再到服务器上的一个页面，上面写明助手、账号和工作区。选择 **允许** 即完成连接。
+
+助手所做的更改会在几秒内到达工作区的电脑，就像在另一台电脑上编辑一样。更改某人的工作区会在其下一次请求时生效；移除此人或选择 **退出助手登录** 会立即结束其助手的访问。助手的提供方能看到它读取的内容（例如歌词和流程表），和贴给它的其他内容一样。
 
 ## 教会资源库
 

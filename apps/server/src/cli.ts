@@ -5,6 +5,10 @@
  *   admin add <email>           make an e-mail address an administrator
  *   admin list
  *   admin remove <email>
+ *   mcp-user add <email> all|<workspace-id>[,<workspace-id>…]
+ *                               let someone connect an AI assistant (MCP plan)
+ *   mcp-user list
+ *   mcp-user remove <email>     also signs out their assistants
  *   workspace create <name>     create a workspace and print its connection code
  *   workspace list
  *   workspace code <id>         replace a workspace's connection code
@@ -88,6 +92,44 @@ switch (`${area} ${action}`) {
     if (!admin) fail(`${email} is not an administrator.`);
     instance.removeAdministrator(admin.id);
     console.log('Removed.');
+    break;
+  }
+  case 'mcp-user add': {
+    const [email, reach] = rest;
+    if (!email || !reach) fail('Usage: mcp-user add <email> all|<workspace-id>[,<workspace-id>…]');
+    const access =
+      reach === 'all'
+        ? { allWorkspaces: true, workspaceIds: [] }
+        : { allWorkspaces: false, workspaceIds: reach.split(',').filter(Boolean) };
+    try {
+      const user = instance.mcp.addUser(email, access, null);
+      console.log(`${user.email} may connect an AI assistant at <server>/mcp.`);
+    } catch (error) {
+      fail((error as Error).message);
+    }
+    break;
+  }
+  case 'mcp-user list': {
+    const names = new Map(instance.listWorkspaces().map((w) => [w.id, w.name]));
+    table(
+      instance.mcp.listUsers().map((u) => ({
+        email: u.email,
+        name: u.name ?? '',
+        workspaces: u.allWorkspaces
+          ? 'all'
+          : u.workspaceIds.map((id) => names.get(id) ?? id).join(', '),
+        lastUsed: u.lastUsedAt ?? 'never',
+      })),
+    );
+    break;
+  }
+  case 'mcp-user remove': {
+    const [email] = rest;
+    if (!email) fail('Usage: mcp-user remove <email>');
+    const user = instance.mcp.findUser(email);
+    if (!user) fail(`${email} is not an MCP user.`);
+    instance.mcp.removeUser(user.id);
+    console.log('Removed, and their assistants signed out.');
     break;
   }
   case 'workspace create': {
@@ -306,6 +348,7 @@ switch (`${area} ${action}`) {
     console.log(
       [
         'admin add <email> | admin list | admin remove <email>',
+        'mcp-user add <email> all|<workspace-ids> | mcp-user list | mcp-user remove <email>',
         'workspace create <name> | workspace list | workspace code <id>',
         'workspace library <id> on|off [--yes]',
         'device list [workspace-id] | device revoke <device-id>',

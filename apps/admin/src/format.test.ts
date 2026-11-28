@@ -38,6 +38,7 @@ describe('parseRoute', () => {
     expect(parseRoute('/admin/devices')).toEqual({ page: 'devices', pairCode: null });
     expect(parseRoute('/admin/library')).toEqual({ page: 'library' });
     expect(parseRoute('/admin/administrators')).toEqual({ page: 'administrators' });
+    expect(parseRoute('/admin/mcp-users')).toEqual({ page: 'mcp-users' });
     expect(parseRoute('/admin/settings')).toEqual({ page: 'settings' });
     expect(parseRoute('/admin/storage')).toEqual({ page: 'storage' });
   });
@@ -53,6 +54,7 @@ describe('parseRoute', () => {
   it('reports unknown paths', () => {
     expect(parseRoute('/admin/nothing')).toEqual({ page: 'not-found' });
     expect(parseRoute('/admin/devices/extra')).toEqual({ page: 'not-found' });
+    expect(parseRoute('/admin/mcp-users/someone')).toEqual({ page: 'not-found' });
     expect(parseRoute('/admin/workspaces/a/b')).toEqual({ page: 'not-found' });
   });
 
@@ -64,6 +66,7 @@ describe('parseRoute', () => {
       '/admin/devices',
       '/admin/library',
       '/admin/administrators',
+      '/admin/mcp-users',
       '/admin/settings',
       '/admin/storage',
     ]) {

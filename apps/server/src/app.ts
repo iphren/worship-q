@@ -59,6 +59,8 @@ import {
 } from '@worship-q/protocol';
 import { z } from 'zod';
 import { registerAdminRoutes } from './admin';
+import { registerMcpRoutes } from './mcp/route';
+import { resourceUrl } from './mcp/oauth';
 import { BibleError, versionInfo, type Bible } from './bible';
 import { DECK_EXTENSIONS, type ConvertedDeck } from './decks/convert';
 import { churchFilesDir, findFile, workspaceFilesDir } from './files';
@@ -128,6 +130,11 @@ export interface ServerConfig {
   publicUrl?: string;
   /** E-mail addresses made administrators at start, idempotently (D28). */
   administrators?: string[];
+  /**
+   * Whether AI assistants may connect at `/mcp` (MCP plan). On by default, but only ever
+   * when sign-in is configured, and never in public mode.
+   */
+  mcp?: boolean;
   /** Days a deleted item keeps its files (D34). */
   retentionDays?: number;
   /** Whether the retention sweep runs on a timer; off in tests. */
@@ -454,7 +461,15 @@ export async function buildServer(config: ServerConfig) {
     origin: true,
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     // The install header goes to the public server only (S2); allowed everywhere, as harmless.
-    allowedHeaders: ['authorization', 'content-type', PROTOCOL_HEADER, INSTALL_HEADER],
+    // MCP clients in a browser send their protocol version, and read why a token failed.
+    allowedHeaders: [
+      'authorization',
+      'content-type',
+      PROTOCOL_HEADER,
+      INSTALL_HEADER,
+      'mcp-protocol-version',
+    ],
+    exposedHeaders: ['www-authenticate'],
     maxAge: 600,
   });
   await app.register(websocket, { options: { maxPayload: 4 * 1024 * 1024 } });
@@ -1370,8 +1385,22 @@ export async function buildServer(config: ServerConfig) {
       });
     }
   }
+  // AI assistants (MCP plan): only with sign-in, which is how people prove who they are.
+  const mcpOAuth =
+    config.oidc && config.mcp !== false && !publicMode
+      ? await registerMcpRoutes(app, {
+          instance,
+          relay,
+          bible: config.bible ?? null,
+          oidc: config.oidc,
+          publicUrl: config.oidc.config.publicUrl,
+          name: config.name,
+        })
+      : null;
   await registerAdminRoutes(app, {
     instance,
+    mcpOAuth,
+    mcpUrl: mcpOAuth && config.oidc ? resourceUrl(config.oidc.config.publicUrl) : null,
     relay,
     obsReports,
     audioReports,

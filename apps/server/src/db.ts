@@ -243,6 +243,71 @@ const MIGRATIONS: string[][] = [
     )`,
     `CREATE INDEX stored_upload_hash ON stored_upload(hash, kind)`,
   ],
+  [
+    // MCP users (MCP plan, C1): who may connect an AI assistant to the server's run sheets,
+    // and which workspaces they reach. Separate from administrators: being one grants
+    // nothing here. Bound to the provider's subject on first sign-in, like administrators.
+    `CREATE TABLE mcp_user (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      subject TEXT,
+      name TEXT,
+      all_workspaces INTEGER NOT NULL DEFAULT 0,
+      added_by TEXT,
+      created_at TEXT NOT NULL,
+      last_sign_in_at TEXT,
+      last_used_at TEXT,
+      removed_at TEXT
+    )`,
+    `CREATE UNIQUE INDEX mcp_user_email ON mcp_user(email) WHERE removed_at IS NULL`,
+    `CREATE TABLE mcp_user_workspace (
+      user_id TEXT NOT NULL REFERENCES mcp_user(id),
+      workspace_id TEXT NOT NULL,
+      PRIMARY KEY (user_id, workspace_id)
+    )`,
+    // A sign-in under way is the admin app's or an MCP authorization's (C3).
+    `ALTER TABLE auth_state ADD COLUMN flow TEXT NOT NULL DEFAULT 'admin'`,
+    `ALTER TABLE auth_state ADD COLUMN mcp_authorization_id TEXT`,
+    // AI assistants registered as OAuth clients (C2). Only the hash of a secret is kept.
+    `CREATE TABLE oauth_client (
+      id TEXT PRIMARY KEY,
+      secret_hash TEXT,
+      name TEXT NOT NULL,
+      redirect_uris TEXT NOT NULL,
+      auth_method TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      last_used_at TEXT
+    )`,
+    // An authorization under way: from the client's request, through the sign-in and the
+    // person's consent, to the code the client exchanges once.
+    `CREATE TABLE mcp_authorization (
+      id TEXT PRIMARY KEY,
+      client_id TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      code_challenge TEXT NOT NULL,
+      client_state TEXT,
+      resource TEXT,
+      mcp_user_id TEXT,
+      consent_hash TEXT,
+      code_hash TEXT UNIQUE,
+      code_expires_at TEXT,
+      used_at TEXT,
+      created_at TEXT NOT NULL
+    )`,
+    // Access and refresh tokens; a refresh token's family ends when one is used twice.
+    `CREATE TABLE mcp_token (
+      token_hash TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      family_id TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      mcp_user_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      revoked_at TEXT
+    )`,
+    `CREATE INDEX mcp_token_user ON mcp_token(mcp_user_id)`,
+    `CREATE INDEX mcp_token_family ON mcp_token(family_id)`,
+  ],
 ];
 
 export function openDatabase(path: string): Database {

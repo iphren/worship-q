@@ -22,6 +22,7 @@ several computers, phones and browsers share one presentation and its content.
 | Search and AI discovery | [Plan](docs/seo-plan.md)                                                                                                                                                                 |
 | Public server           | [Plan](docs/public-server-plan.md), [discovery](docs/public-server-discovery.md), [task breakdown](docs/public-server-task-breakdown.md), [running it](docs/public-server-deployment.md) |
 | Translation             | [Plan](docs/translation-plan.md)                                                                                                                                                         |
+| AI assistants (MCP)     | [Plan](docs/mcp-plan.md)                                                                                                                                                                 |
 
 ## Develop
 

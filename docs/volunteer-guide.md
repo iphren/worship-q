@@ -217,6 +217,28 @@ shows only yours until the church brings its version back.
 Removing a church song hides it in your workspace only; the church and other workspaces keep
 it.
 
+## ChatGPT and Claude
+
+If your church runs its own Worship Q server, an administrator can let you connect your own
+ChatGPT or Claude to it. They add you on the admin app's **MCP users** page and give you the
+server's address. Add it as a custom connector in your assistant (in Claude, **Settings →
+Connectors → Add custom connector**), sign in with your church account, and choose **Allow**.
+
+Then ask in plain words. For example, paste a screenshot of the week's songs and write:
+
+> Here are the songs for this Saturday. Add them to the run sheet, and add any that aren't in
+> the library yet. Then add the announcements just like last week, and John 3:16-18 before the
+> sermon.
+
+The assistant checks each song against the library before adding new ones, and asks when a
+title could be more than one song. It also asks when the message does not make clear which
+workspace or which date is meant, and before adding to a date already past or a day your
+workspace does not meet. What it changes appears on every computer of the workspace
+within seconds; check the run sheet before the service as you would anyone's work. It can add,
+edit, move and remove run sheet items and add or edit songs, but it never deletes songs from
+the library. Give it the lyrics of new songs: it should not make lyrics up, and it asks when it
+does not have them.
+
 ## Phones
 
 Open the phone icon at the bottom of the sidebar on any computer. A phone that scans the QR

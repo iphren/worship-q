@@ -45,6 +45,7 @@ import {
 } from '@worship-q/protocol';
 import { z } from 'zod';
 import { transaction, type Database, type SqlValue } from './db';
+import { McpAccess } from './mcp/access';
 
 export interface WorkspaceRow {
   id: string;
@@ -140,10 +141,15 @@ const text = (value: SqlValue | undefined) => (value == null ? '' : String(value
 const optional = (value: SqlValue | undefined) => (value == null ? null : String(value));
 
 export class Instance {
+  /** MCP users, and the OAuth state of the assistants they connect (MCP plan). */
+  readonly mcp: McpAccess;
+
   constructor(
     readonly db: Database,
     readonly now: () => string = () => new Date().toISOString(),
-  ) {}
+  ) {
+    this.mcp = new McpAccess(db, () => this.now());
+  }
 
   // ── Workspaces ───────────────────────────────────────────────────────────
 
@@ -631,26 +637,54 @@ export class Instance {
     this.db.prepare('DELETE FROM admin_session WHERE token_hash = ?').run(hashSecret(token));
   }
 
-  /** Remembers a sign-in under way, to check the provider's answer against. */
-  putAuthState(state: string, verifier: string, nonce: string, returnTo: string): void {
+  /**
+   * Remembers a sign-in under way, to check the provider's answer against. An MCP
+   * authorization's sign-in names the authorization it is for (MCP plan, C3).
+   */
+  putAuthState(
+    state: string,
+    verifier: string,
+    nonce: string,
+    returnTo: string,
+    mcpAuthorizationId: string | null = null,
+  ): void {
     const now = this.now();
     this.db
       .prepare('DELETE FROM auth_state WHERE created_at < ?')
       .run(new Date(Date.parse(now) - AUTH_STATE_TTL_MS).toISOString());
     this.db
       .prepare(
-        'INSERT INTO auth_state (state, verifier, nonce, return_to, created_at) VALUES (?, ?, ?, ?, ?)',
+        `INSERT INTO auth_state (state, verifier, nonce, return_to, created_at, flow, mcp_authorization_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(state, verifier, nonce, returnTo, now);
+      .run(
+        state,
+        verifier,
+        nonce,
+        returnTo,
+        now,
+        mcpAuthorizationId ? 'mcp' : 'admin',
+        mcpAuthorizationId,
+      );
   }
 
   /** Takes a sign-in under way, once; null when unknown or too old. */
-  takeAuthState(state: string): { verifier: string; nonce: string; returnTo: string } | null {
+  takeAuthState(state: string): {
+    verifier: string;
+    nonce: string;
+    returnTo: string;
+    mcpAuthorizationId: string | null;
+  } | null {
     const row = this.db.prepare('SELECT * FROM auth_state WHERE state = ?').get(state);
     if (!row) return null;
     this.db.prepare('DELETE FROM auth_state WHERE state = ?').run(state);
     if (Date.parse(text(row.created_at)) < Date.parse(this.now()) - AUTH_STATE_TTL_MS) return null;
-    return { verifier: text(row.verifier), nonce: text(row.nonce), returnTo: text(row.return_to) };
+    return {
+      verifier: text(row.verifier),
+      nonce: text(row.nonce),
+      returnTo: text(row.return_to),
+      mcpAuthorizationId: text(row.flow) === 'mcp' ? optional(row.mcp_authorization_id) : null,
+    };
   }
 
   /** The device a token belongs to, unless it was revoked. Records that it was seen. */

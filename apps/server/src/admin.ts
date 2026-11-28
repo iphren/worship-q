@@ -20,6 +20,7 @@ import {
   type AdminDevice,
   type AdminLibraryItem,
   type AdminLiveView,
+  type AdminMcpUser,
   type AdminMe,
   type AdminObsView,
   type AdminRecords,
@@ -44,6 +45,8 @@ import type { Bible } from './bible';
 import { recordingFileType, type Recordings } from './recordings';
 import type { PresentationLog } from './presentationLog';
 import { LogContent } from './logContent';
+import { AccessError, type McpUserRow } from './mcp/access';
+import { McpOAuth } from './mcp/oauth';
 
 export const SESSION_COOKIE = 'wq_admin';
 
@@ -71,6 +74,10 @@ export interface AdminConfig {
   presentationLog: PresentationLog;
   /** Days recordings are kept; 0 for ever. */
   recordingDays: number;
+  /** The OAuth server AI assistants sign in through; null when they cannot (MCP plan). */
+  mcpOAuth?: McpOAuth | null;
+  /** The address people give their assistant; null when assistants cannot connect. */
+  mcpUrl?: string | null;
 }
 
 declare module 'fastify' {
@@ -141,6 +148,17 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       if (!oidc) return reply.code(503).send({ error: 'sign-in-not-configured' });
       const { code, state, error } = request.query;
       const pending = state ? instance.takeAuthState(state) : null;
+      // The same callback ends an AI assistant's sign-in (MCP plan, C3).
+      if (pending?.mcpAuthorizationId) {
+        if (!config.mcpOAuth) return McpOAuth.notConfigured(request, reply);
+        return config.mcpOAuth.finishSignIn(
+          request,
+          reply,
+          { ...pending, mcpAuthorizationId: pending.mcpAuthorizationId },
+          code,
+          error,
+        );
+      }
       if (error || !code || !pending) return reply.redirect('/admin/?error=sign-in-failed', 302);
       let claims;
       try {
@@ -179,6 +197,7 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
       hasAdministrators: instance.hasAdministrators(),
       admin: admin ? { id: admin.id, email: admin.email, name: admin.name } : null,
       name: config.name,
+      mcp: { enabled: !!config.mcpOAuth, url: config.mcpUrl ?? null },
     } satisfies AdminMe;
   });
 
@@ -696,6 +715,91 @@ export async function registerAdminRoutes(app: FastifyInstance, config: AdminCon
         } catch {
           return reply.code(409).send({ error: 'last-administrator' });
         }
+      },
+    );
+
+    // ── MCP users (MCP plan, C1) ───────────────────────────────────────────
+
+    const mcpUserView = (u: McpUserRow): AdminMcpUser => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      allWorkspaces: u.allWorkspaces,
+      workspaceIds: u.workspaceIds,
+      addedBy: adminEmail(u.addedBy),
+      createdAt: u.createdAt,
+      lastSignInAt: u.lastSignInAt,
+      lastUsedAt: u.lastUsedAt,
+      connections: instance.mcp.connections(u.id),
+    });
+
+    const McpAccessSchema = z.object({
+      allWorkspaces: z.boolean().default(false),
+      workspaceIds: z.array(z.string().max(100)).max(500).default([]),
+    });
+
+    const accessRefused = (reply: FastifyReply, error: unknown) => {
+      if (error instanceof AccessError) {
+        return reply.code(error.code === 'already-added' ? 409 : 400).send({ error: error.code });
+      }
+      throw error;
+    };
+
+    api.get('/api/v1/admin/mcp-users', async () => ({
+      mcpUsers: instance.mcp.listUsers().map(mcpUserView),
+    }));
+
+    api.post<{ Body: { email?: unknown; allWorkspaces?: unknown; workspaceIds?: unknown } }>(
+      '/api/v1/admin/mcp-users',
+      async (request, reply) => {
+        const access = McpAccessSchema.safeParse(request.body ?? {});
+        if (!access.success) return reply.code(400).send({ error: 'invalid-value' });
+        try {
+          const added = instance.mcp.addUser(
+            String(request.body?.email ?? ''),
+            access.data,
+            request.admin!.id,
+          );
+          return { mcpUser: mcpUserView(added) };
+        } catch (error) {
+          return accessRefused(reply, error);
+        }
+      },
+    );
+
+    api.patch<{
+      Params: { id: string };
+      Body: { allWorkspaces?: unknown; workspaceIds?: unknown };
+    }>('/api/v1/admin/mcp-users/:id', async (request, reply) => {
+      const access = McpAccessSchema.safeParse(request.body ?? {});
+      if (!access.success) return reply.code(400).send({ error: 'invalid-value' });
+      try {
+        const updated = instance.mcp.updateUser(request.params.id, access.data);
+        if (!updated) return reply.code(404).send({ error: 'not-found' });
+        return { mcpUser: mcpUserView(updated) };
+      } catch (error) {
+        return accessRefused(reply, error);
+      }
+    });
+
+    api.delete<{ Params: { id: string } }>(
+      '/api/v1/admin/mcp-users/:id',
+      async (request, reply) => {
+        if (!instance.mcp.removeUser(request.params.id)) {
+          return reply.code(404).send({ error: 'not-found' });
+        }
+        return { removed: true };
+      },
+    );
+
+    /** Signs out every assistant the user connected; they can connect again. */
+    api.post<{ Params: { id: string } }>(
+      '/api/v1/admin/mcp-users/:id/sign-out',
+      async (request, reply) => {
+        const user = instance.mcp.getUser(request.params.id);
+        if (!user || user.removedAt) return reply.code(404).send({ error: 'not-found' });
+        instance.mcp.revokeUserTokens(user.id);
+        return { mcpUser: mcpUserView(user) };
       },
     );
 
