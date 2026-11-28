@@ -8,6 +8,7 @@ import { openNodeDriver } from '@worship-q/store/testing';
 import { SyncClient, type FileTransfer, type InstanceApi } from '@worship-q/sync';
 import { describe, expect, it } from 'vitest';
 import { openDatabase } from './db';
+import { undoMcpMigration } from './mcp/migration.testing';
 import {
   churchFilesDir,
   findFile,
@@ -1350,6 +1351,7 @@ describe('Church Library files', () => {
       // As the database was before management was per type.
       const version = Number(before.prepare('PRAGMA user_version').get()!.user_version);
       // The migrations since then are undone too, so that they run again.
+      undoMcpMigration(before);
       before.exec('DROP TABLE stored_upload');
       before.exec('DROP TABLE presentation_log');
       before.exec('DROP TABLE audio_recording');
@@ -1357,7 +1359,7 @@ describe('Church Library files', () => {
       before.exec('ALTER TABLE pairing_request DROP COLUMN allow_merge');
       before.exec('ALTER TABLE workspace DROP COLUMN library_types');
       before.prepare('UPDATE workspace SET manage_library = 1 WHERE id = ?').run(managing.id);
-      before.exec(`PRAGMA user_version = ${version - 4}`);
+      before.exec(`PRAGMA user_version = ${version - 5}`);
       before.close();
 
       const after = new Instance(openDatabase(path));

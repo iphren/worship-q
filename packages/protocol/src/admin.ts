@@ -22,6 +22,33 @@ export interface AdminMe {
   admin: { id: string; email: string; name: string | null } | null;
   /** The instance's name, for the page title. */
   name: string;
+  /**
+   * Whether AI assistants can connect (MCP plan): on when sign-in and the server's public
+   * address are configured. `url` is the address people give their assistant.
+   */
+  mcp?: { enabled: boolean; url: string | null };
+}
+
+/**
+ * Someone who may connect an AI assistant (ChatGPT, Claude) to the server's run sheets
+ * (MCP plan). Separate from administrators: an administrator is not an MCP user unless
+ * added here too.
+ */
+export interface AdminMcpUser {
+  id: string;
+  email: string;
+  name: string | null;
+  /** Every workspace, including those created later. */
+  allWorkspaces: boolean;
+  /** The workspaces reached when not all of them. */
+  workspaceIds: string[];
+  /** E-mail of the administrator who added this one; null when added on the command line. */
+  addedBy: string | null;
+  createdAt: string;
+  lastSignInAt: string | null;
+  lastUsedAt: string | null;
+  /** Assistants signed in now. */
+  connections: number;
 }
 
 export interface AdminAdministrator {
