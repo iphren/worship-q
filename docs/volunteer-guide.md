@@ -231,7 +231,9 @@ Then ask in plain words. For example, paste a screenshot of the week's songs and
 > sermon.
 
 The assistant checks each song against the library before adding new ones, and asks when a
-title could be more than one song. What it changes appears on every computer of the workspace
+title could be more than one song. It also asks when the message does not make clear which
+workspace or which date is meant, and before adding to a date already past or a day your
+workspace does not meet. What it changes appears on every computer of the workspace
 within seconds; check the run sheet before the service as you would anyone's work. It can add,
 edit, move and remove run sheet items and add or edit songs, but it never deletes songs from
 the library. Give it the lyrics of new songs: it should not make lyrics up, and it asks when it

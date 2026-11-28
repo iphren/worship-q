@@ -752,6 +752,46 @@ describe('the MCP endpoint', () => {
     ]);
   });
 
+  it('tells the assistant to confirm an unclear workspace or date, and holds it to that', async () => {
+    const { call, rpc, token } = await connected({ allWorkspaces: true });
+    const init = await rpc(token, 'initialize', {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'test', version: '1' },
+    });
+    const instructions = init.json().result.instructions as string;
+    expect(instructions).toMatch(/Never guess which workspace or which date/);
+    expect(instructions).toMatch(/Never set confirmed without asking/);
+    const song = JSON.parse(
+      (await call(token, 'create_song', { workspace: 'North', title: 'S', lyrics: 'x' })).text,
+    );
+    // Several workspaces and none named: the assistant has to ask which.
+    const which = await call(token, 'add_to_run_sheet', {
+      date: '2026-11-29',
+      items: [{ song: song.songId }],
+    });
+    expect(which.text).toMatch(/^workspace-required:.*North.*South/);
+    // A past date is refused until the person confirms it.
+    const past = await call(token, 'add_to_run_sheet', {
+      workspace: 'North',
+      date: '2026-11-15',
+      items: [{ song: song.songId }],
+    });
+    expect(past).toMatchObject({ isError: true });
+    expect(past.text).toMatch(/^confirm-date:/);
+    const confirmed = await call(token, 'add_to_run_sheet', {
+      workspace: 'North',
+      date: '2026-11-15',
+      items: [{ song: song.songId }],
+      confirmed: true,
+    });
+    expect(JSON.parse(confirmed.text)).toMatchObject({
+      workspaceName: 'North',
+      date: '2026-11-15',
+      weekday: 'Sunday',
+    });
+  });
+
   it('opens no stream and keeps no session', async () => {
     const { app } = await connected({ allWorkspaces: true });
     expect((await app.inject({ method: 'GET', url: '/mcp' })).statusCode).toBe(405);

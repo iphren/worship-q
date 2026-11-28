@@ -21,7 +21,12 @@ import {
   type PassageText,
   type Reference,
 } from '@worship-q/bible';
-import { addDays, dateInTimeZone, nextMeetingDate } from '@worship-q/calendar';
+import {
+  addDays,
+  dateInTimeZone,
+  nextMeetingDate,
+  normalizeMeetingDays,
+} from '@worship-q/calendar';
 import { assignLineIds } from '@worship-q/lyrics';
 import {
   BibleVersionsSettingSchema,
@@ -66,6 +71,7 @@ export type McpErrorCode =
   | 'workspace-required'
   | 'workspace-not-found'
   | 'invalid-date'
+  | 'confirm-date'
   | 'invalid-range'
   | 'song-not-found'
   | 'item-not-found'
@@ -178,6 +184,11 @@ export function validDate(date: unknown): date is string {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const parsed = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
+
+/** The weekday of a `YYYY-MM-DD` date, in English. */
+export function weekdayName(date: string): string {
+  return WEEKDAYS[new Date(`${date}T00:00:00Z`).getUTCDay()]!;
 }
 
 function requireDate(date: unknown, name = 'date'): string {
@@ -294,7 +305,7 @@ export class McpContent {
       timezone = 'UTC';
     }
     const meetingDays = Array.isArray(data.meetingDays)
-      ? data.meetingDays.filter((d): d is number => Number.isInteger(d) && d >= 0 && d <= 6)
+      ? normalizeMeetingDays(data.meetingDays.filter((d): d is number => Number.isInteger(d)))
       : [0];
     return { timezone, meetingDays };
   }
@@ -302,6 +313,43 @@ export class McpContent {
   /** Today in the workspace's timezone. */
   today(workspaceId: string): string {
     return dateInTimeZone(new Date(this.instance.now()), this.settings(workspaceId).timezone);
+  }
+
+  /**
+   * Refuses to add to a date that looks like a mistake unless the person confirmed it: one
+   * already past in the workspace's timezone, or one that is not a meeting day. Chat messages
+   * name dates loosely ("Saturday", "next week"), and a run sheet on the wrong date is easy
+   * to miss, so the assistant must ask rather than guess (MCP plan, C10).
+   */
+  private checkDate(workspace: WorkspaceRow, date: string, confirmed: boolean | undefined): void {
+    if (confirmed) return;
+    const { meetingDays } = this.settings(workspace.id);
+    const today = this.today(workspace.id);
+    const detail = {
+      workspace: workspace.name,
+      date,
+      weekday: weekdayName(date),
+      today,
+      meetingDays: meetingDays.map((d) => WEEKDAYS[d]!),
+      nextMeetingDate: nextMeetingDate(today, meetingDays),
+    };
+    const ask =
+      'Do not guess: ask the person to confirm the date (and workspace), then call again with confirmed: true.';
+    if (date < today) {
+      throw new McpToolError(
+        'confirm-date',
+        `${date} (${detail.weekday}) is already past in ${workspace.name}, where today is ${today}. ${ask}`,
+        detail,
+      );
+    }
+    const days = new Set(meetingDays);
+    if (days.size > 0 && !days.has(new Date(`${date}T00:00:00Z`).getUTCDay())) {
+      throw new McpToolError(
+        'confirm-date',
+        `${date} is a ${detail.weekday}, not one of ${workspace.name}'s meeting days (${detail.meetingDays.join(', ')}). ${ask}`,
+        detail,
+      );
+    }
   }
 
   listWorkspaces() {
@@ -313,7 +361,7 @@ export class McpContent {
         name: workspace.name,
         timezone,
         today,
-        todayWeekday: WEEKDAYS[new Date(`${today}T00:00:00Z`).getUTCDay()]!,
+        todayWeekday: weekdayName(today),
         meetingDays: meetingDays.map((d) => WEEKDAYS[d]!),
         nextMeetingDate: nextMeetingDate(today, meetingDays),
         managesChurchLibrary: workspace.libraryTypes,
@@ -828,7 +876,9 @@ export class McpContent {
     const sheet = this.runSheetRecord(workspace.id, day);
     return {
       workspaceId: workspace.id,
+      workspaceName: workspace.name,
       date: day,
+      weekday: weekdayName(day),
       exists: sheet !== null && sheet.items.length > 0,
       revision: sheet?.revision ?? 0,
       live: this.isLive(workspace.id, sheet?.id),
@@ -877,7 +927,9 @@ export class McpContent {
     this.write(workspaceId, [...songs, record]);
     return {
       workspaceId,
+      workspaceName: this.instance.getWorkspace(workspaceId)?.name ?? '',
       date,
+      weekday: weekdayName(date),
       revision: record.revision,
       live: this.isLive(workspaceId, record.id),
       items: this.describeItems(workspaceId, placed),
@@ -897,9 +949,11 @@ export class McpContent {
     date: string,
     inputs: ItemInput[],
     after?: Position,
+    confirmed?: boolean,
   ) {
     const workspace = this.workspace(workspaceRef);
     const day = requireDate(date);
+    this.checkDate(workspace, day, confirmed);
     if (inputs.length === 0) throw new McpToolError('no-items', 'Give at least one item to add.');
     if (inputs.length > MAX_ITEMS_PER_CALL) {
       throw new McpToolError('too-many-items', `At most ${MAX_ITEMS_PER_CALL} items at once.`);
@@ -1132,11 +1186,13 @@ export class McpContent {
     toDate: string,
     itemIds?: string[],
     after?: Position,
+    confirmed?: boolean,
   ) {
     const workspace = this.workspace(workspaceRef);
     const from = requireDate(fromDate, 'fromDate');
     const to = requireDate(toDate, 'toDate');
     if (from === to) throw new McpToolError('same-date', 'Copy to another date.');
+    this.checkDate(workspace, to, confirmed);
     const source = this.runSheetRecord(workspace.id, from);
     if (!source || source.items.length === 0) {
       throw new McpToolError('nothing-to-copy', `There is no run sheet with items for ${from}.`);

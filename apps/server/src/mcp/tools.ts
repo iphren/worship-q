@@ -10,12 +10,19 @@ import { McpContent, McpToolError, type ItemInput } from './content';
 
 export const SERVER_INSTRUCTIONS = `Worship Q keeps a church's song library and its run sheets: one per date per workspace, an ordered list of songs, Bible passages, websites and slides.
 
+Never guess which workspace or which date a message means. Before changing a run sheet, be sure of both:
+- Workspace: if the person reaches more than one and the message does not clearly name one, ask which.
+- Date: chat messages name dates loosely ("Saturday", "this Sunday", "next week") and may be forwarded days after they were written. Work out the date from list_workspaces, and if it could be more than one date (for example "Saturday" when today is Saturday, "next Sunday" meaning this coming one or the one after, or a message that may be old), ask the person, saying the date you think they mean with its weekday ("Saturday 5 December?").
+When in doubt, ask before writing. Every run sheet result gives the workspace name, date and weekday: repeat them to the person when you report what you did.
+
 Typical work, such as "here are the songs for this Saturday":
-1. Call list_workspaces. It gives each workspace's today, meeting days and next meeting date, so you can turn "this Saturday" or "next Sunday" into a date (YYYY-MM-DD). Ask when the workspace or date is unclear.
+1. Call list_workspaces. It gives each workspace's today, meeting days and next meeting date, so you can turn "this Saturday" or "next Sunday" into a date (YYYY-MM-DD). Confirm the workspace and date with the person when they are unclear, as above.
 2. Call match_songs with every title. "exact" means the library has it; for "likely", check the candidates (get_song if needed) or ask; for "none", the song is new.
 3. For each new song, call create_song with its full lyrics. Only use lyrics you were given or are certain of; never invent lyrics, and ask the person for them when you do not have them.
 4. Call add_to_run_sheet once with all items in order (existing songs by songId, passages by reference, websites by URL).
-5. Tell the person what you added and what you created.
+5. Tell the person what you added and what you created, naming the workspace and the date with its weekday.
+
+add_to_run_sheet and copy_run_sheet_items refuse a date that is already past, or not one of the workspace's meeting days, with "confirm-date". Then ask the person whether that date is really meant; only if they say yes, call again with confirmed: true. Never set confirmed without asking.
 
 To repeat items from another week (e.g. "announcements like last week"), read that date with get_run_sheet and copy the chosen items with copy_run_sheet_items.
 
@@ -31,6 +38,12 @@ const workspace = z
     'Workspace id or exact name from list_workspaces. May be left out when you have only one.',
   );
 const date = (what = 'The run sheet date') => z.string().describe(`${what}, as YYYY-MM-DD`);
+const confirmed = z
+  .boolean()
+  .optional()
+  .describe(
+    'Set only after the person confirmed the date, when a previous call answered "confirm-date" (a past date, or not a meeting day). Never set it without asking them.',
+  );
 const after = z
   .string()
   .max(100)
@@ -219,7 +232,7 @@ export function createMcpServer(content: McpContent, name: string): McpServer {
     {
       title: 'Add items to a run sheet',
       description:
-        'Adds items, in order, to a date\'s run sheet (made if there is none). Each item is exactly one of: {"song": songId}, {"passage": "John 3:16-18", "versions"?: ["NIVUK"]} or {"website": url, "title"?: text}. Passages use the workspace\'s Bible versions unless given. If any item fails, nothing is added.',
+        'Adds items, in order, to a date\'s run sheet (made if there is none). Confirm the workspace and date with the person first if the message leaves either unclear. Each item is exactly one of: {"song": songId}, {"passage": "John 3:16-18", "versions"?: ["NIVUK"]} or {"website": url, "title"?: text}. Passages use the workspace\'s Bible versions unless given. If any item fails, nothing is added.',
       inputSchema: {
         workspace,
         date: date(),
@@ -244,6 +257,7 @@ export function createMcpServer(content: McpContent, name: string): McpServer {
           .min(1)
           .max(30),
         after,
+        confirmed,
       },
       annotations: write,
     },
@@ -261,7 +275,7 @@ export function createMcpServer(content: McpContent, name: string): McpServer {
           if (item.passage !== undefined) return { passage: item.passage, versions: item.versions };
           return { website: item.website!, title: item.title };
         });
-        return content.addToRunSheet(args.workspace, args.date, items, args.after);
+        return content.addToRunSheet(args.workspace, args.date, items, args.after, args.confirmed);
       }),
   );
 
@@ -309,13 +323,14 @@ export function createMcpServer(content: McpContent, name: string): McpServer {
     {
       title: 'Copy items from another date',
       description:
-        "Copies items from one date's run sheet to another's, such as last week's announcements. Leave itemIds out to copy them all. The copies point at the same songs; the source is not changed.",
+        "Copies items from one date's run sheet to another's, such as last week's announcements. Confirm both dates with the person if the message leaves them unclear. Leave itemIds out to copy them all. The copies point at the same songs; the source is not changed.",
       inputSchema: {
         workspace,
         fromDate: date('The date to copy from'),
         toDate: date('The date to copy to'),
         itemIds: z.array(z.string().max(100)).max(120).optional(),
         after,
+        confirmed,
       },
       annotations: write,
     },
@@ -327,6 +342,7 @@ export function createMcpServer(content: McpContent, name: string): McpServer {
           args.toDate,
           args.itemIds,
           args.after,
+          args.confirmed,
         ),
       ),
   );

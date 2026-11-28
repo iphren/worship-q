@@ -795,7 +795,10 @@ describe('run sheets', () => {
       [],
     );
     expect(content().getRunSheet(north.id, '2026-11-28').live).toBe(true);
-    expect((await content().addToRunSheet(north.id, '2026-11-28', [{ song: a }])).live).toBe(true);
+    // Today is a Saturday, not one of North's meeting days, so the person confirmed it.
+    expect(
+      (await content().addToRunSheet(north.id, '2026-11-28', [{ song: a }], 'end', true)).live,
+    ).toBe(true);
     expect(content().listRunSheets(north.id).liveDate).toBe('2026-11-28');
   });
 
@@ -968,6 +971,174 @@ describe('run sheets', () => {
       (await refusal(() => content().addToRunSheet(north.id, '2026-11-29', [{ song: a }]))).code,
     ).toBe('no-workspaces');
     void c;
+  });
+});
+
+describe('confirming the workspace and date (C10)', () => {
+  /** North meets on Saturdays and Sundays, in London; today is Saturday 28 November. */
+  function meetsAtWeekends(context: ReturnType<typeof setup>) {
+    context.instance.push(context.north.id, 'desktop', [
+      {
+        kind: 'workspace',
+        id: context.north.id,
+        key: context.north.id,
+        revision: 2,
+        updatedAt: context.time.now(),
+        data: { name: 'North', timezone: 'Europe/London', meetingDays: [6, 0] },
+      },
+    ]);
+  }
+
+  it('asks for confirmation before adding to a date already past', async () => {
+    const context = setup();
+    meetsAtWeekends(context);
+    const { content, north, desktopSong, fake } = context;
+    const a = desktopSong(north.id, 'A');
+    const refused = await refusal(() =>
+      content().addToRunSheet(north.id, '2026-11-22', [{ song: a }, { passage: 'John 3:16' }]),
+    );
+    expect(refused.code).toBe('confirm-date');
+    expect(refused.message).toMatch(/already past/);
+    expect(refused.message).toMatch(/ask the person/);
+    expect(refused.detail).toMatchObject({
+      workspace: 'North',
+      date: '2026-11-22',
+      weekday: 'Sunday',
+      today: '2026-11-28',
+      meetingDays: ['Sunday', 'Saturday'],
+      nextMeetingDate: '2026-11-28',
+    });
+    // Nothing was fetched or written.
+    expect(fake.fetched).toEqual([]);
+    expect(content().getRunSheet(north.id, '2026-11-22').exists).toBe(false);
+    // Once the person confirmed it, it goes through.
+    const done = await content().addToRunSheet(north.id, '2026-11-22', [{ song: a }], 'end', true);
+    expect(done.items).toHaveLength(1);
+  });
+
+  it('asks for confirmation before adding to a day the workspace does not meet', async () => {
+    const context = setup();
+    meetsAtWeekends(context);
+    const { content, north, desktopSong } = context;
+    const a = desktopSong(north.id, 'A');
+    const refused = await refusal(() =>
+      content().addToRunSheet(north.id, '2026-12-02', [{ song: a }]),
+    );
+    expect(refused.code).toBe('confirm-date');
+    expect(refused.message).toMatch(
+      /Wednesday, not one of North's meeting days \(Sunday, Saturday\)/,
+    );
+    expect(
+      (await content().addToRunSheet(north.id, '2026-12-02', [{ song: a }], 'end', true)).weekday,
+    ).toBe('Wednesday');
+  });
+
+  it('adds to today and coming meeting days without asking', async () => {
+    const context = setup();
+    meetsAtWeekends(context);
+    const { content, north, desktopSong } = context;
+    const a = desktopSong(north.id, 'A');
+    for (const date of ['2026-11-28', '2026-11-29', '2026-12-05']) {
+      expect((await content().addToRunSheet(north.id, date, [{ song: a }])).date).toBe(date);
+    }
+  });
+
+  it('takes today in the workspace’s timezone, not the server’s', async () => {
+    const context = setup();
+    const { instance, north, time, content, desktopSong } = context;
+    instance.push(north.id, 'desktop', [
+      {
+        kind: 'workspace',
+        id: north.id,
+        key: north.id,
+        revision: 2,
+        updatedAt: time.now(),
+        data: { name: 'North', timezone: 'Pacific/Kiritimati', meetingDays: [6, 0] },
+      },
+    ]);
+    const a = desktopSong(north.id, 'A');
+    // 12:00 UTC on Saturday the 28th is 02:00 on Sunday the 29th in Kiritimati (UTC+14).
+    time.advance(3 * 60 * 60 * 1000);
+    expect(content().listWorkspaces()[0]!.today).toBe('2026-11-29');
+    const refused = await refusal(() =>
+      content().addToRunSheet(north.id, '2026-11-28', [{ song: a }]),
+    );
+    expect(refused.code).toBe('confirm-date');
+    expect(refused.detail).toMatchObject({ today: '2026-11-29' });
+    expect(
+      (await content().addToRunSheet(north.id, '2026-11-29', [{ song: a }])).items,
+    ).toHaveLength(1);
+  });
+
+  it('asks nothing about the day for a workspace that meets on any day', async () => {
+    const context = setup();
+    const { instance, north, time, content, desktopSong } = context;
+    instance.push(north.id, 'desktop', [
+      {
+        kind: 'workspace',
+        id: north.id,
+        key: north.id,
+        revision: 2,
+        updatedAt: time.now(),
+        data: { name: 'North', timezone: 'UTC', meetingDays: [] },
+      },
+    ]);
+    const a = desktopSong(north.id, 'A');
+    expect(
+      (await content().addToRunSheet(north.id, '2026-12-02', [{ song: a }])).items,
+    ).toHaveLength(1);
+    // A past date is still asked about.
+    expect(
+      (await refusal(() => content().addToRunSheet(north.id, '2026-11-27', [{ song: a }]))).code,
+    ).toBe('confirm-date');
+  });
+
+  it('asks about the date copied to, never the date copied from', async () => {
+    const context = setup();
+    meetsAtWeekends(context);
+    const { content, north, desktopSong, desktopRunSheet } = context;
+    const a = desktopSong(north.id, 'A');
+    desktopRunSheet(north.id, '2026-11-22', [a]);
+    // Copying from last week to this Sunday needs no confirmation.
+    expect(content().copyRunSheetItems(north.id, '2026-11-22', '2026-11-29').items).toHaveLength(1);
+    expect(
+      (await refusal(() => content().copyRunSheetItems(north.id, '2026-11-22', '2026-12-01'))).code,
+    ).toBe('confirm-date');
+    expect(
+      (await refusal(() => content().copyRunSheetItems(north.id, '2026-11-29', '2026-11-21'))).code,
+    ).toBe('confirm-date');
+    expect(
+      content().copyRunSheetItems(north.id, '2026-11-22', '2026-12-01', undefined, 'end', true)
+        .items,
+    ).toHaveLength(1);
+  });
+
+  it('names the workspace, date and weekday in every run sheet result, to repeat to the person', async () => {
+    const { content, north, desktopSong } = setup();
+    const a = desktopSong(north.id, 'A');
+    expect(content().getRunSheet(north.id, '2026-11-29')).toMatchObject({
+      workspaceName: 'North',
+      date: '2026-11-29',
+      weekday: 'Sunday',
+    });
+    expect(await content().addToRunSheet(north.id, '2026-11-29', [{ song: a }])).toMatchObject({
+      workspaceName: 'North',
+      weekday: 'Sunday',
+    });
+  });
+
+  it('asks which workspace when the person reaches several, and lists them', async () => {
+    const { content, north, central, desktopSong } = setup();
+    const a = desktopSong(north.id, 'A');
+    const refused = await refusal(() =>
+      content().addToRunSheet(undefined, '2026-11-29', [{ song: a }]),
+    );
+    expect(refused.code).toBe('workspace-required');
+    expect(refused.detail.workspaces).toEqual([
+      { id: north.id, name: 'North' },
+      { id: central.id, name: 'Central' },
+    ]);
+    expect(content().getRunSheet(north.id, '2026-11-29').exists).toBe(false);
   });
 });
 
