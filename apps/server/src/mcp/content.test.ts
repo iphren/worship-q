@@ -421,12 +421,11 @@ describe('songs', () => {
   });
 
   it('searches the workspace’s library like the app, and leaves out what it does not show', () => {
-    const { content, north, south, desktopSong, churchSong, time } = setup();
+    const { content, north, south, desktopSong, churchSong, time, instance } = setup();
     desktopSong(north.id, '主祢是我力量');
     churchSong('Amazing Grace');
     const hidden = churchSong('Hidden Church Song');
     // The workspace hides a church song by storing it removed under the same key.
-    content(); // ensure nothing is cached
     desktopSong(south.id, 'South Only');
     desktopSong(north.id, 'Deleted Song', { removedAt: time.now() });
     desktopSong(north.id, 'Mark 1:1', {
@@ -434,7 +433,7 @@ describe('songs', () => {
     });
     const c = content();
     // Hide by writing the church song removed in North.
-    c['instance'].push(north.id, 'desktop', [
+    instance.push(north.id, 'desktop', [
       {
         kind: 'song',
         id: hidden,
@@ -687,7 +686,7 @@ describe('run sheets', () => {
   });
 
   it('keeps the identifiers of items already there, and places new ones where asked', async () => {
-    const { content, north, desktopSong, desktopRunSheet } = setup();
+    const { content, north, desktopSong, desktopRunSheet, instance } = setup();
     const [a, b, c, d] = ['A', 'B', 'C', 'D'].map((t) => desktopSong(north.id, t));
     const runSheetId = desktopRunSheet(north.id, '2026-11-29', [a!, b!]);
     const before = content().getRunSheet(north.id, '2026-11-29');
@@ -699,10 +698,8 @@ describe('run sheets', () => {
     expect(after.items[1]!.itemId).toBe(first);
     expect(after.items[3]!.itemId).toBe(second);
     expect(after.revision).toBe(5);
-    const stored = content()
-      ['instance'].db.prepare(
-        `SELECT id FROM record WHERE kind = 'runSheet' AND key = '2026-11-29'`,
-      )
+    const stored = instance.db
+      .prepare(`SELECT id FROM record WHERE kind = 'runSheet' AND key = '2026-11-29'`)
       .get();
     expect(stored?.id).toBe(runSheetId);
   });
